@@ -24,4 +24,12 @@ jobs:
 
       - name: Run test suite
         run: |
+          set +e
           pytest -v
+          exit_code=$?
+          set -e
+          if [ $exit_code -eq 5 ]; then
+            echo "No tests found"
+            exit 0
+          fi
+          exit $exit_code
