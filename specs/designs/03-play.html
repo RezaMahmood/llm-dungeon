@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lantern — Play</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+html, body { height: 100%; }
+body { margin: 0; overflow: hidden; }
+.shell { height: 100vh; overflow: hidden; display: flex; flex-direction: column; font-family: var(--font-body); color: var(--color-text); }
+.ovnum { font-family: var(--font-heading); font-weight: 800; letter-spacing: -0.05em; line-height: 0.8; }
+.rowhov:hover { background: color-mix(in srgb, var(--color-text) 5%, transparent); }
+.storyscroll::-webkit-scrollbar { width: 10px; }
+.storyscroll::-webkit-scrollbar-thumb { background: var(--color-neutral-400); }
+@keyframes blink { 50% { opacity: 0; } }
+.pause { display: none; }
+/* toggle: add class "show" to .pause to display the pause screen */
+.pause.show { display: grid; }
+</style>
+</head>
+<body>
+<div class="shell">
+<div style="flex:1;display:flex;flex-direction:column;min-height:0;position:relative">
+  <div style="display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:2px solid var(--color-divider);flex:none">
+    <span style="font-family:var(--font-heading);font-weight:800;font-size:17px;margin-right:auto">The Lighthouse at Gullwing Cove</span>
+    <button class="btn btn-secondary" type="button">Save a checkpoint</button>
+    <button class="btn btn-primary" type="button" onclick="document.querySelector('.pause').classList.add('show')">Pause &amp; exit</button>
+  </div>
+
+  <div style="flex:1;display:grid;grid-template-columns:1fr 292px;min-height:0">
+    <div style="display:flex;flex-direction:column;min-height:0;border-right:2px solid var(--color-divider)">
+      <div class="storyscroll" style="flex:1;overflow-y:auto;padding:32px 40px 20px">
+        <div style="max-width:64ch">
+          <div class="ovnum" style="font-size:80px;color:var(--color-accent-200)">03</div>
+          <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent-700);margin:6px 0 24px">Chapter three — The keeper&rsquo;s stairs</div>
+
+          <div style="margin-bottom:22px">
+            <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 45%, transparent);margin-bottom:6px">The story</div>
+            <p style="margin:0;font-size:19px;line-height:1.65;text-wrap:pretty">The door at the bottom of the lighthouse is not locked. It is worse than locked — it is open, just a little, the way a door is when somebody meant to come back.</p>
+          </div>
+          <div style="margin-bottom:22px">
+            <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 45%, transparent);margin-bottom:6px">You</div>
+            <p style="margin:0;font-size:19px;line-height:1.65;text-wrap:pretty">look through the gap</p>
+          </div>
+          <div style="margin-bottom:22px">
+            <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 45%, transparent);margin-bottom:6px">The story</div>
+            <p style="margin:0;font-size:19px;line-height:1.65;text-wrap:pretty">A spiral of stairs, going up further than the outside of the building suggests it should. On the third step there is a jam jar with a candle in it, still warm.</p>
+          </div>
+        </div>
+      </div>
+      <div style="flex:none;border-top:2px solid var(--color-divider);padding:16px 40px 22px">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+          <span style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 45%, transparent);align-self:center;margin-right:4px">Try</span>
+          <button class="btn btn-secondary" type="button" style="font-size:13px;padding:8px 12px">climb the stairs</button>
+            <button class="btn btn-secondary" type="button" style="font-size:13px;padding:8px 12px">pick up the candle</button>
+            <button class="btn btn-secondary" type="button" style="font-size:13px;padding:8px 12px">call out</button>
+        </div>
+        <form style="display:flex;gap:10px;align-items:stretch" onsubmit="return false">
+          <label for="cmd" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">What do you do next?</label>
+          <input class="input" id="cmd" placeholder="What do you do next?" style="flex:1;min-height:52px;font-size:18px;padding:10px 14px">
+          <button class="btn btn-primary" type="submit" style="padding:0 26px;font-size:16px">Go</button>
+        </form>
+        <!-- spelling-forgiveness hint, shown only when input looks misspelled -->
+        <div hidden style="margin-top:10px;font-size:13px;color:var(--color-accent-700)">Did you mean <strong>lighthouse</strong>? Press Go again and I&rsquo;ll take it either way.</div>
+      </div>
+    </div>
+
+    <div style="padding:24px 20px;display:flex;flex-direction:column;overflow:auto">
+      <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 50%, transparent)">Where you are</div>
+      <div style="font-family:var(--font-heading);font-weight:800;font-size:22px;margin-top:6px">The keeper&rsquo;s stairs</div>
+      <hr class="hr" style="margin:20px 0;height:1px">
+      <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 50%, transparent)">Your goal</div>
+      <p style="margin:8px 0 0;font-size:15px;line-height:1.5">Find out who has been lighting the lamp since the keeper left.</p>
+      <hr class="hr" style="margin:20px 0;height:1px">
+      <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 50%, transparent)">Progress</div>
+      <div style="display:flex;align-items:flex-end;gap:8px;margin-top:4px">
+        <span class="ovnum" style="font-size:52px;color:var(--color-accent)">3</span>
+        <span class="text-muted" style="font-size:13px;padding-bottom:8px">of 5 chapters</span>
+      </div>
+      <div style="display:flex;gap:4px;margin-top:10px">
+        <span style="height:8px;flex:1;background:var(--color-accent)"></span><span style="height:8px;flex:1;background:var(--color-accent)"></span><span style="height:8px;flex:1;background:var(--color-accent)"></span><span style="height:8px;flex:1;background:var(--color-neutral-300)"></span><span style="height:8px;flex:1;background:var(--color-neutral-300)"></span>
+      </div>
+      <hr class="hr" style="margin:20px 0;height:1px">
+      <button class="btn btn-secondary btn-block" type="button" style="justify-content:flex-start;padding:14px;margin:0">Stuck? Get a hint</button>
+      <div class="text-muted" style="margin-top:auto;padding-top:24px;font-size:12px">Saved automatically after every turn.</div>
+    </div>
+  </div>
+
+  <div class="dialog-backdrop pause">
+    <div class="dialog" style="width:min(520px,100%);padding:32px">
+      <div class="ovnum" style="font-size:72px;color:var(--color-accent)">II</div>
+      <div class="dialog-title" style="font-size:28px">Paused</div>
+      <div class="dialog-body">Your story is saved at the keeper&rsquo;s stairs. Come back whenever — nothing moves without you.</div>
+      <hr class="hr" style="margin:6px 0">
+      <button class="btn btn-primary btn-block" type="button" style="padding:14px 16px;font-size:16px;margin:0" onclick="document.querySelector('.pause').classList.remove('show')">Keep playing</button>
+      <a class="btn btn-secondary btn-block" href="02-story-select.html" style="padding:14px 16px;margin:0">Save and exit to my stories</a>
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>

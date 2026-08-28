@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lantern — Admin — new story</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+html, body { height: 100%; }
+body { margin: 0; overflow: hidden; }
+.shell { height: 100vh; overflow: hidden; display: flex; flex-direction: column; font-family: var(--font-body); color: var(--color-text); }
+.ovnum { font-family: var(--font-heading); font-weight: 800; letter-spacing: -0.05em; line-height: 0.8; }
+.rowhov:hover { background: color-mix(in srgb, var(--color-text) 5%, transparent); }
+.storyscroll::-webkit-scrollbar { width: 10px; }
+.storyscroll::-webkit-scrollbar-thumb { background: var(--color-neutral-400); }
+@keyframes blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="nav" style="background:var(--color-bg);flex:none">
+    <span class="nav-brand">Lantern <span style="font-weight:400;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-accent-700);margin-left:8px">Admin</span></span>
+    <a href="#">All stories</a>
+    <a href="#" aria-current="page">New story</a>
+    <span class="tag tag-neutral">Ms Okafor</span>
+  </div>
+<div style="flex:1;overflow:auto">
+  <div style="max-width:1080px;padding:36px 24px 64px">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+      <div>
+        <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent-700)">New story · draft</div>
+        <h2 style="margin:6px 0 0;font-size:36px">The Lighthouse at Gullwing Cove</h2>
+      </div>
+      <div style="display:flex;gap:10px"><button class="btn btn-secondary" type="button">Save draft</button><button class="btn btn-primary" type="button">Publish</button></div>
+    </div>
+    <hr class="hr" style="margin:22px 0">
+
+    <div style="display:flex;gap:2px;background:var(--color-divider);border:1px solid var(--color-divider);margin-bottom:32px;overflow:hidden">
+      <button type="button" style="flex:1;background:var(--color-bg);border:0;cursor:pointer;text-align:left;padding:12px 14px;font-family:var(--font-body);color:inherit;display:flex;flex-direction:column;gap:4px">
+        <span class="ovnum" style="font-size:26px">01</span>
+        <span style="font-size:12px;letter-spacing:0.06em;text-transform:uppercase">Name &amp; cover</span>
+        <span style="font-size:11px;color:var(--color-accent-700)">Done</span>
+      </button>
+      <button type="button" style="flex:1;background:var(--color-bg);border:0;cursor:pointer;text-align:left;padding:12px 14px;font-family:var(--font-body);color:inherit;display:flex;flex-direction:column;gap:4px">
+        <span class="ovnum" style="font-size:26px">02</span>
+        <span style="font-size:12px;letter-spacing:0.06em;text-transform:uppercase">World &amp; setting</span>
+        <span style="font-size:11px;color:var(--color-accent-700)">In progress</span>
+      </button>
+      <button type="button" style="flex:1;background:var(--color-bg);border:0;cursor:pointer;text-align:left;padding:12px 14px;font-family:var(--font-body);color:inherit;display:flex;flex-direction:column;gap:4px">
+        <span class="ovnum" style="font-size:26px">03</span>
+        <span style="font-size:12px;letter-spacing:0.06em;text-transform:uppercase">Tone &amp; reading level</span>
+        <span style="font-size:11px;color:var(--color-accent-700)">Done</span>
+      </button>
+      <button type="button" style="flex:1;background:var(--color-bg);border:0;cursor:pointer;text-align:left;padding:12px 14px;font-family:var(--font-body);color:inherit;display:flex;flex-direction:column;gap:4px">
+        <span class="ovnum" style="font-size:26px">04</span>
+        <span style="font-size:12px;letter-spacing:0.06em;text-transform:uppercase">Session length</span>
+        <span style="font-size:11px;color:var(--color-accent-700)">Done</span>
+      </button>
+      <button type="button" style="flex:1;background:var(--color-bg);border:0;cursor:pointer;text-align:left;padding:12px 14px;font-family:var(--font-body);color:inherit;display:flex;flex-direction:column;gap:4px">
+        <span class="ovnum" style="font-size:26px">05</span>
+        <span style="font-size:12px;letter-spacing:0.06em;text-transform:uppercase">Test play</span>
+        <span style="font-size:11px;color:var(--color-accent-700)">Not started</span>
+      </button>
+      <button type="button" style="flex:1;background:var(--color-bg);border:0;cursor:pointer;text-align:left;padding:12px 14px;font-family:var(--font-body);color:inherit;display:flex;flex-direction:column;gap:4px">
+        <span class="ovnum" style="font-size:26px">06</span>
+        <span style="font-size:12px;letter-spacing:0.06em;text-transform:uppercase">Publish &amp; assign</span>
+        <span style="font-size:11px;color:var(--color-accent-700)">Not started</span>
+      </button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.35fr 1fr;gap:40px;align-items:start">
+      <div>
+        <div style="display:flex;align-items:flex-end;gap:14px">
+          <span class="ovnum" style="font-size:64px;color:var(--color-accent)">02</span>
+          <h3 style="margin:0 0 6px">World &amp; setting</h3>
+        </div>
+        <p class="text-muted" style="margin:14px 0 24px;font-size:14px;max-width:56ch">The engine improvises everything from this. Write it like you are telling a colleague about the place.</p>
+
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div class="field">
+            <label for="world">World prompt — what the story engine should know</label>
+            <textarea class="input" id="world" style="min-height:190px;font-size:15px;line-height:1.6">A half-abandoned lighthouse on a cold northern cove in 1908. The keeper vanished three weeks ago but the lamp is still lit every night. The player is a child staying with their aunt in the village. Gulls act like they are watching. Nothing supernatural is ever confirmed — everything has a real explanation the player can find.</textarea>
+          </div>
+          <div class="field">
+            <label for="rules">Rules the story must keep</label>
+            <textarea class="input" id="rules" style="min-height:110px;font-size:15px;line-height:1.6">Nobody gets hurt. No real danger to animals. If the player asks to go home, let them — then invite them back.</textarea>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+            <div class="field"><label>Session length before a natural stopping point</label>
+              <div class="seg" style="margin-top:2px">
+                <label class="seg-opt"><input type="radio" name="len"><span>10 min</span></label>
+                <label class="seg-opt"><input type="radio" name="len" checked><span>20 min</span></label>
+                <label class="seg-opt"><input type="radio" name="len"><span>30 min</span></label>
+              </div>
+            </div>
+            <div class="field"><label for="chapters">Chapters</label><input class="input" id="chapters" value="5"></div>
+          </div>
+        </div>
+
+        <hr class="hr" style="margin:32px 0 20px">
+        <div style="display:flex;gap:10px"><button class="btn btn-secondary" type="button">Back</button><button class="btn btn-primary" type="button">Next step</button></div>
+
+        <!-- Step 05 — Test play. Shown in place of the fields above when that step is active. -->
+        <div hidden style="margin-top:32px">
+          <div style="border:1px solid var(--color-divider);background:var(--color-surface)">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--color-divider);font-size:11px;letter-spacing:0.1em;text-transform:uppercase">Test play <span style="margin-left:auto"><span class="tag tag-accent">draft engine</span></span></div>
+            <div style="padding:20px 22px;display:flex;flex-direction:column;gap:16px">
+              <p style="margin:0;font-size:17px;line-height:1.6">The lamp is on again. From the village slip you can see it swing left, then right, then rest — like somebody up there is deciding something.</p>
+              <p style="margin:0;font-size:15px;line-height:1.6;color:var(--color-accent-700)"><strong>Tester:</strong> shout hello at the lighthouse</p>
+              <p style="margin:0;font-size:17px;line-height:1.6">Your hello comes back to you twice, which is one more time than it should.</p>
+              <form style="display:flex;gap:10px" onsubmit="return false"><input class="input" placeholder="Type a test instruction" style="min-height:44px"><button class="btn btn-primary" type="submit">Send</button></form>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:18px"><button class="btn btn-secondary" type="button">Flag this reply</button><button class="btn btn-ghost" type="button">Restart test</button></div>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 50%, transparent)">Recent stories</div>
+        <table class="table" style="margin-top:10px">
+          <thead><tr><th>Story</th><th>Level</th><th>Players</th></tr></thead>
+          <tbody>
+            <tr><td>Marsh of the Missing Bells</td><td>Y5</td><td>24</td></tr>
+            <tr><td>Nine Doors of Mudlark Hall</td><td>Y5</td><td>18</td></tr>
+            <tr><td>The Balloon Post</td><td>Y4</td><td>31</td></tr>
+            <tr><td>My Dog Ate the Timetable</td><td>Y3</td><td>29</td></tr>
+          </tbody>
+        </table>
+        <hr class="hr" style="margin:24px 0">
+        <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 50%, transparent)">Note</div>
+        <p style="margin:8px 0 0;font-size:14px;line-height:1.55">Stories are generated live from the world prompt. There are no hand-built scenes to maintain — change the prompt and every new session follows it.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>

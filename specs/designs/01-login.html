@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lantern — Login</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+html, body { height: 100%; }
+body { margin: 0; overflow: hidden; }
+.shell { height: 100vh; overflow: hidden; display: flex; flex-direction: column; font-family: var(--font-body); color: var(--color-text); }
+.ovnum { font-family: var(--font-heading); font-weight: 800; letter-spacing: -0.05em; line-height: 0.8; }
+.rowhov:hover { background: color-mix(in srgb, var(--color-text) 5%, transparent); }
+.storyscroll::-webkit-scrollbar { width: 10px; }
+.storyscroll::-webkit-scrollbar-thumb { background: var(--color-neutral-400); }
+@keyframes blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+<div class="shell">
+<div style="flex:1;display:grid;grid-template-columns:1.15fr 1fr;min-height:0;overflow:auto">
+  <div style="background:var(--color-accent);color:var(--color-bg);padding:56px 48px;display:flex;flex-direction:column;justify-content:space-between">
+    <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;opacity:0.85">Lantern · Story Machine</div>
+    <div>
+      <div class="ovnum" style="font-size:clamp(64px,9vw,132px)">MAKE<br>IT UP<br>AS YOU<br>GO.</div>
+      <p style="margin:28px 0 0;font-size:19px;line-height:1.5;max-width:26ch">You type what you do next. The story figures out the rest.</p>
+    </div>
+    <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.85">Three stories waiting</div>
+  </div>
+  <div style="padding:56px 48px;display:flex;flex-direction:column;justify-content:center;max-width:520px">
+    <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent-700)">Sign in</div>
+    <h1 style="font-size:44px;margin:10px 0 0">Welcome back.</h1>
+    <p class="text-muted" style="margin:12px 0 0;font-size:15px">Use your school Microsoft account. No new password to remember.</p>
+    <hr class="hr" style="margin:28px 0">
+    <a class="btn btn-primary" href="02-story-select.html" style="justify-content:flex-start;gap:12px;padding:16px 18px;font-size:16px;width:100%">
+      <span style="display:grid;grid-template-columns:9px 9px;grid-template-rows:9px 9px;gap:2px;flex:none">
+        <span style="background:currentColor"></span><span style="background:currentColor;opacity:0.75"></span><span style="background:currentColor;opacity:0.75"></span><span style="background:currentColor;opacity:0.5"></span>
+      </span>
+      Continue with Microsoft
+    </a>
+    <button class="btn btn-secondary" type="button" style="justify-content:flex-start;padding:14px 18px;width:100%;margin-top:10px">Trouble signing in? Ask your teacher</button>
+    <p class="text-muted" style="margin:28px 0 0;font-size:12px">Lantern is an internal tool. Your teacher can see which stories you have played.</p>
+  </div>
+</div>
+</div>
+</body>
+</html>

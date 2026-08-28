@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lantern — Screens</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+html, body { height: 100%; }
+body { margin: 0; overflow: hidden; }
+.shell { height: 100vh; overflow: hidden; display: flex; flex-direction: column; font-family: var(--font-body); color: var(--color-text); }
+.ovnum { font-family: var(--font-heading); font-weight: 800; letter-spacing: -0.05em; line-height: 0.8; }
+.rowhov:hover { background: color-mix(in srgb, var(--color-text) 5%, transparent); }
+.storyscroll::-webkit-scrollbar { width: 10px; }
+.storyscroll::-webkit-scrollbar-thumb { background: var(--color-neutral-400); }
+@keyframes blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+<div class="shell">
+<div style="flex:1;overflow:auto;padding:44px 24px;max-width:760px">
+  <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent-700)">Lantern</div>
+  <h1 style="margin:8px 0 0">Screen reference</h1>
+  <p class="text-muted" style="margin:12px 0 0;font-size:15px">Static HTML for the four surfaces, built on the Modernist stylesheet. Acceptance reference for the spec.</p>
+  <hr class="hr" style="margin:24px 0">
+  <div style="display:flex;flex-direction:column">
+    <a class="rowhov" href="01-login.html" style="display:grid;grid-template-columns:64px 1fr;gap:16px;align-items:center;padding:18px 12px;border-bottom:1px solid var(--color-divider);text-decoration:none;color:inherit"><span class="ovnum" style="font-size:40px;color:var(--color-accent)">01</span><span><strong style="font-family:var(--font-heading);font-size:19px">Login</strong><br><span class="text-muted" style="font-size:13px">Microsoft SSO, teacher fallback</span></span></a>
+    <a class="rowhov" href="02-story-select.html" style="display:grid;grid-template-columns:64px 1fr;gap:16px;align-items:center;padding:18px 12px;border-bottom:1px solid var(--color-divider);text-decoration:none;color:inherit"><span class="ovnum" style="font-size:40px;color:var(--color-accent)">02</span><span><strong style="font-family:var(--font-heading);font-size:19px">Story select</strong><br><span class="text-muted" style="font-size:13px">In-progress first, then unopened</span></span></a>
+    <a class="rowhov" href="03-play.html" style="display:grid;grid-template-columns:64px 1fr;gap:16px;align-items:center;padding:18px 12px;border-bottom:1px solid var(--color-divider);text-decoration:none;color:inherit"><span class="ovnum" style="font-size:40px;color:var(--color-accent)">03</span><span><strong style="font-family:var(--font-heading);font-size:19px">Play surface</strong><br><span class="text-muted" style="font-size:13px">Story pane scrolls alone; status panel, pause screen</span></span></a>
+    <a class="rowhov" href="04-admin-wizard.html" style="display:grid;grid-template-columns:64px 1fr;gap:16px;align-items:center;padding:18px 12px;border-bottom:2px solid var(--color-divider);text-decoration:none;color:inherit"><span class="ovnum" style="font-size:40px;color:var(--color-accent)">04</span><span><strong style="font-family:var(--font-heading);font-size:19px">Admin wizard</strong><br><span class="text-muted" style="font-size:13px">Six steps; world prompt and test play shown</span></span></a>
+  </div>
+</div>
+</div>
+</body>
+</html>

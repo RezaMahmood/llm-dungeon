@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lantern — My stories</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+html, body { height: 100%; }
+body { margin: 0; overflow: hidden; }
+.shell { height: 100vh; overflow: hidden; display: flex; flex-direction: column; font-family: var(--font-body); color: var(--color-text); }
+.ovnum { font-family: var(--font-heading); font-weight: 800; letter-spacing: -0.05em; line-height: 0.8; }
+.rowhov:hover { background: color-mix(in srgb, var(--color-text) 5%, transparent); }
+.storyscroll::-webkit-scrollbar { width: 10px; }
+.storyscroll::-webkit-scrollbar-thumb { background: var(--color-neutral-400); }
+@keyframes blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="nav" style="background:var(--color-bg);flex:none">
+    <span class="nav-brand">Lantern</span>
+    <a href="#" aria-current="page">My stories</a>
+    <a href="#">Badges</a>
+    <span class="tag tag-neutral">Ada B.</span>
+  </div>
+<div style="flex:1;overflow:auto">
+  <div style="max-width:1020px;padding:44px 24px 64px">
+    <div style="display:flex;align-items:flex-end;gap:16px">
+      <div class="ovnum" style="font-size:96px;color:var(--color-accent)">2</div>
+      <div style="padding-bottom:8px">
+        <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent-700)">Keep going</div>
+        <h2 style="margin:4px 0 0">stories in progress</h2>
+      </div>
+    </div>
+    <hr class="hr" style="margin:24px 0 0">
+
+    <a class="rowhov" href="03-play.html" style="display:grid;grid-template-columns:112px 1fr auto;gap:24px;align-items:center;padding:22px 12px;border-bottom:1px solid var(--color-divider);text-decoration:none;color:inherit">
+      <div class="ovnum" style="font-size:56px;color:var(--color-accent)">01</div>
+      <div>
+        <div style="font-family:var(--font-heading);font-weight:800;font-size:24px">The Lighthouse at Gullwing Cove</div>
+        <div class="text-muted" style="font-size:13px;margin-top:6px">Chapter 3 · Last played yesterday · The keeper&rsquo;s stairs</div>
+        <div style="display:flex;gap:6px;margin-top:12px"><span style="height:6px;width:64px;background:var(--color-accent)"></span><span style="height:6px;width:64px;background:var(--color-accent)"></span><span style="height:6px;width:64px;background:var(--color-accent)"></span><span style="height:6px;width:64px;background:var(--color-neutral-300)"></span><span style="height:6px;width:64px;background:var(--color-neutral-300)"></span></div>
+      </div>
+      <span class="btn btn-primary" style="padding:12px 18px">Resume</span>
+    </a>
+    <a class="rowhov" href="03-play.html" style="display:grid;grid-template-columns:112px 1fr auto;gap:24px;align-items:center;padding:22px 12px;border-bottom:2px solid var(--color-divider);text-decoration:none;color:inherit">
+      <div class="ovnum" style="font-size:56px;color:var(--color-accent)">02</div>
+      <div>
+        <div style="font-family:var(--font-heading);font-weight:800;font-size:24px">Marsh of the Missing Bells</div>
+        <div class="text-muted" style="font-size:13px;margin-top:6px">Chapter 1 · Last played Friday · Outside the bell tower</div>
+        <div style="display:flex;gap:6px;margin-top:12px"><span style="height:6px;width:64px;background:var(--color-accent)"></span><span style="height:6px;width:64px;background:var(--color-neutral-300)"></span><span style="height:6px;width:64px;background:var(--color-neutral-300)"></span><span style="height:6px;width:64px;background:var(--color-neutral-300)"></span></div>
+      </div>
+      <span class="btn btn-secondary" style="padding:12px 18px">Resume</span>
+    </a>
+    <div style="display:flex;align-items:flex-end;gap:16px;margin-top:48px">
+      <div class="ovnum" style="font-size:96px">3</div>
+      <div style="padding-bottom:8px">
+        <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent-700)">Start something new</div>
+        <h2 style="margin:4px 0 0">stories you haven&rsquo;t opened</h2>
+      </div>
+    </div>
+    <hr class="hr" style="margin:24px 0 0">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:2px;background:var(--color-divider);border-bottom:2px solid var(--color-divider)">
+      <a class="card rowhov" href="03-play.html" style="text-decoration:none;color:inherit;padding:20px;gap:8px;background:var(--color-bg)">
+        <div class="card-kicker">Mystery · 20 min</div>
+        <div class="card-title" style="font-size:21px">Nine Doors of Mudlark Hall</div>
+        <p class="card-body">Every door tells you a rule. Eight of them are lying.</p>
+        <div class="card-meta">Reading level: Year 5</div>
+      </a>
+      <a class="card rowhov" href="03-play.html" style="text-decoration:none;color:inherit;padding:20px;gap:8px;background:var(--color-bg)">
+        <div class="card-kicker">Adventure · 15 min</div>
+        <div class="card-title" style="font-size:21px">The Balloon Post</div>
+        <p class="card-body">Deliver one letter across a sky full of weather that argues back.</p>
+        <div class="card-meta">Reading level: Year 4</div>
+      </a>
+      <a class="card rowhov" href="03-play.html" style="text-decoration:none;color:inherit;padding:20px;gap:8px;background:var(--color-bg)">
+        <div class="card-kicker">Silly · 10 min</div>
+        <div class="card-title" style="font-size:21px">My Dog Ate the Timetable</div>
+        <p class="card-body">Get to assembly on time. The dog has other plans.</p>
+        <div class="card-meta">Reading level: Year 3</div>
+      </a>
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>
