@@ -30,14 +30,14 @@ This feature gates our test suite via CI, but the tests themselves are user stor
 
 ### GitHub Actions Workflow Configuration
 
-- [ ] T001 Create `.github/workflows/test.yml` with trigger on pull_request (opened, synchronize, reopened) events
-- [ ] T002 [P] Add checkout step to GitHub Actions workflow
-- [ ] T003 [P] Add runtime setup step (Python/Node.js/etc.) to match project's test framework
-- [ ] T004 [P] Add dependency installation step to GitHub Actions workflow
-- [ ] T005 Add test execution step that runs the project's full test suite (pytest/npm test/etc.)
-- [ ] T006 Configure 30-minute job timeout in `.github/workflows/test.yml` per FR-004a
-- [ ] T007 [P] Add GitHub Actions status reporting so results appear as a required status check on PRs
-- [ ] T008 Commit and push the workflow file to main branch (this enables it for all future PRs)
+- [x] T001 Create `.github/workflows/test.yml` with trigger on pull_request (opened, synchronize, reopened) events
+- [x] T002 [P] Add checkout step to GitHub Actions workflow
+- [x] T003 [P] Add runtime setup step (Python/Node.js/etc.) to match project's test framework
+- [x] T004 [P] Add dependency installation step to GitHub Actions workflow
+- [x] T005 Add test execution step that runs the project's full test suite (pytest/npm test/etc.)
+- [x] T006 Configure 30-minute job timeout in `.github/workflows/test.yml` per FR-004a
+- [x] T007 [P] Add GitHub Actions status reporting so results appear as a required status check on PRs
+- [x] T008 Commit and push the workflow file to main branch (this enables it for all future PRs)
 
 **Checkpoint**: GitHub Actions workflow is deployed and active. It will run on all pull requests going forward.
 
@@ -57,12 +57,12 @@ This feature gates our test suite via CI, but the tests themselves are user stor
 
 #### Configuration Tasks for User Story 1
 
-- [ ] T009 [US1] Configure GitHub branch protection rule on main branch (via GitHub UI or API)
-- [ ] T010 [US1] Set "Require a pull request before merging" = true in branch protection rule
-- [ ] T011 [US1] Set "Dismiss stale pull request approvals when new commits are pushed" = true (best practice)
-- [ ] T012 [US1] Set "Allow force pushes" = false and "Allow deletions" = false in branch protection rule
-- [ ] T013 [US1] Verify rule applies uniformly to all users (no admin bypass) per FR-002
-- [ ] T014 [US1] Test: Attempt direct push to main branch, verify rejection with error message
+- [x] T009 [US1] Configure GitHub branch protection rule on main branch (via GitHub UI or API)
+- [x] T010 [US1] Set "Require a pull request before merging" = true in branch protection rule
+- [x] T011 [US1] Set "Dismiss stale pull request approvals when new commits are pushed" = true (best practice)
+- [x] T012 [US1] Set "Allow force pushes" = false and "Allow deletions" = false in branch protection rule
+- [x] T013 [US1] Verify rule applies uniformly to all users (no admin bypass) per FR-002
+- [x] T014 [US1] Test: Attempt direct push to main branch, verify rejection with error message
 
 **Checkpoint**: User Story 1 complete. Branch protection enforces PR-only access to main branch.
 
@@ -83,10 +83,10 @@ This feature gates our test suite via CI, but the tests themselves are user stor
 
 #### Configuration Tasks for User Story 2
 
-- [ ] T015 [US2] Add GitHub Actions workflow ("test" job) as a required status check in branch protection rule
-- [ ] T016 [US2] Set "Require status checks to pass before merging" = true in branch protection rule
-- [ ] T017 [US2] Configure "Require 1 approval" in branch protection rule per clarified requirement (FR-005)
-- [ ] T018 [US2] Verify author can approve their own change (single developer policy)
+- [x] T015 [US2] Add GitHub Actions workflow ("test" job) as a required status check in branch protection rule
+- [x] T016 [US2] Set "Require status checks to pass before merging" = true in branch protection rule
+- [x] T017 [US2] Configure "Require 1 approval" in branch protection rule per clarified requirement (FR-005)
+- [x] T018 [US2] Verify author can approve their own change (single developer policy)
 - [ ] T019 [US2] Test: Open PR with a deliberate test failure, verify merge is blocked
 - [ ] T020 [US2] Test: Fix failing test in PR, verify merge becomes available once tests pass
 
@@ -100,13 +100,13 @@ This feature gates our test suite via CI, but the tests themselves are user stor
 
 ### Validation Tasks
 
-- [ ] T021 Run Validation Scenario 1 (Direct Push Rejection) from quickstart.md
-- [ ] T022 Run Validation Scenario 2 (GitHub Actions Workflow Runs on PR) from quickstart.md
+- [x] T021 Run Validation Scenario 1 (Direct Push Rejection) from quickstart.md
+- [x] T022 Run Validation Scenario 2 (GitHub Actions Workflow Runs on PR) from quickstart.md
 - [ ] T023 Run Validation Scenario 3 (PR Merge Blocked on Failed Tests) from quickstart.md
 - [ ] T024 Run Validation Scenario 4 (PR Merge Allowed on Passing Tests) from quickstart.md
 - [ ] T025 Run Validation Scenario 5 (Merge Blocked Without Reviewer Approval) from quickstart.md
 - [ ] T026 Run Validation Scenario 6 (Workflow Reruns on New Commits) from quickstart.md
-- [ ] T027 Run Validation Scenario 7 (Manual Branch Protection Rule Verification) from quickstart.md
+- [x] T027 Run Validation Scenario 7 (Manual Branch Protection Rule Verification) from quickstart.md
 - [ ] T028 Document any issues found and verify all scenarios pass before marking feature complete
 
 **Checkpoint**: All validation scenarios pass. Feature is ready for use by the team.
