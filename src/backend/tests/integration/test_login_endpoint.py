@@ -114,6 +114,24 @@ def test_second_sign_in_with_matching_bound_object_id_succeeds(request_factory):
     container.upsert_item.assert_not_called()
 
 
+def test_sign_in_matches_regardless_of_token_email_letter_case(request_factory):
+    """FR-008/SC-005: a token's email claim can arrive in any casing (Microsoft
+    does not guarantee lowercase); matching against the lowercase-stored entry
+    must still succeed end-to-end through the login endpoint."""
+    req = request_factory(method="POST", url="/api/auth/login", token="valid-token")
+    service, container = _real_service_with_container()
+    container.read_item.return_value = _entry_dict(objectId=USER_OID, dateBound="2026-08-29T00:05:00Z")
+
+    with patch(
+        "backend.api.auth.login.authenticate_with_email",
+        return_value=(True, USER_OID, "Admin@Example.com", None),
+    ):
+        response = login(req, account_provisioning_service=service)
+
+    assert response.status_code == 200
+    container.read_item.assert_called_once_with(item=EMAIL, partition_key=EMAIL)
+
+
 def test_second_sign_in_with_mismatched_object_id_is_denied(request_factory):
     req = request_factory(method="POST", url="/api/auth/login", token="valid-token")
     service, container = _real_service_with_container()

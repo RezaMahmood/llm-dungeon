@@ -59,7 +59,7 @@ Give a signed-in Administrator an in-app screen to grant new Microsoft accounts 
 **Status**: ✓ MET — Continues to use `CosmosService`'s existing Managed-Identity (`DefaultAzureCredential`) authentication; no new Azure resource dependency, no shared keys introduced.
 
 ### Principle VIII – UI Design System & Accessibility Compliance (NON-NEGOTIABLE)
-**Status**: ✓ MET, with a gap noted — The new add-account form and account list reuse existing vendored primitives (`.field`, `.input`, `.btn*`, `.table`, `.tag*` in `src/frontend/src/styles/designTokens.css`); no ad hoc components. No hi-fi mockup exists for this screen in `specs/designs/` (that set covers login, story-select, play, and the admin story-wizard, not account provisioning) — layout will follow the constitution's non-negotiable visual rules (flush-left, zero radius, visible dividers, sparing accent use) directly, the same way `specs/designs/README.md` already tracks other screen gaps.
+**Status**: ✓ MET — The add-account form and account list reuse existing vendored primitives (`.field`, `.input`, `.btn*`, `.table`, `.tag*`, `.seg`/`.seg-opt` in `src/frontend/src/styles/designTokens.css`); no ad hoc components. The Player/Administrator role selection uses `.seg`/`.seg-opt` (the same segmented-toggle pattern as `specs/designs/04-admin-wizard.html`'s session-length control) rather than a bare `<input type="checkbox">`, since the vendored stylesheet has no dedicated checkbox component and an unstyled native checkbox would leave hover/pressed/focus/disabled at browser defaults — a review blocker per the Interaction States section (found and fixed via `/speckit-analyze`, T054). No hi-fi mockup exists for this screen in `specs/designs/` (that set covers login, story-select, play, and the admin story-wizard, not account provisioning) — layout otherwise follows the constitution's non-negotiable visual rules (flush-left, zero radius, visible dividers, sparing accent use) directly, the same way `specs/designs/README.md` already tracks other screen gaps.
 
 ### Security & Access Control Requirements (constitution, non-principle section)
 **Status**: ✓ MET — Adding an account remains an explicit, auditable, admin-only action (entry carries `dateAdded`/`addedBy`); no self-service or implicit grant path is introduced.
@@ -118,13 +118,23 @@ src/backend/
     │   ├── test_models.py                          # MODIFY
     │   ├── test_auth_service.py                    # MODIFY
     │   ├── test_middleware.py                      # MODIFY
+    │   ├── test_admin_capability.py                 # MODIFY: AccountProvisioningService role checks
+    │   ├── test_unauthorized_user.py                 # MODIFY: AccountProvisioningService denial paths
     │   ├── test_allow_list_service.py               # REMOVE (superseded)
     │   └── test_capability_service.py               # REMOVE (superseded)
     └── integration/
-        ├── test_login_endpoint.py                  # MODIFY: add bind/mismatch cases
+        ├── test_login_endpoint.py                  # MODIFY: add bind/mismatch/case-insensitivity cases
         ├── test_me_endpoint.py                     # MODIFY
         ├── test_dual_role_user.py                  # MODIFY
+        ├── test_access_denial.py                    # MODIFY: AccountProvisioningService mocks
+        ├── test_authorization_enforcement.py         # MODIFY: AccountProvisioningService mocks
         └── test_admin_accounts_endpoint.py         # NEW
+
+infrastructure/terraform/
+├── main.tf                                # MODIFY: provisioned_account_entries container replaces
+│                                           #   allow_list_entries/capability_assignments; SEED_ADMIN_EMAIL
+│                                           #   added to the Function App's app_settings
+└── variables.tf                           # MODIFY: add seed_admin_email variable
 
 src/frontend/
 ├── src/
@@ -133,7 +143,7 @@ src/frontend/
 │   │   └── AdminAccountsPage.jsx          # NEW: hosts the form + list
 │   ├── components/
 │   │   └── Admin/
-│   │       ├── AccountForm.jsx            # NEW: email + role checkboxes, uses .field/.input/.btn-primary
+│   │       ├── AccountForm.jsx            # NEW: email field + role toggles, uses .field/.input/.btn-primary/.seg
 │   │       └── AccountList.jsx            # NEW: uses .table + .tag* for role chips
 │   └── services/
 │       └── accountService.js              # NEW: calls /api/admin/accounts (POST/GET)
