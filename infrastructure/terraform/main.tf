@@ -255,3 +255,14 @@ resource "azurerm_static_web_app" "web" {
 
   tags = local.common_tags
 }
+
+# Links the Function App as this Static Web App's backend so Azure's managed
+# reverse proxy routes relative /api/* calls (authService.js, accountService.js)
+# through to it same-origin. Without this link, the SWA has no route for /api/*
+# and returns its own 404 rather than reaching the Function App — found live
+# during 003-account-provisioning's quickstart validation (issue #32); neither
+# a linked backend nor Function App CORS had ever been provisioned.
+resource "azurerm_static_web_app_function_app_registration" "web_backend" {
+  static_web_app_id = azurerm_static_web_app.web.id
+  function_app_id   = azurerm_function_app_flex_consumption.functions.id
+}
