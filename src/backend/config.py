@@ -25,13 +25,29 @@ class Config:
 
     JWKS_CACHE_SECONDS = 24 * 60 * 60
 
+    # Microsoft's fixed, well-known tenant ID representing every personal
+    # Microsoft account (MSA) — not this project's own tenant. The app
+    # registration's signInAudience is AzureADandPersonalMicrosoftAccount
+    # (spec.md: "it must be a microsoft account", not restricted to this
+    # org), so a token from a personal account (e.g. the seed administrator's
+    # own @hotmail.com/@outlook.com/@live.com address) carries this tenant ID
+    # as `tid`/`iss`, never AZURE_TENANT_ID. Validating against AZURE_TENANT_ID
+    # alone rejects every personal-account sign-in outright.
+    MICROSOFT_CONSUMERS_TENANT_ID = "9188040d-6c67-4c5b-b112-36a304b66dad"
+
     @classmethod
-    def issuer(cls) -> str:
-        return f"https://login.microsoftonline.com/{cls.AZURE_TENANT_ID}/v2.0"
+    def valid_issuers(cls) -> tuple[str, str]:
+        return (
+            f"https://login.microsoftonline.com/{cls.AZURE_TENANT_ID}/v2.0",
+            f"https://login.microsoftonline.com/{cls.MICROSOFT_CONSUMERS_TENANT_ID}/v2.0",
+        )
 
     @classmethod
     def jwks_uri(cls) -> str:
-        return f"https://login.microsoftonline.com/{cls.AZURE_TENANT_ID}/discovery/v2.0/keys"
+        # /common/ rather than the org-specific tenant: signing keys for both
+        # organizational and personal-account (consumers) v2.0 tokens are
+        # published from this shared endpoint.
+        return "https://login.microsoftonline.com/common/discovery/v2.0/keys"
 
 
 config = Config()
