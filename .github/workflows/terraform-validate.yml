@@ -1,0 +1,60 @@
+name: Terraform Validate
+
+on:
+  pull_request:
+    paths:
+      - "terraform/**"
+      - "tests/infrastructure/test_terraform_validate.sh"
+      - ".github/workflows/terraform-validate.yml"
+  push:
+    branches: [main]
+    paths:
+      - "terraform/**"
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ vars.TERRAFORM_VERSION }}
+
+      - name: terraform fmt / validate
+        run: ./tests/infrastructure/test_terraform_validate.sh
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Init (with backend)
+        working-directory: terraform
+        run: terraform init -backend-config=backend-prod.hcl -input=false
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: terraform
+        run: terraform plan -input=false -out=tfplan -var-file=terraform.tfvars
+
+      - name: Upload plan artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: terraform/tfplan
+          retention-days: 5
+
+      # This plan step is FR-016's automated drift check: a manually-changed
+      # resource surfaces here as a non-empty plan on the very next PR/push,
+      # rather than being silently reverted or accepted (spec.md Edge Cases).

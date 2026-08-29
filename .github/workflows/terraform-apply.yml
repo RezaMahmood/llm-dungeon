@@ -1,0 +1,57 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "terraform/**"
+  workflow_dispatch: {}
+
+# Targets the production-infra GitHub environment (created, along with its
+# required-reviewer protection rule, by T014 in Foundational — see
+# specs/007-azure-infrastructure-provisioning/tasks.md) so this workflow pauses
+# for manual approval before `terraform apply` touches Azure. backend-deploy.yml
+# and frontend-deploy.yml target the separate `production` environment and stay
+# unapproved/automatic (FR-010/SC-006).
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production-infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ vars.TERRAFORM_VERSION }}
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -backend-config=backend-prod.hcl -input=false
+
+      - name: Terraform Apply
+        working-directory: terraform
+        run: terraform apply -auto-approve -input=false -var-file=terraform.tfvars
+
+      - name: Capture Terraform Outputs
+        working-directory: terraform
+        run: terraform output -json > outputs.json
+
+      - name: Upload outputs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs
+          path: terraform/outputs.json
+          retention-days: 5

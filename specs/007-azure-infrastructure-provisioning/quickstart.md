@@ -155,6 +155,7 @@ Outputs:
 - [ ] Application Insights resource exists
 - [ ] Private endpoints created for Storage, Cosmos, AI Foundry
 - [ ] Private DNS zones exist and linked to VNet
+- [ ] Drift detection: manually change a tag on one resource via the Azure Portal, then run `terraform plan` — the change is surfaced as a proposed update, not silently reverted or accepted (spec.md Edge Cases, FR-016)
 
 ---
 
@@ -164,7 +165,7 @@ Outputs:
 
 **Prerequisites**:
 - GitHub repository with `.github/workflows/` configured
-- GitHub environment "production" created with variables
+- GitHub environments "production" (app deploys, no approval) and "production-infra" (Terraform apply, required reviewer) created, with repository variables set
 - Federated OIDC trust configured in Azure
 
 **Setup Steps**:
@@ -680,13 +681,14 @@ terraform destroy  # Interactive approval required
 - [ ] Azure CLI installed and authenticated
 - [ ] GitHub repository access
 - [ ] Terraform >= 1.5.0 installed
-- [ ] GitHub environment "production" created
+- [ ] GitHub environments "production" and "production-infra" created
 
 ### Infrastructure Setup Checklist
 - [ ] Bootstrap storage account created
 - [ ] Terraform backend configured
 - [ ] Terraform variables file filled in
-- [ ] GitHub environment variables set
+- [ ] GitHub repository variables set (shared by both environments)
+- [ ] Required reviewer configured on "production-infra" only
 - [ ] GitHub OIDC Managed Identity created with federated credential (not an app registration)
 - [ ] terraform apply succeeds
 - [ ] All resources exist in Azure Portal

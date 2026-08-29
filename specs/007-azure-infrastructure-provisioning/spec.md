@@ -108,7 +108,7 @@ Azure resource names needed by GitHub Actions workflows come from GitHub environ
 ### Functional Requirements
 
 - **FR-001**: All Azure infrastructure for this project MUST be defined as version-controlled Terraform configuration, capable of provisioning or updating every required resource for a given environment from that configuration alone.
-- **FR-002**: Terraform MUST provision a dedicated Azure Storage account and container to hold Terraform's own remote state, separate from any application storage.
+- **FR-002**: A dedicated Azure Storage account and container to hold Terraform's own remote state, separate from any application storage, MUST exist before the main Terraform configuration runs. Since Terraform cannot use a backend that doesn't yet exist, this Storage account is created via a one-time bootstrap step (see Assumptions), not by the main Terraform configuration itself.
 - **FR-003**: Terraform MUST provision an Azure Functions app to host the backend.
 - **FR-004**: Terraform MUST provision an Azure Static Web App to host the frontend.
 - **FR-005**: Terraform MUST provision an Azure Blob Storage resource for application asset storage, separate from the Terraform backend state storage account.

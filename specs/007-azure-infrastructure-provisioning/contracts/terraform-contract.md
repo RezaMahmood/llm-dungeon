@@ -18,9 +18,15 @@ variable "environment" {
 }
 
 variable "azure_region" {
-  description = "Azure region for all resources"
+  description = "Azure region for all resources except Cosmos DB (see cosmos_region)"
   type        = string
   default     = "westeurope"  # Confirmed
+}
+
+variable "cosmos_region" {
+  description = "Azure region for the Cosmos DB account specifically. Separate from azure_region: westeurope is confirmed out of Cosmos DB capacity (research.md §9). Private Link works cross-region, so no other resource needs to move."
+  type        = string
+  default     = "uksouth"
 }
 
 variable "resource_prefix" {
@@ -43,7 +49,7 @@ variable "tags" {
     project     = "llm-dungeon"
     application = "llm-dungeon"
     environment = "production"
-    owner       = "TBD"  # Set to the responsible team/person before first apply
+    owner       = "Reza Mahmood"
   }
 }
 

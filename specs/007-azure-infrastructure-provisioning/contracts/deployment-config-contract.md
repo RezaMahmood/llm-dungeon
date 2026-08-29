@@ -39,7 +39,7 @@ PYTHON_ENABLE_WORKER_EXTENSIONS=true
 
 ## GitHub Environment Variables
 
-**Location**: GitHub Settings → Environments → production → Environment variables
+**Location**: GitHub Settings → Secrets and variables → Actions → **Variables** (repository level, not scoped to either the `production` or `production-infra` environment — both environments' workflows read the same values, and none are secrets)
 
 **Public variables** (visible in workflow logs, not secrets):
 
@@ -119,7 +119,8 @@ terraform init -backend-config=backend-prod.hcl
 ```hcl
 # Core environment
 environment          = "string"  # "production", "staging", etc.
-azure_region         = "string"  # Azure region (e.g., "westeurope", "westus2")
+azure_region         = "string"  # Azure region for all resources except Cosmos DB (e.g., "westeurope", "westus2")
+cosmos_region        = "string"  # Azure region for Cosmos DB specifically — westeurope is out of capacity (research.md §9); "uksouth"
 resource_prefix      = "string"  # Resource name prefix (3-10 chars)
 resource_group_name  = "string"  # Pre-existing Resource Group (not created by Terraform)
 minimum_tls_version  = "string"  # "1.2"
@@ -166,6 +167,7 @@ github_repository_branch  = "string"  # "main"
 ```hcl
 environment          = "production"
 azure_region         = "westeurope"
+cosmos_region        = "uksouth"
 resource_prefix      = "llmdungeon"
 resource_group_name  = "llm-dungeon"
 minimum_tls_version  = "1.2"
@@ -175,7 +177,7 @@ tags = {
   managed_by  = "terraform"
   project     = "llm-dungeon"
   application = "llm-dungeon"
-  owner       = "TBD"  # set to a real team/person before first apply
+  owner       = "Reza Mahmood"
 }
 
 terraform_backend_storage_account = "llmdungeontstateprod"
@@ -196,7 +198,7 @@ ai_foundry_model_name        = "gpt-4o-mini"
 ai_foundry_capacity          = 1
 log_analytics_retention_days = 30
 budget_amount_usd            = 50
-budget_alert_email           = "TBD"  # set to a real email before first apply
+budget_alert_email           = "reza.mahmood@gmail.com"
 
 github_repository_owner  = "RezaMahmood"
 github_repository_name   = "llm-dungeon"
@@ -241,15 +243,18 @@ az group show --name "$RESOURCE_GROUP" >/dev/null || {
   exit 1
 }
 
-# Create storage account (for Terraform state) inside the pre-existing resource group
+# Create storage account (for Terraform state) inside the pre-existing resource group.
+# default-action stays "Allow": this account is created before any VNet exists,
+# so GitHub-hosted runners and developer machines (neither on a private path to
+# it) must be able to reach it. Access is still Azure-AD-gated (--auth-mode
+# login below, use_azuread_auth in backend.tf), never anonymous or key-based.
 az storage account create \
   --resource-group "$RESOURCE_GROUP" \
   --name "$STORAGE_ACCOUNT" \
   --location "$REGION" \
   --sku "Standard_LRS" \
   --access-tier "Hot" \
-  --https-only true \
-  --default-action "Deny"
+  --https-only true
 
 # Create container
 az storage container create \
@@ -308,6 +313,24 @@ az role assignment create \
   --role "Contributor" \
   --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP"
 
+# Storage Blob Data Contributor on the state Storage Account: Contributor
+# (above) is an ARM control-plane role only — it does not grant blob
+# data-plane access needed for `terraform init`/`plan`/`apply` to read/write
+# the state blob under backend.tf's use_azuread_auth = true. Grant this to
+# both the identity and the human running bootstrap.
+az role assignment create \
+  --assignee-object-id "$IDENTITY_PRINCIPAL_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role "Storage Blob Data Contributor" \
+  --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/$STORAGE_ACCOUNT"
+
+CURRENT_USER_OID=$(az ad signed-in-user show --query id -o tsv)
+az role assignment create \
+  --assignee-object-id "$CURRENT_USER_OID" \
+  --assignee-principal-type User \
+  --role "Storage Blob Data Contributor" \
+  --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/$STORAGE_ACCOUNT"
+
 # Add federated credential to the Managed Identity (not an app registration)
 az identity federated-credential create \
   --name "github-actions-main" \
@@ -324,9 +347,9 @@ echo "  - AZURE_CLIENT_ID: $IDENTITY_CLIENT_ID"
 echo "  - AZURE_SUBSCRIPTION_ID: <subscription-id>"
 ```
 
-**Step 3: Set GitHub Environment Variables**
+**Step 3: Set GitHub Repository Variables**
 
-Go to: GitHub repo Settings → Environments → production → Add environment variables
+Go to: GitHub repo Settings → Secrets and variables → Actions → Variables tab → New repository variable (repo-level, shared by both the `production` and `production-infra` environments)
 
 ```
 AZURE_SUBSCRIPTION_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx

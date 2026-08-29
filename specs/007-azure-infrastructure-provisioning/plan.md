@@ -17,7 +17,7 @@ Provision a complete Azure infrastructure stack (Functions, Storage, Cosmos DB, 
 **Cloud Provider**: Microsoft Azure (exclusive hosting provider per Principle V)
 
 **Primary Dependencies**: 
-- Azure CLI / Terraform CLI
+- Azure CLI / Terraform CLI / GitHub CLI (`gh`, for scripted environment/variable configuration)
 - Azure Storage (backend state + application assets)
 - Azure Cosmos DB (serverless, story configuration)
 - Azure Functions (Python 3.11+ backend runtime per `002-login-and-access-control`)
@@ -233,7 +233,7 @@ Research tasks will be conducted in parallel to resolve the unknowns above:
    - **Log Analytics Workspace**: Backing workspace for workspace-based Application Insights (30-day retention)
    - **Azure Application Insights**: Observability/telemetry sink
    - **Budget & Cost Alert**: $50/month threshold on the `llm-dungeon` Resource Group with email notification
-   - **GitHub Environment**: Environment variables for resource names, Azure subscription/tenant IDs; requires manual approval before `terraform apply`/deployment runs
+   - **GitHub Environments**: Repository-level variables for resource names, Azure subscription/tenant IDs, shared by two environments — `production` (app deploys, no approval, fully automatic per FR-010/SC-006) and `production-infra` (Terraform apply only, requires manual reviewer approval)
 
 3. **Deployment Configuration Entities**
    - **GitHub Actions Workflow**: CI/CD pipeline definitions (infrastructure validation, application build/deploy)

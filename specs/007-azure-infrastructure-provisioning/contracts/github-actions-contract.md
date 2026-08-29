@@ -55,7 +55,7 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
 
 **Purpose**: Apply Terraform changes to Azure (actual resource provisioning/updates)
 
-**Environment**: `production`
+**Environment**: `production-infra` (confirmed) — a separate GitHub environment from `production`, used only by this workflow, so its required-reviewer approval gate covers infrastructure changes exclusively and never blocks application code deployments (FR-010/SC-006 require those to run with no manual step)
 
 **Permissions**: 
 - `contents: read` (checkout code)
@@ -111,7 +111,7 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
 - Notification: Slack/email alert (if configured) on failure
 - Manual Review: Post-apply validation fails → investigate and correct configuration
 
-**Approval**: Required (confirmed) — the `production` GitHub environment has a required reviewer rule, so this workflow pauses for manual approval before `terraform apply` executes
+**Approval**: Required (confirmed) — the `production-infra` GitHub environment has a required reviewer rule, so this workflow pauses for manual approval before `terraform apply` executes. `backend-deploy.yml` and `frontend-deploy.yml` target the separate `production` environment, which has no approval requirement, so application code deployments remain fully automatic.
 
 ---
 
@@ -307,17 +307,20 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
 
 ---
 
-## GitHub Environment Configuration (production)
+## GitHub Environments (production and production-infra)
 
-**Environment Name**: `production`
+Two GitHub environments are used (confirmed), so the required-reviewer approval gate covers infrastructure changes only, never application code deployments:
 
-**Deployment Branches**: `main` only (branch protection rule)
+| Environment | Used by | Required Reviewers |
+|---|---|---|
+| `production` | `backend-deploy.yml`, `frontend-deploy.yml`, `infrastructure-tests.yml` | None — application deploys stay fully automatic per FR-010/SC-006 |
+| `production-infra` | `terraform-apply.yml` only | Required — at least one reviewer must approve before `terraform apply` runs against Azure |
 
-**Required Reviewers**: Confirmed — at least one required reviewer configured on the `production` environment; `terraform-apply.yml`, `backend-deploy.yml`, and `frontend-deploy.yml` all pause for manual approval before executing against production
+**Deployment Branches** (both environments): `main` only (branch protection rule)
 
-**Environment Secrets**: (none required — OIDC is used instead)
+**Environment Secrets** (both environments): (none required — OIDC is used instead)
 
-**Environment Variables** (public):
+**Environment Variables** — defined once at the **repository** level (not duplicated per-environment, since both environments' workflows need the same identity/resource values and none of these are secrets):
 ```yaml
 AZURE_SUBSCRIPTION_ID: <subscription-id>
 AZURE_TENANT_ID: <entra-id-tenant-id>
@@ -333,7 +336,7 @@ AZURE_PROVIDER_VERSION: 3.80.0
 
 **Federated OIDC Trust** (configured on the dedicated GitHub OIDC Managed Identity, not an app registration):
 - **Issuer**: `https://token.actions.githubusercontent.com`
-- **Subject**: `repo:owner/repo:ref:refs/heads/main` (main branch only)
+- **Subject**: `repo:owner/repo:ref:refs/heads/main` (main branch only — matches on branch, not GitHub environment name, so the same federated credential authenticates jobs in both `production` and `production-infra`)
 - **Audience**: `api://AzureADTokenExchange` (default GitHub Actions audience)
 
 ---
