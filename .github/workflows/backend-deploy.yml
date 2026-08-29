@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "src/backend/**"
+      - "src/function_app.py"
+      - "src/requirements.txt"
   workflow_dispatch: {}
 
 # Targets `production` (no approval gate) — application deploys stay fully
@@ -46,7 +48,14 @@ jobs:
         uses: Azure/functions-action@v1
         with:
           app-name: ${{ vars.FUNCTIONS_APP_NAME }}
-          package: "src/backend"
+          # "src" (not "src/backend"): the deploy root must contain the
+          # `backend` package as a real subdirectory so `from backend.x
+          # import y` (used throughout src/backend/**) resolves the same way
+          # it does under pytest.ini's `pythonpath = src`. src/function_app.py
+          # is a thin shim satisfying Python v2's requirement that
+          # function_app.py sit at the deploy root; src/requirements.txt
+          # includes backend/requirements.txt for Oryx's remote build.
+          package: "src"
           remote-build: true
 
       - name: Smoke test
