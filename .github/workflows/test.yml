@@ -21,6 +21,8 @@ jobs:
           pip install pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+          if [ -f backend/requirements-dev.txt ]; then pip install -r backend/requirements-dev.txt; fi
 
       - name: Run test suite
         run: |
@@ -33,3 +35,30 @@ jobs:
             exit 0
           fi
           exit $exit_code
+
+  frontend-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check frontend exists
+        id: check
+        run: echo "exists=$( [ -f package.json ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node
+        if: steps.check.outputs.exists == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        if: steps.check.outputs.exists == 'true'
+        run: npm install
+
+      - name: Run test suite
+        if: steps.check.outputs.exists == 'true'
+        run: npm test

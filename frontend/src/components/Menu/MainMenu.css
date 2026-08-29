@@ -1,0 +1,29 @@
+.main-menu {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--space-6);
+  min-width: 320px;
+}
+
+.menu-list {
+  border-top: 2px solid var(--color-divider);
+  margin-top: var(--space-4);
+}
+
+.menu-item {
+  width: 100%;
+  min-height: 44px;
+  justify-content: flex-start;
+  border-bottom: 2px solid var(--color-divider);
+  padding: var(--space-4);
+}
+
+.no-access-message {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 2px solid var(--color-divider);
+}
+
+.logout-btn {
+  margin-top: var(--space-6);
+}
