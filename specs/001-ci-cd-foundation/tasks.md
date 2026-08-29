@@ -87,8 +87,8 @@ This feature gates our test suite via CI, but the tests themselves are user stor
 - [x] T016 [US2] Set "Require status checks to pass before merging" = true in branch protection rule
 - [x] T017 [US2] Configure "Require 1 approval" in branch protection rule per clarified requirement (FR-005)
 - [x] T018 [US2] Verify author can approve their own change (single developer policy)
-- [ ] T019 [US2] Test: Open PR with a deliberate test failure, verify merge is blocked
-- [ ] T020 [US2] Test: Fix failing test in PR, verify merge becomes available once tests pass
+- [x] T019 [US2] Test: Open PR with a deliberate test failure, verify merge is blocked
+- [x] T020 [US2] Test: Fix failing test in PR, verify merge becomes available once tests pass
 
 **Checkpoint**: User Story 2 complete. CI test suite gates PR merge; tests must pass before merge is allowed.
 
@@ -102,12 +102,12 @@ This feature gates our test suite via CI, but the tests themselves are user stor
 
 - [x] T021 Run Validation Scenario 1 (Direct Push Rejection) from quickstart.md
 - [x] T022 Run Validation Scenario 2 (GitHub Actions Workflow Runs on PR) from quickstart.md
-- [ ] T023 Run Validation Scenario 3 (PR Merge Blocked on Failed Tests) from quickstart.md
-- [ ] T024 Run Validation Scenario 4 (PR Merge Allowed on Passing Tests) from quickstart.md
-- [ ] T025 Run Validation Scenario 5 (Merge Blocked Without Reviewer Approval) from quickstart.md
-- [ ] T026 Run Validation Scenario 6 (Workflow Reruns on New Commits) from quickstart.md
+- [x] T023 Run Validation Scenario 3 (PR Merge Blocked on Failed Tests) from quickstart.md
+- [x] T024 Run Validation Scenario 4 (PR Merge Allowed on Passing Tests) from quickstart.md
+- [x] T025 Run Validation Scenario 5 (Merge Blocked Without Reviewer Approval) from quickstart.md
+- [x] T026 Run Validation Scenario 6 (Workflow Reruns on New Commits) from quickstart.md
 - [x] T027 Run Validation Scenario 7 (Manual Branch Protection Rule Verification) from quickstart.md
-- [ ] T028 Document any issues found and verify all scenarios pass before marking feature complete
+- [x] T028 Document any issues found and verify all scenarios pass before marking feature complete
 
 **Checkpoint**: All validation scenarios pass. Feature is ready for use by the team.
 
@@ -119,11 +119,11 @@ This feature gates our test suite via CI, but the tests themselves are user stor
 
 ### Documentation & Knowledge Transfer
 
-- [ ] T029 Update project README with CI/CD governance model and branch protection policy
-- [ ] T030 Add documentation to CONTRIBUTING.md or equivalent about PR workflow and CI gating
-- [ ] T031 [P] Document the GitHub Actions workflow in a README within `.github/workflows/`
-- [ ] T032 Create a troubleshooting guide for common CI/CD issues (see quickstart.md Troubleshooting section)
-- [ ] T033 Share the quickstart.md validation guide with the team for reference
+- [x] T029 Update project README with CI/CD governance model and branch protection policy
+- [x] T030 Add documentation to CONTRIBUTING.md or equivalent about PR workflow and CI gating
+- [x] T031 [P] Document the GitHub Actions workflow in a README within `.github/workflows/`
+- [x] T032 Create a troubleshooting guide for common CI/CD issues (see quickstart.md Troubleshooting section)
+- [x] T033 Share the quickstart.md validation guide with the team for reference
 
 **Checkpoint**: Feature is documented. Team understands the CI/CD governance model.
 
