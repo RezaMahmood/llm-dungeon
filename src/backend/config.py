@@ -19,7 +19,7 @@ class Config:
     AZURE_APP_ID = os.environ.get("AZURE_APP_ID", "")
     COSMOS_ENDPOINT = os.environ.get("COSMOS_ENDPOINT", "")
 
-    COSMOS_DATABASE_NAME = os.environ.get("COSMOS_DATABASE_NAME", "llmdungeon")
+    COSMOS_DATABASE_NAME = os.environ.get("COSMOS_DATABASE_NAME") or os.environ.get("COSMOS_DATABASE") or "llmdungeon"
     ALLOW_LIST_CONTAINER = "allowListEntries"
     CAPABILITY_CONTAINER = "capabilityAssignments"
 

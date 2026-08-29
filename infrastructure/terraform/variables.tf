@@ -76,6 +76,13 @@ variable "azure_client_id" {
   default     = ""
 }
 
+variable "azure_app_id" {
+  description = "Azure Entra ID App Registration Client ID for Login & Access Control (MSAL frontend authentication)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # --- Terraform Backend (informational only; actual backend config is passed via -backend-config) ---
 
 variable "terraform_backend_storage_account" {
