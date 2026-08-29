@@ -334,11 +334,13 @@ TERRAFORM_VERSION: 1.16.0
 AZURE_PROVIDER_VERSION: 3.80.0
 ```
 
-**Federated OIDC Trust** (configured on the dedicated GitHub OIDC Managed Identity, not an app registration) — **two** federated credentials, since GitHub's OIDC token subject claim differs by trigger type. This repo also issues subjects in the newer immutable-ID format (`repo:OWNER@ownerID/REPO@repoID:...`), not the classic name-only format — `scripts/bootstrap.sh` fetches the numeric IDs via `gh api` rather than hardcoding them:
-- **`github-actions-main`**: `Subject: repo:OWNER@ownerID/REPO@repoID:ref:refs/heads/main` (main branch only — matches on branch, not GitHub environment name, so the same federated credential authenticates jobs in both `production` and `production-infra`). Covers `push`-triggered workflow runs (`terraform-apply.yml`, `backend-deploy.yml`, `frontend-deploy.yml`, `infrastructure-tests.yml`).
-- **`github-actions-pull-request`**: `Subject: repo:OWNER@ownerID/REPO@repoID:pull_request`. Covers `pull_request`-triggered runs — specifically `terraform-validate.yml`'s Azure-login-requiring `terraform plan` step on PRs. Discovered as a two-part gap during implementation: a `pull_request` run's OIDC subject ends `:pull_request`, never `:ref:refs/heads/main`, regardless of which branch the PR targets (`AADSTS700213` without this second credential) — and even after adding it, the name-only subject still failed until the owner/repo numeric IDs were included.
-- **Issuer** (both): `https://token.actions.githubusercontent.com`
-- **Audience** (both): `api://AzureADTokenExchange` (default GitHub Actions audience)
+**Federated OIDC Trust** (configured on the dedicated GitHub OIDC Managed Identity, not an app registration) — **four** federated credentials. GitHub's OIDC subject claim shape depends on how a job is triggered and scoped, and critically: **a job's `environment:` key overrides the branch/event-based subject entirely** — every workflow here that calls `azure/login` also sets `environment:`, so each needed its own credential, found one `AADSTS700213` at a time by actually running them. This repo also issues subjects in the newer immutable-ID format (`repo:OWNER@ownerID/REPO@repoID:...`), not the classic name-only format — `scripts/bootstrap.sh` fetches the numeric IDs via `gh api` rather than hardcoding them:
+- **`github-actions-main`**: `Subject: repo:OWNER@ownerID/REPO@repoID:ref:refs/heads/main`. Would cover a `push`-triggered job with no `environment:` key set — unused by any current workflow, kept for future ones.
+- **`github-actions-pull-request`**: `Subject: repo:OWNER@ownerID/REPO@repoID:pull_request`. Covers `terraform-validate.yml`'s Azure-login-requiring `terraform plan` step on PRs.
+- **`github-actions-env-production`**: `Subject: repo:OWNER@ownerID/REPO@repoID:environment:production`. Covers every job with `environment: production` — `backend-deploy.yml`, `frontend-deploy.yml`, `infrastructure-tests.yml`.
+- **`github-actions-env-production-infra`**: `Subject: repo:OWNER@ownerID/REPO@repoID:environment:production-infra`. Covers `terraform-apply.yml`'s job (`environment: production-infra`).
+- **Issuer** (all four): `https://token.actions.githubusercontent.com`
+- **Audience** (all four): `api://AzureADTokenExchange` (default GitHub Actions audience)
 
 ---
 
