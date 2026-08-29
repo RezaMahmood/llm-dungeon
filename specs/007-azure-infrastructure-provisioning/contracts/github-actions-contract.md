@@ -334,10 +334,11 @@ TERRAFORM_VERSION: 1.16.0
 AZURE_PROVIDER_VERSION: 3.80.0
 ```
 
-**Federated OIDC Trust** (configured on the dedicated GitHub OIDC Managed Identity, not an app registration):
-- **Issuer**: `https://token.actions.githubusercontent.com`
-- **Subject**: `repo:owner/repo:ref:refs/heads/main` (main branch only — matches on branch, not GitHub environment name, so the same federated credential authenticates jobs in both `production` and `production-infra`)
-- **Audience**: `api://AzureADTokenExchange` (default GitHub Actions audience)
+**Federated OIDC Trust** (configured on the dedicated GitHub OIDC Managed Identity, not an app registration) — **two** federated credentials, since GitHub's OIDC token subject claim differs by trigger type:
+- **`github-actions-main`**: `Subject: repo:owner/repo:ref:refs/heads/main` (main branch only — matches on branch, not GitHub environment name, so the same federated credential authenticates jobs in both `production` and `production-infra`). Covers `push`-triggered workflow runs (`terraform-apply.yml`, `backend-deploy.yml`, `frontend-deploy.yml`, `infrastructure-tests.yml`).
+- **`github-actions-pull-request`**: `Subject: repo:owner/repo:pull_request`. Covers `pull_request`-triggered runs — specifically `terraform-validate.yml`'s Azure-login-requiring `terraform plan` step on PRs. Discovered as a gap during implementation: a `pull_request` run's OIDC subject is `repo:owner/repo:pull_request`, never `ref:refs/heads/main`, regardless of which branch the PR targets — `AADSTS700213` (no matching federated identity record) results without this second credential.
+- **Issuer** (both): `https://token.actions.githubusercontent.com`
+- **Audience** (both): `api://AzureADTokenExchange` (default GitHub Actions audience)
 
 ---
 

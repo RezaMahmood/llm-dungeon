@@ -354,14 +354,15 @@
 **Properties**:
 - `identity_type`: User-assigned Managed Identity
 - `role_assignments`: Scoped to the resource group only what deployment and Terraform-apply workflows require (e.g., Contributor on the resource group) — not a broad, unscoped subscription-level role
-- Federated credential configuration:
-  - `issuer`: GitHub OIDC issuer (`https://token.actions.githubusercontent.com`)
-  - `subject`: `repo:owner/repo:ref:refs/heads/main` (main branch only)
-  - `audience`: GitHub Actions default audience (`api://AzureADTokenExchange`)
+- **Two** federated credentials (not one) — GitHub's OIDC subject claim differs by trigger type, so one credential per shape:
+  - `github-actions-main` — `subject`: `repo:owner/repo:ref:refs/heads/main` (covers `push`-triggered runs: `terraform-apply.yml`, `backend-deploy.yml`, `frontend-deploy.yml`, `infrastructure-tests.yml`)
+  - `github-actions-pull-request` — `subject`: `repo:owner/repo:pull_request` (covers `pull_request`-triggered runs: `terraform-validate.yml`'s Azure-login `terraform plan` step). Discovered during implementation via `AADSTS700213` ("no matching federated identity record") on the first PR-triggered run — a PR's OIDC subject is never `ref:refs/heads/main`, regardless of target branch
+  - `issuer` (both): GitHub OIDC issuer (`https://token.actions.githubusercontent.com`)
+  - `audience` (both): GitHub Actions default audience (`api://AzureADTokenExchange`)
 
 **Validation Rules**:
-- Trust is scoped to specific repository and branch (prevents impersonation from forks)
-- Federated credential is configured on the Managed Identity, not a traditional Microsoft Entra App Registration/service principal
+- Trust is scoped to specific repository and branch/event (prevents impersonation from forks)
+- Federated credentials are configured on the Managed Identity, not a traditional Microsoft Entra App Registration/service principal
 - No long-lived credentials stored in GitHub
 - Created outside of the main Terraform apply (bootstrap step, alongside the Terraform backend storage account) since Terraform itself authenticates as this identity — a chicken-and-egg constraint identical to the state-storage bootstrap
 

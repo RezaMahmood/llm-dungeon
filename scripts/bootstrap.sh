@@ -154,6 +154,25 @@ else
   echo "✓ Federated OIDC credential configured on Managed Identity: $IDENTITY_NAME"
 fi
 
+# A second federated credential, scoped to pull_request events: GitHub's OIDC
+# token subject claim for a pull_request-triggered run is
+# "repo:OWNER/REPO:pull_request", not "repo:OWNER/REPO:ref:refs/heads/main" —
+# a completely different subject the credential above doesn't match. Needed
+# because terraform-validate.yml runs `terraform plan` (Azure login required)
+# on pull_request, not just push to main.
+if az identity federated-credential show --name "github-actions-pull-request" --identity-name "$IDENTITY_NAME" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
+  echo "✓ Federated credential 'github-actions-pull-request' already exists, skipping"
+else
+  az identity federated-credential create \
+    --name "github-actions-pull-request" \
+    --identity-name "$IDENTITY_NAME" \
+    --resource-group "$RESOURCE_GROUP" \
+    --issuer "https://token.actions.githubusercontent.com" \
+    --subject "repo:$GITHUB_ORG/$GITHUB_REPO:pull_request" \
+    --audiences "api://AzureADTokenExchange"
+  echo "✓ Federated OIDC credential (pull_request) configured on Managed Identity: $IDENTITY_NAME"
+fi
+
 echo
 echo "== Bootstrap complete =="
 echo "Update terraform/backend-prod.hcl and terraform/terraform.tfvars if not already set:"

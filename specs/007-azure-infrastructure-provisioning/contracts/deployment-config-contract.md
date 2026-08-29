@@ -340,6 +340,19 @@ az identity federated-credential create \
   --subject "repo:$GITHUB_ORG/$GITHUB_REPO:ref:refs/heads/main" \
   --audiences "api://AzureADTokenExchange"
 
+# A second credential for pull_request-triggered runs: GitHub's OIDC subject
+# claim for a PR run is "repo:OWNER/REPO:pull_request", never
+# "ref:refs/heads/main" — needed for terraform-validate.yml's Azure-login
+# `terraform plan` step to work on PRs (discovered via AADSTS700213 during
+# implementation).
+az identity federated-credential create \
+  --name "github-actions-pull-request" \
+  --identity-name "$IDENTITY_NAME" \
+  --resource-group "$RESOURCE_GROUP" \
+  --issuer "https://token.actions.githubusercontent.com" \
+  --subject "repo:$GITHUB_ORG/$GITHUB_REPO:pull_request" \
+  --audiences "api://AzureADTokenExchange"
+
 echo "✓ Federated OIDC trust configured on Managed Identity: $IDENTITY_NAME"
 echo "✓ Use these values in GitHub environment variables:"
 echo "  - AZURE_TENANT_ID: $TENANT_ID"
