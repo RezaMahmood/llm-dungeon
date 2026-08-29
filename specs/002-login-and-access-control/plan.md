@@ -80,7 +80,7 @@ See [research.md](research.md) for detailed rationale on all technical decisions
 ### Backend Components (Python Azure Functions)
 
 ```
-backend/
+src/backend/
 ├── api/
 │   ├── auth/
 │   │   ├── __init__.py
@@ -125,7 +125,7 @@ backend/
 ### Frontend Components (React)
 
 ```
-frontend/
+src/frontend/
 ├── src/
 │   ├── components/
 │   │   ├── Login/
@@ -323,7 +323,7 @@ All endpoints share the same token validation middleware and error response form
 
 ### Phase 0: Shared Infrastructure Setup (1-2 days)
 
-**Must complete before parallel backend/frontend work**. Part of this is handled by 007-azure-infrastructure-provisioning; see note below.
+**Must complete before parallel src/backend/frontend work**. Part of this is handled by 007-azure-infrastructure-provisioning; see note below.
 
 **Infrastructure Provisioned by Feature 007** (must be complete):
 - ✓ Azure Cosmos DB serverless account exists

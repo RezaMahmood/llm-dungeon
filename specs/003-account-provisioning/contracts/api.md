@@ -4,7 +4,7 @@
 
 **Feature**: Account Provisioning (003-account-provisioning)
 
-This document defines the two new admin endpoints this feature adds, and the behavior change to the two existing sign-in endpoints from `002-login-and-access-control`. Response shapes follow the helpers actually shipped in `backend/api/utils.py` (`json_response`, `error_response`), not the earlier snake_case examples in `002`'s own contract doc, which predate its implementation.
+This document defines the two new admin endpoints this feature adds, and the behavior change to the two existing sign-in endpoints from `002-login-and-access-control`. Response shapes follow the helpers actually shipped in `src/backend/api/utils.py` (`json_response`, `error_response`), not the earlier snake_case examples in `002`'s own contract doc, which predate its implementation.
 
 ---
 

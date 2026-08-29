@@ -26,8 +26,8 @@ summary for details.
 
 ## Path Conventions
 
-- **Backend**: `backend/` (Python Azure Functions)
-- **Frontend**: `frontend/` (React SPA)
+- **Backend**: `src/backend/` (Python Azure Functions)
+- **Frontend**: `src/frontend/` (React SPA)
 - **Shared**: `specs/designs/` (design system tokens)
 - Paths shown below assume the directory structure defined in plan.md
 
@@ -41,22 +41,22 @@ summary for details.
 
 ### Backend Setup
 
-- [X] T001 Create Python Azure Functions project structure in `backend/` with `function_app.py`, `requirements.txt`, and subdirectories for `api/`, `models/`, `services/`, `db/`
+- [X] T001 Create Python Azure Functions project structure in `src/backend/` with `function_app.py`, `requirements.txt`, and subdirectories for `api/`, `models/`, `services/`, `db/`
 - [X] T002 [P] Configure Azure Functions `requirements.txt` with dependencies: `azure-functions`, `azure-cosmos`, `PyJWT`, `python-dotenv`, `requests`
-- [X] T003 [P] Create `backend/config.py` with configuration class for Azure AD tenant ID, app ID, Cosmos DB endpoint (read from environment variables)
-- [X] T004 [P] Set up `backend/api/__init__.py` with Flask/Azure Functions app initialization
+- [X] T003 [P] Create `src/backend/config.py` with configuration class for Azure AD tenant ID, app ID, Cosmos DB endpoint (read from environment variables)
+- [X] T004 [P] Set up `src/backend/api/__init__.py` with Flask/Azure Functions app initialization
 
 ### Frontend Setup
 
-- [X] T005 Create React project structure in `frontend/` with `package.json` configured for `@azure/msal-react@2.x`, `@azure/msal-browser`, `react-router-dom`, `axios`
-- [X] T006 [P] Create `frontend/public/index.html` and `frontend/src/index.jsx` as React entry points
-- [X] T007 [P] Configure `frontend/.env.example` with template for `VITE_AZURE_TENANT_ID`, `VITE_AZURE_APP_ID`, `VITE_AZURE_REDIRECT_URI`
+- [X] T005 Create React project structure in `src/frontend/` with `package.json` configured for `@azure/msal-react@2.x`, `@azure/msal-browser`, `react-router-dom`, `axios`
+- [X] T006 [P] Create `src/frontend/public/index.html` and `src/frontend/src/index.jsx` as React entry points
+- [X] T007 [P] Configure `src/frontend/.env.example` with template for `VITE_AZURE_TENANT_ID`, `VITE_AZURE_APP_ID`, `VITE_AZURE_REDIRECT_URI`
 
 ### Cosmos DB Collections Setup
 
 - [ ] T008 Create Cosmos DB collection `allowListEntries` in the serverless account from 007 with partition key `/user_oid` and indexing policy from data-model.md
 - [ ] T009 [P] Create Cosmos DB collection `capabilityAssignments` in the serverless account from 007 with partition key `/user_oid` and compound index on `(user_oid, capability, dateRevoked)`
-- [X] T010 [P] Create `backend/db/seed_data.py` script to populate test data in both collections (3 test users: Player, Admin, Dual-role)
+- [X] T010 [P] Create `src/backend/db/seed_data.py` script to populate test data in both collections (3 test users: Player, Admin, Dual-role)
 
 ### Azure AD Configuration
 
@@ -83,19 +83,19 @@ summary for details.
 
 ### Backend Models
 
-- [X] T013 Create `backend/models/allow_list_entry.py` with AllowListEntry class:
+- [X] T013 Create `src/backend/models/allow_list_entry.py` with AllowListEntry class:
   - Properties: `id`, `user_oid`, `email`, `dateAdded`, `dateRemoved`, `addedBy`, `removedBy`, `notes`, `entityType` (set to "AllowListEntry")
   - Validation: Ensure user_oid is present, dateRemoved logic for soft-delete
   - Methods: `is_active()` (returns True if dateRemoved is None), `to_dict()` for serialization
 
-- [X] T014 [P] Create `backend/models/capability_assignment.py` with CapabilityAssignment class:
+- [X] T014 [P] Create `src/backend/models/capability_assignment.py` with CapabilityAssignment class:
   - Properties: `id`, `user_oid`, `capability` (enum: "Player" or "Administrator"), `dateAssigned`, `dateRevoked`, `assignedBy`, `revokedBy`, `entityType` (set to "CapabilityAssignment")
   - Validation: Ensure user_oid is present, capability is valid enum value, dateRevoked logic for soft-delete
   - Methods: `is_active()`, `to_dict()` for serialization
 
 ### Backend Cosmos DB Service Layer
 
-- [X] T015 Create `backend/services/cosmos_service.py` with CosmosService class:
+- [X] T015 Create `src/backend/services/cosmos_service.py` with CosmosService class:
   - Initialize Cosmos DB client using Managed Identity (via application settings)
   - Methods:
     - `get_container(name)`: Return a container reference for querying
@@ -105,7 +105,7 @@ summary for details.
 
 ### Backend Token Validation Service
 
-- [X] T016 Create `backend/services/auth_service.py` with AuthService class:
+- [X] T016 Create `src/backend/services/auth_service.py` with AuthService class:
   - Method: `validate_token(token_string)` — validates JWT signature, expiry, issuer, audience
     - Fetch Azure AD public keys from `/.well-known/openid-configuration` endpoint
     - Verify signature using fetched keys
@@ -118,7 +118,7 @@ summary for details.
 
 ### Backend Capability Service
 
-- [X] T017 [P] Create `backend/services/capability_service.py` with CapabilityService class:
+- [X] T017 [P] Create `src/backend/services/capability_service.py` with CapabilityService class:
   - Method: `get_user_capabilities(user_oid: str)` — fetch active capabilities for a user
     - Query Cosmos DB: `SELECT * FROM capabilityAssignments WHERE user_oid = @user_oid AND dateRevoked = null`
     - Return set of capability strings: {"Player", "Administrator"}, empty set if none
@@ -129,7 +129,7 @@ summary for details.
 
 ### Backend Allow-List Service
 
-- [X] T018 [P] Create `backend/services/allow_list_service.py` with AllowListService class:
+- [X] T018 [P] Create `src/backend/services/allow_list_service.py` with AllowListService class:
   - Method: `is_allowed(user_oid: str)` — check if user is on the allow-list
     - Query Cosmos DB: `SELECT * FROM allowListEntries WHERE user_oid = @user_oid AND dateRemoved = null`
     - Return boolean (True if found and active, False otherwise)
@@ -140,7 +140,7 @@ summary for details.
 
 ### Backend Authentication Middleware
 
-- [X] T019 Create `backend/api/auth/middleware.py` with token validation middleware:
+- [X] T019 Create `src/backend/api/auth/middleware.py` with token validation middleware:
   - Extract token from `Authorization: Bearer <token>` header
   - Validate token using AuthService.validate_token()
   - If invalid or expired: Return 401 Unauthorized with generic message ("Invalid or expired token")
@@ -149,7 +149,7 @@ summary for details.
 
 ### Backend Error Response Standardization
 
-- [X] T020 Create `backend/api/utils.py` with standard error response functions:
+- [X] T020 Create `src/backend/api/utils.py` with standard error response functions:
   - `error_response(status_code, message)`: Return JSON with `{"status": "error", "message": message}` in HTTP status 401/403/500
   - `unauthorized()`: Return 401 with message "Invalid or expired token"
   - `forbidden()`: Return 403 with message "Access not granted"
@@ -170,52 +170,52 @@ summary for details.
 
 > **NOTE: Write tests FIRST, ensure they FAIL before implementation**
 
-- [X] T021 [P] [US1] Create unit test file `backend/tests/unit/test_auth_service.py` with tests:
+- [X] T021 [P] [US1] Create unit test file `src/backend/tests/unit/test_auth_service.py` with tests:
   - Test `validate_token()` with valid token → returns True and user_oid
   - Test `validate_token()` with expired token → returns False
   - Test `validate_token()` with invalid signature → returns False
   - Test `validate_token()` with wrong issuer → returns False
   - All tests use mocked Azure AD public key endpoint
 
-- [X] T022 [P] [US1] Create unit test file `backend/tests/unit/test_allow_list_service.py` with tests:
+- [X] T022 [P] [US1] Create unit test file `src/backend/tests/unit/test_allow_list_service.py` with tests:
   - Test `is_allowed()` for allow-listed user → returns True
   - Test `is_allowed()` for not allow-listed user → returns False
   - Test `is_allowed()` for soft-deleted user (dateRemoved set) → returns False
   - Tests use mocked Cosmos DB queries
 
-- [X] T023 [P] [US1] Create unit test file `backend/tests/unit/test_capability_service.py` with tests:
+- [X] T023 [P] [US1] Create unit test file `src/backend/tests/unit/test_capability_service.py` with tests:
   - Test `get_user_capabilities()` for user with Player capability → returns {"Player"}
   - Test `get_user_capabilities()` for user with both capabilities → returns {"Player", "Administrator"}
   - Test `get_user_capabilities()` for user with no capabilities → returns empty set
   - Test `has_capability()` for each scenario above
   - Tests use mocked Cosmos DB queries
 
-- [X] T024 [P] [US1] Create integration test file `backend/tests/integration/test_login_endpoint.py` with tests:
+- [X] T024 [P] [US1] Create integration test file `src/backend/tests/integration/test_login_endpoint.py` with tests:
   - Test `POST /api/auth/login` with valid token for allow-listed Player user → returns 200 with user identity and `{"hasPlayer": true, "hasAdministrator": false}`
   - Test `POST /api/auth/login` with valid token for not allow-listed user → returns 403 with generic message
   - Test `POST /api/auth/login` with expired token → returns 401
   - Tests use a test Cosmos DB instance or mock container
 
-- [X] T025 [P] [US1] Create integration test file `backend/tests/integration/test_me_endpoint.py` with tests:
+- [X] T025 [P] [US1] Create integration test file `src/backend/tests/integration/test_me_endpoint.py` with tests:
   - Test `GET /api/auth/me` with valid Player token → returns 200 with user identity and capabilities
   - Test `GET /api/auth/me` with expired token → returns 401
   - Test `GET /api/auth/me` with token for not allow-listed user → returns 403
 
-- [X] T026 [P] [US1] Create frontend component test file `frontend/tests/components/LoginScreen.test.jsx` with tests:
+- [X] T026 [P] [US1] Create frontend component test file `src/frontend/tests/components/LoginScreen.test.jsx` with tests:
   - Test LoginScreen renders "Sign in with Microsoft" button
   - Test clicking button triggers MSAL sign-in flow
   - Test navigation to MainMenu after successful sign-in
   - Test error display on sign-in cancellation
   - Uses React Testing Library and mocked MSAL
 
-- [X] T027 [P] [US1] Create frontend component test file `frontend/tests/components/MainMenu.test.jsx` with tests:
+- [X] T027 [P] [US1] Create frontend component test file `src/frontend/tests/components/MainMenu.test.jsx` with tests:
   - Test MainMenu fetches capabilities from `/api/auth/me`
   - Test MainMenu renders "Start or Continue Game" menu item when user has Player capability
   - Test MainMenu does NOT render admin menu item when user has only Player capability
   - Test MainMenu displays error message if API returns 403
   - Uses React Testing Library and mocked fetch/axios
 
-- [X] T028 [P] [US1] Create frontend hook test file `frontend/tests/hooks/useCapabilities.test.jsx` with tests:
+- [X] T028 [P] [US1] Create frontend hook test file `src/frontend/tests/hooks/useCapabilities.test.jsx` with tests:
   - Test hook returns `{hasPlayer: true, hasAdministrator: false}` for Player-only user
   - Test hook returns `{hasPlayer: true, hasAdministrator: true}` for dual-role user
   - Test hook returns `{hasPlayer: false, hasAdministrator: false}` for user with no capabilities
@@ -231,7 +231,7 @@ summary for details.
 
 #### Backend: Login Endpoint
 
-- [X] T030 Create `backend/api/auth/login.py` with `login()` handler for `POST /api/auth/login`:
+- [X] T030 Create `src/backend/api/auth/login.py` with `login()` handler for `POST /api/auth/login`:
   - Extract token from request body (expected JSON: `{"token": "<bearer_token>"}`)
   - Validate token using AuthService.validate_token()
   - If invalid: Return 401 with generic message
@@ -244,7 +244,7 @@ summary for details.
 
 #### Backend: Me Endpoint
 
-- [X] T031 [P] Create `backend/api/auth/me.py` with `me()` handler for `GET /api/auth/me`:
+- [X] T031 [P] Create `src/backend/api/auth/me.py` with `me()` handler for `GET /api/auth/me`:
   - Extract token from `Authorization: Bearer <token>` header
   - Validate token using AuthService.validate_token()
   - If invalid: Return 401
@@ -256,14 +256,14 @@ summary for details.
 
 #### Backend: Token Validation Middleware Integration
 
-- [X] T032 Apply middleware from T019 to all `/api/` routes in `backend/function_app.py`:
+- [X] T032 Apply middleware from T019 to all `/api/` routes in `src/backend/function_app.py`:
   - Wrap all route handlers with token validation
   - Extract user_oid from validated token and attach to request context
   - Proceed to endpoint handler if valid, return 401 if invalid
 
 #### Frontend: MSAL Configuration
 
-- [X] T033 Create `frontend/src/services/msalConfig.js` with MSAL configuration:
+- [X] T033 Create `src/frontend/src/services/msalConfig.js` with MSAL configuration:
   - Read tenant ID, app ID, and redirect URI from environment variables
   - Configure MSAL with authentication config: `{ clientId, authority: "https://login.microsoftonline.com/{tenantId}", redirectUri }`
   - Configure scopes: `["openid", "profile", "email"]`
@@ -271,7 +271,7 @@ summary for details.
 
 #### Frontend: Auth Provider Context
 
-- [X] T034 Create `frontend/src/components/Auth/AuthProvider.jsx` with React context provider:
+- [X] T034 Create `src/frontend/src/components/Auth/AuthProvider.jsx` with React context provider:
   - Initialize MSAL PublicClientApplication using msalConfig
   - Provide hooks for child components:
     - `useMsal()`: Access MSAL instance and authentication state
@@ -282,7 +282,7 @@ summary for details.
 
 #### Frontend: Login Screen Component
 
-- [X] T035 Create `frontend/src/components/Login/LoginScreen.jsx` with UI:
+- [X] T035 Create `src/frontend/src/components/Login/LoginScreen.jsx` with UI:
   - Render login page with:
     - Title: "Sign In"
     - Description: "Use your Microsoft account to access the application"
@@ -302,7 +302,7 @@ summary for details.
 
 #### Frontend: Login Screen Styles
 
-- [X] T036 Create `frontend/src/components/Login/LoginScreen.css` with styling:
+- [X] T036 Create `src/frontend/src/components/Login/LoginScreen.css` with styling:
   - Use design token variables from `specs/designs/styles.css`
   - Login container: flush-left, full-height, centered vertically and horizontally
   - Button: zero radius, accent color on hover/pressed, focus-visible outline
@@ -311,7 +311,7 @@ summary for details.
 
 #### Frontend: Main Menu Component
 
-- [X] T037 Create `frontend/src/components/Menu/MainMenu.jsx` with UI:
+- [X] T037 Create `src/frontend/src/components/Menu/MainMenu.jsx` with UI:
   - On component mount:
     - Call `GET /api/auth/me` to fetch user capabilities
     - Handle response:
@@ -327,19 +327,19 @@ summary for details.
 
 #### Frontend: Menu Item Components
 
-- [X] T038 [P] Create `frontend/src/components/Menu/GameMenuItem.jsx` as reusable menu item:
+- [X] T038 [P] Create `src/frontend/src/components/Menu/GameMenuItem.jsx` as reusable menu item:
   - Props: `label` (default "Start or Continue Game"), `onClick` callback
   - Render as button/link using design tokens
   - Apply hover/focus states from design system
 
-- [X] T039 [P] Create `frontend/src/components/Menu/AdminMenuItem.jsx` as reusable menu item:
+- [X] T039 [P] Create `src/frontend/src/components/Menu/AdminMenuItem.jsx` as reusable menu item:
   - Props: `label` (default "Administration"), `onClick` callback
   - Render as button/link using design tokens
   - Apply hover/focus states from design system
 
 #### Frontend: useCapabilities Hook
 
-- [X] T040 Create `frontend/src/hooks/useCapabilities.js` custom hook:
+- [X] T040 Create `src/frontend/src/hooks/useCapabilities.js` custom hook:
   - Call `GET /api/auth/me` on mount
   - Return object: `{ hasPlayer: boolean, hasAdministrator: boolean, loading: boolean, error: Error | null }`
   - Implement refetch function for manual capability refresh
@@ -348,14 +348,14 @@ summary for details.
 
 #### Frontend: useAuth Hook
 
-- [X] T041 [P] Create `frontend/src/hooks/useAuth.js` custom hook:
+- [X] T041 [P] Create `src/frontend/src/hooks/useAuth.js` custom hook:
   - Extract user identity (oid, email) from MSAL context
   - Return object: `{ user: { oid: string, email: string }, isAuthenticated: boolean }`
   - Handle unauthenticated state gracefully
 
 #### Frontend: API Service Layer
 
-- [X] T042 Create `frontend/src/services/authService.js` with functions:
+- [X] T042 Create `src/frontend/src/services/authService.js` with functions:
   - `login(token)`: POST to `/api/auth/login` with bearer token
   - `getMe()`: GET `/api/auth/me` with bearer token in header
   - `logout()`: POST to `/api/auth/logout`
@@ -366,7 +366,7 @@ summary for details.
 
 #### Frontend: Token Interceptor
 
-- [X] T043 Create `frontend/src/services/tokenInterceptor.js` with HTTP interceptor:
+- [X] T043 Create `src/frontend/src/services/tokenInterceptor.js` with HTTP interceptor:
   - Before sending any request: Attach `Authorization: Bearer <token>` header
   - Get token from MSAL cache via `useMsal().instance.getActiveAccount()`
   - If no token available: Return 401 (should not happen if auth is enforced)
@@ -375,7 +375,7 @@ summary for details.
 
 #### Frontend: App Router and Protected Routes
 
-- [X] T044 Create `frontend/src/App.jsx` main app component:
+- [X] T044 Create `src/frontend/src/App.jsx` main app component:
   - Set up React Router with routes:
     - `/login`: LoginScreen component (default route for unauthenticated users)
     - `/menu`: MainMenu component (requires authentication)
@@ -385,7 +385,7 @@ summary for details.
 
 #### Frontend: Global Styles
 
-- [X] T045 Create `frontend/src/index.css` with global reset and design token imports:
+- [X] T045 Create `src/frontend/src/index.css` with global reset and design token imports:
   - Import design tokens from `specs/designs/styles.css`
   - Reset margins, padding, default font sizes
   - Set body background and text color using design tokens
@@ -394,7 +394,7 @@ summary for details.
 
 #### Frontend: Styling Consistency
 
-- [X] T046 Create `frontend/src/components/Menu/MainMenu.css` with menu styling:
+- [X] T046 Create `src/frontend/src/components/Menu/MainMenu.css` with menu styling:
   - Use design tokens for colors, spacing, typography
   - Menu container: flush-left alignment, visible dividing lines between items
   - Menu items: zero radius buttons, hover/focus states with accent tint
@@ -414,22 +414,22 @@ summary for details.
 
 > **NOTE: Write tests FIRST, ensure they FAIL before implementation**
 
-- [X] T047 [P] [US2] Create unit test file `backend/tests/unit/test_admin_capability.py` with tests:
+- [X] T047 [P] [US2] Create unit test file `src/backend/tests/unit/test_admin_capability.py` with tests:
   - Test capability service returns {"Administrator"} for admin user
   - Test capability check `has_capability(user_oid, "Administrator")` returns True for admin, False for player
   - Tests use mocked Cosmos DB
 
-- [X] T048 [P] [US2] Create integration test file `backend/tests/integration/test_dual_role_user.py` with tests:
+- [X] T048 [P] [US2] Create integration test file `src/backend/tests/integration/test_dual_role_user.py` with tests:
   - Test `GET /api/auth/me` for user with both Player and Administrator capabilities
   - Returns 200 with `{"hasPlayer": true, "hasAdministrator": true}`
   - Verify both capabilities are correctly evaluated
 
-- [X] T049 [P] [US2] Create frontend component test file `frontend/tests/components/AdminMenuItem.test.jsx` with tests:
+- [X] T049 [P] [US2] Create frontend component test file `src/frontend/tests/components/AdminMenuItem.test.jsx` with tests:
   - Test AdminMenuItem renders when user has Administrator capability
   - Test AdminMenuItem is hidden when user lacks Administrator capability
   - Test AdminMenuItem click navigates to admin endpoint
 
-- [X] T050 [P] [US2] Create frontend integration test file `frontend/tests/integration/admin_signin_flow.test.jsx` with tests:
+- [X] T050 [P] [US2] Create frontend integration test file `src/frontend/tests/integration/admin_signin_flow.test.jsx` with tests:
   - Test full flow: MSAL sign-in → fetch capabilities → render both menu items
   - Mock `/api/auth/me` to return both capabilities
   - Verify both "Start Game" and "Administration" items render
@@ -444,7 +444,7 @@ summary for details.
 
 #### Backend: Admin Capability Enforcement
 
-- [X] T052 [P] Create `backend/api/admin/middleware.py` with admin-specific authorization middleware:
+- [X] T052 [P] Create `src/backend/api/admin/middleware.py` with admin-specific authorization middleware:
   - After token validation (from Phase 2), check if user has Administrator capability
   - If user lacks Administrator capability: Return 403 with message "Access not granted"
   - Otherwise: Proceed to endpoint handler
@@ -452,8 +452,8 @@ summary for details.
 
 #### Backend: Admin Endpoints Skeleton
 
-- [X] T053 [P] Create `backend/api/admin/__init__.py` with admin endpoint initialization
-- [X] T054 [P] Create `backend/api/admin/stories.py` with placeholder endpoints:
+- [X] T053 [P] Create `src/backend/api/admin/__init__.py` with admin endpoint initialization
+- [X] T054 [P] Create `src/backend/api/admin/stories.py` with placeholder endpoints:
   - `POST /api/admin/stories/create`: Returns 200 with placeholder (actual implementation in feature 005)
   - `GET /api/admin/stories`: Returns 200 with empty list (actual implementation in feature 005)
   - Both endpoints apply admin capability middleware
@@ -461,14 +461,14 @@ summary for details.
 
 #### Frontend: Admin Menu Item Visibility
 
-- [X] T055 Update `frontend/src/components/Menu/MainMenu.jsx` to render AdminMenuItem conditionally:
+- [X] T055 Update `src/frontend/src/components/Menu/MainMenu.jsx` to render AdminMenuItem conditionally:
   - Check `hasAdministrator` from capabilities
   - If true: Render AdminMenuItem component
   - If false: Don't render (already implemented in T037, verify is complete)
 
 #### Frontend: Admin Navigation
 
-- [X] T056 Create `frontend/src/pages/AdminPage.jsx` placeholder page:
+- [X] T056 Create `src/frontend/src/pages/AdminPage.jsx` placeholder page:
   - Page loads on navigation to `/admin`
   - Render message: "Administration features loading..."
   - Verify ProtectedRoute enforces capability requirement (redirect to login if not authenticated)
@@ -476,7 +476,7 @@ summary for details.
 
 #### Frontend: Route Protection for Admin
 
-- [X] T057 Create `frontend/src/components/Auth/ProtectedRoute.jsx` component:
+- [X] T057 Create `src/frontend/src/components/Auth/ProtectedRoute.jsx` component:
   - Wrapper for routes requiring specific capabilities
   - Props: `capability` (optional, e.g., "Player" or "Administrator")
   - Check if user is authenticated and has required capability
@@ -498,20 +498,20 @@ summary for details.
 
 > **NOTE: Write tests FIRST, ensure they FAIL before implementation**
 
-- [X] T058 [P] [US3] Create unit test file `backend/tests/unit/test_unauthorized_user.py` with tests:
+- [X] T058 [P] [US3] Create unit test file `src/backend/tests/unit/test_unauthorized_user.py` with tests:
   - Test allow-list service returns False for user not on allow-list
   - Test login endpoint returns 403 for non-allow-listed user
   - Verify error message is generic (no account enumeration)
   - Tests use mocked Cosmos DB
 
-- [X] T059 [P] [US3] Create integration test file `backend/tests/integration/test_access_denial.py` with tests:
+- [X] T059 [P] [US3] Create integration test file `src/backend/tests/integration/test_access_denial.py` with tests:
   - Test `POST /api/auth/login` with valid token but user not on allow-list → returns 403
   - Test `GET /api/auth/me` with valid token but user not on allow-list → returns 403
   - Test direct access to `/api/admin/*` without capabilities → returns 403
   - Test direct access to game endpoint without Player capability → returns 403
   - Verify all error messages are generic and identical (no account enumeration)
 
-- [X] T060 [P] [US3] Create frontend test file `frontend/tests/scenarios/unauthorized_user.test.jsx` with tests:
+- [X] T060 [P] [US3] Create frontend test file `src/frontend/tests/scenarios/unauthorized_user.test.jsx` with tests:
   - Mock MSAL to return valid token for unauthorized user
   - Mock `/api/auth/login` to return 403
   - Test LoginScreen displays generic "Access not granted" message
@@ -534,14 +534,14 @@ summary for details.
 
 #### Backend: Unauthorized Error Responses
 
-- [X] T063 Update `backend/api/utils.py` to add:
+- [X] T063 Update `src/backend/api/utils.py` to add:
   - `forbidden_access_not_granted()`: Return 403 with message "Access not granted" (for non-allow-listed users and capability-gated endpoints)
   - Ensure all 403 responses use identical generic message (no account enumeration)
   - Ensure all error logs include oid for debugging but never expose in response
 
 #### Backend: No-Capabilities Message
 
-- [X] T064 Update `backend/api/auth/login.py` to handle user with no capabilities:
+- [X] T064 Update `src/backend/api/auth/login.py` to handle user with no capabilities:
   - After checking allow-list and fetching capabilities:
     - If user is on allow-list but has no capabilities: Return 200 with empty capabilities set
     - Frontend will display "No access provisioned yet" message
@@ -549,7 +549,7 @@ summary for details.
 
 #### Backend: Endpoint-Level Capability Enforcement
 
-- [X] T065 Update `backend/api/game/` (from feature 008) to enforce Player capability:
+- [X] T065 Update `src/backend/api/game/` (from feature 008) to enforce Player capability:
   - After token validation and allow-list check:
     - Check if user has Player capability
     - If not: Return 403 with generic message
@@ -558,7 +558,7 @@ summary for details.
 
 #### Backend: Comprehensive Authorization Tests
 
-- [X] T066 Create `backend/tests/integration/test_authorization_enforcement.py` with tests:
+- [X] T066 Create `src/backend/tests/integration/test_authorization_enforcement.py` with tests:
   - Test `/api/auth/me` returns 403 for non-allow-listed user
   - Test `/api/admin/*` returns 403 for user without Administrator capability
   - Test `/api/game/*` returns 403 for user without Player capability (when available in 008)
@@ -567,7 +567,7 @@ summary for details.
 
 #### Frontend: No-Capabilities Message
 
-- [X] T067 Update `frontend/src/components/Menu/MainMenu.jsx` to handle no capabilities:
+- [X] T067 Update `src/frontend/src/components/Menu/MainMenu.jsx` to handle no capabilities:
   - After fetching capabilities, check if both `hasPlayer` and `hasAdministrator` are false
   - If true: Display message "No access provisioned yet. Contact an administrator."
   - This message replaces the menu items (don't show empty menu)
@@ -575,7 +575,7 @@ summary for details.
 
 #### Frontend: No-Capabilities Message Styling
 
-- [X] T068 Create styling in `frontend/src/components/Menu/MainMenu.css` for no-capabilities message:
+- [X] T068 Create styling in `src/frontend/src/components/Menu/MainMenu.css` for no-capabilities message:
   - Use design tokens for colors and typography
   - Display as centered, readable message
   - Include visible dividing line (not whitespace alone)
@@ -583,7 +583,7 @@ summary for details.
 
 #### Frontend: Access Denied Handling
 
-- [X] T069 Update `frontend/src/components/Login/LoginScreen.jsx` to handle 403 response from backend:
+- [X] T069 Update `src/frontend/src/components/Login/LoginScreen.jsx` to handle 403 response from backend:
   - If login endpoint returns 403: Display "Access not granted" message
   - Do not reveal whether the account exists in the system
   - Do not show any menu or application content
@@ -591,7 +591,7 @@ summary for details.
 
 #### Frontend: Comprehensive End-to-End Denial Testing
 
-- [X] T070 Create comprehensive test file `frontend/tests/e2e/denial_scenarios.test.jsx` with tests:
+- [X] T070 Create comprehensive test file `src/frontend/tests/e2e/denial_scenarios.test.jsx` with tests:
   - Test scenario: Valid token, not on allow-list → 403, no menu shown
   - Test scenario: Valid token, on allow-list, no capabilities → No-capabilities message shown
   - Test scenario: Valid token, Player capability, direct URL to admin page → 403 or redirect
@@ -608,7 +608,7 @@ summary for details.
 
 ### Documentation and Configuration
 
-- [X] T071 Create `backend/README.md` with:
+- [X] T071 Create `src/backend/README.md` with:
   - Overview of backend structure
   - Setup instructions (Python environment, dependencies, Cosmos DB connection)
   - How to run tests locally (pytest)
@@ -617,7 +617,7 @@ summary for details.
   - API endpoint documentation (request/response formats)
   - Link to contracts/api.md for full contract details
 
-- [X] T072 [P] Create `frontend/README.md` with:
+- [X] T072 [P] Create `src/frontend/README.md` with:
   - Overview of frontend structure
   - Setup instructions (Node.js, npm/yarn, MSAL configuration)
   - How to run locally (vite dev server)
@@ -627,13 +627,13 @@ summary for details.
   - Architecture overview (MSAL, Auth context, hooks)
   - Link to contracts/ui-login-screen.md and ui-menu-states.md
 
-- [X] T073 [P] Create `backend/.env.example` file with template:
+- [X] T073 [P] Create `src/backend/.env.example` file with template:
   - AZURE_TENANT_ID=
   - AZURE_APP_ID=
   - COSMOS_ENDPOINT=
   - Comment: "Do not commit this file with actual values; use Key Vault in production"
 
-- [X] T074 [P] Create `frontend/.env.example` file (if not already created in T007):
+- [X] T074 [P] Create `src/frontend/.env.example` file (if not already created in T007):
   - VITE_AZURE_TENANT_ID=
   - VITE_AZURE_APP_ID=
   - VITE_AZURE_REDIRECT_URI=
@@ -642,12 +642,12 @@ summary for details.
 ### Integration Tests and Validation
 
 - [X] T075 Run all backend unit tests (from T021-T026, T047-T048, T058-T059, T066) and verify pass rate 100%
-  - Command: `pytest backend/tests/unit/` with coverage report
+  - Command: `pytest src/backend/tests/unit/` with coverage report
   - Target: >80% code coverage for auth services
   - Fix any failures before proceeding
 
 - [X] T076 [P] Run all backend integration tests (from T024-T025, T049, T061, T065) and verify pass rate 100%
-  - Command: `pytest backend/tests/integration/` with coverage report
+  - Command: `pytest src/backend/tests/integration/` with coverage report
   - Target: All endpoints tested with multiple scenarios
   - Fix any failures before proceeding
 
@@ -739,7 +739,7 @@ summary for details.
 - [ ] T088 [P] Test local development workflow:
   - Backend: `python -m venv venv` → activate → `pip install -r requirements.txt` → `pytest` → local Functions emulator
   - Frontend: `npm install` → `npm run dev` → `npm test`
-  - Document developer setup steps in backend/README.md and frontend/README.md
+  - Document developer setup steps in src/backend/README.md and src/frontend/README.md
 
 - [X] T089 [P] Create deployment validation script:
   - Script to run quickstart.md scenarios against production environment
@@ -750,7 +750,7 @@ summary for details.
 ### Final Verification and Sign-Off
 
 - [ ] T090 Run final comprehensive test suite:
-  - Backend: `pytest backend/tests/` with coverage report (>80% coverage)
+  - Backend: `pytest src/backend/tests/` with coverage report (>80% coverage)
   - Frontend: `npm test` with coverage report (>80% coverage)
   - End-to-end: All 12 scenarios from quickstart.md pass
   - Verify no failing tests or warnings before sign-off
@@ -768,7 +768,7 @@ summary for details.
 - [X] T092 [P] Create deployment runbook:
   - Prerequisite: Feature 007-azure-infrastructure-provisioning must be complete
   - Step 1: Verify Cosmos DB collections exist (allowListEntries, capabilityAssignments)
-  - Step 2: Seed test data using backend/db/seed_data.py
+  - Step 2: Seed test data using src/backend/db/seed_data.py
   - Step 3: Configure Azure AD app registration (tenant ID, app ID, redirect URIs)
   - Step 4: Set Function App application settings (AZURE_TENANT_ID, AZURE_APP_ID, COSMOS_ENDPOINT)
   - Step 5: Deploy backend via GitHub Actions (merge to main)
@@ -777,8 +777,8 @@ summary for details.
   - Step 8: Verify production telemetry in Application Insights
 
 - [X] T093 [P] Final code review:
-  - Review all Python code in backend/ for PEP 8 compliance and best practices
-  - Review all JavaScript/JSX code in frontend/ for ES6+ standards and React best practices
+  - Review all Python code in src/backend/ for PEP 8 compliance and best practices
+  - Review all JavaScript/JSX code in src/frontend/ for ES6+ standards and React best practices
   - Review test coverage (unit, integration, end-to-end)
   - Verify error handling and logging are comprehensive
   - Verify no secrets or credentials in code or git history

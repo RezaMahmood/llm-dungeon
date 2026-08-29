@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "backend/**"
+      - "src/backend/**"
   workflow_dispatch: {}
 
 # Targets `production` (no approval gate) — application deploys stay fully
@@ -29,11 +29,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r backend/requirements.txt
-          pip install -r backend/requirements-dev.txt
+          pip install -r src/backend/requirements.txt
+          pip install -r src/backend/requirements-dev.txt
 
       - name: Run tests
-        run: pytest backend/tests/ -v
+        run: pytest src/backend/tests/ -v
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
@@ -46,7 +46,7 @@ jobs:
         uses: Azure/functions-action@v1
         with:
           app-name: ${{ vars.FUNCTIONS_APP_NAME }}
-          package: "backend"
+          package: "src/backend"
           remote-build: true
 
       - name: Smoke test

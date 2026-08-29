@@ -128,4 +128,4 @@ SELECT * FROM c WHERE c.entityType = "ProvisionedAccountEntry"
 | Capability Assignment (`capabilityAssignments`, keyed by `user_oid` + capability) | Cosmos container | Folded into `provisionedAccountEntries.roles` (array on the same document, no separate per-role documents) |
 | `dateRemoved`/`removedBy`/`dateRevoked`/`revokedBy` (soft-delete audit fields) | Both containers | Dropped — no removal/revocation capability exists in this feature (see Validation Rules above) |
 
-No automated data migration script is defined here: per `007-azure-infrastructure-provisioning` and this project's current stage, there is no production data yet (Cosmos DB has not been provisioned/seeded outside of `backend/db/seed_data.py`'s manual test-data path), so the change ships as a schema replacement, not a live migration.
+No automated data migration script is defined here: per `007-azure-infrastructure-provisioning` and this project's current stage, there is no production data yet (Cosmos DB has not been provisioned/seeded outside of `src/backend/db/seed_data.py`'s manual test-data path), so the change ships as a schema replacement, not a live migration.

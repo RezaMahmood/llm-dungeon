@@ -68,5 +68,5 @@ HTTP response itself, only in server-side telemetry).
 
 ## Example seed data
 
-See `backend/db/seed_data.py` for a script that creates three example users
+See `src/backend/db/seed_data.py` for a script that creates three example users
 (Player, Admin, and a dual-role user) for local/test environments.

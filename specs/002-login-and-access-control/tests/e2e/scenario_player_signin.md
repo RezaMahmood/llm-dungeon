@@ -5,7 +5,7 @@
 ## Prerequisites
 
 - A test Microsoft account on the allow-list (`allowListEntries`) with an active entry
-- The same account has an active `CapabilityAssignment` of `Player` only (see `backend/db/seed_data.py`)
+- The same account has an active `CapabilityAssignment` of `Player` only (see `src/backend/db/seed_data.py`)
 
 ## Steps
 

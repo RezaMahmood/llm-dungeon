@@ -5,7 +5,7 @@
 # same identity control-plane access to pull its own deployment package.
 #
 # The GitHub OIDC Managed Identity's role assignment (Contributor, scoped to
-# the Resource Group) is granted by scripts/bootstrap.sh via `az role
+# the Resource Group) is granted by infrastructure/scripts/bootstrap.sh via `az role
 # assignment create`, not here — that identity is created outside Terraform
 # (research.md §7) since Terraform itself authenticates as it.
 

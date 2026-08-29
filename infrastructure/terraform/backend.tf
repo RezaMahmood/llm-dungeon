@@ -6,7 +6,7 @@
 #   terraform init -backend-config=backend-prod.hcl
 #
 # The referenced storage account is created by the one-time bootstrap step
-# (scripts/bootstrap.sh) before this backend can be initialized — see
+# (infrastructure/scripts/bootstrap.sh) before this backend can be initialized — see
 # research.md §4 and contracts/deployment-config-contract.md.
 terraform {
   backend "azurerm" {

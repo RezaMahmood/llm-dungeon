@@ -21,9 +21,9 @@
 
 ## 2. Extracting Email from the Microsoft Entra ID Token
 
-**Unknown**: Which JWT claim reliably carries the signed-in account's email address, for both Microsoft-native accounts and non-Microsoft accounts (e.g., Gmail) federated through Microsoft identity sign-in — needed because `backend/services/auth_service.py` today only extracts `oid` and ignores email entirely.
+**Unknown**: Which JWT claim reliably carries the signed-in account's email address, for both Microsoft-native accounts and non-Microsoft accounts (e.g., Gmail) federated through Microsoft identity sign-in — needed because `src/backend/services/auth_service.py` today only extracts `oid` and ignores email entirely.
 
-**Decision**: Read the `email` claim from the validated ID token. The frontend's MSAL login request (`frontend/src/services/msalConfig.js`) already requests the `email` OIDC scope, which is what causes Entra ID to populate this claim for both work/school and personal Microsoft accounts, and for guest/federated identities (their invited email carries through). `AuthService.validate_token` will be extended to return `(is_valid, user_oid, email, error)`, and callers will lowercase the email before using it as a lookup key (per FR-008).
+**Decision**: Read the `email` claim from the validated ID token. The frontend's MSAL login request (`src/frontend/src/services/msalConfig.js`) already requests the `email` OIDC scope, which is what causes Entra ID to populate this claim for both work/school and personal Microsoft accounts, and for guest/federated identities (their invited email carries through). `AuthService.validate_token` will be extended to return `(is_valid, user_oid, email, error)`, and callers will lowercase the email before using it as a lookup key (per FR-008).
 
 **Rationale**: `preferred_username` is present more often but is not guaranteed to be an email address in every account type (it can be a phone number or a non-routable local identifier for some personal-account flows); `email` is the claim Microsoft's identity platform documents as carrying an actual email address when the `email` scope has been requested and consented, which this app registration already does.
 
@@ -47,7 +47,7 @@
 - Keep 002's two oid-keyed containers and add a separate email-keyed index/container just for the admin UI, translating between them at sign-in: rejected — still requires the sign-in path to resolve by email first (to find *any* record before an oid exists), so it doesn't avoid touching `login.py`/`me.py`/`middleware.py`, while leaving two containers to keep consistent for no benefit.
 - Leave 002 entirely alone and layer 003 as a read-only "view" over it: rejected — cannot satisfy FR-002/FR-008/FR-009 (add/merge/view by email as the entry's own identity) without the entry being keyed by email.
 
-**Blast radius (for the record, not a design question)**: `backend/models/allow_list_entry.py`, `capability_assignment.py`, `backend/services/allow_list_service.py`, `capability_service.py`, `backend/services/auth_service.py`, `backend/api/auth/{login,me,middleware}.py`, `backend/api/admin/middleware.py`, `backend/db/seed_data.py`, and their existing unit/integration tests. Enumerated fully in plan.md's Project Structure.
+**Blast radius (for the record, not a design question)**: `src/backend/models/allow_list_entry.py`, `capability_assignment.py`, `src/backend/services/allow_list_service.py`, `capability_service.py`, `src/backend/services/auth_service.py`, `src/backend/api/auth/{login,me,middleware}.py`, `src/backend/api/admin/middleware.py`, `src/backend/db/seed_data.py`, and their existing unit/integration tests. Enumerated fully in plan.md's Project Structure.
 
 **Validation**: Existing 002 integration tests (`test_login_endpoint.py`, `test_me_endpoint.py`, `test_dual_role_user.py`) are updated in place to seed via the new model and are extended with the bind/match/mismatch cases from FR-011; a regression in existing Player/Administrator/dual-role/no-capability/denied outcomes would fail CI (Principle V) before this could ship.
 

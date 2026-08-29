@@ -12,7 +12,7 @@ data "azurerm_resource_group" "rg" {
 
 # --- Storage Account (Application Assets) ---
 # Separate from the Terraform backend state Storage Account (bootstrap-created,
-# see backend.tf/scripts/bootstrap.sh). Also hosts the Flex Consumption
+# see backend.tf/infrastructure/scripts/bootstrap.sh). Also hosts the Flex Consumption
 # Function App's own deployment package container (app-package), since Flex
 # Consumption requires a blob container to deploy from — reusing this account
 # avoids introducing a third Storage Account entity beyond the two data-model.md

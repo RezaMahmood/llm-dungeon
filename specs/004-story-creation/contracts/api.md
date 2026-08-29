@@ -4,9 +4,9 @@
 
 **Feature**: Story Creation (004-story-creation)
 
-All endpoints require an authenticated Administrator (`authorize_admin`, per `backend/api/admin/middleware.py`), returning the same `unauthorized()`/`forbidden_access_not_granted()`/`forbidden_insufficient_permission()` shapes as existing admin endpoints on failure. Response shapes follow `backend/api/utils.py`'s `json_response`/`error_response` helpers.
+All endpoints require an authenticated Administrator (`authorize_admin`, per `src/backend/api/admin/middleware.py`), returning the same `unauthorized()`/`forbidden_access_not_granted()`/`forbidden_insufficient_permission()` shapes as existing admin endpoints on failure. Response shapes follow `src/backend/api/utils.py`'s `json_response`/`error_response` helpers.
 
-`backend/api/admin/stories.py`'s existing `create_story`/`list_stories` placeholders are replaced by the endpoints below; `POST /api/admin/stories/create` is renamed in place to draft-creation semantics (no external caller exists yet — the route was a placeholder returning "not yet implemented").
+`src/backend/api/admin/stories.py`'s existing `create_story`/`list_stories` placeholders are replaced by the endpoints below; `POST /api/admin/stories/create` is renamed in place to draft-creation semantics (no external caller exists yet — the route was a placeholder returning "not yet implemented").
 
 ---
 

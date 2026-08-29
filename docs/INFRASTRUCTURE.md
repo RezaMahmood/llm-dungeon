@@ -9,7 +9,7 @@ this page is a short map, not a restatement.
 
 ## Layout
 
-- `terraform/` — all Azure resources, into the single pre-existing
+- `infrastructure/terraform/` — all Azure resources, into the single pre-existing
   `llm-dungeon` Resource Group (West Europe). Split by concern:
   `main.tf` (Storage, Cosmos DB, AI Foundry, Functions, Static Web App),
   `network.tf` (VNet, subnets, private endpoints, Private DNS Zones),
@@ -20,9 +20,9 @@ this page is a short map, not a restatement.
   human-approval-gated), `backend-deploy.yml`/`frontend-deploy.yml` (target
   `production`, fully automatic), `infrastructure-tests.yml` (nightly +
   on-demand).
-- `tests/infrastructure/` — Terraform validation wrapper plus pytest suites
+- `infrastructure/tests/` — Terraform validation wrapper plus pytest suites
   for resource existence, private connectivity, and OIDC authentication.
-- `scripts/` — one-time `bootstrap.sh` (Terraform state storage + GitHub OIDC
+- `infrastructure/scripts/` — one-time `bootstrap.sh` (Terraform state storage + GitHub OIDC
   Managed Identity) and `configure-github-environment.sh` (populates
   repository variables from Terraform outputs).
 

@@ -3,13 +3,13 @@ name: Terraform Validate
 on:
   pull_request:
     paths:
-      - "terraform/**"
-      - "tests/infrastructure/test_terraform_validate.sh"
+      - "infrastructure/terraform/**"
+      - "infrastructure/tests/test_terraform_validate.sh"
       - ".github/workflows/terraform-validate.yml"
   push:
     branches: [main]
     paths:
-      - "terraform/**"
+      - "infrastructure/terraform/**"
 
 permissions:
   contents: read
@@ -29,7 +29,7 @@ jobs:
           terraform_version: ${{ vars.TERRAFORM_VERSION }}
 
       - name: terraform fmt / validate
-        run: ./tests/infrastructure/test_terraform_validate.sh
+        run: ./infrastructure/tests/test_terraform_validate.sh
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
@@ -39,12 +39,12 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Terraform Init (with backend)
-        working-directory: terraform
+        working-directory: infrastructure/terraform
         run: terraform init -backend-config=backend-prod.hcl -input=false
 
       - name: Terraform Plan
         id: plan
-        working-directory: terraform
+        working-directory: infrastructure/terraform
         env:
           TF_VAR_azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_azure_tenant_id: ${{ vars.AZURE_TENANT_ID }}
@@ -55,7 +55,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tfplan
-          path: terraform/tfplan
+          path: infrastructure/terraform/tfplan
           retention-days: 5
 
       # This plan step is FR-016's automated drift check: a manually-changed

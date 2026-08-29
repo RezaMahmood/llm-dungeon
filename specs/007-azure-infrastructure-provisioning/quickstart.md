@@ -57,7 +57,7 @@ This guide documents the steps to validate each user story and feature requireme
 
 2. **Update Backend Configuration**
 
-   Update `terraform/backend-prod.hcl`:
+   Update `infrastructure/terraform/backend-prod.hcl`:
    ```hcl
    resource_group_name  = "llm-dungeon"
    storage_account_name = "llmdungeontstateprod"
@@ -68,7 +68,7 @@ This guide documents the steps to validate each user story and feature requireme
 3. **Initialize Terraform**
 
    ```bash
-   cd terraform/
+   cd infrastructure/terraform/
    terraform init -backend-config=backend-prod.hcl
    ```
 
@@ -92,14 +92,14 @@ use this backend in all future operations.
 
 **Prerequisites**:
 - Bootstrap storage account created (Scenario 1)
-- Terraform variables configured (`terraform/terraform.tfvars`)
+- Terraform variables configured (`infrastructure/terraform/terraform.tfvars`)
 - Azure subscription access
 
 **Setup Steps**:
 
 1. **Review Terraform Configuration**
 
-   Ensure `terraform/terraform.tfvars` contains:
+   Ensure `infrastructure/terraform/terraform.tfvars` contains:
    ```hcl
    environment     = "production"
    azure_region    = "westeurope"
@@ -111,7 +111,7 @@ use this backend in all future operations.
 2. **Plan Terraform Changes**
 
    ```bash
-   cd terraform/
+   cd infrastructure/terraform/
    terraform plan -out=tfplan
    ```
 
@@ -280,7 +280,7 @@ Outputs:
 2. **Run Private Connectivity Tests**
 
    ```bash
-   cd tests/infrastructure/
+   cd infrastructure/tests/
    pytest test_private_connectivity.py -v
    ```
 
@@ -444,8 +444,8 @@ test_private_connectivity.py::test_public_access_disabled PASSED
 
    ```bash
    # Search application code for hardcoded Azure endpoints
-   grep -r "blob.core.windows.net" backend/src/
-   grep -r "documents.azure.com" backend/src/
+   grep -r "blob.core.windows.net" src/backend/src/
+   grep -r "documents.azure.com" src/backend/src/
    # Expected: No matches (all values come from environment variables)
    ```
 
@@ -498,8 +498,8 @@ test_private_connectivity.py::test_public_access_disabled PASSED
 
    ```bash
    git checkout -b test/backend-deploy
-   # Make a change to backend/src/main.py (e.g., add a comment)
-   git add backend/src/main.py
+   # Make a change to src/backend/src/main.py (e.g., add a comment)
+   git add src/backend/src/main.py
    git commit -m "test: backend deployment"
    git push origin test/backend-deploy
    ```
@@ -543,8 +543,8 @@ test_private_connectivity.py::test_public_access_disabled PASSED
 
    ```bash
    git checkout -b test/frontend-deploy
-   # Make change to frontend/src/App.jsx
-   git add frontend/src/App.jsx
+   # Make change to src/frontend/src/App.jsx
+   git add src/frontend/src/App.jsx
    git commit -m "test: frontend deployment"
    git push origin test/frontend-deploy
    # Create PR, merge to main
@@ -598,7 +598,7 @@ test_private_connectivity.py::test_public_access_disabled PASSED
    ```bash
    # Manual trigger from GitHub Actions UI
    # or execute locally:
-   cd tests/infrastructure/
+   cd infrastructure/tests/
    pytest test_*.py -v
    ```
 
@@ -641,14 +641,14 @@ test_resource_creation.py::test_cosmos_public_access_disabled PASSED
    ```
 
 2. **Identify Issue**
-   - Configuration error → Fix terraform/terraform.tfvars, re-run Terraform
+   - Configuration error → Fix infrastructure/terraform/terraform.tfvars, re-run Terraform
    - Permission error → Add missing role assignment, retry
    - Network error → Check private endpoint DNS, re-run validation tests
 
 3. **Redeploy**
    ```bash
    # For infrastructure
-   cd terraform/
+   cd infrastructure/terraform/
    terraform apply
    
    # For application
@@ -667,9 +667,9 @@ terraform destroy  # Interactive approval required
 
 **Ongoing Validation**:
 
-- Weekly: Manual smoke test of backend/frontend endpoints
+- Weekly: Manual smoke test of src/backend/frontend endpoints
 - Daily: Nightly infrastructure validation tests (automated)
-- Per-deployment: Smoke test after backend/frontend deployment
+- Per-deployment: Smoke test after src/backend/frontend deployment
 - Real-time: Application Insights dashboard for errors, latency, LLM cost
 
 ---

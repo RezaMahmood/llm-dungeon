@@ -6,7 +6,7 @@ capability-based authorization (feature `002-login-and-access-control`).
 ## Structure
 
 ```
-backend/
+src/backend/
 ├── api/            # HTTP route handlers (auth, admin, game)
 ├── models/         # AllowListEntry, CapabilityAssignment
 ├── services/       # Cosmos DB, token validation, allow-list, capabilities
@@ -27,7 +27,7 @@ cp .env.example .env   # fill in AZURE_TENANT_ID, AZURE_APP_ID, COSMOS_ENDPOINT
 ## Running tests
 
 ```bash
-pytest backend/tests/ -v --cov=backend
+pytest src/backend/tests/ -v --cov=backend
 ```
 
 Tests mock Cosmos DB and Azure AD's JWKS endpoint — no live Azure resources
@@ -52,12 +52,12 @@ func start
 ## Deployment
 
 Deployed to the Azure Functions app provisioned by
-[007-azure-infrastructure-provisioning](../specs/007-azure-infrastructure-provisioning/spec.md)
+[007-azure-infrastructure-provisioning](../../specs/007-azure-infrastructure-provisioning/spec.md)
 via the GitHub Actions workflow, on merge to `main`.
 
 ## API endpoints
 
-See [contracts/api.md](../specs/002-login-and-access-control/contracts/api.md) for full
+See [contracts/api.md](../../specs/002-login-and-access-control/contracts/api.md) for full
 request/response contracts.
 
 | Endpoint | Method | Requires |

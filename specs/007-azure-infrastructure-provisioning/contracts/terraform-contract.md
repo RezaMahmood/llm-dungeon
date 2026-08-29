@@ -4,9 +4,9 @@
 
 This contract defines the Terraform variables (inputs) and outputs that infrastructure code must provide.
 
-## Input Variables (terraform/variables.tf)
+## Input Variables (infrastructure/terraform/variables.tf)
 
-All variables are defined in `terraform/variables.tf`. Configuration-specific values are provided in `terraform.tfvars` (Production).
+All variables are defined in `infrastructure/terraform/variables.tf`. Configuration-specific values are provided in `terraform.tfvars` (Production).
 
 ### Core Environment Variables
 
@@ -218,9 +218,9 @@ variable "github_repository_branch" {
 
 ---
 
-## Output Values (terraform/outputs.tf)
+## Output Values (infrastructure/terraform/outputs.tf)
 
-Outputs are exported for GitHub Actions workflows and downstream consumption. All outputs are defined in `terraform/outputs.tf`.
+Outputs are exported for GitHub Actions workflows and downstream consumption. All outputs are defined in `infrastructure/terraform/outputs.tf`.
 
 ### Infrastructure Resource Names & IDs
 
@@ -449,7 +449,7 @@ terraform init -backend-config=backend-prod.hcl
 
 ## Validation & Constraints
 
-**Required Outputs**: All outputs listed above must be present in `terraform/outputs.tf`. Missing outputs will break downstream GitHub Actions workflows.
+**Required Outputs**: All outputs listed above must be present in `infrastructure/terraform/outputs.tf`. Missing outputs will break downstream GitHub Actions workflows.
 
 **State File**: `terraform.tfstate` stored in Azure Storage account (backend). Never commit to Git.
 
@@ -462,7 +462,7 @@ terraform init -backend-config=backend-prod.hcl
 
 **Version Pinning**:
 ```hcl
-# terraform/main.tf
+# infrastructure/terraform/main.tf
 terraform {
   required_version = ">= 1.5.0"
   

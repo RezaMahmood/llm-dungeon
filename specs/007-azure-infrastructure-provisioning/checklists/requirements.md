@@ -84,8 +84,8 @@
   IDs sequential and referenced consistently. No CRITICAL/HIGH findings remain.
 - 2026-08-29: Ran `/speckit-implement`. All 44 tasks except the six "execute
   quickstart end-to-end" ones (T027, T030, T032, T037, T040, T044) are complete:
-  every `terraform/*.tf` file, all 5 GitHub Actions workflows, `scripts/bootstrap.sh`,
-  `scripts/configure-github-environment.sh`, and all 4 `tests/infrastructure/*`
+  every `infrastructure/terraform/*.tf` file, all 5 GitHub Actions workflows, `infrastructure/scripts/bootstrap.sh`,
+  `infrastructure/scripts/configure-github-environment.sh`, and all 4 `infrastructure/tests/*`
   suites are written and pass `terraform fmt`/`validate` against the real azurerm
   v5.3.0 provider (contract said `>= 3.80.0`, no upper bound — v5 has breaking
   changes from v3/v4, e.g. `azurerm_function_app_flex_consumption` for the Flex
@@ -94,7 +94,7 @@
   Live provisioning against the real `llm-dungeon` subscription (westeurope):
   the `production`/`production-infra` GitHub environments were created (T014,
   confirmed: `production` unprotected, `production-infra` requires reviewer
-  RezaMahmood, both branch-restricted to `main`); `scripts/bootstrap.sh` ran
+  RezaMahmood, both branch-restricted to `main`); `infrastructure/scripts/bootstrap.sh` ran
   successfully (Terraform state Storage Account, GitHub OIDC Managed Identity
   with federated credential and Contributor role); `terraform apply` provisioned
   21 of 31 resources (VNet, both subnets, all 3 Private DNS zones + VNet links,
@@ -120,7 +120,7 @@
   `app_settings` include `COSMOS_ENDPOINT`) remain unprovisioned. The user
   chose to stop and resume later rather than keep retrying automatically.
   **To resume**: re-run `terraform apply -var-file=terraform.tfvars` from
-  `terraform/` (with `TF_VAR_azure_subscription_id`/`TF_VAR_azure_tenant_id`
+  `infrastructure/terraform/` (with `TF_VAR_azure_subscription_id`/`TF_VAR_azure_tenant_id`
   set, or via `terraform-apply.yml` once this branch merges to `main`) — the
   21 already-applied resources will show no changes; only the 10 blocked ones
   will be attempted. If Cosmos DB creation leaves a `provisioningState: Failed`
