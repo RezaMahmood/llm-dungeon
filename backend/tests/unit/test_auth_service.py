@@ -1,0 +1,105 @@
+"""Unit tests for AuthService.validate_token."""
+
+from __future__ import annotations
+
+import time
+from unittest.mock import MagicMock, patch
+
+import jwt
+import pytest
+
+from backend.services.auth_service import AuthService
+
+TENANT_ID = "test-tenant-id"
+APP_ID = "test-app-id"
+ISSUER = f"https://login.microsoftonline.com/{TENANT_ID}/v2.0"
+
+
+def _rsa_key_pair():
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    return private_key, private_key.public_key()
+
+
+@pytest.fixture(scope="module")
+def key_pair():
+    return _rsa_key_pair()
+
+
+def _make_token(private_key, *, issuer=ISSUER, audience=APP_ID, oid="user-oid-123", exp_delta=3600):
+    payload = {
+        "oid": oid,
+        "iss": issuer,
+        "aud": audience,
+        "exp": int(time.time()) + exp_delta,
+        "iat": int(time.time()),
+    }
+    return jwt.encode(payload, private_key, algorithm="RS256")
+
+
+def _service_with_mocked_key(public_key):
+    service = AuthService(jwks_uri="https://example.invalid/keys", issuer=ISSUER, audience=APP_ID)
+    signing_key = MagicMock()
+    signing_key.key = public_key
+    mock_jwk_client = MagicMock()
+    mock_jwk_client.get_signing_key_from_jwt.return_value = signing_key
+    service._jwk_client = mock_jwk_client
+    service._jwk_client_created_at = time.time()
+    return service
+
+
+def test_validate_token_with_valid_token_returns_true_and_oid(key_pair):
+    private_key, public_key = key_pair
+    service = _service_with_mocked_key(public_key)
+    token = _make_token(private_key)
+
+    is_valid, user_oid, error = service.validate_token(token)
+
+    assert is_valid is True
+    assert user_oid == "user-oid-123"
+    assert error is None
+
+
+def test_validate_token_with_expired_token_returns_false(key_pair):
+    private_key, public_key = key_pair
+    service = _service_with_mocked_key(public_key)
+    token = _make_token(private_key, exp_delta=-3600)
+
+    is_valid, user_oid, error = service.validate_token(token)
+
+    assert is_valid is False
+    assert user_oid is None
+
+
+def test_validate_token_with_invalid_signature_returns_false(key_pair):
+    _private_key, public_key = key_pair
+    other_private_key, _other_public_key = _rsa_key_pair()
+    service = _service_with_mocked_key(public_key)
+    token = _make_token(other_private_key)
+
+    is_valid, user_oid, error = service.validate_token(token)
+
+    assert is_valid is False
+    assert user_oid is None
+
+
+def test_validate_token_with_wrong_issuer_returns_false(key_pair):
+    private_key, public_key = key_pair
+    service = _service_with_mocked_key(public_key)
+    token = _make_token(private_key, issuer="https://login.microsoftonline.com/wrong-tenant/v2.0")
+
+    is_valid, user_oid, error = service.validate_token(token)
+
+    assert is_valid is False
+    assert user_oid is None
+
+
+def test_validate_token_with_no_token_returns_false():
+    service = AuthService(jwks_uri="https://example.invalid/keys", issuer=ISSUER, audience=APP_ID)
+
+    is_valid, user_oid, error = service.validate_token("")
+
+    assert is_valid is False
+    assert user_oid is None
+    assert error is not None
