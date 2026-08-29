@@ -241,6 +241,29 @@
 
 ---
 
+## 9. Cosmos DB Region: West Europe Capacity Shortage
+
+**Unknown**: None at design time — this was discovered during implementation (`terraform apply` against the live subscription), not during planning.
+
+**Decision**:
+- The Cosmos DB account is provisioned in `uksouth`, via a dedicated `cosmos_region` variable, independent of `azure_region` (`westeurope`) which every other resource uses.
+- Single region, single write region, no Availability Zone redundancy (`automatic_failover_enabled = false`, `multiple_write_locations_enabled = false`, one `geo_location` block with `zone_redundant = false`) — this project's scale (~5-10 users) needs none of Cosmos DB's multi-region/AZ features, so there's no reason to accept the added complexity of a second region's AZ capacity constraints on top of the first.
+- The VNet, both subnets, and every other resource stay in `westeurope`; Cosmos's private endpoint connects cross-region (Azure Private Link supports this natively over the Microsoft backbone — no additional peering or gateway required).
+
+**Rationale**:
+- Every `terraform apply` attempt against `westeurope` failed identically: `ServiceUnavailable`/"Sorry, we are currently experiencing high demand in West Europe region for the zonal redundant (Availability Zones) accounts, and cannot fulfill your request at this time." This was confirmed as a genuine regional platform capacity issue — not a Terraform/config problem — via a direct `az cosmosdb create` probe using a different account name and bypassing Terraform entirely, which failed with the identical message.
+- `uksouth` was chosen as a nearby region — region selection for this project is based on proximity to the user, not a data-residency/compliance requirement (confirmed: none exists), so any nearby region with available capacity is an acceptable substitute — and validated by provisioning (then deleting) a real test Cosmos account there before committing to the change; it succeeded on the first attempt.
+- Moving only Cosmos DB (not the whole stack) to a second region keeps the blast radius of this workaround minimal and avoids re-litigating every other resource's region.
+
+**Alternatives Considered**:
+- Wait and retry `westeurope` periodically: tried first (multiple attempts over several minutes, plus a 2-minute backoff) — Azure's capacity message didn't clear; no way to predict when/if it would.
+- Move the entire stack to a different region: unnecessary — only Cosmos DB was capacity-constrained; every other resource provisioned successfully in `westeurope` on the first attempt.
+- Request a region access/quota increase (the `aka.ms/cosmosdbquota` link Azure's error message provides): a real option for the future if `uksouth` also becomes constrained, but not pursued here since a working nearby region was available immediately.
+
+**Validation**: `az cosmosdb create` succeeded in `uksouth` (probed, then deleted, before the real Terraform-managed account was created); `terraform apply` subsequently created the real Cosmos DB account, database, container, and its Cosmos-native RBAC role assignment without error.
+
+---
+
 ## Summary of Resolutions
 
 | Unknown | Decision | Impact |
@@ -253,5 +276,6 @@
 | Private DNS | Private DNS Zones (Terraform-provisioned) | Fully version-controlled, Azure-native, secure |
 | GitHub OIDC Identity | Dedicated user-assigned Managed Identity, not App Registration | Uniform Managed-Identity-only auth model, narrower blast radius, no App Registration lifecycle |
 | Resource Group Strategy | Single pre-existing `llm-dungeon` group, referenced via data source | Matches externally-managed group constraint, simplifies RBAC scope, avoids accidental adoption/deletion |
+| Cosmos DB Region | `uksouth` (not `westeurope`), single-region/no-AZ | Works around a real West Europe Cosmos DB capacity shortage discovered during implementation; every other resource stays in `westeurope` |
 
 All NEEDS CLARIFICATION items from Technical Context resolved. Proceed to Phase 1 design (data-model.md, contracts/, quickstart.md).

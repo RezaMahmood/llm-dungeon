@@ -18,7 +18,7 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
 
 2. **Setup Terraform**
    - Action: `hashicorp/setup-terraform@v2`
-   - Input: `terraform_version`: From environment variable (e.g., 1.6.0)
+   - Input: `terraform_version`: From environment variable (e.g., 1.16.0)
    - Use: Install Terraform CLI
 
 3. **Terraform Format Check**
@@ -55,7 +55,7 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
 
 **Purpose**: Apply Terraform changes to Azure (actual resource provisioning/updates)
 
-**Environment**: `production`
+**Environment**: `production-infra` (confirmed) — a separate GitHub environment from `production`, used only by this workflow, so its required-reviewer approval gate covers infrastructure changes exclusively and never blocks application code deployments (FR-010/SC-006 require those to run with no manual step)
 
 **Permissions**: 
 - `contents: read` (checkout code)
@@ -111,7 +111,7 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
 - Notification: Slack/email alert (if configured) on failure
 - Manual Review: Post-apply validation fails → investigate and correct configuration
 
-**Approval**: Required (confirmed) — the `production` GitHub environment has a required reviewer rule, so this workflow pauses for manual approval before `terraform apply` executes
+**Approval**: Required (confirmed) — the `production-infra` GitHub environment has a required reviewer rule, so this workflow pauses for manual approval before `terraform apply` executes. `backend-deploy.yml` and `frontend-deploy.yml` target the separate `production` environment, which has no approval requirement, so application code deployments remain fully automatic.
 
 ---
 
@@ -307,17 +307,20 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
 
 ---
 
-## GitHub Environment Configuration (production)
+## GitHub Environments (production and production-infra)
 
-**Environment Name**: `production`
+Two GitHub environments are used (confirmed), so the required-reviewer approval gate covers infrastructure changes only, never application code deployments:
 
-**Deployment Branches**: `main` only (branch protection rule)
+| Environment | Used by | Required Reviewers |
+|---|---|---|
+| `production` | `backend-deploy.yml`, `frontend-deploy.yml`, `infrastructure-tests.yml` | None — application deploys stay fully automatic per FR-010/SC-006 |
+| `production-infra` | `terraform-apply.yml` only | Required — at least one reviewer must approve before `terraform apply` runs against Azure |
 
-**Required Reviewers**: Confirmed — at least one required reviewer configured on the `production` environment; `terraform-apply.yml`, `backend-deploy.yml`, and `frontend-deploy.yml` all pause for manual approval before executing against production
+**Deployment Branches** (both environments): `main` only (branch protection rule)
 
-**Environment Secrets**: (none required — OIDC is used instead)
+**Environment Secrets** (both environments): (none required — OIDC is used instead)
 
-**Environment Variables** (public):
+**Environment Variables** — defined once at the **repository** level (not duplicated per-environment, since both environments' workflows need the same identity/resource values and none of these are secrets):
 ```yaml
 AZURE_SUBSCRIPTION_ID: <subscription-id>
 AZURE_TENANT_ID: <entra-id-tenant-id>
@@ -327,14 +330,15 @@ FUNCTIONS_APP_NAME: llmdungeon-func-prod
 STORAGE_ACCOUNT_NAME: llmdungeonassetsprod
 COSMOS_ACCOUNT_NAME: llmdungeon-cosmos-prod
 STATIC_WEB_APP_NAME: llmdungeon-web-prod
-TERRAFORM_VERSION: 1.6.0
+TERRAFORM_VERSION: 1.16.0
 AZURE_PROVIDER_VERSION: 3.80.0
 ```
 
-**Federated OIDC Trust** (configured on the dedicated GitHub OIDC Managed Identity, not an app registration):
-- **Issuer**: `https://token.actions.githubusercontent.com`
-- **Subject**: `repo:owner/repo:ref:refs/heads/main` (main branch only)
-- **Audience**: `api://AzureADTokenExchange` (default GitHub Actions audience)
+**Federated OIDC Trust** (configured on the dedicated GitHub OIDC Managed Identity, not an app registration) — **two** federated credentials, since GitHub's OIDC token subject claim differs by trigger type. This repo also issues subjects in the newer immutable-ID format (`repo:OWNER@ownerID/REPO@repoID:...`), not the classic name-only format — `scripts/bootstrap.sh` fetches the numeric IDs via `gh api` rather than hardcoding them:
+- **`github-actions-main`**: `Subject: repo:OWNER@ownerID/REPO@repoID:ref:refs/heads/main` (main branch only — matches on branch, not GitHub environment name, so the same federated credential authenticates jobs in both `production` and `production-infra`). Covers `push`-triggered workflow runs (`terraform-apply.yml`, `backend-deploy.yml`, `frontend-deploy.yml`, `infrastructure-tests.yml`).
+- **`github-actions-pull-request`**: `Subject: repo:OWNER@ownerID/REPO@repoID:pull_request`. Covers `pull_request`-triggered runs — specifically `terraform-validate.yml`'s Azure-login-requiring `terraform plan` step on PRs. Discovered as a two-part gap during implementation: a `pull_request` run's OIDC subject ends `:pull_request`, never `:ref:refs/heads/main`, regardless of which branch the PR targets (`AADSTS700213` without this second credential) — and even after adding it, the name-only subject still failed until the owner/repo numeric IDs were included.
+- **Issuer** (both): `https://token.actions.githubusercontent.com`
+- **Audience** (both): `api://AzureADTokenExchange` (default GitHub Actions audience)
 
 ---
 

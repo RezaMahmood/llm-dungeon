@@ -21,7 +21,7 @@
 
 **Validation Rules**:
 - All resource names follow naming convention: `{prefix}-{resource-type}-{environment}` (e.g., `llmdungeon-func-prod`), **except Storage Accounts**, which use a hyphen-free variant `{prefix}{resource-type}{environment}` (e.g., `llmdungeonassetsprod`) since Azure Storage Account names may not contain hyphens
-- All resources are tagged with `environment=production`, `managed_by=terraform`, `project=llm-dungeon`, `application=llm-dungeon`, and `owner=<team/person, confirmed by user at apply time>`
+- All resources are tagged with `environment=production`, `managed_by=terraform`, `project=llm-dungeon`, `application=llm-dungeon`, and `owner=Reza Mahmood`
 - No hardcoded secrets or credentials in configuration files
 
 **State Transitions**:
@@ -56,12 +56,12 @@
 - `access_tier`: `Hot`
 - `https_required`: `true`
 - `minimum_tls_version`: `TLS1_2`
-- `public_network_access`: `Disabled`
+- `public_network_access`: `Enabled` — deliberately not `Disabled` (unlike the application Storage Account below): this account is created before any VNet exists and must be reachable from GitHub-hosted runners and developer machines, neither of which have a private network path to it. Access is still gated by Azure AD auth (`use_azuread_auth` in backend.tf), never anonymous or shared-key.
 - `container_name`: `terraform-state`
 
 **Validation Rules**:
 - Must exist before main Terraform configuration applies (bootstrap step)
-- Storage account key used only during `terraform init`; no credentials stored in Git
+- No storage account keys used anywhere; `terraform init`/`plan`/`apply` and the bootstrap script authenticate via Azure AD (the operator's `az login` session or the GitHub OIDC Managed Identity), never a key
 
 **Access Control**:
 - Only GitHub Actions runner (via the GitHub OIDC Managed Identity) and bootstrap operator (via Azure CLI) can access
@@ -101,12 +101,14 @@
 
 **Properties**:
 - `account_name`: `{prefix}-cosmos-{env}`
+- `region`: `uksouth` — **not** the project's `azure_region` (`westeurope`), which every other resource uses. `westeurope` is confirmed out of Cosmos DB capacity (Azure returns `ServiceUnavailable`/"high demand ... zonal redundant ... cannot fulfill your request at this time" on every create attempt, reproduced via a direct `az cosmosdb create` probe unrelated to Terraform). `uksouth` was probed and confirmed to have capacity before committing to it. Private Link/private endpoints work cross-region, so the VNet and every other resource stay in `westeurope`; only Cosmos's data plane lives in `uksouth`.
 - `offer_type`: `Standard` (supports serverless)
 - `kind`: `GlobalDocumentDB`
 - `consistency_level`: `Session` (confirmed; suitable for game state)
 - `public_network_access_enabled`: `false`
 - `minimum_tls_version`: `Tls12`
-- `backup.type`: `Periodic` (confirmed) — interval and retention set to Azure defaults (every 4h, 7-day retention) unless tuned later
+- `backup.type`: `Periodic` (confirmed), `interval_in_minutes: 240`, `retention_in_hours: 168` (every 4h, 7-day retention — Azure's own defaults, but must now be set explicitly; the API rejects `type: Periodic` with no interval/retention)
+- `automatic_failover_enabled`: `false`, `multiple_write_locations_enabled`: `false`, single `geo_location` block with `zone_redundant: false` — single region, single write region, no Availability Zone redundancy; this project's scale (~5-10 users) needs none of it, and AZ capacity is exactly what's constrained in `westeurope` anyway
 - Database: `{prefix}-db-prod`
 - Container: `stories` (story configuration documents)
 
@@ -207,8 +209,8 @@
 **Deployments** (Models):
 - `deployment_name`: `gpt-4o-mini`
 - `model_name`: `gpt-4o-mini`
-- `model_version`: Latest stable
-- `scale_type`: `Standard` (token-per-minute limits apply)
+- `model_version`: Latest stable (`2024-07-18` at time of provisioning)
+- `scale_type`: `DataZoneStandard` — a plain region-pinned `Standard` SKU is no longer offered for this model in `westeurope` (Azure now only exposes `Global*`/`DataZone*` SKUs for it). `DataZoneStandard` was chosen over `GlobalStandard` at the time (keeping inference traffic within the EU data zone, closer to the region-pinned behavior `Standard` would have had); with the data-residency requirement since confirmed unnecessary (region choice is proximity-only), `GlobalStandard` would now be an equally acceptable choice — not changed here since `DataZoneStandard` is already live and working, but worth revisiting if `GlobalStandard` offers better availability/pricing later
 - `capacity`: `1` (Terraform's `azurerm_cognitive_deployment` capacity unit = 1,000 TPM, so `capacity = 1` provisions 1,000 TPM / 1K TPM; can scale up later without redesign)
 
 **Validation Rules**:
@@ -320,13 +322,14 @@
 
 ---
 
-#### GitHub Actions Environment
-**Purpose**: CI/CD context and configuration for deployment pipelines.
+#### GitHub Actions Environments
+**Purpose**: CI/CD context and configuration for deployment pipelines. Split into two environments (confirmed) so the required-reviewer approval gate covers infrastructure changes only, never application code deployments — otherwise FR-010/SC-006's "no manual deployment step" guarantee would be broken for routine app deploys.
 
 **Properties**:
-- `environment_name`: `production`
-- Deployment branches: `main` only
-- Environment variables:
+- `production`: used by `backend-deploy.yml`, `frontend-deploy.yml`, `infrastructure-tests.yml` — **no** required reviewers; deploys run fully automatically on merge
+- `production-infra`: used by `terraform-apply.yml` only — **required reviewer** configured; a human must approve before `terraform apply` runs against Azure
+- Deployment branches (both): `main` only
+- Environment variables — defined once at the **repository** level, not duplicated per environment (both environments' workflows need the same values, none are secrets):
   - `AZURE_SUBSCRIPTION_ID`: Azure subscription ID
   - `AZURE_TENANT_ID`: Entra ID tenant ID
   - `AZURE_CLIENT_ID`: GitHub OIDC Managed Identity client ID
@@ -339,9 +342,9 @@
   - `AZURE_PROVIDER_VERSION`: Azure Provider version (pinned)
 
 **Validation Rules**:
-- Environment variables are public (no secrets)
-- Federated OIDC trust configured between GitHub repo and the dedicated GitHub OIDC Managed Identity
-- Deployment protected by require-approval and require-status-checks
+- Repository variables are public (no secrets)
+- Federated OIDC trust configured between GitHub repo and the dedicated GitHub OIDC Managed Identity, matched on branch ref (not environment name), so the same credential authenticates jobs in both environments
+- `production-infra` is protected by require-approval and require-status-checks; `production` is protected by require-status-checks only (no approval)
 
 ---
 
@@ -351,14 +354,15 @@
 **Properties**:
 - `identity_type`: User-assigned Managed Identity
 - `role_assignments`: Scoped to the resource group only what deployment and Terraform-apply workflows require (e.g., Contributor on the resource group) — not a broad, unscoped subscription-level role
-- Federated credential configuration:
-  - `issuer`: GitHub OIDC issuer (`https://token.actions.githubusercontent.com`)
-  - `subject`: `repo:owner/repo:ref:refs/heads/main` (main branch only)
-  - `audience`: GitHub Actions default audience (`api://AzureADTokenExchange`)
+- **Two** federated credentials (not one) — GitHub's OIDC subject claim differs by trigger type, so one credential per shape. This repo also issues subjects in the newer immutable-ID format (`repo:OWNER@ownerID/REPO@repoID:...`), not the classic name-only format — discovered when a name-only subject still failed `AADSTS700213` after correctly splitting by trigger type; `scripts/bootstrap.sh` fetches the owner/repo numeric IDs via `gh api` rather than hardcoding them:
+  - `github-actions-main` — `subject`: `repo:OWNER@ownerID/REPO@repoID:ref:refs/heads/main` (covers `push`-triggered runs: `terraform-apply.yml`, `backend-deploy.yml`, `frontend-deploy.yml`, `infrastructure-tests.yml`)
+  - `github-actions-pull-request` — `subject`: `repo:OWNER@ownerID/REPO@repoID:pull_request` (covers `pull_request`-triggered runs: `terraform-validate.yml`'s Azure-login `terraform plan` step). Discovered during implementation via `AADSTS700213` ("no matching federated identity record") on the first PR-triggered run — a PR's OIDC subject is never `ref:refs/heads/main`, regardless of target branch
+  - `issuer` (both): GitHub OIDC issuer (`https://token.actions.githubusercontent.com`)
+  - `audience` (both): GitHub Actions default audience (`api://AzureADTokenExchange`)
 
 **Validation Rules**:
-- Trust is scoped to specific repository and branch (prevents impersonation from forks)
-- Federated credential is configured on the Managed Identity, not a traditional Microsoft Entra App Registration/service principal
+- Trust is scoped to specific repository and branch/event (prevents impersonation from forks)
+- Federated credentials are configured on the Managed Identity, not a traditional Microsoft Entra App Registration/service principal
 - No long-lived credentials stored in GitHub
 - Created outside of the main Terraform apply (bootstrap step, alongside the Terraform backend storage account) since Terraform itself authenticates as this identity — a chicken-and-egg constraint identical to the state-storage bootstrap
 

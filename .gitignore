@@ -90,6 +90,22 @@ tmp/
 local.settings.json
 .azure/
 
+# Terraform (terraform/terraform.tfvars and backend-prod.hcl ARE tracked —
+# no secrets, per contracts/deployment-config-contract.md)
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+tfplan
+outputs.json
+
 # Test Coverage
 .coverage/
 coverage.xml

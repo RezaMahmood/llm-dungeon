@@ -1,0 +1,65 @@
+name: Backend Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+  workflow_dispatch: {}
+
+# Targets `production` (no approval gate) — application deploys stay fully
+# automatic per FR-010/SC-006. Only terraform-apply.yml targets the
+# `production-infra` environment, which does require approval.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install -r backend/requirements-dev.txt
+
+      - name: Run tests
+        run: pytest backend/tests/ -v
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Azure Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ vars.FUNCTIONS_APP_NAME }}
+          package: "backend"
+          remote-build: true
+
+      - name: Smoke test
+        run: |
+          # No dedicated health endpoint exists yet, and Entra ID auth is
+          # configured outside this Terraform (see 002-login-and-access-control),
+          # so a bare curl won't get a 200. Any HTTP response (not a
+          # connection failure) confirms the app is up and routing.
+          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
+            "https://${{ vars.FUNCTIONS_APP_NAME }}.azurewebsites.net/api/auth/me")
+          echo "Response status: $status"
+          if [ "$status" = "000" ]; then
+            echo "✗ No response from Functions app" >&2
+            exit 1
+          fi
+          echo "✓ Functions app responded (status $status)"

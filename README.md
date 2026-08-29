@@ -26,6 +26,7 @@ Cosmos DB (allowListEntries, capabilityAssignments)
 
 - Backend: see [backend/README.md](backend/README.md)
 - Frontend: see [frontend/README.md](frontend/README.md)
+- Infrastructure (Terraform, CI/CD, bootstrap): see [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md)
 - Login/access-control setup: see [docs/ADMIN_SETUP.md](docs/ADMIN_SETUP.md) and [docs/LOGIN_INSTRUCTIONS.md](docs/LOGIN_INSTRUCTIONS.md)
 
 `002-login-and-access-control` depends on infrastructure provisioned by

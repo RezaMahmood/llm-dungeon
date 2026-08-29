@@ -1,0 +1,11 @@
+pytest
+requests
+httpx
+azure-identity
+azure-storage-blob
+azure-cosmos
+azure-mgmt-web
+azure-mgmt-storage
+azure-mgmt-cosmosdb
+azure-mgmt-cognitiveservices
+azure-mgmt-network

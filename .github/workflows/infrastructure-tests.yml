@@ -1,0 +1,49 @@
+name: Infrastructure Tests
+
+on:
+  schedule:
+    - cron: "0 2 * * *" # 2 AM UTC nightly
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "terraform/**"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ vars.TERRAFORM_VERSION }}
+
+      - name: Install test dependencies
+        run: pip install -r tests/infrastructure/requirements.txt
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Init (read-only, for `terraform output`)
+        working-directory: terraform
+        run: terraform init -backend-config=backend-prod.hcl -input=false
+
+      - name: Run infrastructure tests
+        run: pytest tests/infrastructure/ -v
