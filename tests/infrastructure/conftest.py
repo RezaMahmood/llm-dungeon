@@ -33,14 +33,25 @@ def terraform_outputs() -> dict:
     """Load `terraform output -json` from terraform/ as a dict of {name: value}.
 
     Requires that `terraform apply` has already run in TERRAFORM_DIR (state
-    is read from the configured backend, not re-applied by this fixture).
+    is read from the configured backend, not re-applied by this fixture) and
+    that this job has already run `terraform init -backend-config=...` with
+    Azure credentials able to read the state (infrastructure-tests.yml does
+    both). Skips cleanly — rather than erroring — when run outside that
+    context, e.g. the generic test.yml job, which has neither.
     """
-    result = subprocess.run(
-        ["terraform", "output", "-json"],
-        cwd=TERRAFORM_DIR,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    try:
+        result = subprocess.run(
+            ["terraform", "output", "-json"],
+            cwd=TERRAFORM_DIR,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        pytest.skip(f"terraform not runnable in this context: {exc}")
+
+    if result.returncode != 0:
+        pytest.skip(f"terraform output failed (not initialized against live state here): {result.stderr[:300]}")
+
     raw = json.loads(result.stdout)
     return {name: entry["value"] for name, entry in raw.items()}
