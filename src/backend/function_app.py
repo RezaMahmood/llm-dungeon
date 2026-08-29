@@ -1,5 +1,7 @@
 """Azure Functions app entry point — registers HTTP routes for auth, admin, and game APIs."""
 
+import logging
+
 import azure.functions as func
 
 from backend.api.admin.accounts import add_account, list_accounts
@@ -12,6 +14,8 @@ from backend.api.utils import server_error
 from backend.config import config
 from backend.services.account_provisioning_service import AccountProvisioningService
 
+logger = logging.getLogger("function_app")
+
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
 if config.SEED_ADMIN_EMAIL:
@@ -23,6 +27,7 @@ def _guarded(handler):
         try:
             return handler(req)
         except Exception:  # noqa: BLE001 - convert unexpected errors to a generic 500
+            logger.exception("Unhandled error in %s", handler.__name__)
             return server_error()
 
     return wrapper
