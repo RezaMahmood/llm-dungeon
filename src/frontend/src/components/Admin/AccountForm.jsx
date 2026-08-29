@@ -53,24 +53,25 @@ export function AccountForm({ token, onAdded }) {
         />
       </div>
       <div className="field">
-        <label>
-          <input
-            type="checkbox"
-            checked={hasPlayer}
-            onChange={(event) => setHasPlayer(event.target.checked)}
-          />
-          {" "}Player
-        </label>
-      </div>
-      <div className="field">
-        <label>
-          <input
-            type="checkbox"
-            checked={hasAdministrator}
-            onChange={(event) => setHasAdministrator(event.target.checked)}
-          />
-          {" "}Administrator
-        </label>
+        <label>Roles</label>
+        <div className="seg">
+          <label className="seg-opt">
+            <input
+              type="checkbox"
+              checked={hasPlayer}
+              onChange={(event) => setHasPlayer(event.target.checked)}
+            />
+            <span>Player</span>
+          </label>
+          <label className="seg-opt">
+            <input
+              type="checkbox"
+              checked={hasAdministrator}
+              onChange={(event) => setHasAdministrator(event.target.checked)}
+            />
+            <span>Administrator</span>
+          </label>
+        </div>
       </div>
       <button type="submit" className="btn btn-primary" disabled={status === "submitting"}>
         {status === "submitting" ? "Adding…" : "Add account"}
