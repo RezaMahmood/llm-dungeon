@@ -50,16 +50,17 @@ A merged code change triggers a GitHub Actions workflow that builds and deploys 
 
 ### User Story 3 - GitHub Connects to Azure Without Stored Secrets (Priority: P3)
 
-GitHub Actions workflows authenticate to Azure using federated OpenID Connect (OIDC) identity federation, so no long-lived Azure credentials or secrets are stored in GitHub at all.
+GitHub Actions workflows authenticate to Azure using federated OpenID Connect (OIDC) identity federation anchored to an Azure Managed Identity, so no long-lived Azure credentials or secrets are stored in GitHub at all.
 
 **Why this priority**: This directly satisfies the project's security posture (no stored credentials where a keyless alternative exists) and is a prerequisite for User Story 2's deployments to run securely.
 
-**Independent Test**: Inspect the repository's configured secrets/credentials and verify no Azure client secret, certificate, or access key is present; trigger a deployment and verify it authenticates successfully via OIDC federation alone.
+**Independent Test**: Inspect the repository's configured secrets/credentials and verify no Azure client secret, certificate, or access key is present; inspect the Azure side and verify the federated credential is configured on a Managed Identity (not a traditional App Registration/service principal); trigger a deployment and verify it authenticates successfully via OIDC federation alone.
 
 **Acceptance Scenarios**:
 
-1. **Given** a GitHub Actions workflow that needs to act on Azure resources, **When** it runs, **Then** it authenticates using federated OIDC trust between GitHub and Azure, with no Azure secret stored in GitHub.
+1. **Given** a GitHub Actions workflow that needs to act on Azure resources, **When** it runs, **Then** it authenticates using federated OIDC trust between GitHub and an Azure Managed Identity, with no Azure secret stored in GitHub.
 2. **Given** the federated OIDC trust is misconfigured or missing for a given workflow run, **When** authentication is attempted, **Then** the run fails clearly at the authentication step rather than falling back to a stored secret or proceeding unauthenticated.
+3. **Given** the Managed Identity used for GitHub OIDC federation, **When** its granted Azure role assignments are inspected, **Then** they are scoped to only what the deployment and Terraform-apply workflows actually need, not a broad, unscoped subscription-level role.
 
 ---
 
@@ -117,6 +118,7 @@ Azure resource names needed by GitHub Actions workflows come from GitHub environ
 - **FR-009**: Application configuration values consumed by the backend MUST be provided via the Function App's application settings; no Azure App Configuration service or Key Vault is provisioned or required for this purpose.
 - **FR-010**: Deployment of application code (backend and frontend) to Azure MUST be automated via GitHub Actions workflows, requiring no manual upload or local deployment command.
 - **FR-011**: GitHub Actions workflows MUST authenticate to Azure using federated OpenID Connect (OIDC) identity federation; no long-lived Azure credential or secret may be stored in GitHub for this purpose.
+- **FR-011a**: The GitHub OIDC federated credential MUST be configured on an Azure user-assigned Managed Identity, not on a traditional Microsoft Entra App Registration/service principal. This Managed Identity MUST be dedicated to GitHub Actions federation (distinct from the Function App's own Managed Identity used in FR-008) and MUST be granted only the Azure role assignments its workflows actually require (e.g., Terraform apply and application deployment on the project's resource group), not a broad, unscoped subscription-level role.
 - **FR-012**: Azure resource names needed by GitHub Actions workflows MUST be supplied via GitHub environment variables scoped to the target deployment environment, not hardcoded in workflow files.
 - **FR-013**: This infrastructure MUST support exactly one deployment environment (Production) at this time. The Terraform configuration and GitHub Actions workflows MUST be structured so that adding further environments later does not require redesigning them, even though only one is provisioned now.
 - **FR-014**: The Static Web App frontend MUST connect to the Function App backend over standard public HTTPS. This is an explicit, documented exception to the private-connectivity default in FR-007: the Function App independently requires Entra ID-authenticated requests on every call (see `002-login-and-access-control`), so this path is protected by identity rather than network isolation.
@@ -128,8 +130,9 @@ Azure resource names needed by GitHub Actions workflows come from GitHub environ
 - **Terraform Configuration**: The version-controlled, declarative definition of every Azure resource this project needs, per environment.
 - **Terraform Remote State**: The persisted record of what Terraform has provisioned, stored in a dedicated Azure Storage account/container distinct from application data.
 - **Deployment Environment**: A named target (e.g., an environment such as development or production) with its own set of provisioned Azure resources and its own GitHub environment variables.
-- **GitHub Actions Workflow**: An automated pipeline that builds and deploys application code to a target Deployment Environment, authenticating to Azure via federated OIDC.
-- **Managed Identity**: The Azure-native identity assigned to the Function App, used for keyless authentication to Blob Storage, Cosmos DB, and Azure AI Foundry.
+- **GitHub Actions Workflow**: An automated pipeline that builds and deploys application code to a target Deployment Environment, authenticating to Azure via federated OIDC bound to the GitHub OIDC Managed Identity.
+- **Managed Identity (Function App)**: The Azure-native identity assigned to the Function App, used for keyless authentication to Blob Storage, Cosmos DB, and Azure AI Foundry.
+- **GitHub OIDC Managed Identity**: A dedicated Azure user-assigned Managed Identity carrying the federated credential trust with GitHub Actions, used by workflows to authenticate to Azure without a stored secret; scoped with only the role assignments deployment and Terraform-apply workflows require.
 - **Private Endpoint**: The private networking construct connecting the Function App to Blob Storage, Cosmos DB, and Azure AI Foundry without traversing the public internet.
 - **Azure AI Foundry Resource**: The provisioned LLM hosting resource, including at least one deployed language model, that the Function App calls using its Managed Identity for the application's narrative/LLM needs.
 
@@ -140,7 +143,7 @@ Azure resource names needed by GitHub Actions workflows come from GitHub environ
 - **SC-001**: An engineer can provision a complete, working environment from a clean resource group using only the checked-in Terraform configuration, with no manual portal configuration beyond the documented one-time bootstrap step.
 - **SC-002**: 100% of backend-to-Storage, backend-to-Cosmos-DB, and backend-to-Azure-AI-Foundry traffic observed in testing travels over a private network path; zero successful connections occur over a public endpoint. (The Static Web App-to-Function-App path is the one deliberate exception, per FR-014.)
 - **SC-003**: 100% of backend-to-Storage, backend-to-Cosmos-DB, and backend-to-Azure-AI-Foundry authentication observed in testing uses Managed Identity; zero stored access keys, connection strings, or API keys are present in configuration or code.
-- **SC-004**: 100% of GitHub Actions deployments to Azure in testing authenticate via federated OIDC; zero long-lived Azure credentials are stored in GitHub.
+- **SC-004**: 100% of GitHub Actions deployments to Azure in testing authenticate via federated OIDC bound to a Managed Identity; zero long-lived Azure credentials are stored in GitHub, and zero traditional Entra App Registration/service principal credentials are used for this connectivity.
 - **SC-005**: Changing an application configuration value for a given environment requires an application-settings update only — no application code change and no code redeployment.
 - **SC-006**: A merged, deployment-triggering change reaches its target environment through the automated workflow alone, with no manual deployment step performed by an engineer.
 
@@ -155,3 +158,5 @@ Azure resource names needed by GitHub Actions workflows come from GitHub environ
 - The Static Web App-to-Function App connection intentionally uses public HTTPS rather than a private path (confirmed) — this is the one deliberate, documented exception to the private-connectivity default, justified by the Function App's independent, per-request Entra ID authentication requirement.
 - Azure AI Foundry provisioning is in scope for this spec (confirmed): Terraform provisions the Foundry resource and at least one deployed model, reachable from the Function App only via Managed Identity over a private endpoint, consistent with every other backend dependency.
 - Model selection, capacity/throughput sizing, and content-safety configuration for the deployed model are implementation details for planning, not fixed by this spec beyond "at least one deployed language model" being available.
+- GitHub Actions authenticates to Azure via a federated credential on a dedicated user-assigned Managed Identity (confirmed), rather than a traditional Microsoft Entra App Registration/service principal with a federated credential. This Managed Identity is separate from the Function App's runtime Managed Identity (FR-008) since the two need different role assignments (deployment/Terraform-apply permissions vs. data-plane access to Storage/Cosmos DB/Foundry).
+- All Azure resources for this project — application resources and the Terraform backend state storage account alike — are provisioned into a single, pre-existing Resource Group (`llm-dungeon`), created out-of-band before any Terraform run. Terraform references this group but does not create, rename, or delete it.
