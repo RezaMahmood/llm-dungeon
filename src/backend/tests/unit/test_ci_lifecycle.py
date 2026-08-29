@@ -1,3 +1,3 @@
 def test_ci_lifecycle_step():
-    """Initial failing assertion to test fix and rerun flow."""
-    assert False, "Failing test before fix"
+    """Passing assertion to verify CI pass and merge availability after fix."""
+    assert True
