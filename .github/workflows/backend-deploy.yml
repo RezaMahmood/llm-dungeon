@@ -44,6 +44,30 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Sync AzureWebJobsStorage key
+        # Flex Consumption's internal storage settings (AzureWebJobsStorage,
+        # DEPLOYMENT_STORAGE_CONNECTION_STRING) require a real account key
+        # even though storage_authentication_type = "SystemAssignedIdentity"
+        # covers the deployment container path — see main.tf's comment on
+        # shared_access_key_enabled. Terraform doesn't manage these two
+        # settings, so if the key drifts (rotation, a stale/blank value from
+        # first provisioning) the Function App silently fails to load any
+        # functions at all until this is re-synced. Doing it on every deploy
+        # makes that self-healing instead of a manual incident response.
+        run: |
+          KEY=$(az storage account keys list \
+            --account-name ${{ vars.STORAGE_ACCOUNT_NAME }} \
+            --resource-group ${{ vars.RESOURCE_GROUP_NAME }} \
+            --query "[0].value" -o tsv)
+          echo "::add-mask::$KEY"
+          CONN="DefaultEndpointsProtocol=https;AccountName=${{ vars.STORAGE_ACCOUNT_NAME }};AccountKey=${KEY};EndpointSuffix=core.windows.net"
+          echo "::add-mask::$CONN"
+          az functionapp config appsettings set \
+            --name ${{ vars.FUNCTIONS_APP_NAME }} \
+            --resource-group ${{ vars.RESOURCE_GROUP_NAME }} \
+            --settings "AzureWebJobsStorage=${CONN}" "DEPLOYMENT_STORAGE_CONNECTION_STRING=${CONN}" \
+            --output none
+
       - name: Deploy to Azure Functions
         uses: Azure/functions-action@v1
         with:
@@ -60,15 +84,22 @@ jobs:
 
       - name: Smoke test
         run: |
-          # No dedicated health endpoint exists yet, and Entra ID auth is
-          # configured outside this Terraform (see 002-login-and-access-control),
-          # so a bare curl won't get a 200. Any HTTP response (not a
-          # connection failure) confirms the app is up and routing.
+          # Entra ID auth is configured outside this Terraform (see
+          # 002-login-and-access-control), so a bare curl won't get a 200.
+          # A 401 (no token provided) means the host loaded its functions
+          # and routed the request correctly. A 404 means the host loaded
+          # zero functions (e.g. the AzureWebJobsStorage/module-loading
+          # failures this step and the one above guard against) — treat
+          # that as a deploy failure, not a benign "some response" pass.
           status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
             "https://${{ vars.FUNCTIONS_APP_NAME }}.azurewebsites.net/api/auth/me")
           echo "Response status: $status"
           if [ "$status" = "000" ]; then
             echo "✗ No response from Functions app" >&2
+            exit 1
+          fi
+          if [ "$status" = "404" ]; then
+            echo "✗ 404 from a known route usually means the host loaded zero functions (storage auth or module-loading failure) — check Application Insights traces" >&2
             exit 1
           fi
           echo "✓ Functions app responded (status $status)"
