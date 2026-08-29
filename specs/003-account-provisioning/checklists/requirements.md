@@ -40,3 +40,8 @@
 - Depends on `002-login-and-access-control` (this spec is the concrete mechanism behind
   its Allow-List Entry / Capability Role concepts) and `007-azure-infrastructure-provisioning`
   (seed administrator configuration source).
+- 2026-08-29: Split out former User Story 3 ("Administrator Views Existing Provisioned
+  Accounts") into `014-account-listing`, so this spec covers at most two user stories.
+  Requirements/Success Criteria/Assumptions specific to viewing moved with it; this
+  spec's remaining requirements, checklist items, and existing implementation are
+  unaffected. All items re-checked and still pass.

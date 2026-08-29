@@ -129,6 +129,18 @@
   Terraform recreate over a failed record with the same name.
   T027/T030/T032/T037/T040/T044 (the quickstart end-to-end validations) are
   correctly left unchecked in tasks.md pending Cosmos DB/Functions completion.
+- 2026-08-29: Split former User Stories 3, 4, and 5 out into `015-keyless-azure-authentication`
+  (User Stories 3 and 4: GitHub OIDC, backend private connectivity/Managed Identity) and
+  `016-environment-configuration-externalization` (User Story 5), as part of a
+  project-wide pass to keep each spec to at most two user stories. This spec now covers
+  only User Stories 1 and 2 (Terraform provisioning, GitHub Actions deployment). Content
+  is carried over unchanged in substance; only requirement/success-criteria/assumption
+  text was moved and FR numbers renumbered. The existing plan.md/tasks.md/contracts/
+  research.md/data-model.md/quickstart.md under this feature were written against the
+  original, unified 5-story spec and are NOT re-scoped by this split — per explicit
+  instruction, only spec.md was updated; those artifacts (and the already-provisioned
+  live infrastructure they describe) remain the source of truth for what's actually
+  built until this feature's plan/tasks are regenerated against the three split specs.
 - 2026-08-29: Resolved the Cosmos DB block. Probed `uksouth` directly via `az
   cosmosdb create` (bypassing Terraform) and confirmed capacity there; added a
   dedicated `cosmos_region` variable (default `uksouth`) used only by

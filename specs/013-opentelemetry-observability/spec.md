@@ -8,6 +8,8 @@
 
 **Input**: User description: "OpenTelemetry observability instrumentation: instrument the Python Azure Functions backend and the ReactJS frontend using OpenTelemetry SDKs/APIs, with Azure Application Insights configured as the telemetry sink for traces, metrics, and logs, per Constitution Principle VI (Observability & AI Cost Transparency) and the Observability & Telemetry Requirements section. This replaces ad-hoc/backend-native logging (the Azure Functions host's built-in App Insights bridge, plain console logging on the frontend) with proper OTel instrumentation end to end: request/exception traces and structured logs from the backend (including unhandled-exception visibility, e.g. the current /api/auth/login 500s that aren't showing up in Application Insights), and equivalent frontend instrumentation. Future LLM-call telemetry (prompt/response capture, token usage, cost, latency per the constitution) should be accounted for in the design but does not need concrete LLM integration yet since no LLM calls exist in the codebase yet (that's 008-core-gameplay)."
 
+**Split**: 2026-08-29 — this spec originally also contained a third user story, "Observability Keeps Working When Application Insights Is Unavailable or Unconfigured". It has been split out into [018-observability-resilience](../018-observability-resilience/spec.md) so this spec covers at most two user stories: emitting trustworthy backend telemetry, and correlating it end-to-end with frontend telemetry.
+
 ## User Scenarios & Testing *(mandatory)*
 
 <!--
@@ -50,25 +52,8 @@ An engineer investigating a user-reported problem can follow a single user actio
 
 ---
 
-### User Story 3 - Observability Keeps Working When Application Insights Is Unavailable or Unconfigured (Priority: P3)
-
-In local development (no Application Insights connection configured) or during a transient outage of the telemetry sink, the application continues to function normally — instrumentation never becomes a cause of failures or added latency for real users.
-
-**Why this priority**: Observability tooling that can itself break the application defeats its purpose and creates deployment risk; this is a safety property that must hold across every environment the other two stories run in, but doesn't gate their core value.
-
-**Independent Test**: Run the backend and frontend with no Application Insights connection string configured, and separately simulate the telemetry endpoint being unreachable; verify in both cases that normal application requests still succeed.
-
-**Acceptance Scenarios**:
-
-1. **Given** no Application Insights connection is configured, **When** the backend starts and serves requests, **Then** it runs normally and requests succeed, with telemetry simply not exported anywhere.
-2. **Given** the Application Insights endpoint is unreachable from the frontend (e.g., blocked by network policy or an ad blocker), **When** a user uses the application, **Then** their experience is unaffected.
-
----
-
 ### Edge Cases
 
-- What happens when the Application Insights daily data cap (already configured at 5 GB) is reached — does error/exception telemetry keep flowing, or does everything (including the traces engineers need most) get dropped indiscriminately?
-- How does the system handle a burst of identical errors (e.g., a dependency outage causing every request to fail the same way) without either losing visibility into the failure or overwhelming the telemetry pipeline?
 - What happens to a trace that starts on the frontend but whose backend leg fails before a response is returned (e.g., a network failure) — is the frontend-side failure still captured on its own?
 - What happens when a request or log message would otherwise include a bearer token, password, or similar credential value — is it excluded from captured telemetry?
 
@@ -82,10 +67,8 @@ In local development (no Application Insights connection configured) or during a
 - **FR-004**: The frontend MUST emit page-view, unhandled-exception, and outbound API call telemetry using OpenTelemetry SDK instrumentation, exported to the same Azure Application Insights instance as the backend.
 - **FR-005**: A user action that spans a frontend interaction and the backend request(s) it triggers MUST be correlated end-to-end in Application Insights via shared distributed-tracing context.
 - **FR-006**: Telemetry MUST NOT include the value of bearer tokens, passwords, or other credential material, regardless of severity level or whether the containing request succeeded or failed.
-- **FR-007**: The backend and frontend MUST continue serving requests normally if the Application Insights sink is unconfigured or unreachable; instrumentation MUST NOT be a cause of request failure or user-visible latency.
-- **FR-008**: Exception and error-severity telemetry MUST be prioritized for retention over routine successful-request telemetry if data volume approaches the configured Application Insights daily cap, so diagnosing failures remains possible even under volume pressure.
-- **FR-009**: The instrumentation design MUST accommodate attaching future LLM-call attributes (prompt, response, input/output token counts, computed cost, latency) to spans without a breaking schema change, even though no LLM call sites exist yet to instrument.
-- **FR-010**: Existing backend log call sites MUST be preserved in content and meaning but routed through the OpenTelemetry logging pipeline rather than the Azure Functions host's built-in, non-OpenTelemetry Application Insights bridge.
+- **FR-007**: The instrumentation design MUST accommodate attaching future LLM-call attributes (prompt, response, input/output token counts, computed cost, latency) to spans without a breaking schema change, even though no LLM call sites exist yet to instrument.
+- **FR-008**: Existing backend log call sites MUST be preserved in content and meaning but routed through the OpenTelemetry logging pipeline rather than the Azure Functions host's built-in, non-OpenTelemetry Application Insights bridge.
 
 ### Key Entities
 
@@ -100,15 +83,13 @@ In local development (no Application Insights connection configured) or during a
 - **SC-001**: An engineer can find a failed backend request's exception, full stack trace, and associated log messages in Application Insights within normal ingestion latency (a few minutes), with zero need to reproduce the issue locally or read raw log files.
 - **SC-002**: 100% of unhandled exceptions across backend endpoints, observed in testing, appear as exception telemetry in Application Insights; zero are silently discarded into a generic error response with no corresponding telemetry.
 - **SC-003**: An engineer can follow a single user action from its frontend interaction through to the backend request(s) it triggered as one correlated trace in Application Insights, with zero manual cross-referencing of separate log sources.
-- **SC-004**: The backend and frontend function with 100% of normal request success rate when Application Insights is unconfigured or unreachable, observed in testing — zero requests fail or measurably slow down because of instrumentation.
-- **SC-005**: Zero instances of credential material (tokens, passwords) appear in captured telemetry, observed across representative test traffic including failure paths.
+- **SC-004**: Zero instances of credential material (tokens, passwords) appear in captured telemetry, observed across representative test traffic including failure paths.
 
 ## Assumptions
 
 - Application Insights and its Log Analytics workspace are already provisioned (007-azure-infrastructure-provisioning); this feature instruments the application to use that existing sink, it does not provision new telemetry infrastructure.
-- The existing Application Insights daily data cap (5 GB) and its connection string delivery to the Function App (via `site_config.application_insights_connection_string`) remain as currently configured; this feature does not need to change the underlying Azure resource, only how the application emits data to it.
 - "Standard" OpenTelemetry semantic conventions (HTTP server/client spans, exception recording) are used wherever applicable, rather than inventing project-specific span/attribute names, so telemetry stays queryable using familiar Application Insights views (Failures, Performance, Application Map).
 - Sensitive-value exclusion (FR-006) is achieved by never passing credential material into any telemetry API to begin with, rather than by post-hoc redaction/scrubbing of already-captured data.
-- Since no LLM integration exists yet, this feature does not define the final prompt/response/cost telemetry schema in detail — it only ensures the chosen instrumentation approach (OpenTelemetry spans/attributes) is the right shape to extend later, per FR-009. Finalizing that schema is deferred to whichever feature first adds real LLM calls (008-core-gameplay).
+- Since no LLM integration exists yet, this feature does not define the final prompt/response/cost telemetry schema in detail — it only ensures the chosen instrumentation approach (OpenTelemetry spans/attributes) is the right shape to extend later, per FR-007. Finalizing that schema is deferred to whichever feature first adds real LLM calls (008-core-gameplay).
 - This feature migrates existing ad hoc `logging` call sites in the backend to flow through OpenTelemetry rather than deleting or renaming them; no behavior change is intended for what gets logged, only how it reaches Application Insights.
-- Local development without an Application Insights connection string configured is expected to continue working exactly as it does today (per FR-007), consistent with how the rest of the backend already treats Azure-service configuration as optional/absent locally.
+- Whether and how instrumentation keeps working when Application Insights itself is unconfigured, unreachable, or near its data cap is specified separately in `018-observability-resilience`; this spec assumes a reachable, correctly configured sink.

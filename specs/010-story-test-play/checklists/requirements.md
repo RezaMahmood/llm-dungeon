@@ -42,3 +42,9 @@
 - `005-story-publishing` was updated alongside this spec to add the publish-blocking
   requirement (its new FR-008) and cross-reference this spec; `specs/designs/README.md`'s
   Gaps section was updated to reflect both resolutions.
+- 2026-08-29: Split former User Story 3 ("A Story Cannot Be Published Without a Completed
+  Test Play") out into `017-story-publish-test-play-gate`, as part of a project-wide pass
+  to keep each spec to at most two user stories. `005-story-publishing` and
+  `specs/designs/README.md`'s cross-references were updated to point at the new spec.
+  This spec's remaining content (test play itself, flagging) is unaffected. All items
+  re-checked and still pass.
