@@ -43,6 +43,9 @@ jobs:
 
       - name: Terraform Apply
         working-directory: terraform
+        env:
+          TF_VAR_azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_azure_tenant_id: ${{ vars.AZURE_TENANT_ID }}
         run: terraform apply -auto-approve -input=false -var-file=terraform.tfvars
 
       - name: Capture Terraform Outputs
