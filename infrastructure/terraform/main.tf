@@ -227,6 +227,23 @@ resource "azurerm_function_app_flex_consumption" "functions" {
   }
 
   tags = local.common_tags
+
+  lifecycle {
+    ignore_changes = [
+      # backend-deploy.yml's "Sync AzureWebJobsStorage key" step deliberately
+      # sets a real storage account key out-of-band on every backend deploy —
+      # Flex Consumption's Managed-Identity deployment path
+      # (storage_authentication_type above) doesn't reliably load functions
+      # without it (see that workflow step's comment). Without this,
+      # `terraform apply` reverts the key to null on every unrelated infra
+      # change and silently breaks the deployed app until the next backend
+      # deploy re-syncs it.
+      storage_access_key,
+      # Auto-added by Azure when Application Insights is linked; not
+      # Terraform-managed, and Azure just re-adds it after every apply.
+      tags["hidden-link: /app-insights-resource-id"],
+    ]
+  }
 }
 
 # Flex Consumption pulls its own deployment package from function_deployments
