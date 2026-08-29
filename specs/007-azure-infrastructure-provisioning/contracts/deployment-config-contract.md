@@ -53,7 +53,7 @@ STORAGE_ACCOUNT_NAME=llmdungeonassetsprod
 COSMOS_ACCOUNT_NAME=llmdungeon-cosmos-prod
 STATIC_WEB_APP_NAME=llmdungeon-web-prod
 AZURE_OPENAI_ACCOUNT_NAME=llmdungeon-openai-prod
-TERRAFORM_VERSION=1.6.0
+TERRAFORM_VERSION=1.16.0
 AZURE_PROVIDER_VERSION=3.80.0
 ```
 
@@ -360,7 +360,7 @@ FUNCTIONS_APP_NAME=llmdungeon-func-prod
 STORAGE_ACCOUNT_NAME=llmdungeonassetsprod
 COSMOS_ACCOUNT_NAME=llmdungeon-cosmos-prod
 STATIC_WEB_APP_NAME=llmdungeon-web-prod
-TERRAFORM_VERSION=1.6.0
+TERRAFORM_VERSION=1.16.0
 AZURE_PROVIDER_VERSION=3.80.0
 ```
 

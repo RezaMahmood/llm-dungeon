@@ -214,7 +214,7 @@ Outputs:
    AZURE_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx  # GitHub OIDC Managed Identity client ID
    RESOURCE_GROUP_NAME=llm-dungeon
    FUNCTIONS_APP_NAME=llmdungeon-func-prod
-   TERRAFORM_VERSION=1.6.0
+   TERRAFORM_VERSION=1.16.0
    AZURE_PROVIDER_VERSION=3.80.0
    ```
 

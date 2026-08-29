@@ -36,7 +36,11 @@ declare -A vars=(
   [STORAGE_ACCOUNT_NAME]="$(json_get storage_account_name)"
   [COSMOS_ACCOUNT_NAME]="$(json_get cosmos_db_account_name)"
   [STATIC_WEB_APP_NAME]="$(json_get static_web_app_name)"
-  [TERRAFORM_VERSION]="1.6.0"
+  # 1.16.0, not the originally-planned 1.6.0: CI failed with "error checking
+  # signature: openpgp: key expired" installing the azurerm provider under
+  # 1.6.0's stale embedded trust data (1.16.0 — validated locally throughout
+  # this feature's implementation — installs it without issue).
+  [TERRAFORM_VERSION]="1.16.0"
   [AZURE_PROVIDER_VERSION]="5.3.0"
 )
 

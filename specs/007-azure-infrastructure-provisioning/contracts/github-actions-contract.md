@@ -18,7 +18,7 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
 
 2. **Setup Terraform**
    - Action: `hashicorp/setup-terraform@v2`
-   - Input: `terraform_version`: From environment variable (e.g., 1.6.0)
+   - Input: `terraform_version`: From environment variable (e.g., 1.16.0)
    - Use: Install Terraform CLI
 
 3. **Terraform Format Check**
@@ -330,7 +330,7 @@ FUNCTIONS_APP_NAME: llmdungeon-func-prod
 STORAGE_ACCOUNT_NAME: llmdungeonassetsprod
 COSMOS_ACCOUNT_NAME: llmdungeon-cosmos-prod
 STATIC_WEB_APP_NAME: llmdungeon-web-prod
-TERRAFORM_VERSION: 1.6.0
+TERRAFORM_VERSION: 1.16.0
 AZURE_PROVIDER_VERSION: 3.80.0
 ```
 
