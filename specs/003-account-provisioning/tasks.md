@@ -148,6 +148,13 @@ Existing web-application layout: `src/backend/` (Python Azure Functions) + `src/
 - [ ] T050 Run quickstart.md's 7 validation scenarios end-to-end (locally or against a deployed environment) and confirm each passes
 - [X] T051 Grep the repository for any remaining reference to `allowListEntries`, `capabilityAssignments`, `AllowListEntry`, `CapabilityAssignment`, `AllowListService`, or `CapabilityService` and resolve any found — depends on T049
 
+**Found by `/speckit-analyze` (post-merge)**: tasks.md never included infrastructure tasks for this feature's storage/config, despite plan.md's Storage section and Assumptions requiring them — the gap was discovered only because the deployed `SEED_ADMIN_EMAIL` app setting was observed empty. T052/T053 document the fix retroactively; T054/T055 close a constitution gap and a Success Criterion coverage gap the same analysis surfaced.
+
+- [X] T052 Update `infrastructure/terraform/main.tf`: replace the `allow_list_entries`/`capability_assignments` Cosmos SQL containers with a single `provisioned_account_entries` container (`provisionedAccountEntries`, partition key `/email`) backing `AccountProvisioningService` (data-model.md's Storage Model) — depends on T049
+- [X] T053 Wire `SEED_ADMIN_EMAIL` (FR-001) to the deployed Function App: add the `seed_admin_email` Terraform variable (`infrastructure/terraform/variables.tf`), reference it in the Function App's `app_settings` (`main.tf`), and inject it into `terraform-apply.yml`'s apply step as `TF_VAR_seed_admin_email` from a `production-infra` environment secret (not `terraform.tfvars`, which is committed and explicitly excludes secrets) — depends on T052
+- [X] T054 Fix Constitution Principle VIII gap: restyle `AccountForm.jsx`'s Player/Administrator role checkboxes from unstyled native `<input type="checkbox">` (left at browser defaults — a review blocker per the constitution's Interaction States section) to the vendored `.seg`/`.seg-opt` segmented-toggle pattern already used elsewhere (`specs/designs/04-admin-wizard.html`'s session-length control), which ships all four themed states — depends on T029
+- [X] T055 Close SC-005's coverage gap: add an integration test to `test_login_endpoint.py` proving sign-in matches end-to-end regardless of the token email claim's letter case (prior coverage was unit-level only: `get_by_email` lowercasing and model-construction lowercasing, not the full `authorize_sign_in`/login-endpoint path) — depends on T020
+
 ---
 
 ## Dependencies & Execution Order

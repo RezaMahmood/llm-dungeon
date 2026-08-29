@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-28
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "The application is seeded with an initial administrator account. Thereafter the administrator should have an interface that allows them to add more players or administrators to the system. minimum requirement is that it must be a microsoft account and we only match on emails."
 
