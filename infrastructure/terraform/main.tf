@@ -114,6 +114,63 @@ resource "azurerm_cosmosdb_sql_container" "stories" {
   partition_key_version = 2
 }
 
+resource "azurerm_cosmosdb_sql_container" "allow_list_entries" {
+  name                  = "allowListEntries"
+  resource_group_name   = data.azurerm_resource_group.rg.name
+  account_name          = azurerm_cosmosdb_account.cosmos.name
+  database_name         = azurerm_cosmosdb_sql_database.db.name
+  partition_key_paths   = ["/user_oid"]
+  partition_key_version = 2
+
+  indexing_policy {
+    indexing_mode = "consistent"
+
+    included_path {
+      path = "/*"
+    }
+
+    included_path {
+      path = "/dateRemoved/?"
+    }
+
+    included_path {
+      path = "/email/?"
+    }
+  }
+}
+
+resource "azurerm_cosmosdb_sql_container" "capability_assignments" {
+  name                  = "capabilityAssignments"
+  resource_group_name   = data.azurerm_resource_group.rg.name
+  account_name          = azurerm_cosmosdb_account.cosmos.name
+  database_name         = azurerm_cosmosdb_sql_database.db.name
+  partition_key_paths   = ["/user_oid"]
+  partition_key_version = 2
+
+  indexing_policy {
+    indexing_mode = "consistent"
+
+    included_path {
+      path = "/*"
+    }
+
+    composite_index {
+      index {
+        path  = "/user_oid"
+        order = "Ascending"
+      }
+      index {
+        path  = "/capability"
+        order = "Ascending"
+      }
+      index {
+        path  = "/dateRevoked"
+        order = "Ascending"
+      }
+    }
+  }
+}
+
 # --- Azure AI Foundry / Azure OpenAI ---
 resource "azurerm_cognitive_account" "openai" {
   name                = local.openai_account_name
@@ -199,6 +256,7 @@ resource "azurerm_function_app_flex_consumption" "functions" {
     AZURE_OPENAI_ENDPOINT           = azurerm_cognitive_account.openai.endpoint
     AZURE_OPENAI_DEPLOYMENT_NAME    = azurerm_cognitive_deployment.model.name
     AZURE_TENANT_ID                 = var.azure_tenant_id
+    AZURE_APP_ID                    = var.azure_app_id != "" ? var.azure_app_id : var.azure_client_id
     PYTHON_ENABLE_WORKER_EXTENSIONS = "true"
   }
 
