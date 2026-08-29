@@ -46,9 +46,9 @@ provision any Azure infrastructure itself.
    merge to `main` to trigger the Static Web App deployment.
 
 7. **Run quickstart validation scenarios** — see
-   [quickstart.md](../specs/002-login-and-access-control/quickstart.md) and
+   [quickstart.md](../specs/002-login-and-access-control-done/quickstart.md) and
    the four scenario docs in
-   [tests/e2e/](../specs/002-login-and-access-control/tests/e2e/).
+   [tests/e2e/](../specs/002-login-and-access-control-done/tests/e2e/).
 
 8. **Verify telemetry** — confirm Application Insights receives
    authentication/authorization events from `auth_service` and

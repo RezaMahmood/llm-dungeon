@@ -53,7 +53,7 @@ Uses Vitest + React Testing Library; MSAL and network calls are mocked.
   `hasAdministrator`.
 - **ProtectedRoute** gates routes on authentication and, optionally, a
   specific capability — server-side enforcement at the destination endpoint
-  is still required (see [contracts/ui-menu-states.md](../../specs/002-login-and-access-control/contracts/ui-menu-states.md)).
+  is still required (see [contracts/ui-menu-states.md](../../specs/002-login-and-access-control-done/contracts/ui-menu-states.md)).
 
 ## Deployment
 
@@ -63,5 +63,5 @@ via the GitHub Actions workflow, on merge to `main`.
 
 ## References
 
-- [contracts/ui-login-screen.md](../../specs/002-login-and-access-control/contracts/ui-login-screen.md)
-- [contracts/ui-menu-states.md](../../specs/002-login-and-access-control/contracts/ui-menu-states.md)
+- [contracts/ui-login-screen.md](../../specs/002-login-and-access-control-done/contracts/ui-login-screen.md)
+- [contracts/ui-menu-states.md](../../specs/002-login-and-access-control-done/contracts/ui-menu-states.md)

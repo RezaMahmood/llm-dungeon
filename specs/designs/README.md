@@ -26,7 +26,7 @@ constitution's UI Design System Requirements win on rules (see `.specify/memory/
 | Screen | Spec(s) |
 | --- | --- |
 | `index.html` | Site index only — no dedicated spec; see the four screens below. |
-| `01-login.html` | [`002-login-and-access-control`](../002-login-and-access-control/spec.md) |
+| `01-login.html` | [`002-login-and-access-control`](../002-login-and-access-control-done/spec.md) |
 | `02-story-select.html` | [`006-adventure-and-character-setup`](../006-adventure-and-character-setup/spec.md) ("Start something new") · [`009-save-and-continue`](../009-save-and-continue/spec.md) ("stories in progress" / Resume) |
 | `03-play.html` | [`008-core-gameplay`](../008-core-gameplay/spec.md) (story pane, status panel, hint) · [`009-save-and-continue`](../009-save-and-continue/spec.md) (checkpoint save, pause & exit, autosave) |
 | `04-admin-wizard.html` | [`004-story-creation`](../004-story-creation/spec.md) (steps 01–04: name & cover, world & setting, tone & reading level, session length) · [`010-story-test-play`](../010-story-test-play/spec.md) (step 05: test play) · [`005-story-publishing`](../005-story-publishing/spec.md) (step 06: publish) |

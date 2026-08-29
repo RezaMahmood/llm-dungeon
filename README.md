@@ -7,8 +7,8 @@ admin-provisioned list of Microsoft accounts (see
 
 ## Features
 
-- [`001-ci-cd-foundation`](specs/001-ci-cd-foundation/spec.md) — CI test gate on every PR
-- [`002-login-and-access-control`](specs/002-login-and-access-control/spec.md) — Microsoft Entra ID sign-in and Player/Administrator roles
+- [`001-ci-cd-foundation`](specs/001-ci-cd-foundation-done/spec.md) — CI test gate on every PR
+- [`002-login-and-access-control`](specs/002-login-and-access-control-done/spec.md) — Microsoft Entra ID sign-in and Player/Administrator roles
 - [`003-account-provisioning`](specs/003-account-provisioning/spec.md) — seed administrator bootstrap, admin UI to grant/view provisioned accounts by email
 - [`007-azure-infrastructure-provisioning`](specs/007-azure-infrastructure-provisioning/spec.md) — Azure infrastructure (Functions, Static Web App, Cosmos DB, Managed Identity), provisioned separately
 
@@ -39,7 +39,7 @@ Static Web App, Managed Identity). Features that depend on
 
 ## CI/CD Governance & Branch Protection
 
-Per the project [Constitution](.specify/memory/constitution.md) and [`001-ci-cd-foundation`](specs/001-ci-cd-foundation/spec.md):
+Per the project [Constitution](.specify/memory/constitution.md) and [`001-ci-cd-foundation`](specs/001-ci-cd-foundation-done/spec.md):
 - **Pull Request Only**: Direct pushes to `main` are prohibited. All modifications must be submitted via pull requests.
 - **Automated CI Test Gating**: Every PR automatically triggers the full automated test suite ([`.github/workflows/test.yml`](.github/workflows/test.yml)). PR merge is mechanically blocked until all status checks pass.
 - **Code Review**: Pull requests require at least 1 approval before merging.

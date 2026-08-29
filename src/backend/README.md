@@ -57,7 +57,7 @@ via the GitHub Actions workflow, on merge to `main`.
 
 ## API endpoints
 
-See [002's contracts/api.md](../../specs/002-login-and-access-control/contracts/api.md) and
+See [002's contracts/api.md](../../specs/002-login-and-access-control-done/contracts/api.md) and
 [003's contracts/api.md](../../specs/003-account-provisioning/contracts/api.md) for full
 request/response contracts.
 
