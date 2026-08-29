@@ -2,4 +2,29 @@ installed:
 - assess
 settings:
   auto_execute_hooks: true
-hooks: {}
+hooks:
+  before_plan:
+  - extension: branch-guard
+    command: speckit.branch.ensure
+    description: "Ensure the active feature's branch is checked out (create it if missing) before planning"
+    optional: false
+  before_tasks:
+  - extension: branch-guard
+    command: speckit.branch.ensure
+    description: "Ensure the active feature's branch is checked out (create it if missing) before generating tasks"
+    optional: false
+  before_clarify:
+  - extension: branch-guard
+    command: speckit.branch.ensure
+    description: "Ensure the active feature's branch is checked out (create it if missing) before clarification"
+    optional: false
+  before_analyze:
+  - extension: branch-guard
+    command: speckit.branch.ensure
+    description: "Ensure the active feature's branch is checked out (create it if missing) before analysis"
+    optional: false
+  before_implement:
+  - extension: branch-guard
+    command: speckit.branch.ensure
+    description: "Ensure the active feature's branch is checked out (create it if missing) before implementation"
+    optional: false

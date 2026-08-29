@@ -115,3 +115,6 @@ htmlcov/
 !.specify/
 !.specify/extensions.yml
 !.specify/memory/
+
+# Spec Kit per-feature worktrees (speckit-branch-ensure) — local checkouts only
+.worktrees/
