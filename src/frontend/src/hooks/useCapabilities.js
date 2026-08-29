@@ -4,6 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import { getMe } from "../services/authService.js";
 import { loginRequest } from "../services/msalConfig.js";
 
+// Guards against a redirect loop: if /api/auth/me keeps 401ing even after an
+// interactive sign-in (e.g. a structural token problem, not just a stale
+// session), redirecting to Microsoft's login on every 401 fires repeatedly in
+// quick succession — enough to trip Entra ID's own throttling/lockout
+// protection on the account. Cleared on a successful fetch so a real future
+// session can still retry once.
+const REDIRECT_ATTEMPTED_KEY = "llmdungeon.capabilities.redirectAttempted";
+
 /**
  * Fetches the current user's capabilities from GET /api/auth/me.
  * Returns { hasPlayer, hasAdministrator, loading, error, denied, refetch }.
@@ -32,6 +40,7 @@ export function useCapabilities() {
         account,
       });
       const data = await getMe(tokenResponse.accessToken);
+      sessionStorage.removeItem(REDIRECT_ATTEMPTED_KEY);
       setState({
         hasPlayer: Boolean(data.capabilities?.hasPlayer),
         hasAdministrator: Boolean(data.capabilities?.hasAdministrator),
@@ -42,6 +51,17 @@ export function useCapabilities() {
     } catch (err) {
       const status = err.response?.status;
       if (status === 401) {
+        if (sessionStorage.getItem(REDIRECT_ATTEMPTED_KEY)) {
+          setState({
+            hasPlayer: false,
+            hasAdministrator: false,
+            loading: false,
+            error: err,
+            denied: false,
+          });
+          return;
+        }
+        sessionStorage.setItem(REDIRECT_ATTEMPTED_KEY, "1");
         await instance.loginRedirect(loginRequest);
         return;
       }
