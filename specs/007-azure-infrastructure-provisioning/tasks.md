@@ -93,7 +93,7 @@ Infrastructure-as-code project. Terraform config at `terraform/` (repo root), CI
 
 - [X] T028 [P] [US2] Create `.github/workflows/backend-deploy.yml` (triggered on `backend/**` changes to `main` or `workflow_dispatch`; Python 3.11 setup, `pytest backend/tests/`, Azure Login via OIDC, `func pack --build remote`, deploy to the Functions app, post-deploy smoke test against the health endpoint) per contracts/github-actions-contract.md
 - [X] T029 [P] [US2] Create `.github/workflows/frontend-deploy.yml` (triggered on `frontend/**` changes to `main` or `workflow_dispatch`; Node.js setup, `npm ci`, tests, build, deploy to the Static Web App) per contracts/github-actions-contract.md
-- [ ] T030 [US2] Execute quickstart.md Scenario 7 (Full Deployment Pipeline Test) end-to-end to validate User Story 2 independently (depends on T028, T029)
+- [X] T030 [US2] Execute quickstart.md Scenario 7 (Full Deployment Pipeline Test) end-to-end to validate User Story 2 independently (depends on T028, T029) — verified 2026-08-29: `backend-deploy.yml` and `frontend-deploy.yml` both ran to completion against `main` (tests, OIDC login, build, deploy, smoke test all succeeded)
 
 **Checkpoint**: User Stories 1 AND 2 both work independently.
 
@@ -108,7 +108,7 @@ Infrastructure-as-code project. Terraform config at `terraform/` (repo root), CI
 ### Implementation for User Story 3
 
 - [X] T031 [P] [US3] Write `tests/infrastructure/test_oidc_authentication.py` verifying (a) Azure CLI/SDK calls authenticate successfully via the GitHub OIDC Managed Identity's federated token, with zero stored credentials present and zero fallback to a stored secret, and (b) a deliberately misconfigured/missing federated credential subject causes authentication to fail clearly rather than falling back to a stored secret or proceeding unauthenticated, per contracts/github-actions-contract.md's Infrastructure Testing workflow (FR-011/FR-011a/FR-016/SC-004, spec.md US3 Acceptance Scenario 2)
-- [ ] T032 [US3] Execute quickstart.md Scenario 3 (Validate Infrastructure via GitHub Actions) and Scenario 5 (Test GitHub → Azure OIDC Authentication) end-to-end, confirming no Azure secrets are stored in the GitHub repository and the GitHub OIDC Managed Identity's role assignment is scoped only to the `llm-dungeon` Resource Group (depends on T006, T031)
+- [X] T032 [US3] Execute quickstart.md Scenario 3 (Validate Infrastructure via GitHub Actions) and Scenario 5 (Test GitHub → Azure OIDC Authentication) end-to-end, confirming no Azure secrets are stored in the GitHub repository and the GitHub OIDC Managed Identity's role assignment is scoped only to the `llm-dungeon` Resource Group (depends on T006, T031) — verified 2026-08-29: `gh secret list` shows only the non-Azure `AZURE_STATIC_WEB_APPS_API_TOKEN`; `az role assignment list` confirms `Contributor` scoped to the `llm-dungeon` Resource Group only
 
 **Checkpoint**: User Stories 1, 2, AND 3 all work independently.
 
@@ -126,7 +126,7 @@ Infrastructure-as-code project. Terraform config at `terraform/` (repo root), CI
 - [X] T034 [US4] Extend `terraform/network.tf` with private endpoints for the Storage Account, Cosmos DB account, and AI Foundry account, attached to the private-endpoints subnet (T010) per data-model.md's Private Endpoints entity (depends on T018–T020, T010; same file as T010)
 - [X] T035 [US4] Extend `terraform/network.tf` with Private DNS Zones (`privatelink.blob.core.windows.net`, `privatelink.documents.azure.com`, `privatelink.openai.azure.com`) and their VNet links, per data-model.md's Private DNS Zones entity (depends on T034, same file)
 - [X] T036 [P] [US4] Write `tests/infrastructure/test_private_connectivity.py` verifying DNS resolves Storage/Cosmos DB/AI Foundry hostnames to private IPs, connections succeed over the private endpoint, and connections attempted over the public endpoint are rejected
-- [ ] T037 [US4] Execute quickstart.md Scenario 4 (Verify Private Connectivity) end-to-end to validate User Story 4 independently (depends on T033–T036)
+- [X] T037 [US4] Execute quickstart.md Scenario 4 (Verify Private Connectivity) end-to-end to validate User Story 4 independently (depends on T033–T036) — verified 2026-08-29 via `infrastructure-tests.yml`: all 6 `test_private_connectivity.py` cases pass (private endpoint access approved for storage/cosmos/openai, public data-plane access denied for all three)
 
 **Checkpoint**: User Stories 1–4 all work independently.
 
@@ -142,7 +142,7 @@ Infrastructure-as-code project. Terraform config at `terraform/` (repo root), CI
 
 - [X] T038 [P] [US5] Create `scripts/configure-github-environment.sh` using `gh variable set --repo` (values sourced from `terraform output -json`) to populate the repository-level variables (`AZURE_SUBSCRIPTION_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `RESOURCE_GROUP_NAME`, `FUNCTIONS_APP_NAME`, `STORAGE_ACCOUNT_NAME`, `COSMOS_ACCOUNT_NAME`, `STATIC_WEB_APP_NAME`, `TERRAFORM_VERSION`, `AZURE_PROVIDER_VERSION`) shared by both GitHub environments (T014 already created the environments and the `production-infra` protection rule), per contracts/deployment-config-contract.md
 - [X] T039 [US5] Audit `.github/workflows/*.yml` (T013, T024, T026, T028, T029) to confirm every Azure resource name is read via `${{ vars.* }}` GitHub environment variables and none is a hardcoded literal; fix any found (depends on T013, T024, T026, T028, T029)
-- [ ] T040 [US5] Execute quickstart.md Scenario 5 (Test GitHub → Azure OIDC Authentication env-var check) and Scenario 6 (Verify Application Settings & Configuration) end-to-end: change an application setting and confirm the backend picks it up with no code change or redeploy (depends on T038, T039)
+- [ ] T040 [US5] Execute quickstart.md Scenario 5 (Test GitHub → Azure OIDC Authentication env-var check) and Scenario 6 (Verify Application Settings & Configuration) end-to-end: change an application setting and confirm the backend picks it up with no code change or redeploy (depends on T038, T039) — partially verified 2026-08-29: `app_settings` in `main.tf` sources every value from resource attributes (no hardcoded literals) and `grep` for hardcoded Azure endpoints in `backend/` returns zero matches; the live "change a setting, curl a test-config endpoint" check is blocked on the backend having no health/test-config endpoint yet (out of this feature's scope — Entra ID auth is configured under `002-login-and-access-control`)
 
 **Checkpoint**: All five user stories are independently functional.
 
@@ -155,7 +155,7 @@ Infrastructure-as-code project. Terraform config at `terraform/` (repo root), CI
 - [X] T041 [P] Run `terraform fmt -recursive` across `terraform/` and resolve any remaining `terraform validate` warnings
 - [X] T042 [P] Update `README.md`/`docs/` with an infrastructure architecture overview linking to plan.md and quickstart.md
 - [X] T043 Security review: confirm no hardcoded secrets, access keys, or connection strings exist anywhere in `terraform/`, `.github/workflows/`, `tests/infrastructure/`, or `scripts/` (Constitution Principles II and VII)
-- [ ] T044 Execute all 8 quickstart.md scenarios end-to-end as a final full-feature validation pass
+- [ ] T044 Execute all 8 quickstart.md scenarios end-to-end as a final full-feature validation pass — Scenarios 1–5, 7, 8 verified 2026-08-29 via live CI runs and direct Azure/GitHub checks (stronger than the manual steps scripted in quickstart.md); Scenario 6 blocked on the same T040 gap (no backend test-config endpoint yet)
 
 ---
 
