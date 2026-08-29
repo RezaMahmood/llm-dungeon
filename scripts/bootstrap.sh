@@ -26,7 +26,6 @@ CONTAINER_NAME="terraform-state"
 GITHUB_ORG="RezaMahmood"
 GITHUB_REPO="llm-dungeon"
 IDENTITY_NAME="llmdungeon-github-oidc-identity-prod"
-FEDERATED_CREDENTIAL_NAME="github-actions-main"
 
 SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 TENANT_ID=$(az account show --query tenantId -o tsv)
@@ -148,39 +147,42 @@ if [ -n "$CURRENT_USER_OID" ]; then
   fi
 fi
 
-# Federated credential on the Managed Identity — NOT an App Registration
+# Federated credentials on the Managed Identity — NOT an App Registration
 # (az ad app federated-credential create), per research.md §7 / FR-011a.
-if az identity federated-credential show --name "$FEDERATED_CREDENTIAL_NAME" --identity-name "$IDENTITY_NAME" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
-  echo "✓ Federated credential '$FEDERATED_CREDENTIAL_NAME' already exists, skipping"
-else
-  az identity federated-credential create \
-    --name "$FEDERATED_CREDENTIAL_NAME" \
-    --identity-name "$IDENTITY_NAME" \
-    --resource-group "$RESOURCE_GROUP" \
-    --issuer "https://token.actions.githubusercontent.com" \
-    --subject "${GITHUB_SUBJECT_PREFIX}:ref:refs/heads/main" \
-    --audiences "api://AzureADTokenExchange"
-  echo "✓ Federated OIDC credential configured on Managed Identity: $IDENTITY_NAME"
-fi
+#
+# Four, not one: GitHub's OIDC subject claim shape depends on how a job is
+# triggered/scoped, discovered by actually running these workflows for the
+# first time (each shape below hit AADSTS700213 in turn until added):
+#   - push to main, no `environment:`          -> repo:...:ref:refs/heads/main
+#   - pull_request                             -> repo:...:pull_request
+#   - job with `environment: production`       -> repo:...:environment:production
+#   - job with `environment: production-infra` -> repo:...:environment:production-infra
+# A job's `environment:` key, when present, determines its subject — the
+# ref-based credential is unused by any current workflow (every one that
+# calls azure/login@v2 also sets `environment:`) but kept for any future
+# push-triggered job that doesn't.
+declare -A FEDERATED_CREDENTIALS=(
+  ["github-actions-main"]="ref:refs/heads/main"
+  ["github-actions-pull-request"]="pull_request"
+  ["github-actions-env-production"]="environment:production"
+  ["github-actions-env-production-infra"]="environment:production-infra"
+)
 
-# A second federated credential, scoped to pull_request events: GitHub's OIDC
-# token subject claim for a pull_request-triggered run ends ":pull_request",
-# not ":ref:refs/heads/main" — a completely different subject the credential
-# above doesn't match. Needed because terraform-validate.yml runs
-# `terraform plan` (Azure login required) on pull_request, not just push to
-# main.
-if az identity federated-credential show --name "github-actions-pull-request" --identity-name "$IDENTITY_NAME" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
-  echo "✓ Federated credential 'github-actions-pull-request' already exists, skipping"
-else
-  az identity federated-credential create \
-    --name "github-actions-pull-request" \
-    --identity-name "$IDENTITY_NAME" \
-    --resource-group "$RESOURCE_GROUP" \
-    --issuer "https://token.actions.githubusercontent.com" \
-    --subject "${GITHUB_SUBJECT_PREFIX}:pull_request" \
-    --audiences "api://AzureADTokenExchange"
-  echo "✓ Federated OIDC credential (pull_request) configured on Managed Identity: $IDENTITY_NAME"
-fi
+for cred_name in "${!FEDERATED_CREDENTIALS[@]}"; do
+  subject_suffix="${FEDERATED_CREDENTIALS[$cred_name]}"
+  if az identity federated-credential show --name "$cred_name" --identity-name "$IDENTITY_NAME" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
+    echo "✓ Federated credential '$cred_name' already exists, skipping"
+  else
+    az identity federated-credential create \
+      --name "$cred_name" \
+      --identity-name "$IDENTITY_NAME" \
+      --resource-group "$RESOURCE_GROUP" \
+      --issuer "https://token.actions.githubusercontent.com" \
+      --subject "${GITHUB_SUBJECT_PREFIX}:${subject_suffix}" \
+      --audiences "api://AzureADTokenExchange"
+    echo "✓ Federated OIDC credential '$cred_name' configured on Managed Identity: $IDENTITY_NAME"
+  fi
+done
 
 echo
 echo "== Bootstrap complete =="

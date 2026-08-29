@@ -338,27 +338,26 @@ az role assignment create \
   --role "Storage Blob Data Contributor" \
   --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/$STORAGE_ACCOUNT"
 
-# Add federated credential to the Managed Identity (not an app registration)
-az identity federated-credential create \
-  --name "github-actions-main" \
-  --identity-name "$IDENTITY_NAME" \
-  --resource-group "$RESOURCE_GROUP" \
-  --issuer "https://token.actions.githubusercontent.com" \
-  --subject "${GITHUB_SUBJECT_PREFIX}:ref:refs/heads/main" \
-  --audiences "api://AzureADTokenExchange"
-
-# A second credential for pull_request-triggered runs: GitHub's OIDC subject
-# claim for a PR run is "repo:OWNER/REPO:pull_request", never
-# "ref:refs/heads/main" — needed for terraform-validate.yml's Azure-login
-# `terraform plan` step to work on PRs (discovered via AADSTS700213 during
-# implementation).
-az identity federated-credential create \
-  --name "github-actions-pull-request" \
-  --identity-name "$IDENTITY_NAME" \
-  --resource-group "$RESOURCE_GROUP" \
-  --issuer "https://token.actions.githubusercontent.com" \
-  --subject "${GITHUB_SUBJECT_PREFIX}:pull_request" \
-  --audiences "api://AzureADTokenExchange"
+# Four federated credentials, not one — GitHub's OIDC subject claim shape
+# depends on trigger AND whether the job sets `environment:` (which overrides
+# the branch/event-based subject entirely). Every workflow here that calls
+# azure/login also sets `environment:`, so each needed its own credential —
+# discovered one AADSTS700213 at a time by actually running the workflows.
+declare -A FEDERATED_CREDENTIALS=(
+  ["github-actions-main"]="ref:refs/heads/main"                       # unused today; kept for future push-triggered jobs with no environment:
+  ["github-actions-pull-request"]="pull_request"                      # terraform-validate.yml's `terraform plan` step on PRs
+  ["github-actions-env-production"]="environment:production"          # backend-deploy.yml, frontend-deploy.yml, infrastructure-tests.yml
+  ["github-actions-env-production-infra"]="environment:production-infra"  # terraform-apply.yml
+)
+for cred_name in "${!FEDERATED_CREDENTIALS[@]}"; do
+  az identity federated-credential create \
+    --name "$cred_name" \
+    --identity-name "$IDENTITY_NAME" \
+    --resource-group "$RESOURCE_GROUP" \
+    --issuer "https://token.actions.githubusercontent.com" \
+    --subject "${GITHUB_SUBJECT_PREFIX}:${FEDERATED_CREDENTIALS[$cred_name]}" \
+    --audiences "api://AzureADTokenExchange"
+done
 
 echo "✓ Federated OIDC trust configured on Managed Identity: $IDENTITY_NAME"
 echo "✓ Use these values in GitHub environment variables:"
