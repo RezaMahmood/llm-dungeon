@@ -182,6 +182,32 @@ This document captures technical research and decisions made to satisfy the func
 
 ---
 
+## Decision 9: Microsoft Entra ID Tenant and App Registration
+
+**Decision**: The application authenticates against the Microsoft Entra ID tenant already associated with the Azure subscription used to deploy this project (i.e., the tenant reachable via `az account show` in the deployment environment) — no new or separate tenant is created. A dedicated app registration is created in that tenant for this application (frontend SPA platform + backend API exposure), and its identifiers are used to configure both MSAL (frontend) and token validation (backend).
+
+**Rationale**:
+- The project constitution requires Microsoft Entra ID for authentication but does not mandate a dedicated tenant; reusing the subscription's existing tenant avoids unnecessary Azure AD tenant sprawl
+- A dedicated app registration (rather than reusing an existing one) keeps this application's redirect URIs, exposed scopes, and API permissions isolated from unrelated apps in the same tenant
+- Using the subscription's home tenant keeps identity and Azure resource management under a single administrative boundary, simplifying who can grant consent and manage users
+
+**Implementation Detail**:
+- Tenant identification: `az account show` against the target Azure subscription returns `tenantId` (and `tenantDefaultDomain`); this is the tenant the app registration is created in
+- App registration creation (one-time setup, e.g. via `az ad app create` / Azure Portal):
+  - Register a single app with a SPA redirect platform (frontend URL) and an exposed API scope (backend)
+  - Record the resulting `appId` (client ID) and the tenant's `tenantId`
+- These two values are stored as GitHub repository/environment **variables** (not secrets, per existing convention in `.github/workflows/*.yml`) so CI/CD can inject them without hardcoding:
+  - `AZURE_TENANT_ID` — already used by `infrastructure-tests.yml`, `backend-deploy.yml`, `terraform-validate.yml`, and `terraform-apply.yml` for OIDC federation to Azure; reused here as the same value that also identifies the Entra ID tenant users sign into
+  - `AZURE_APP_ID` — a frontend-facing app registration client ID variable, added alongside it (per `plan.md` and `tasks.md`)
+- **Actual propagation mechanism (corrected 2026-08-29 — see [plan.md](plan.md)'s Amendment)**: the Function App's `AZURE_TENANT_ID`/`AZURE_APP_ID` application settings are written by **Terraform**, not the app-deploy workflows: `infrastructure/terraform/main.tf` sets them from `var.azure_tenant_id`/`var.azure_app_id`, applied via `terraform-apply.yml`. `backend-deploy.yml` only uses `AZURE_TENANT_ID`/`AZURE_CLIENT_ID` for its own OIDC login step (authenticating the deploy job to Azure) — it does not write application settings. The frontend's `VITE_AZURE_TENANT_ID`/`VITE_AZURE_APP_ID`/`VITE_AZURE_REDIRECT_URI` must be injected into `frontend-deploy.yml`'s build step (Vite bakes them in at build time); this injection does not exist yet and is tracked as a remediation task
+- No tenant ID or app ID is hardcoded in source; both are meant to flow from GitHub repository variables into environment configuration — verify via the remediation tasks in `tasks.md` that this is actually true end-to-end, not just for the backend's Terraform-managed settings
+
+**Alternatives Considered**:
+- Create a new, dedicated Entra ID tenant for this application: Adds administrative overhead (separate user directory, separate consent/admin boundary) with no benefit, since the app only needs to authenticate users who already exist in the subscription's tenant
+- Reuse an existing app registration from another project: Risks redirect URI collisions and unintended shared API permissions/scopes between unrelated applications
+
+---
+
 ## Summary of Technical Stack for This Feature
 
 | Component | Technology | Rationale |
@@ -192,6 +218,7 @@ This document captures technical research and decisions made to satisfy the func
 | Session Management | Browser localStorage + MSAL auto-refresh | Stateless backend; automatic token refresh |
 | Menu API | GET `/api/auth/me` | Returns user identity and capabilities |
 | Backend Validation | Per-request token + capability check | Catches revocations and capability changes immediately |
+| Entra ID Tenant / App Registration | Subscription's existing tenant; dedicated app registration; IDs stored as GitHub repository variables (`AZURE_TENANT_ID`, `AZURE_APP_ID`) | No new tenant needed; keeps deploy-time config out of source |
 
 ---
 

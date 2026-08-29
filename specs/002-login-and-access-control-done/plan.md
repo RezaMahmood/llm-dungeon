@@ -23,6 +23,25 @@ Phase 0 (Infrastructure Setup) assumes infrastructure from 007 already exists or
 
 ---
 
+## Amendment (2026-08-29): Entra ID Tenant & App Registration Deployment Wiring
+
+`/speckit-analyze` verification (re-running against the live Azure/GitHub state, not just the documents) found that the original Phase 0/Phase 4 assumption — that an Entra ID app registration for this feature exists and its identifiers reach the deployed app — was never fully closed out, despite T011 and T092 being checked complete. Concretely:
+
+- No app registration matching this project exists in the tenant (`az ad app list` returns none), and no `AZURE_APP_ID` GitHub repository variable exists (`gh variable list`).
+- Even once created, `infrastructure/terraform/main.tf` writes `AZURE_APP_ID` into the Function App's application settings from `var.azure_app_id`, but `.github/workflows/terraform-apply.yml` never passes `TF_VAR_azure_app_id` — so `main.tf`'s fallback (`var.azure_client_id`, the GitHub OIDC deploy identity) would silently land in that setting instead.
+- `src/frontend/src/services/msalConfig.js` reads `VITE_AZURE_TENANT_ID`/`VITE_AZURE_APP_ID` from the Vite build environment, but `.github/workflows/frontend-deploy.yml`'s build step sets neither — so the deployed frontend's MSAL `clientId`/`authority` are `undefined` today.
+
+This closes the gap addressed by **FR-013/FR-014/SC-006** (see [spec.md](spec.md)) and corrects [research.md](research.md) Decision 9, which had described this wiring as already in place via the app-deploy workflows — the actual settings-propagation mechanism is Terraform (`terraform-apply.yml` → `main.tf`), and the frontend build-time injection does not exist yet at all.
+
+**Remediation** (tracked as appended tasks in [tasks.md](tasks.md) via `/speckit-converge`):
+1. Create the dedicated Entra ID app registration in the subscription's tenant (`d3c951e9-14d0-4fd4-84d0-44d9aceb66e8` / `rezamahmood.net`), per FR-013.
+2. Add `AZURE_APP_ID` as a GitHub repository variable holding that registration's client ID.
+3. Add `TF_VAR_azure_app_id: ${{ vars.AZURE_APP_ID }}` to `terraform-apply.yml`'s Terraform Apply step.
+4. Add a build-env step to `frontend-deploy.yml` injecting `VITE_AZURE_TENANT_ID`, `VITE_AZURE_APP_ID`, and `VITE_AZURE_REDIRECT_URI` from repository variables before `npm run build`.
+5. Add an automated post-deploy or infra check verifying the deployed Function App / frontend build actually carry the correct tenant/app IDs (FR-014, SC-006) — extending the pattern already used by `infrastructure/tests/test_oidc_authentication.py`.
+
+---
+
 ## Technical Context
 
 ### Technology Stack

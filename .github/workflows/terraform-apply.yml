@@ -46,6 +46,7 @@ jobs:
         env:
           TF_VAR_azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_azure_tenant_id: ${{ vars.AZURE_TENANT_ID }}
+          TF_VAR_azure_app_id: ${{ vars.AZURE_APP_ID }}
           TF_VAR_seed_admin_email: ${{ secrets.SEED_ADMIN_EMAIL }}
         run: terraform apply -auto-approve -input=false -var-file=terraform.tfvars
 
