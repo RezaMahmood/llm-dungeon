@@ -76,7 +76,7 @@ All authentication via federated OIDC (GitHub → Azure identity exchange).
 
 ## Backend Configuration File (backend-prod.hcl)
 
-**Location**: `terraform/backend-prod.hcl` (checked into Git, public)
+**Location**: `infrastructure/terraform/backend-prod.hcl` (checked into Git, public)
 
 **Purpose**: Terraform backend configuration (remote state storage)
 
@@ -111,7 +111,7 @@ terraform init -backend-config=backend-prod.hcl
 
 ## Terraform Variables File (terraform.tfvars)
 
-**Location**: `terraform/terraform.tfvars` (checked into Git, public, no secrets)
+**Location**: `infrastructure/terraform/terraform.tfvars` (checked into Git, public, no secrets)
 
 **Purpose**: Environment-specific input values for Terraform
 
@@ -269,7 +269,7 @@ az storage account blob-service-properties update \
 
 echo "✓ Bootstrap storage account created: $STORAGE_ACCOUNT"
 echo "✓ Container created: $CONTAINER_NAME"
-echo "✓ Update terraform/backend-prod.hcl and terraform/terraform.tfvars with:"
+echo "✓ Update infrastructure/terraform/backend-prod.hcl and infrastructure/terraform/terraform.tfvars with:"
 echo "  - resource_group_name: $RESOURCE_GROUP"
 echo "  - storage_account_name: $STORAGE_ACCOUNT"
 ```
@@ -386,7 +386,7 @@ AZURE_PROVIDER_VERSION=3.80.0
 **Step 4: Run Terraform**
 
 ```bash
-cd terraform/
+cd infrastructure/terraform/
 
 # Initialize with backend
 terraform init -backend-config=backend-prod.hcl

@@ -22,7 +22,7 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
    - Use: Install Terraform CLI
 
 3. **Terraform Format Check**
-   - Command: `terraform fmt -check -recursive terraform/`
+   - Command: `terraform fmt -check -recursive infrastructure/terraform/`
    - Purpose: Ensure code follows Terraform formatting standards
    - Fail condition: Any files not formatted correctly
 
@@ -334,7 +334,7 @@ TERRAFORM_VERSION: 1.16.0
 AZURE_PROVIDER_VERSION: 3.80.0
 ```
 
-**Federated OIDC Trust** (configured on the dedicated GitHub OIDC Managed Identity, not an app registration) — **four** federated credentials. GitHub's OIDC subject claim shape depends on how a job is triggered and scoped, and critically: **a job's `environment:` key overrides the branch/event-based subject entirely** — every workflow here that calls `azure/login` also sets `environment:`, so each needed its own credential, found one `AADSTS700213` at a time by actually running them. This repo also issues subjects in the newer immutable-ID format (`repo:OWNER@ownerID/REPO@repoID:...`), not the classic name-only format — `scripts/bootstrap.sh` fetches the numeric IDs via `gh api` rather than hardcoding them:
+**Federated OIDC Trust** (configured on the dedicated GitHub OIDC Managed Identity, not an app registration) — **four** federated credentials. GitHub's OIDC subject claim shape depends on how a job is triggered and scoped, and critically: **a job's `environment:` key overrides the branch/event-based subject entirely** — every workflow here that calls `azure/login` also sets `environment:`, so each needed its own credential, found one `AADSTS700213` at a time by actually running them. This repo also issues subjects in the newer immutable-ID format (`repo:OWNER@ownerID/REPO@repoID:...`), not the classic name-only format — `infrastructure/scripts/bootstrap.sh` fetches the numeric IDs via `gh api` rather than hardcoding them:
 - **`github-actions-main`**: `Subject: repo:OWNER@ownerID/REPO@repoID:ref:refs/heads/main`. Would cover a `push`-triggered job with no `environment:` key set — unused by any current workflow, kept for future ones.
 - **`github-actions-pull-request`**: `Subject: repo:OWNER@ownerID/REPO@repoID:pull_request`. Covers `terraform-validate.yml`'s Azure-login-requiring `terraform plan` step on PRs.
 - **`github-actions-env-production`**: `Subject: repo:OWNER@ownerID/REPO@repoID:environment:production`. Covers every job with `environment: production` — `backend-deploy.yml`, `frontend-deploy.yml`, `infrastructure-tests.yml`.

@@ -8,9 +8,9 @@
 # environments and the `production-infra` required-reviewer protection rule —
 # this script only sets variable values, it does not create environments.
 #
-# Usage: ./scripts/configure-github-environment.sh
+# Usage: ./infrastructure/scripts/configure-github-environment.sh
 # Requires: gh CLI (authenticated), terraform CLI, run from repo root with
-# terraform/ already applied (state readable via `terraform output`).
+# infrastructure/terraform/ already applied (state readable via `terraform output`).
 
 set -euo pipefail
 

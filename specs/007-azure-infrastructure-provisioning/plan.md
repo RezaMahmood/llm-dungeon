@@ -128,7 +128,7 @@ specs/007-azure-infrastructure-provisioning/
 ### Infrastructure Code (repository root)
 
 ```text
-terraform/
+infrastructure/terraform/
 ├── main.tf              # Main resource definitions (Functions, Storage, Cosmos DB, Static Web App, AI Foundry)
 ├── network.tf           # Virtual Network, subnets, Functions VNet integration, private endpoints, DNS
 ├── monitoring.tf        # Log Analytics Workspace, Application Insights, Budget & cost alert

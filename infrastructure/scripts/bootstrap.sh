@@ -11,7 +11,7 @@
 #      federated credential (not an App Registration — FR-011a), with a
 #      Contributor role assignment scoped to the Resource Group only.
 #
-# Usage: ./scripts/bootstrap.sh
+# Usage: ./infrastructure/scripts/bootstrap.sh
 # Requires: az CLI, authenticated (`az login`) with access to the target
 # subscription (this environment has access to exactly one subscription,
 # so no --subscription override is needed beyond `az account show`).
@@ -186,7 +186,7 @@ done
 
 echo
 echo "== Bootstrap complete =="
-echo "Update terraform/backend-prod.hcl and terraform/terraform.tfvars if not already set:"
+echo "Update infrastructure/terraform/backend-prod.hcl and infrastructure/terraform/terraform.tfvars if not already set:"
 echo "  resource_group_name  = \"$RESOURCE_GROUP\""
 echo "  storage_account_name = \"$STORAGE_ACCOUNT\""
 echo

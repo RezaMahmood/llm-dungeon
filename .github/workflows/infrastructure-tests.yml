@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "terraform/**"
+      - "infrastructure/terraform/**"
 
 permissions:
   contents: read
@@ -42,7 +42,7 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Terraform Init (read-only, for `terraform output`)
-        working-directory: terraform
+        working-directory: infrastructure/terraform
         run: terraform init -backend-config=backend-prod.hcl -input=false
 
       - name: Run infrastructure tests

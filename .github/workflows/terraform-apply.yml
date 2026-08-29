@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "terraform/**"
+      - "infrastructure/terraform/**"
   workflow_dispatch: {}
 
 # Targets the production-infra GitHub environment (created, along with its
@@ -38,23 +38,23 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Terraform Init
-        working-directory: terraform
+        working-directory: infrastructure/terraform
         run: terraform init -backend-config=backend-prod.hcl -input=false
 
       - name: Terraform Apply
-        working-directory: terraform
+        working-directory: infrastructure/terraform
         env:
           TF_VAR_azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_azure_tenant_id: ${{ vars.AZURE_TENANT_ID }}
         run: terraform apply -auto-approve -input=false -var-file=terraform.tfvars
 
       - name: Capture Terraform Outputs
-        working-directory: terraform
+        working-directory: infrastructure/terraform
         run: terraform output -json > outputs.json
 
       - name: Upload outputs artifact
         uses: actions/upload-artifact@v4
         with:
           name: terraform-outputs
-          path: terraform/outputs.json
+          path: infrastructure/terraform/outputs.json
           retention-days: 5

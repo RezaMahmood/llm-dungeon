@@ -90,8 +90,8 @@ tmp/
 local.settings.json
 .azure/
 
-# Terraform (terraform/terraform.tfvars and backend-prod.hcl ARE tracked —
-# no secrets, per contracts/deployment-config-contract.md)
+# Terraform (infrastructure/terraform/terraform.tfvars and backend-prod.hcl
+# ARE tracked — no secrets, per contracts/deployment-config-contract.md)
 .terraform/
 *.tfstate
 *.tfstate.*

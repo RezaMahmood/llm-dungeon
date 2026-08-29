@@ -57,7 +57,7 @@ This guide documents the steps to validate each user story and feature requireme
 
 2. **Update Backend Configuration**
 
-   Update `terraform/backend-prod.hcl`:
+   Update `infrastructure/terraform/backend-prod.hcl`:
    ```hcl
    resource_group_name  = "llm-dungeon"
    storage_account_name = "llmdungeontstateprod"
@@ -68,7 +68,7 @@ This guide documents the steps to validate each user story and feature requireme
 3. **Initialize Terraform**
 
    ```bash
-   cd terraform/
+   cd infrastructure/terraform/
    terraform init -backend-config=backend-prod.hcl
    ```
 
@@ -92,14 +92,14 @@ use this backend in all future operations.
 
 **Prerequisites**:
 - Bootstrap storage account created (Scenario 1)
-- Terraform variables configured (`terraform/terraform.tfvars`)
+- Terraform variables configured (`infrastructure/terraform/terraform.tfvars`)
 - Azure subscription access
 
 **Setup Steps**:
 
 1. **Review Terraform Configuration**
 
-   Ensure `terraform/terraform.tfvars` contains:
+   Ensure `infrastructure/terraform/terraform.tfvars` contains:
    ```hcl
    environment     = "production"
    azure_region    = "westeurope"
@@ -111,7 +111,7 @@ use this backend in all future operations.
 2. **Plan Terraform Changes**
 
    ```bash
-   cd terraform/
+   cd infrastructure/terraform/
    terraform plan -out=tfplan
    ```
 
@@ -641,14 +641,14 @@ test_resource_creation.py::test_cosmos_public_access_disabled PASSED
    ```
 
 2. **Identify Issue**
-   - Configuration error → Fix terraform/terraform.tfvars, re-run Terraform
+   - Configuration error → Fix infrastructure/terraform/terraform.tfvars, re-run Terraform
    - Permission error → Add missing role assignment, retry
    - Network error → Check private endpoint DNS, re-run validation tests
 
 3. **Redeploy**
    ```bash
    # For infrastructure
-   cd terraform/
+   cd infrastructure/terraform/
    terraform apply
    
    # For application
