@@ -34,8 +34,10 @@ constitution's UI Design System Requirements win on rules (see `.specify/memory/
 **Resolved gaps**:
 
 - **Test play** (`04-admin-wizard.html`, step 05): now specified in
-  [`010-story-test-play`](../010-story-test-play/spec.md), including the publish-blocking
-  gate, which `005-story-publishing` now references (its FR-008).
+  [`010-story-test-play`](../010-story-test-play/spec.md); the publish-blocking gate that
+  originally accompanied it is now its own spec,
+  [`017-story-publish-test-play-gate`](../017-story-publish-test-play-gate/spec.md)
+  (split 2026-08-29), which `005-story-publishing` references (its FR-008).
 - **"Publish & assign"** (`04-admin-wizard.html`, step 06): resolved by explicit product
   decision — there is no assignment/targeting capability. Publishing makes a story
   available to every player; `005-story-publishing`'s FR-009 makes this explicit. The

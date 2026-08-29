@@ -37,3 +37,10 @@
   007-azure-infrastructure-provisioning names Terraform/GitHub Actions as constitutional
   constraints rather than treating them as leaked implementation detail.
 - All items pass; no spec updates required before `/speckit-plan`.
+- 2026-08-29: Split former User Story 3 ("Observability Keeps Working When Application
+  Insights Is Unavailable or Unconfigured") out into `018-observability-resilience`,
+  along with the data-cap and error-burst edge cases that accompanied it, as part of a
+  project-wide pass to keep each spec to at most two user stories. This spec now covers
+  only User Stories 1 and 2 (backend diagnosis, frontend-backend trace correlation).
+  Content is carried over unchanged in substance; FR numbers were renumbered. All items
+  re-checked and still pass.

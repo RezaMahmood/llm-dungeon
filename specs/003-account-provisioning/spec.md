@@ -8,6 +8,8 @@
 
 **Input**: User description: "The application is seeded with an initial administrator account. Thereafter the administrator should have an interface that allows them to add more players or administrators to the system. minimum requirement is that it must be a microsoft account and we only match on emails."
 
+**Split**: 2026-08-29 — this spec originally also contained "Administrator Views Existing Provisioned Accounts" as a third user story. It has been split out into [014-account-listing](../014-account-listing/spec.md) so this spec covers at most two user stories (bootstrap seeding and granting access). Viewing the resulting list is now specified separately, since it depends on entries this spec creates but is not itself part of creating them.
+
 ## Clarifications
 
 ### Session 2026-08-29
@@ -53,21 +55,6 @@ A signed-in Administrator uses an in-app interface to grant a new Microsoft acco
 
 ---
 
-### User Story 3 - Administrator Views Existing Provisioned Accounts (Priority: P3)
-
-Before or while adding a new account, an administrator can see the current list of provisioned emails and the capability role(s) each one holds.
-
-**Why this priority**: This supports informed decisions — avoiding accidental duplicate entries and understanding who already has access — but it is a smaller capability layered on top of the seeding and adding flows already covered.
-
-**Independent Test**: With at least two provisioned entries existing, view the account list and verify both are shown with their correct assigned roles.
-
-**Acceptance Scenarios**:
-
-1. **Given** one or more provisioned entries exist, **When** an Administrator views the account list, **Then** each entry's email and assigned capability role(s) are shown.
-2. **Given** an Administrator adds an email that already appears in the list, but with an additional role, **When** the addition completes, **Then** the list reflects a single, updated entry for that email rather than two separate entries.
-
----
-
 ### Edge Cases
 
 - An administrator adds an email that is already provisioned (whether the original seed administrator's email or one added earlier): the existing entry's roles are updated to include any newly selected role, rather than a duplicate entry being created.
@@ -92,12 +79,11 @@ Before or while adding a new account, an administrator can see the current list 
 - **FR-007**: For every sign-in after an entry's object identifier has been bound (per FR-006), the system MUST require the presented Microsoft account's object identifier to match the entry's bound object identifier before granting access; a matching email alone MUST NOT be sufficient once an entry has a bound object identifier.
 - **FR-008**: Email matching (for an entry's first, not-yet-bound sign-in) and duplicate detection MUST both be case-insensitive, and the system MUST normalize a provisioned account entry's email address to lowercase for both storage and display, regardless of the casing used when it was submitted or the casing Microsoft presents at sign-in.
 - **FR-009**: When an Administrator adds an email that already has a provisioned account entry, the system MUST update that entry's assigned capability roles to include any newly selected role, rather than creating a duplicate entry, and MUST leave that entry's existing bound Microsoft object identifier (if any) unchanged.
-- **FR-010**: System MUST allow an Administrator to view the current list of provisioned account entries, including each entry's email and assigned capability role(s).
-- **FR-011**: Each distinct provisioning outcome (initial seed present at first run, successful new-entry add for each role combination, successful role-merge on an already-provisioned email, rejected submission with no role selected, rejected malformed email, first sign-in binding a Microsoft object identifier to a provisioned entry, successful subsequent sign-in with a matching bound object identifier, and denied sign-in when the presented object identifier does not match the entry's bound object identifier) MUST have a corresponding automated test verifying its expected behavior.
+- **FR-010**: Each distinct provisioning outcome (initial seed present at first run, successful new-entry add for each role combination, successful role-merge on an already-provisioned email, rejected submission with no role selected, rejected malformed email, first sign-in binding a Microsoft object identifier to a provisioned entry, successful subsequent sign-in with a matching bound object identifier, and denied sign-in when the presented object identifier does not match the entry's bound object identifier) MUST have a corresponding automated test verifying its expected behavior.
 
 ### Key Entities
 
-- **Provisioned Account Entry**: An email address together with the capability role(s) (Player and/or Administrator) granted to it, and the Microsoft object identifier bound to it once its first successful sign-in has occurred (absent until then). This is the concrete record behind the Allow-List Entry and Capability Role concepts described in `002-login-and-access-control` — a signed-in Microsoft account is matched against these entries by email on first sign-in (binding its object identifier), and by that bound object identifier on every sign-in thereafter, to determine both whether it may sign in at all and which capabilities it holds.
+- **Provisioned Account Entry**: An email address together with the capability role(s) (Player and/or Administrator) granted to it, and the Microsoft object identifier bound to it once its first successful sign-in has occurred (absent until then). This is the concrete record behind the Allow-List Entry and Capability Role concepts described in `002-login-and-access-control` — a signed-in Microsoft account is matched against these entries by email on first sign-in (binding its object identifier), and by that bound object identifier on every sign-in thereafter, to determine both whether it may sign in at all and which capabilities it holds. Viewing the list of these entries is specified in `014-account-listing`.
 - **Initial Administrator Seed**: The one Provisioned Account Entry, holding the Administrator capability, that exists automatically from first deployment so the system is never without an administrator.
 
 ## Success Criteria *(mandatory)*
@@ -120,3 +106,4 @@ Before or while adding a new account, an administrator can see the current list 
 - Matching is based solely on the email address presented by Microsoft identity sign-in for an entry's first sign-in, consistent with "we only match on emails"; no verification beyond that (e.g., confirming ownership via a sent email) is performed at that point.
 - After an entry's first sign-in, its bound Microsoft object identifier — not email — is the authoritative match for every later sign-in, since email alone cannot rule out a different Microsoft identity later presenting the same address; email remains stored on the entry so administrators can identify accounts by inspection.
 - Clearing or replacing an entry's bound object identifier (e.g., because the underlying Microsoft account was deleted and recreated) is out of scope for this feature, the same deliberate scope boundary as account removal; a future capability would need to address rebinding.
+- Viewing the list of provisioned account entries is a separate concern from creating/updating them and is specified in `014-account-listing`, which depends on this spec's entries but does not affect how they are created.
