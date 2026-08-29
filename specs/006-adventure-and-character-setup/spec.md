@@ -12,6 +12,15 @@
 
 **Design Reference**: [specs/designs/02-story-select.html](../designs/02-story-select.html), "Start something new" section (see [specs/designs/README.md](../designs/README.md))
 
+## Clarifications
+
+### Session 2026-08-29
+
+- Q: If a published adventure ends up with zero administrator-defined character types, what should happen when a player tries to select it during setup? → A: Cannot be published without ≥1 type — 005-story-publishing must block publishing an adventure with no character types, so this can never occur at setup time.
+- Q: If a player changes their adventure selection after already picking a character type, should their previously chosen character type carry forward or reset? → A: Reset the character type — types are scoped per adventure, so a prior selection is not guaranteed valid for the newly chosen adventure. Character name is unaffected by an adventure change.
+- Q: Beyond rejecting a blank/whitespace-only name, what limit (if any) should apply to character name length? → A: Cap at 50 characters.
+- Q: Must a player pick an adventure before choosing a character name and type, or can all three be filled in any order on one screen? → A: Adventure first, then name/type — the character-type choices shown depend on the adventure, so adventure selection is the first step and name/type entry follows.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Player Selects an Adventure and Creates a Character (Priority: P1)
@@ -25,16 +34,19 @@ A player choosing to start a new game first picks which published adventure to p
 **Acceptance Scenarios**:
 
 1. **Given** a player has chosen "start a new game," **When** they view the list of available adventures, **Then** only published adventures are shown (see `005-story-publishing`), each distinguishable by name.
-2. **Given** a player has selected an adventure, **When** they proceed to set up their character, **Then** they are prompted for a character name and shown the set of character types defined for that specific adventure.
-3. **Given** a player has selected an adventure but has not yet supplied both a character name and a character type, **When** they attempt to start playing, **Then** the system prevents play from starting and indicates what is still missing.
-4. **Given** a player has supplied an adventure, a character name, and a character type, **When** they confirm their choices, **Then** a new play session begins using that adventure, name, and character type.
+2. **Given** a player has not yet selected an adventure, **When** they view the setup flow, **Then** character name entry and character type selection are not available until an adventure has been chosen first.
+3. **Given** a player has selected an adventure, **When** they proceed to set up their character, **Then** they are prompted for a character name and shown the set of character types defined for that specific adventure.
+4. **Given** a player has selected an adventure but has not yet supplied both a character name and a character type, **When** they attempt to start playing, **Then** the system prevents play from starting and indicates what is still missing.
+5. **Given** a player has supplied an adventure, a character name, and a character type, **When** they confirm their choices, **Then** a new play session begins using that adventure, name, and character type.
 
 ---
 
 ### Edge Cases
 
 - A player enters a character name that is empty or only whitespace: the system rejects it and asks for a valid name rather than starting a game with a blank identity.
+- A player enters a character name longer than 50 characters: the system rejects it and asks for a shorter name.
 - A player attempts to start a new game after selecting an adventure and a character name but not a character type (or any other incomplete combination): the system blocks starting play and identifies exactly what is missing.
+- A player who has already chosen a character type changes their selected adventure: the character type selection is cleared (since character types are scoped per adventure) and the player must choose a type again from the new adventure's set; their character name is retained.
 - No adventures are currently published: the player sees a clear message that nothing is available yet, rather than an empty or broken list.
 - An adventure defines only a single character type: the player is still shown a choice (of one), rather than the type being silently pre-selected without their confirmation.
 
@@ -43,9 +55,11 @@ A player choosing to start a new game first picks which published adventure to p
 ### Functional Requirements
 
 - **FR-001**: System MUST present a player starting a new game with the list of currently published adventures to choose from, each distinguishable by name.
-- **FR-002**: System MUST require a player starting a new game to supply a non-blank character name before play can begin.
+- **FR-002**: System MUST require a player starting a new game to supply a non-blank character name, no longer than 50 characters, before play can begin.
 - **FR-003**: System MUST require a player starting a new game to choose one character type from the set of character types defined by the administrator for the selected adventure, before play can begin.
+- **FR-003a**: System MUST require a player to select an adventure before character name entry and character type selection become available, since the available character types depend on which adventure was chosen.
 - **FR-004**: System MUST prevent a player from starting actual gameplay until an adventure, a character name, and a character type have all been supplied.
+- **FR-004a**: System MUST clear a previously selected character type whenever the player changes their selected adventure, since character types are scoped per adventure; the character name MUST be retained across such a change.
 - **FR-005**: System MUST identify to the player exactly which setup element(s) are still missing when they attempt to start play prematurely.
 - **FR-006**: System MUST display a clear message when no adventures are currently published, rather than an empty adventure list.
 - **FR-007**: Each distinct setup step (adventure selection, character name entry, character type selection, and the completeness gate) MUST have a corresponding automated test verifying its expected behavior.
@@ -68,3 +82,4 @@ A player choosing to start a new game first picks which published adventure to p
 - Character types are defined per adventure by the administrator (as part of that adventure's configuration), not as a single global list shared across all adventures.
 - This spec covers only setup; the resulting play session itself, including how completion criteria end it, is defined in `008-core-gameplay`.
 - The adventure list shown here is exactly the set of published stories as governed by `005-story-publishing`; this spec does not alter or duplicate that publishing logic.
+- Every published adventure has at least one character type defined; `005-story-publishing` is responsible for blocking publication of an adventure with zero character types, so this spec's setup flow never has to handle a published adventure with no types to choose from.
