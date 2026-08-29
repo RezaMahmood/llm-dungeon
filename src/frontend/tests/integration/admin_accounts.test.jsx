@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -6,11 +6,14 @@ const acquireTokenSilent = vi.fn();
 const addAccount = vi.fn();
 const listAccounts = vi.fn();
 
+// Stable references across renders — mirrors real MSAL context behavior, and
+// avoids retriggering AdminAccountsPage's memoized refresh callback (and its
+// effect) on every render (see tests/hooks/useCapabilities.test.jsx).
+const mockInstance = { acquireTokenSilent };
+const mockAccounts = [{ homeAccountId: "home-1", username: "admin@example.com" }];
+
 vi.mock("@azure/msal-react", () => ({
-  useMsal: () => ({
-    instance: { acquireTokenSilent },
-    accounts: [{ homeAccountId: "home-1", username: "admin@example.com" }],
-  }),
+  useMsal: () => ({ instance: mockInstance, accounts: mockAccounts }),
 }));
 
 vi.mock("../../src/services/accountService.js", () => ({
@@ -69,7 +72,8 @@ describe("Admin accounts: add -> list -> re-add merges", () => {
     await userEvent.click(screen.getByLabelText(/administrator/i));
     await userEvent.click(screen.getByRole("button", { name: /add account/i }));
 
-    await screen.findByText("Administrator");
-    expect(screen.getAllByRole("row")).toHaveLength(2); // still one merged entry, not two
+    const table = await screen.findByRole("table");
+    await within(table).findByText("Administrator");
+    expect(within(table).getAllByRole("row")).toHaveLength(2); // still one merged entry, not two
   });
 });
