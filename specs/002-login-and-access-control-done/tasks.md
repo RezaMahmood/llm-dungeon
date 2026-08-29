@@ -802,6 +802,20 @@
 
 ---
 
+## Phase 7: Convergence
+
+**Purpose**: Close the gap found by `/speckit-analyze` and `/speckit-converge` (2026-08-29) between the spec's amended requirements (FR-013, FR-014, SC-006) and the deployed system's actual Entra ID app-registration wiring — despite T011/T092 being checked complete, live verification found the registration and its CI/CD wiring do not exist.
+
+- [ ] T097 Create a dedicated Microsoft Entra ID app registration for this application (SPA redirect platform + exposed API scope) in the tenant associated with the project's Azure subscription per FR-013 (missing)
+- [ ] T098 Add `AZURE_APP_ID` as a GitHub repository variable holding the app registration's client ID per FR-014 (missing)
+- [ ] T099 [P] Add `TF_VAR_azure_app_id: ${{ vars.AZURE_APP_ID }}` to the Terraform Apply step in `.github/workflows/terraform-apply.yml` so `infrastructure/terraform/main.tf`'s `AZURE_APP_ID` application setting no longer falls back to the deploy identity's client ID per FR-014 (missing)
+- [ ] T100 [P] Inject `VITE_AZURE_TENANT_ID`, `VITE_AZURE_APP_ID`, and `VITE_AZURE_REDIRECT_URI` (from GitHub repository variables) into the "Build static site" step's environment in `.github/workflows/frontend-deploy.yml`, so `src/frontend/src/services/msalConfig.js` no longer builds with an undefined `clientId`/`authority` per FR-014 (missing)
+- [ ] T101 Add an automated post-deploy or infrastructure check (extending the pattern in `infrastructure/tests/test_oidc_authentication.py`) that verifies the deployed Function App and frontend build carry the correct tenant ID and app ID per SC-006 (missing)
+
+**Checkpoint**: Re-running `/speckit-converge` after these tasks are implemented should find FR-013/FR-014/SC-006 satisfied and report a converged result.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

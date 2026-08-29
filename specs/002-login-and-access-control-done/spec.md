@@ -4,9 +4,11 @@
 
 **Created**: 2026-08-28
 
-**Status**: Draft
+**Status**: Reopened for Amendment (FR-013/FR-014, SC-006 added 2026-08-29; original scope shipped and verified)
 
 **Reorganized from**: originally `002-role-based-login`, renumbered to lead the spec set as the foundational, entry-point capability every other feature depends on.
+
+**Amendment (2026-08-29)**: Reopened after `/speckit-analyze` verification found that sign-in configuration (Section: Requirements, FR-013/FR-014 below) was never fully wired end-to-end in the deployed system — see `research.md` Decision 9 and `plan.md`'s Amendment section for details.
 
 **Input**: User description: "Login. Login will be done using a player's Microsoft account - something like emailname@outlook.com or emailname@gmail.com - the actual email address shouldn't matter as long as it is connected to Microsoft. The application will have to identify whether the logged in user is a player or an administrator. If they are an administrator they need to be able to see a menu item that leads them to an administration page. If they are a player they need to be able to see a menu item that leads them to start or continue a game."
 
@@ -83,6 +85,8 @@ A person with a valid, working Microsoft account that is not on the application'
 - **FR-010**: System MUST display a clear, human-readable message when a successfully authenticated user holds neither capability, and a clear, human-readable message when sign-in is denied because the account is not allow-listed.
 - **FR-011**: System MUST maintain the user's authenticated session across normal in-application navigation, so moving between menu items does not require signing in again.
 - **FR-012**: Each distinct login outcome (Player-only sign-in, Administrator-only sign-in, dual-capability sign-in, no-capability sign-in, and denied/unauthorized sign-in) MUST have a corresponding automated test verifying its expected behavior.
+- **FR-013**: The system MUST authenticate against a single, dedicated Microsoft Entra ID application registration created in the tenant associated with the project's Azure subscription — never an ad hoc, shared, or unrelated registration, and never a newly created tenant.
+- **FR-014**: The tenant identifier and application registration identifier MUST flow from deployment configuration (not be hardcoded) to both the backend's token-validation configuration and the frontend's sign-in configuration at deploy time, such that a deployed instance can never end up silently running with a missing or mismatched identity. Deployment configuration MUST be verifiable by an automated check (e.g., a CI/infrastructure test or a post-deploy smoke test) rather than relying on manual verification alone.
 
 ### Key Entities
 
@@ -99,6 +103,7 @@ A person with a valid, working Microsoft account that is not on the application'
 - **SC-003**: 100% of sign-in attempts from Microsoft accounts not on the allow-list are denied, with zero instances of a denied account reaching any menu, page, or application content in testing.
 - **SC-004**: Across all tested capability combinations (Player only, Administrator only, both, neither), a user is never shown a menu item for a capability they do not hold.
 - **SC-005**: A user holding both capabilities can reach both the administration page and the game start/continue flow in the same session without signing in more than once.
+- **SC-006**: A production deployment completes Microsoft sign-in successfully using the tenant and app registration identifiers configured for this application, verified by an automated check on every deploy — with zero reliance on a human confirming the values by hand after the fact.
 
 ## Assumptions
 
