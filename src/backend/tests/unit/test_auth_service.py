@@ -113,6 +113,52 @@ def test_validate_token_with_wrong_issuer_returns_false(key_pair):
     assert email is None
 
 
+def test_validate_token_accepts_personal_microsoft_account_issuer(key_pair):
+    """A personal Microsoft account (e.g. the seed administrator's own
+    @hotmail.com address — spec.md requires "it must be a microsoft
+    account", not restricted to this org's tenant) presents an issuer for
+    Microsoft's fixed MSA "consumers" tenant, not AZURE_TENANT_ID. Found live:
+    every sign-in from such an account was rejected before this was accepted
+    as a valid issuer alongside the org tenant.
+    """
+    private_key, public_key = key_pair
+    consumers_issuer = "https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0"
+    service = AuthService(
+        jwks_uri="https://example.invalid/keys",
+        issuer=(ISSUER, consumers_issuer),
+        audience=APP_ID,
+    )
+    signing_key = MagicMock()
+    signing_key.key = public_key
+    mock_jwk_client = MagicMock()
+    mock_jwk_client.get_signing_key_from_jwt.return_value = signing_key
+    service._jwk_client = mock_jwk_client
+    service._jwk_client_created_at = time.time()
+    token = _make_token(private_key, issuer=consumers_issuer)
+
+    is_valid, user_oid, email, error = service.validate_token(token)
+
+    assert is_valid is True
+    assert user_oid == "user-oid-123"
+    assert email == "user@example.com"
+
+
+def test_default_valid_issuers_include_both_org_and_consumers_tenants():
+    with patch("backend.services.auth_service.config") as mock_config:
+        mock_config.jwks_uri.return_value = "https://example.invalid/keys"
+        mock_config.AZURE_APP_ID = APP_ID
+        mock_config.valid_issuers.return_value = (
+            ISSUER,
+            "https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0",
+        )
+        service = AuthService()
+
+    assert service._valid_issuers == (
+        ISSUER,
+        "https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0",
+    )
+
+
 def test_validate_token_with_no_token_returns_false():
     service = AuthService(jwks_uri="https://example.invalid/keys", issuer=ISSUER, audience=APP_ID)
 
