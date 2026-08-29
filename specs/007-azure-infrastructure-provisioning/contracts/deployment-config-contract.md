@@ -289,6 +289,13 @@ RESOURCE_GROUP="llm-dungeon"
 REGION="westeurope"
 IDENTITY_NAME="llmdungeon-github-oidc-identity-prod"
 
+# This org/repo issues OIDC subject claims in the newer immutable-ID format
+# ("repo:OWNER@ownerID/REPO@repoID:...") rather than the classic name-only
+# format — fetch the IDs dynamically rather than hardcoding them.
+GITHUB_OWNER_ID=$(gh api "users/$GITHUB_ORG" --jq '.id')
+GITHUB_REPO_ID=$(gh api "repos/$GITHUB_ORG/$GITHUB_REPO" --jq '.id')
+GITHUB_SUBJECT_PREFIX="repo:${GITHUB_ORG}@${GITHUB_OWNER_ID}/${GITHUB_REPO}@${GITHUB_REPO_ID}"
+
 # Create the dedicated user-assigned Managed Identity for GitHub Actions
 az identity create \
   --resource-group "$RESOURCE_GROUP" \
@@ -337,7 +344,7 @@ az identity federated-credential create \
   --identity-name "$IDENTITY_NAME" \
   --resource-group "$RESOURCE_GROUP" \
   --issuer "https://token.actions.githubusercontent.com" \
-  --subject "repo:$GITHUB_ORG/$GITHUB_REPO:ref:refs/heads/main" \
+  --subject "${GITHUB_SUBJECT_PREFIX}:ref:refs/heads/main" \
   --audiences "api://AzureADTokenExchange"
 
 # A second credential for pull_request-triggered runs: GitHub's OIDC subject
@@ -350,7 +357,7 @@ az identity federated-credential create \
   --identity-name "$IDENTITY_NAME" \
   --resource-group "$RESOURCE_GROUP" \
   --issuer "https://token.actions.githubusercontent.com" \
-  --subject "repo:$GITHUB_ORG/$GITHUB_REPO:pull_request" \
+  --subject "${GITHUB_SUBJECT_PREFIX}:pull_request" \
   --audiences "api://AzureADTokenExchange"
 
 echo "✓ Federated OIDC trust configured on Managed Identity: $IDENTITY_NAME"

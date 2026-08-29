@@ -354,9 +354,9 @@
 **Properties**:
 - `identity_type`: User-assigned Managed Identity
 - `role_assignments`: Scoped to the resource group only what deployment and Terraform-apply workflows require (e.g., Contributor on the resource group) — not a broad, unscoped subscription-level role
-- **Two** federated credentials (not one) — GitHub's OIDC subject claim differs by trigger type, so one credential per shape:
-  - `github-actions-main` — `subject`: `repo:owner/repo:ref:refs/heads/main` (covers `push`-triggered runs: `terraform-apply.yml`, `backend-deploy.yml`, `frontend-deploy.yml`, `infrastructure-tests.yml`)
-  - `github-actions-pull-request` — `subject`: `repo:owner/repo:pull_request` (covers `pull_request`-triggered runs: `terraform-validate.yml`'s Azure-login `terraform plan` step). Discovered during implementation via `AADSTS700213` ("no matching federated identity record") on the first PR-triggered run — a PR's OIDC subject is never `ref:refs/heads/main`, regardless of target branch
+- **Two** federated credentials (not one) — GitHub's OIDC subject claim differs by trigger type, so one credential per shape. This repo also issues subjects in the newer immutable-ID format (`repo:OWNER@ownerID/REPO@repoID:...`), not the classic name-only format — discovered when a name-only subject still failed `AADSTS700213` after correctly splitting by trigger type; `scripts/bootstrap.sh` fetches the owner/repo numeric IDs via `gh api` rather than hardcoding them:
+  - `github-actions-main` — `subject`: `repo:OWNER@ownerID/REPO@repoID:ref:refs/heads/main` (covers `push`-triggered runs: `terraform-apply.yml`, `backend-deploy.yml`, `frontend-deploy.yml`, `infrastructure-tests.yml`)
+  - `github-actions-pull-request` — `subject`: `repo:OWNER@ownerID/REPO@repoID:pull_request` (covers `pull_request`-triggered runs: `terraform-validate.yml`'s Azure-login `terraform plan` step). Discovered during implementation via `AADSTS700213` ("no matching federated identity record") on the first PR-triggered run — a PR's OIDC subject is never `ref:refs/heads/main`, regardless of target branch
   - `issuer` (both): GitHub OIDC issuer (`https://token.actions.githubusercontent.com`)
   - `audience` (both): GitHub Actions default audience (`api://AzureADTokenExchange`)
 

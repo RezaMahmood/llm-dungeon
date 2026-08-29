@@ -31,6 +31,15 @@ FEDERATED_CREDENTIAL_NAME="github-actions-main"
 SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 TENANT_ID=$(az account show --query tenantId -o tsv)
 
+# This GitHub org/repo issues OIDC subject claims in the newer immutable-ID
+# format ("repo:OWNER@ownerID/REPO@repoID:...") rather than the classic
+# name-only format ("repo:OWNER/REPO:...") — discovered via AADSTS700213
+# during implementation. Fetched dynamically (not hardcoded) so this script
+# stays correct if the repo is ever renamed or forked.
+GITHUB_OWNER_ID=$(gh api "users/$GITHUB_ORG" --jq '.id')
+GITHUB_REPO_ID=$(gh api "repos/$GITHUB_ORG/$GITHUB_REPO" --jq '.id')
+GITHUB_SUBJECT_PREFIX="repo:${GITHUB_ORG}@${GITHUB_OWNER_ID}/${GITHUB_REPO}@${GITHUB_REPO_ID}"
+
 echo "== Bootstrap target =="
 echo "Subscription: $SUBSCRIPTION_ID"
 echo "Tenant:       $TENANT_ID"
@@ -149,17 +158,17 @@ else
     --identity-name "$IDENTITY_NAME" \
     --resource-group "$RESOURCE_GROUP" \
     --issuer "https://token.actions.githubusercontent.com" \
-    --subject "repo:$GITHUB_ORG/$GITHUB_REPO:ref:refs/heads/main" \
+    --subject "${GITHUB_SUBJECT_PREFIX}:ref:refs/heads/main" \
     --audiences "api://AzureADTokenExchange"
   echo "✓ Federated OIDC credential configured on Managed Identity: $IDENTITY_NAME"
 fi
 
 # A second federated credential, scoped to pull_request events: GitHub's OIDC
-# token subject claim for a pull_request-triggered run is
-# "repo:OWNER/REPO:pull_request", not "repo:OWNER/REPO:ref:refs/heads/main" —
-# a completely different subject the credential above doesn't match. Needed
-# because terraform-validate.yml runs `terraform plan` (Azure login required)
-# on pull_request, not just push to main.
+# token subject claim for a pull_request-triggered run ends ":pull_request",
+# not ":ref:refs/heads/main" — a completely different subject the credential
+# above doesn't match. Needed because terraform-validate.yml runs
+# `terraform plan` (Azure login required) on pull_request, not just push to
+# main.
 if az identity federated-credential show --name "github-actions-pull-request" --identity-name "$IDENTITY_NAME" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
   echo "✓ Federated credential 'github-actions-pull-request' already exists, skipping"
 else
@@ -168,7 +177,7 @@ else
     --identity-name "$IDENTITY_NAME" \
     --resource-group "$RESOURCE_GROUP" \
     --issuer "https://token.actions.githubusercontent.com" \
-    --subject "repo:$GITHUB_ORG/$GITHUB_REPO:pull_request" \
+    --subject "${GITHUB_SUBJECT_PREFIX}:pull_request" \
     --audiences "api://AzureADTokenExchange"
   echo "✓ Federated OIDC credential (pull_request) configured on Managed Identity: $IDENTITY_NAME"
 fi
