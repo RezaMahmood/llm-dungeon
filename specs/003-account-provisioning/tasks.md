@@ -28,8 +28,8 @@ Existing web-application layout: `src/backend/` (Python Azure Functions) + `src/
 
 **Purpose**: Add the one new dependency and the two new configuration values this feature needs.
 
-- [ ] T001 [P] Add `pyisemail` to `src/backend/requirements.txt` (RFC 5322 email validation — research.md §1)
-- [ ] T002 [P] Add `PROVISIONED_ACCOUNTS_CONTAINER = "provisionedAccountEntries"` and `SEED_ADMIN_EMAIL = os.environ.get("SEED_ADMIN_EMAIL", "")` to `src/backend/config.py`; leave the existing `ALLOW_LIST_CONTAINER`/`CAPABILITY_CONTAINER` constants in place for now (removed in Polish, once nothing references them)
+- [X] T001 [P] Add `pyisemail` to `src/backend/requirements.txt` (RFC 5322 email validation — research.md §1)
+- [X] T002 [P] Add `PROVISIONED_ACCOUNTS_CONTAINER = "provisionedAccountEntries"` and `SEED_ADMIN_EMAIL = os.environ.get("SEED_ADMIN_EMAIL", "")` to `src/backend/config.py`; leave the existing `ALLOW_LIST_CONTAINER`/`CAPABILITY_CONTAINER` constants in place for now (removed in Polish, once nothing references them)
 
 **Checkpoint**: Dependency and configuration available for Foundational work.
 
@@ -41,21 +41,21 @@ Existing web-application layout: `src/backend/` (Python Azure Functions) + `src/
 
 **⚠️ CRITICAL**: No user-story implementation task may run until this phase is complete.
 
-- [ ] T003 [P] Create `ProvisionedAccountEntry` in `src/backend/models/provisioned_account_entry.py` per data-model.md's schema: `email`/`id` (lowercased, identical), `roles` (non-empty list drawn from `Player`/`Administrator`), `objectId` (nullable), `dateAdded`, `addedBy`, `dateBound` (nullable); include `to_dict`/`from_dict` matching the existing model style (see `src/backend/models/allow_list_entry.py` for the pattern being replaced)
-- [ ] T004 Create `AccountProvisioningService` in `src/backend/services/account_provisioning_service.py` with `get_by_email(email) -> ProvisionedAccountEntry | None` (point read by lowercased email) and `authorize_sign_in(email, oid) -> tuple[bool, ProvisionedAccountEntry | None]` implementing FR-006/FR-007's bind-on-first-sign-in / verify-bound-oid logic (no entry → `(False, None)`; entry with `objectId is None` → bind `objectId`/`dateBound`, persist, return `(True, entry)`; entry with matching `objectId` → `(True, entry)`; entry with mismatched `objectId` → `(False, None)`), and `ensure_seed_administrator(email) -> None` (FR-001: create-if-absent only — a point read first, skip silently if an entry already exists, so it never clobbers roles an admin has since merged in) — depends on T003
-- [ ] T005 [P] Modify `src/backend/services/auth_service.py`: extract the `email` claim from the validated token alongside `oid`; `validate_token` now returns `(is_valid, user_oid, email, error_message)` (research.md §2 — use the `email` claim, not `preferred_username`)
-- [ ] T006 Modify `src/backend/api/auth/middleware.py`: add `authenticate_with_email(req) -> tuple[bool, str|None, str|None, str|None]` (is_valid, user_oid, email, error) built on T005's new `validate_token` return shape; keep the existing `authenticate(req)` (3-tuple: is_valid, user_oid, error) unchanged and working, so unrelated call sites outside this feature's scope (e.g. `src/backend/api/admin/stories.py`) need no changes — depends on T005
-- [ ] T007 Modify `src/backend/api/admin/middleware.py`: `authorize_admin()` now calls `authenticate_with_email` (T006) and `AccountProvisioningService.authorize_sign_in(email, oid)` (T004) in place of `AllowListService`/`CapabilityService`, checking `"Administrator" in entry.roles`; keep its external return shape `(is_authorized, user_oid, error_response)` unchanged so `src/backend/api/admin/stories.py` needs no changes — depends on T004, T006
-- [ ] T008 Modify `src/backend/api/game/start.py` (unrelated `008-core-gameplay` placeholder, updated only because this feature removes the services it currently imports): replace its direct `AllowListService`/`CapabilityService` usage with `authenticate_with_email` (T006) + `AccountProvisioningService.authorize_sign_in` (T004), checking `"Player" in entry.roles` — depends on T004, T006
-- [ ] T009 Modify `src/backend/function_app.py`: call `AccountProvisioningService().ensure_seed_administrator(config.SEED_ADMIN_EMAIL)` once at module load (Function App cold start), guarded so a blank `SEED_ADMIN_EMAIL` is a no-op (FR-001) — depends on T002, T004
-- [ ] T010 [P] Add unit tests for `ProvisionedAccountEntry` validation (empty `roles` rejected, `email`/`id` lowercased and identical) in `src/backend/tests/unit/test_models.py`
-- [ ] T011 [P] Add unit tests for `AccountProvisioningService.get_by_email`, `authorize_sign_in` (first-sign-in bind, matching-oid success, mismatched-oid denial), and `ensure_seed_administrator` (creates once, no-ops and does not overwrite an already-merged entry on a second call) in `src/backend/tests/unit/test_account_provisioning_service.py` (new file)
-- [ ] T012 [P] Update `src/backend/tests/unit/test_auth_service.py` for `validate_token`'s new `(is_valid, user_oid, email, error)` return shape
-- [ ] T013 [P] Update `src/backend/tests/unit/test_middleware.py` to cover `authenticate_with_email` alongside the existing `authenticate` tests
-- [ ] T014 [P] Update `src/backend/tests/unit/test_admin_capability.py` to exercise `AccountProvisioningService` role checks instead of the removed `CapabilityService`
-- [ ] T015 [P] Update `src/backend/tests/unit/test_unauthorized_user.py` to exercise `AccountProvisioningService.get_by_email`/`authorize_sign_in` instead of the removed `AllowListService`
-- [ ] T016 [P] Update `src/backend/tests/integration/test_access_denial.py`: replace its `patch("backend.api.admin.middleware.AllowListService"/"CapabilityService")` mocks with `AccountProvisioningService` mocks matching T007/T008's new implementation
-- [ ] T017 [P] Update `src/backend/tests/integration/test_authorization_enforcement.py` with the same mock replacement as T016
+- [X] T003 [P] Create `ProvisionedAccountEntry` in `src/backend/models/provisioned_account_entry.py` per data-model.md's schema: `email`/`id` (lowercased, identical), `roles` (non-empty list drawn from `Player`/`Administrator`), `objectId` (nullable), `dateAdded`, `addedBy`, `dateBound` (nullable); include `to_dict`/`from_dict` matching the existing model style (see `src/backend/models/allow_list_entry.py` for the pattern being replaced)
+- [X] T004 Create `AccountProvisioningService` in `src/backend/services/account_provisioning_service.py` with `get_by_email(email) -> ProvisionedAccountEntry | None` (point read by lowercased email) and `authorize_sign_in(email, oid) -> tuple[bool, ProvisionedAccountEntry | None]` implementing FR-006/FR-007's bind-on-first-sign-in / verify-bound-oid logic (no entry → `(False, None)`; entry with `objectId is None` → bind `objectId`/`dateBound`, persist, return `(True, entry)`; entry with matching `objectId` → `(True, entry)`; entry with mismatched `objectId` → `(False, None)`), and `ensure_seed_administrator(email) -> None` (FR-001: create-if-absent only — a point read first, skip silently if an entry already exists, so it never clobbers roles an admin has since merged in) — depends on T003
+- [X] T005 [P] Modify `src/backend/services/auth_service.py`: extract the `email` claim from the validated token alongside `oid`; `validate_token` now returns `(is_valid, user_oid, email, error_message)` (research.md §2 — use the `email` claim, not `preferred_username`)
+- [X] T006 Modify `src/backend/api/auth/middleware.py`: add `authenticate_with_email(req) -> tuple[bool, str|None, str|None, str|None]` (is_valid, user_oid, email, error) built on T005's new `validate_token` return shape; keep the existing `authenticate(req)` (3-tuple: is_valid, user_oid, error) unchanged and working, so unrelated call sites outside this feature's scope (e.g. `src/backend/api/admin/stories.py`) need no changes — depends on T005
+- [X] T007 Modify `src/backend/api/admin/middleware.py`: `authorize_admin()` now calls `authenticate_with_email` (T006) and `AccountProvisioningService.authorize_sign_in(email, oid)` (T004) in place of `AllowListService`/`CapabilityService`, checking `"Administrator" in entry.roles`; keep its external return shape `(is_authorized, user_oid, error_response)` unchanged so `src/backend/api/admin/stories.py` needs no changes — depends on T004, T006
+- [X] T008 Modify `src/backend/api/game/start.py` (unrelated `008-core-gameplay` placeholder, updated only because this feature removes the services it currently imports): replace its direct `AllowListService`/`CapabilityService` usage with `authenticate_with_email` (T006) + `AccountProvisioningService.authorize_sign_in` (T004), checking `"Player" in entry.roles` — depends on T004, T006
+- [X] T009 Modify `src/backend/function_app.py`: call `AccountProvisioningService().ensure_seed_administrator(config.SEED_ADMIN_EMAIL)` once at module load (Function App cold start), guarded so a blank `SEED_ADMIN_EMAIL` is a no-op (FR-001) — depends on T002, T004
+- [X] T010 [P] Add unit tests for `ProvisionedAccountEntry` validation (empty `roles` rejected, `email`/`id` lowercased and identical) in `src/backend/tests/unit/test_models.py`
+- [X] T011 [P] Add unit tests for `AccountProvisioningService.get_by_email`, `authorize_sign_in` (first-sign-in bind, matching-oid success, mismatched-oid denial), and `ensure_seed_administrator` (creates once, no-ops and does not overwrite an already-merged entry on a second call) in `src/backend/tests/unit/test_account_provisioning_service.py` (new file)
+- [X] T012 [P] Update `src/backend/tests/unit/test_auth_service.py` for `validate_token`'s new `(is_valid, user_oid, email, error)` return shape
+- [X] T013 [P] Update `src/backend/tests/unit/test_middleware.py` to cover `authenticate_with_email` alongside the existing `authenticate` tests
+- [X] T014 [P] Update `src/backend/tests/unit/test_admin_capability.py` to exercise `AccountProvisioningService` role checks instead of the removed `CapabilityService`
+- [X] T015 [P] Update `src/backend/tests/unit/test_unauthorized_user.py` to exercise `AccountProvisioningService.get_by_email`/`authorize_sign_in` instead of the removed `AllowListService`
+- [X] T016 [P] Update `src/backend/tests/integration/test_access_denial.py`: replace its `patch("backend.api.admin.middleware.AllowListService"/"CapabilityService")` mocks with `AccountProvisioningService` mocks matching T007/T008's new implementation
+- [X] T017 [P] Update `src/backend/tests/integration/test_authorization_enforcement.py` with the same mock replacement as T016
 
 **Checkpoint**: Model, service, and every existing consumer of the old oid-keyed services compile and pass their tests. `login.py`/`me.py` still use the pre-existing (unchanged) flow — wiring them up is User Story 1's job, next.
 
@@ -69,14 +69,14 @@ Existing web-application layout: `src/backend/` (Python Azure Functions) + `src/
 
 ### Tests for User Story 1
 
-- [ ] T018 [P] [US1] Add integration tests to `src/backend/tests/integration/test_login_endpoint.py`: (a) the seed administrator's first sign-in succeeds and binds `objectId`, (b) any other email is denied before further accounts exist, (c) a second sign-in with the now-bound, matching `objectId` succeeds while a mismatched `objectId` for that same email is denied
-- [ ] T019 [P] [US1] Update `src/backend/tests/integration/test_me_endpoint.py` for the email-first-match-then-bind flow (mirrors T018's login-endpoint cases for `/api/auth/me`)
+- [X] T018 [P] [US1] Add integration tests to `src/backend/tests/integration/test_login_endpoint.py`: (a) the seed administrator's first sign-in succeeds and binds `objectId`, (b) any other email is denied before further accounts exist, (c) a second sign-in with the now-bound, matching `objectId` succeeds while a mismatched `objectId` for that same email is denied
+- [X] T019 [P] [US1] Update `src/backend/tests/integration/test_me_endpoint.py` for the email-first-match-then-bind flow (mirrors T018's login-endpoint cases for `/api/auth/me`)
 
 ### Implementation for User Story 1
 
-- [ ] T020 [P] [US1] Update `src/backend/api/auth/login.py` to call `authenticate_with_email` (T006) and `AccountProvisioningService.authorize_sign_in(email, oid)` (T004) in place of the oid-only `AllowListService`/`CapabilityService` lookup, reading capabilities from the returned entry's `roles`
-- [ ] T021 [P] [US1] Update `src/backend/api/auth/me.py` with the same resolution flow as T020
-- [ ] T022 [P] [US1] Update `src/backend/db/seed_data.py`'s local-dev test-user helper (`seed()`) to create `ProvisionedAccountEntry` records via the new model — this is the manual local-dev convenience script, distinct from T009's automatic production bootstrap
+- [X] T020 [P] [US1] Update `src/backend/api/auth/login.py` to call `authenticate_with_email` (T006) and `AccountProvisioningService.authorize_sign_in(email, oid)` (T004) in place of the oid-only `AllowListService`/`CapabilityService` lookup, reading capabilities from the returned entry's `roles`
+- [X] T021 [P] [US1] Update `src/backend/api/auth/me.py` with the same resolution flow as T020
+- [X] T022 [P] [US1] Update `src/backend/db/seed_data.py`'s local-dev test-user helper (`seed()`) to create `ProvisionedAccountEntry` records via the new model — this is the manual local-dev convenience script, distinct from T009's automatic production bootstrap
 
 **Checkpoint**: User Story 1 is independently functional — a fresh deploy's seed administrator can sign in, is bound, and stays pinned to that Microsoft identity.
 
@@ -90,19 +90,19 @@ Existing web-application layout: `src/backend/` (Python Azure Functions) + `src/
 
 ### Tests for User Story 2
 
-- [ ] T023 [P] [US2] Create `src/backend/tests/integration/test_admin_accounts_endpoint.py` with tests for `POST /api/admin/accounts`: creates an entry for `["Player"]`, `["Administrator"]`, and `["Player", "Administrator"]`; returns 400 `role_required` for an empty roles list; returns 400 `invalid_email` for a malformed email (per contracts/api.md)
-- [ ] T024 [P] [US2] Add an integration test to `src/backend/tests/integration/test_login_endpoint.py`: an email newly added via `POST /api/admin/accounts` can subsequently sign in and binds its `objectId` (ties US2's add flow to US1's sign-in flow)
+- [X] T023 [P] [US2] Create `src/backend/tests/integration/test_admin_accounts_endpoint.py` with tests for `POST /api/admin/accounts`: creates an entry for `["Player"]`, `["Administrator"]`, and `["Player", "Administrator"]`; returns 400 `role_required` for an empty roles list; returns 400 `invalid_email` for a malformed email (per contracts/api.md)
+- [X] T024 [P] [US2] Add an integration test to `src/backend/tests/integration/test_login_endpoint.py`: an email newly added via `POST /api/admin/accounts` can subsequently sign in and binds its `objectId` (ties US2's add flow to US1's sign-in flow)
 
 ### Implementation for User Story 2
 
-- [ ] T025 [P] [US2] Implement `add_or_merge(email, roles, added_by) -> ProvisionedAccountEntry` in `src/backend/services/account_provisioning_service.py`: validate `email` via `pyisemail` (T001, FR-005) and `roles` as a non-empty subset of `Player`/`Administrator` (FR-003/FR-004), raising distinguishable errors the endpoint maps to `invalid_email`/`role_required`; on an existing email, union the roles and leave `objectId`/`dateBound` untouched (FR-009); resubmitting identical roles is a no-op
-- [ ] T026 [US2] Create `src/backend/api/admin/accounts.py` with `add_account(req)` handling `POST /api/admin/accounts`: gated by `authorize_admin` (T007), calls `add_or_merge` (T025), returns the shapes in contracts/api.md — depends on T025
-- [ ] T027 [US2] Register the `POST /api/admin/accounts` route in `src/backend/function_app.py` — depends on T026
-- [ ] T028 [P] [US2] Create `src/frontend/src/services/accountService.js` with `addAccount(token, email, roles)` calling `POST /api/admin/accounts` (mirrors the pattern in `src/frontend/src/services/authService.js`)
-- [ ] T029 [US2] Create `src/frontend/src/components/Admin/AccountForm.jsx`: email input + Player/Administrator checkboxes, built from the vendored design system's `.field`/`.input`/`.btn-primary` classes (no ad hoc styles — Constitution Principle VIII), surfacing `role_required`/`invalid_email` errors from T028 — depends on T028
-- [ ] T030 [US2] Add `src/frontend/tests/components/AccountForm.test.jsx` — depends on T029
-- [ ] T031 [US2] Create `src/frontend/src/pages/AdminAccountsPage.jsx` hosting `AccountForm` — depends on T029
-- [ ] T032 [US2] Link an "Accounts" entry point from `src/frontend/src/pages/AdminPage.jsx` to `AdminAccountsPage` (T031) — depends on T031
+- [X] T025 [P] [US2] Implement `add_or_merge(email, roles, added_by) -> ProvisionedAccountEntry` in `src/backend/services/account_provisioning_service.py`: validate `email` via `pyisemail` (T001, FR-005) and `roles` as a non-empty subset of `Player`/`Administrator` (FR-003/FR-004), raising distinguishable errors the endpoint maps to `invalid_email`/`role_required`; on an existing email, union the roles and leave `objectId`/`dateBound` untouched (FR-009); resubmitting identical roles is a no-op
+- [X] T026 [US2] Create `src/backend/api/admin/accounts.py` with `add_account(req)` handling `POST /api/admin/accounts`: gated by `authorize_admin` (T007), calls `add_or_merge` (T025), returns the shapes in contracts/api.md — depends on T025
+- [X] T027 [US2] Register the `POST /api/admin/accounts` route in `src/backend/function_app.py` — depends on T026
+- [X] T028 [P] [US2] Create `src/frontend/src/services/accountService.js` with `addAccount(token, email, roles)` calling `POST /api/admin/accounts` (mirrors the pattern in `src/frontend/src/services/authService.js`)
+- [X] T029 [US2] Create `src/frontend/src/components/Admin/AccountForm.jsx`: email input + Player/Administrator checkboxes, built from the vendored design system's `.field`/`.input`/`.btn-primary` classes (no ad hoc styles — Constitution Principle VIII), surfacing `role_required`/`invalid_email` errors from T028 — depends on T028
+- [X] T030 [US2] Add `src/frontend/tests/components/AccountForm.test.jsx` — depends on T029
+- [X] T031 [US2] Create `src/frontend/src/pages/AdminAccountsPage.jsx` hosting `AccountForm` — depends on T029
+- [X] T032 [US2] Link an "Accounts" entry point from `src/frontend/src/pages/AdminPage.jsx` to `AdminAccountsPage` (T031) — depends on T031
 
 **Checkpoint**: User Stories 1 and 2 are both independently functional — an administrator can grant Player/Administrator access by email, and the granted account can sign in.
 
@@ -116,17 +116,17 @@ Existing web-application layout: `src/backend/` (Python Azure Functions) + `src/
 
 ### Tests for User Story 3
 
-- [ ] T033 [P] [US3] Add tests to `src/backend/tests/integration/test_admin_accounts_endpoint.py`: `GET /api/admin/accounts` lists every entry with its email and roles; re-adding an already-provisioned email with an additional role results in one merged entry (not two) with its bound `objectId` unchanged; resubmitting an identical add request twice is a no-op; a non-Administrator caller gets 403 `insufficient_permission` from both `POST` and `GET /api/admin/accounts`
+- [X] T033 [P] [US3] Add tests to `src/backend/tests/integration/test_admin_accounts_endpoint.py`: `GET /api/admin/accounts` lists every entry with its email and roles; re-adding an already-provisioned email with an additional role results in one merged entry (not two) with its bound `objectId` unchanged; resubmitting an identical add request twice is a no-op; a non-Administrator caller gets 403 `insufficient_permission` from both `POST` and `GET /api/admin/accounts`
 
 ### Implementation for User Story 3
 
-- [ ] T034 [P] [US3] Implement `list_all() -> list[ProvisionedAccountEntry]` in `src/backend/services/account_provisioning_service.py` (FR-010)
-- [ ] T035 [US3] Add `list_accounts(req)` handling `GET /api/admin/accounts` to `src/backend/api/admin/accounts.py`, gated by `authorize_admin`, returning the shape in contracts/api.md — depends on T026, T034
-- [ ] T036 [US3] Register the `GET /api/admin/accounts` route in `src/backend/function_app.py` — depends on T035
-- [ ] T037 [P] [US3] Add `listAccounts(token)` to `src/frontend/src/services/accountService.js` (created in T028)
-- [ ] T038 [US3] Create `src/frontend/src/components/Admin/AccountList.jsx` using the design system's `.table` and `.tag*` classes for role chips — depends on T037
-- [ ] T039 [US3] Add `src/frontend/tests/components/AccountList.test.jsx` — depends on T038
-- [ ] T040 [US3] Render `AccountList` (T038) alongside `AccountForm` in `src/frontend/src/pages/AdminAccountsPage.jsx` (T031) — depends on T038
+- [X] T034 [P] [US3] Implement `list_all() -> list[ProvisionedAccountEntry]` in `src/backend/services/account_provisioning_service.py` (FR-010)
+- [X] T035 [US3] Add `list_accounts(req)` handling `GET /api/admin/accounts` to `src/backend/api/admin/accounts.py`, gated by `authorize_admin`, returning the shape in contracts/api.md — depends on T026, T034
+- [X] T036 [US3] Register the `GET /api/admin/accounts` route in `src/backend/function_app.py` — depends on T035
+- [X] T037 [P] [US3] Add `listAccounts(token)` to `src/frontend/src/services/accountService.js` (created in T028)
+- [X] T038 [US3] Create `src/frontend/src/components/Admin/AccountList.jsx` using the design system's `.table` and `.tag*` classes for role chips — depends on T037
+- [X] T039 [US3] Add `src/frontend/tests/components/AccountList.test.jsx` — depends on T038
+- [X] T040 [US3] Render `AccountList` (T038) alongside `AccountForm` in `src/frontend/src/pages/AdminAccountsPage.jsx` (T031) — depends on T038
 
 **Checkpoint**: All three user stories are independently functional.
 
@@ -136,17 +136,17 @@ Existing web-application layout: `src/backend/` (Python Azure Functions) + `src/
 
 **Purpose**: Retire the code this feature supersedes and confirm the whole feature end-to-end.
 
-- [ ] T041 [P] Update `src/backend/tests/integration/test_dual_role_user.py` to seed via `ProvisionedAccountEntry` instead of the removed `AllowListEntry`/`CapabilityAssignment`
-- [ ] T042 [P] Add `src/frontend/tests/integration/admin_accounts.test.jsx` covering the add → list → re-add-merges flow end-to-end
-- [ ] T043 [P] Remove `src/backend/models/allow_list_entry.py` (superseded by T003)
-- [ ] T044 [P] Remove `src/backend/models/capability_assignment.py` (superseded by T003)
-- [ ] T045 [P] Remove `src/backend/services/allow_list_service.py` (superseded by T004)
-- [ ] T046 [P] Remove `src/backend/services/capability_service.py` (superseded by T004)
-- [ ] T047 [P] Remove `src/backend/tests/unit/test_allow_list_service.py` (superseded by T011/T015)
-- [ ] T048 [P] Remove `src/backend/tests/unit/test_capability_service.py` (superseded by T011/T014)
-- [ ] T049 Remove the now-unused `ALLOW_LIST_CONTAINER`/`CAPABILITY_CONTAINER` constants from `src/backend/config.py` — depends on T043, T044, T045, T046
+- [X] T041 [P] Update `src/backend/tests/integration/test_dual_role_user.py` to seed via `ProvisionedAccountEntry` instead of the removed `AllowListEntry`/`CapabilityAssignment`
+- [X] T042 [P] Add `src/frontend/tests/integration/admin_accounts.test.jsx` covering the add → list → re-add-merges flow end-to-end
+- [X] T043 [P] Remove `src/backend/models/allow_list_entry.py` (superseded by T003)
+- [X] T044 [P] Remove `src/backend/models/capability_assignment.py` (superseded by T003)
+- [X] T045 [P] Remove `src/backend/services/allow_list_service.py` (superseded by T004)
+- [X] T046 [P] Remove `src/backend/services/capability_service.py` (superseded by T004)
+- [X] T047 [P] Remove `src/backend/tests/unit/test_allow_list_service.py` (superseded by T011/T015)
+- [X] T048 [P] Remove `src/backend/tests/unit/test_capability_service.py` (superseded by T011/T014)
+- [X] T049 Remove the now-unused `ALLOW_LIST_CONTAINER`/`CAPABILITY_CONTAINER` constants from `src/backend/config.py` — depends on T043, T044, T045, T046
 - [ ] T050 Run quickstart.md's 7 validation scenarios end-to-end (locally or against a deployed environment) and confirm each passes
-- [ ] T051 Grep the repository for any remaining reference to `allowListEntries`, `capabilityAssignments`, `AllowListEntry`, `CapabilityAssignment`, `AllowListService`, or `CapabilityService` and resolve any found — depends on T049
+- [X] T051 Grep the repository for any remaining reference to `allowListEntries`, `capabilityAssignments`, `AllowListEntry`, `CapabilityAssignment`, `AllowListService`, or `CapabilityService` and resolve any found — depends on T049
 
 ---
 

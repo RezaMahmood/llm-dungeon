@@ -1,15 +1,15 @@
 # Backend — LLM Dungeon Adventure
 
-Python Azure Functions backend implementing authentication, allow-list, and
-capability-based authorization (feature `002-login-and-access-control`).
+Python Azure Functions backend implementing authentication and account
+provisioning (features `002-login-and-access-control`, `003-account-provisioning`).
 
 ## Structure
 
 ```
 src/backend/
 ├── api/            # HTTP route handlers (auth, admin, game)
-├── models/         # AllowListEntry, CapabilityAssignment
-├── services/       # Cosmos DB, token validation, allow-list, capabilities
+├── models/         # ProvisionedAccountEntry
+├── services/       # Cosmos DB, token validation, account provisioning
 ├── db/             # Seed data script
 ├── config.py       # Environment-driven configuration
 └── function_app.py # Azure Functions entry point (route registration)
@@ -57,7 +57,8 @@ via the GitHub Actions workflow, on merge to `main`.
 
 ## API endpoints
 
-See [contracts/api.md](../../specs/002-login-and-access-control/contracts/api.md) for full
+See [002's contracts/api.md](../../specs/002-login-and-access-control/contracts/api.md) and
+[003's contracts/api.md](../../specs/003-account-provisioning/contracts/api.md) for full
 request/response contracts.
 
 | Endpoint | Method | Requires |
@@ -65,6 +66,8 @@ request/response contracts.
 | `/api/auth/login` | POST | Valid bearer token |
 | `/api/auth/me` | GET | Valid bearer token |
 | `/api/auth/logout` | POST | Valid bearer token |
-| `/api/admin/stories` | GET | Administrator capability |
-| `/api/admin/stories/create` | POST | Administrator capability |
-| `/api/game/start` | POST | Player capability |
+| `/api/admin/accounts` | POST | Administrator role |
+| `/api/admin/accounts` | GET | Administrator role |
+| `/api/admin/stories` | GET | Administrator role |
+| `/api/admin/stories/create` | POST | Administrator role |
+| `/api/game/start` | POST | Player role |

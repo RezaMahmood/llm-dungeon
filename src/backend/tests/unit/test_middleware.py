@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import azure.functions as func
 
-from backend.api.auth.middleware import authenticate, extract_bearer_token
+from backend.api.auth.middleware import authenticate, authenticate_with_email, extract_bearer_token
 
 
 def test_extract_bearer_token_returns_token(request_factory):
@@ -37,7 +37,7 @@ def test_authenticate_returns_false_when_no_token(request_factory):
 def test_authenticate_delegates_to_auth_service(request_factory):
     req = request_factory(token="abc123")
     mock_service = MagicMock()
-    mock_service.validate_token.return_value = (True, "oid-1", None)
+    mock_service.validate_token.return_value = (True, "oid-1", "user@example.com", None)
 
     is_valid, user_oid, error = authenticate(req, auth_service=mock_service)
 
@@ -49,10 +49,45 @@ def test_authenticate_delegates_to_auth_service(request_factory):
 def test_authenticate_returns_generic_message_on_invalid_token(request_factory):
     req = request_factory(token="bad-token")
     mock_service = MagicMock()
-    mock_service.validate_token.return_value = (False, None, "signature verification failed")
+    mock_service.validate_token.return_value = (False, None, None, "signature verification failed")
 
     is_valid, user_oid, error = authenticate(req, auth_service=mock_service)
 
     assert is_valid is False
     assert user_oid is None
+    assert error == "Invalid or expired token"
+
+
+def test_authenticate_with_email_returns_false_when_no_token(request_factory):
+    req = request_factory()
+    is_valid, user_oid, email, error = authenticate_with_email(req)
+    assert is_valid is False
+    assert user_oid is None
+    assert email is None
+    assert error is not None
+
+
+def test_authenticate_with_email_delegates_to_auth_service(request_factory):
+    req = request_factory(token="abc123")
+    mock_service = MagicMock()
+    mock_service.validate_token.return_value = (True, "oid-1", "user@example.com", None)
+
+    is_valid, user_oid, email, error = authenticate_with_email(req, auth_service=mock_service)
+
+    assert is_valid is True
+    assert user_oid == "oid-1"
+    assert email == "user@example.com"
+    mock_service.validate_token.assert_called_once_with("abc123")
+
+
+def test_authenticate_with_email_returns_generic_message_on_invalid_token(request_factory):
+    req = request_factory(token="bad-token")
+    mock_service = MagicMock()
+    mock_service.validate_token.return_value = (False, None, None, "signature verification failed")
+
+    is_valid, user_oid, email, error = authenticate_with_email(req, auth_service=mock_service)
+
+    assert is_valid is False
+    assert user_oid is None
+    assert email is None
     assert error == "Invalid or expired token"

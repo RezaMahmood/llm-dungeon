@@ -20,8 +20,8 @@ class Config:
     COSMOS_ENDPOINT = os.environ.get("COSMOS_ENDPOINT", "")
 
     COSMOS_DATABASE_NAME = os.environ.get("COSMOS_DATABASE_NAME") or os.environ.get("COSMOS_DATABASE") or "llmdungeon"
-    ALLOW_LIST_CONTAINER = "allowListEntries"
-    CAPABILITY_CONTAINER = "capabilityAssignments"
+    PROVISIONED_ACCOUNTS_CONTAINER = "provisionedAccountEntries"
+    SEED_ADMIN_EMAIL = os.environ.get("SEED_ADMIN_EMAIL", "")
 
     JWKS_CACHE_SECONDS = 24 * 60 * 60
 

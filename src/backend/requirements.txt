@@ -4,3 +4,4 @@ azure-identity
 PyJWT[crypto]
 python-dotenv
 requests
+pyisemail

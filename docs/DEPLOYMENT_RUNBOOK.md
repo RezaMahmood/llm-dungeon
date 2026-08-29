@@ -7,12 +7,12 @@ provision any Azure infrastructure itself.
 
 ## Steps
 
-1. **Verify Cosmos DB collections exist**
-   - `allowListEntries` (partition key `/user_oid`)
-   - `capabilityAssignments` (partition key `/user_oid`)
-   - Create them (via Azure Portal, CLI, or SDK) against the serverless
-     account provisioned by 007 if they don't exist yet — see
-     [data-model.md](../specs/002-login-and-access-control/data-model.md).
+1. **Verify the Cosmos DB collection exists**
+   - `provisionedAccountEntries` (partition key `/email`) — declared in
+     `infrastructure/terraform/main.tf`, applied by 007's Terraform pipeline.
+     Replaces this feature's original `allowListEntries`/
+     `capabilityAssignments` containers; superseded by
+     [`003-account-provisioning`](../specs/003-account-provisioning/data-model.md).
 
 2. **Seed test data**
    ```bash
@@ -32,6 +32,9 @@ provision any Azure infrastructure itself.
    - `AZURE_TENANT_ID`
    - `AZURE_APP_ID`
    - `COSMOS_ENDPOINT`
+   - `SEED_ADMIN_EMAIL` — the initial Administrator's email (Terraform
+     variable `seed_admin_email`); blank is a no-op. See
+     [ADMIN_SETUP.md](ADMIN_SETUP.md).
    - Confirm the Function App's Managed Identity has `Cosmos DB Data
      Contributor` on the Cosmos DB account (provisioned by 007).
 
@@ -48,5 +51,5 @@ provision any Azure infrastructure itself.
    [tests/e2e/](../specs/002-login-and-access-control/tests/e2e/).
 
 8. **Verify telemetry** — confirm Application Insights receives
-   authentication/authorization events from `auth_service`,
-   `allow_list_service`, and `capability_service`.
+   authentication/authorization events from `auth_service` and
+   `account_provisioning_service`.

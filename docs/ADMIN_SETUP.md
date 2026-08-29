@@ -1,72 +1,55 @@
-# Administrator Setup: Allow-List and Capabilities
+# Administrator Setup: Account Provisioning
 
-This feature has no admin UI yet for managing the allow-list and capabilities
-(a future feature may add one). Until then, administrators manage these
-directly in Cosmos DB.
+Account access is managed through the in-app Administration → Accounts
+screen (`003-account-provisioning`), not by editing Cosmos DB directly.
 
-## Adding a user to the allow-list
+## Bootstrapping the first administrator
 
-Insert a document into the `allowListEntries` container (partition key
-`/user_oid`):
+A freshly deployed system has no provisioned accounts until one is seeded.
+Set the `SEED_ADMIN_EMAIL` Function App setting (Terraform variable
+`seed_admin_email`, see `infrastructure/terraform/variables.tf`) to the
+Microsoft account email that should be the initial Administrator. On the
+Function App's next cold start, a `ProvisionedAccountEntry` is created for
+that email with the `Administrator` role (create-if-absent only — it never
+overwrites an existing entry). Signing in with that account for the first
+time binds it to that account's Microsoft object ID.
 
-```json
-{
-  "id": "<user-oid>",
-  "user_oid": "<user-oid>",
-  "email": "user@example.com",
-  "dateAdded": "2026-08-29T00:00:00Z",
-  "dateRemoved": null,
-  "addedBy": "admin@example.com",
-  "notes": "",
-  "entityType": "AllowListEntry"
-}
-```
+## Granting access to a new account
 
-`user_oid` is the user's Microsoft Entra ID object ID (the `oid` claim in
-their token) — find it via the Azure AD portal's Users blade, or ask the
-user to sign in once and check the denial log (Application Insights) for
-their oid.
+Signed in as an Administrator:
 
-## Assigning a capability
+1. Open Administration → Accounts.
+2. Enter the new account's email and select Player and/or Administrator.
+3. Submit. The account can now sign in with that Microsoft account — its
+   first sign-in binds its object ID to the entry.
 
-Insert a document into the `capabilityAssignments` container (partition key
-`/user_oid`):
+Re-adding an email that's already provisioned merges the selected roles into
+its existing entry (union, not a duplicate) and never touches its bound
+object ID.
 
-```json
-{
-  "id": "capability-<user-oid>-Player",
-  "user_oid": "<user-oid>",
-  "capability": "Player",
-  "dateAssigned": "2026-08-29T00:00:00Z",
-  "dateRevoked": null,
-  "assignedBy": "admin@example.com",
-  "entityType": "CapabilityAssignment"
-}
-```
+## Viewing provisioned accounts
 
-`capability` must be exactly `"Player"` or `"Administrator"`. A user can have
-both — insert one document per capability.
+The same Administration → Accounts screen lists every provisioned email,
+its role(s), and whether it has signed in yet ("bound").
 
 ## Removing / revoking access
 
-Soft-delete rather than hard-delete, to preserve the audit trail:
-
-- **Remove from allow-list**: set `dateRemoved` to the current timestamp on
-  the `allowListEntries` document.
-- **Revoke a capability**: set `dateRevoked` to the current timestamp on the
-  relevant `capabilityAssignments` document.
-
-Changes take effect on the user's next API request (no re-login required to
-be denied; a menu refresh or page navigation to see the updated menu).
+Not supported by this feature (explicit scope boundary — see
+[`003-account-provisioning`'s spec](../specs/003-account-provisioning/spec.md)
+Assumptions). Removing an entry today requires a direct edit to the
+`provisionedAccountEntries` Cosmos DB container.
 
 ## Troubleshooting sign-in issues
 
-Check Application Insights for structured logs from `auth_service`,
-`allow_list_service`, and `capability_service` — each logs the `user_oid`
-involved in every allow/deny decision (the oid is never included in the
-HTTP response itself, only in server-side telemetry).
+Check Application Insights for structured logs from `auth_service` and
+`account_provisioning_service` — each logs the `user_oid` involved in every
+allow/deny decision (the oid is never included in the HTTP response itself,
+only in server-side telemetry). A denial is generic (`access_denied`) for
+both "no entry for this email" and "entry exists but its bound object ID
+doesn't match" — by design, to avoid account enumeration.
 
 ## Example seed data
 
-See `src/backend/db/seed_data.py` for a script that creates three example users
-(Player, Admin, and a dual-role user) for local/test environments.
+See `src/backend/db/seed_data.py` for a script that creates three example
+provisioned accounts (Player, Admin, and a dual-role user) for local/test
+environments.

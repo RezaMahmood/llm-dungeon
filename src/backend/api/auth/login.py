@@ -1,4 +1,4 @@
-"""POST /api/auth/login — validate token, check allow-list, return capabilities."""
+"""POST /api/auth/login — validate token, resolve provisioned account, return capabilities."""
 
 from __future__ import annotations
 
@@ -6,39 +6,36 @@ import logging
 
 import azure.functions as func
 
-from backend.api.auth.middleware import authenticate
+from backend.api.auth.middleware import authenticate_with_email
 from backend.api.utils import forbidden_access_not_granted, json_response, unauthorized
-from backend.services.allow_list_service import AllowListService
-from backend.services.capability_service import CapabilityService
+from backend.services.account_provisioning_service import AccountProvisioningService
 
 logger = logging.getLogger("auth.login")
 
 
 def login(
     req: func.HttpRequest,
-    allow_list_service: AllowListService | None = None,
-    capability_service: CapabilityService | None = None,
+    account_provisioning_service: AccountProvisioningService | None = None,
 ) -> func.HttpResponse:
-    is_valid, user_oid, _error = authenticate(req)
+    is_valid, user_oid, email, _error = authenticate_with_email(req)
     if not is_valid:
         return unauthorized()
 
-    allow_list = allow_list_service or AllowListService()
-    entry = allow_list.get_allow_list_entry(user_oid)
-    if entry is None:
-        logger.info("Login denied: user not on allow-list", extra={"user_oid": user_oid})
+    service = account_provisioning_service or AccountProvisioningService()
+    is_authorized, entry = service.authorize_sign_in(email, user_oid)
+    if not is_authorized:
+        logger.info("Login denied: no provisioned account or objectId mismatch", extra={"user_oid": user_oid})
         return forbidden_access_not_granted()
 
-    capabilities = (capability_service or CapabilityService()).get_user_capabilities(user_oid)
-    logger.info("Login succeeded", extra={"user_oid": user_oid, "capabilities": sorted(capabilities)})
+    logger.info("Login succeeded", extra={"user_oid": user_oid, "roles": sorted(entry.roles)})
 
     return json_response(
         {
             "status": "success",
             "user": {"oid": user_oid, "email": entry.email},
             "capabilities": {
-                "hasPlayer": "Player" in capabilities,
-                "hasAdministrator": "Administrator" in capabilities,
+                "hasPlayer": "Player" in entry.roles,
+                "hasAdministrator": "Administrator" in entry.roles,
             },
         },
         status_code=200,
