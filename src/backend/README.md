@@ -35,9 +35,14 @@ are required to run the suite.
 
 ## Running locally
 
-Requires the [Azure Functions Core Tools](https://learn.microsoft.com/azure/azure-functions/functions-run-local):
+Requires the [Azure Functions Core Tools](https://learn.microsoft.com/azure/azure-functions/functions-run-local).
+Run from `src/` (not `src/backend/`) — `src/function_app.py` is the entry
+point Azure Functions loads, matching how `backend-deploy.yml` deploys
+`package: "src"`; it just re-exports the real `app` from
+`backend/function_app.py`:
 
 ```bash
+cd src
 func start
 ```
 

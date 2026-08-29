@@ -1,0 +1,4 @@
+# Deployment root for backend-deploy.yml's Oryx remote build (package: "src").
+# The real dependency list is backend/requirements.txt — kept as the single
+# source of truth for local dev and CI's test-install step.
+-r backend/requirements.txt
