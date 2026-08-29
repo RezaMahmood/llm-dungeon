@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+from azure.cosmos.exceptions import CosmosResourceNotFoundError
+
 from backend.api.auth.login import login
 from backend.models.provisioned_account_entry import ProvisionedAccountEntry
 from backend.services.account_provisioning_service import AccountProvisioningService
@@ -92,7 +94,7 @@ def test_seed_administrator_first_sign_in_succeeds_and_binds_object_id(request_f
 def test_any_other_email_is_denied_before_further_accounts_exist(request_factory):
     req = request_factory(method="POST", url="/api/auth/login", token="valid-token")
     service, container = _real_service_with_container()
-    container.read_item.side_effect = Exception("not found")
+    container.read_item.side_effect = CosmosResourceNotFoundError(message="not found")
 
     with patch(
         "backend.api.auth.login.authenticate_with_email", return_value=(True, USER_OID, "someone.else@example.com", None)
@@ -151,7 +153,7 @@ def test_newly_added_account_can_subsequently_sign_in_and_binds_object_id(reques
     """An email added via POST /api/admin/accounts (add_or_merge) can then sign in
     and bind its objectId on that first sign-in."""
     service, container = _real_service_with_container()
-    container.read_item.side_effect = Exception("not found")
+    container.read_item.side_effect = CosmosResourceNotFoundError(message="not found")
 
     added_entry = service.add_or_merge("newplayer@example.com", ["Player"], added_by="admin@example.com")
     assert added_entry.objectId is None

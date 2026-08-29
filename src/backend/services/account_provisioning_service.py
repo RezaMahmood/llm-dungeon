@@ -6,6 +6,7 @@ import datetime
 import logging
 from typing import Optional
 
+from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from pyisemail import is_email
 
 from backend.config import config
@@ -39,7 +40,7 @@ class AccountProvisioningService:
         container = self._cosmos.get_container(config.PROVISIONED_ACCOUNTS_CONTAINER)
         try:
             item = container.read_item(item=email, partition_key=email)
-        except Exception:  # noqa: BLE001 - Cosmos raises CosmosResourceNotFoundError on a miss
+        except CosmosResourceNotFoundError:
             return None
         return ProvisionedAccountEntry.from_dict(item)
 

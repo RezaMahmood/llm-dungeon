@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+from azure.cosmos.exceptions import CosmosResourceNotFoundError
+
 from backend.api.auth.login import login
 from backend.services.account_provisioning_service import AccountProvisioningService
 
@@ -15,7 +17,7 @@ def test_get_by_email_returns_none_for_unprovisioned_email():
     cosmos = MagicMock()
     container = MagicMock()
     cosmos.get_container.return_value = container
-    container.read_item.side_effect = Exception("not found")
+    container.read_item.side_effect = CosmosResourceNotFoundError(message="not found")
     service = AccountProvisioningService(cosmos_service=cosmos)
 
     assert service.get_by_email(EMAIL) is None
@@ -25,7 +27,7 @@ def test_authorize_sign_in_returns_false_for_unprovisioned_email():
     cosmos = MagicMock()
     container = MagicMock()
     cosmos.get_container.return_value = container
-    container.read_item.side_effect = Exception("not found")
+    container.read_item.side_effect = CosmosResourceNotFoundError(message="not found")
     service = AccountProvisioningService(cosmos_service=cosmos)
 
     is_authorized, entry = service.authorize_sign_in(EMAIL, USER_OID)

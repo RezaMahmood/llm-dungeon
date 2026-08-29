@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 from backend.services.account_provisioning_service import (
     AccountProvisioningService,
@@ -63,9 +64,20 @@ def test_get_by_email_lowercases_before_lookup():
 
 def test_get_by_email_returns_none_when_not_found():
     service, _cosmos, container = _service_with_container()
-    container.read_item.side_effect = Exception("not found")
+    container.read_item.side_effect = CosmosResourceNotFoundError(message="not found")
 
     assert service.get_by_email(EMAIL) is None
+
+
+def test_get_by_email_does_not_swallow_unexpected_errors():
+    """A real Cosmos failure (permissions, network, etc.) must propagate rather than
+    being misreported as "no account found" — see function_app._guarded, which logs
+    and 500s on exactly this kind of unhandled exception."""
+    service, _cosmos, container = _service_with_container()
+    container.read_item.side_effect = RuntimeError("boom")
+
+    with pytest.raises(RuntimeError):
+        service.get_by_email(EMAIL)
 
 
 # --- authorize_sign_in ---
@@ -73,7 +85,7 @@ def test_get_by_email_returns_none_when_not_found():
 
 def test_authorize_sign_in_denies_when_no_entry():
     service, _cosmos, container = _service_with_container()
-    container.read_item.side_effect = Exception("not found")
+    container.read_item.side_effect = CosmosResourceNotFoundError(message="not found")
 
     is_authorized, entry = service.authorize_sign_in(EMAIL, OID)
 
@@ -122,7 +134,7 @@ def test_authorize_sign_in_denies_mismatched_bound_oid():
 
 def test_ensure_seed_administrator_creates_when_absent():
     service, _cosmos, container = _service_with_container()
-    container.read_item.side_effect = Exception("not found")
+    container.read_item.side_effect = CosmosResourceNotFoundError(message="not found")
 
     service.ensure_seed_administrator(EMAIL)
 
@@ -156,7 +168,7 @@ def test_ensure_seed_administrator_does_not_overwrite_existing_entry():
 
 def test_add_or_merge_creates_new_entry():
     service, _cosmos, container = _service_with_container()
-    container.read_item.side_effect = Exception("not found")
+    container.read_item.side_effect = CosmosResourceNotFoundError(message="not found")
 
     entry = service.add_or_merge(EMAIL, ["Player"], added_by="admin@example.com")
 
