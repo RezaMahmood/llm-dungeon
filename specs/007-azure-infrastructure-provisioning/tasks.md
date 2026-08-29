@@ -21,7 +21,7 @@ description: "Task list template for feature implementation"
 
 ## Path Conventions
 
-Infrastructure-as-code project. Terraform config at `infrastructure/terraform/`, CI/CD workflows at `.github/workflows/`, infrastructure tests at `tests/infrastructure/`, one-time operational scripts at `infrastructure/scripts/`.
+Infrastructure-as-code project. Terraform config at `infrastructure/terraform/`, CI/CD workflows at `.github/workflows/`, infrastructure tests at `infrastructure/tests/`, one-time operational scripts at `infrastructure/scripts/`.
 
 ---
 
@@ -29,10 +29,10 @@ Infrastructure-as-code project. Terraform config at `infrastructure/terraform/`,
 
 **Purpose**: Project scaffolding for the Terraform, CI, and test directories this feature adds.
 
-- [X] T001 Create `infrastructure/terraform/`, `.github/workflows/`, `tests/infrastructure/`, and `infrastructure/scripts/` directories per plan.md's Project Structure
+- [X] T001 Create `infrastructure/terraform/`, `.github/workflows/`, `infrastructure/tests/`, and `infrastructure/scripts/` directories per plan.md's Project Structure
 - [X] T002 [P] Create `infrastructure/terraform/versions.tf` pinning `required_version = ">= 1.5.0"` and the `azurerm` provider `>= 3.80.0` per research.md §1
-- [X] T003 [P] Update `pytest.ini` so `testpaths` includes `tests/infrastructure` alongside the existing `backend/tests`
-- [X] T004 [P] Create `tests/infrastructure/__init__.py` and `tests/infrastructure/conftest.py` with shared fixtures (Azure credential via `DefaultAzureCredential`, a Terraform-outputs loader that reads `terraform output -json`)
+- [X] T003 [P] Update `pytest.ini` so `testpaths` includes `infrastructure/tests` alongside the existing `src/backend/tests`
+- [X] T004 [P] Create `infrastructure/tests/__init__.py` and `infrastructure/tests/conftest.py` with shared fixtures (Azure credential via `DefaultAzureCredential`, a Terraform-outputs loader that reads `terraform output -json`)
 - [X] T005 [P] Create `infrastructure/terraform/locals.tf` with the naming-convention locals (`llmdungeon` prefix; hyphen-free variant for Storage Account names) and the common tags map (`managed_by`, `project`, `application`, `environment`, `owner`) per data-model.md's Terraform Configuration entity
 
 ---
@@ -49,8 +49,8 @@ Infrastructure-as-code project. Terraform config at `infrastructure/terraform/`,
 - [X] T009 [P] Add a `data "azurerm_resource_group" "rg"` lookup to `infrastructure/terraform/main.tf` referencing `var.resource_group_name`, per data-model.md's Resource Group entity — no `azurerm_resource_group` managed resource anywhere in this configuration
 - [X] T010 [P] Create `infrastructure/terraform/network.tf` with `azurerm_virtual_network` (`10.0.0.0/16`) plus a Functions-integration subnet (`10.0.1.0/24`, delegated for Flex Consumption VNet integration) and a private-endpoints subnet (`10.0.2.0/24`, `private_endpoint_network_policies_enabled = false`) per data-model.md's Virtual Network entity
 - [X] T011 [P] Create `infrastructure/terraform/outputs.tf` skeleton with `resource_group_name`, `resource_group_id`, `vnet_id`, `functions_subnet_id`, `private_endpoints_subnet_id` outputs per contracts/terraform-contract.md
-- [X] T012 [P] Write `tests/infrastructure/test_terraform_validate.sh` wrapping `terraform fmt -check -recursive` and `terraform validate -json`
-- [X] T013 Create `.github/workflows/terraform-validate.yml` invoking `tests/infrastructure/test_terraform_validate.sh` (T012) for the `fmt -check`/`validate` steps, plus `plan` on PR with artifact upload, per contracts/github-actions-contract.md; the `plan` step doubles as the automated drift check FR-016 and spec.md's Edge Cases require — a manually-changed resource surfaces as a non-empty plan rather than being silently reverted or accepted (depends on T012)
+- [X] T012 [P] Write `infrastructure/tests/test_terraform_validate.sh` wrapping `terraform fmt -check -recursive` and `terraform validate -json`
+- [X] T013 Create `.github/workflows/terraform-validate.yml` invoking `infrastructure/tests/test_terraform_validate.sh` (T012) for the `fmt -check`/`validate` steps, plus `plan` on PR with artifact upload, per contracts/github-actions-contract.md; the `plan` step doubles as the automated drift check FR-016 and spec.md's Edge Cases require — a manually-changed resource surfaces as a non-empty plan rather than being silently reverted or accepted (depends on T012)
 - [X] T014 [P] Create the `production` and `production-infra` GitHub environments via `gh api` (branch restricted to `main` on both), with a required-reviewer protection rule on `production-infra` only — done here, ahead of any workflow that targets them, so the approval gate is active from `terraform-apply.yml`'s first run rather than depending on a later user-story task; repository variable population stays a separate concern (T038)
 
 **Checkpoint**: Backend, Resource Group lookup, VNet, variables, GitHub environments, and validate-CI are ready — user story implementation can now begin.
@@ -75,8 +75,8 @@ Infrastructure-as-code project. Terraform config at `infrastructure/terraform/`,
 - [X] T022 [US1] Add the Azure Static Web App to `infrastructure/terraform/main.tf` (`Standard` SKU, linked to `RezaMahmood/llm-dungeon` on `main`) per data-model.md (depends on T021, same file)
 - [X] T023 [US1] Complete `infrastructure/terraform/outputs.tf` with all remaining outputs (`functions_app_name`/`id`/`managed_identity_principal_id`, `static_web_app_name`/`id`/`url`, `storage_account_name`/`id`/`blob_endpoint`, `cosmos_db_account_name`/`id`/`endpoint`/`database_name`/`container_name`, `azure_openai_account_name`/`id`/`endpoint`/`deployment_name`, `application_insights_id`/`connection_string`/`instrumentation_key`, `log_analytics_workspace_id`, `budget_name`, `github_environment_variables` map) per contracts/terraform-contract.md (depends on T015–T022)
 - [X] T024 [P] [US1] Create `.github/workflows/terraform-apply.yml` targeting the `production-infra` GitHub environment (Azure Login via the GitHub OIDC Managed Identity, `terraform init -backend-config=backend-prod.hcl`, `terraform apply`, capture outputs, required-reviewer approval gate scoped to this environment only — `backend-deploy.yml`/`frontend-deploy.yml` target the separate `production` environment and stay unapproved/automatic, per FR-010/SC-006) per contracts/github-actions-contract.md (depends on T014 — `production-infra` and its protection rule must already exist)
-- [X] T025 [P] [US1] Write `tests/infrastructure/test_resource_creation.py` asserting every provisioned resource exists with its expected configuration (Functions Managed Identity enabled, Storage/Cosmos/AI Foundry public access disabled, VNet integration present) per contracts/github-actions-contract.md's Infrastructure Testing workflow
-- [X] T026 [P] [US1] Create `.github/workflows/infrastructure-tests.yml` running `pytest tests/infrastructure/ -v` on a nightly schedule and on-demand (`workflow_dispatch`) per contracts/github-actions-contract.md
+- [X] T025 [P] [US1] Write `infrastructure/tests/test_resource_creation.py` asserting every provisioned resource exists with its expected configuration (Functions Managed Identity enabled, Storage/Cosmos/AI Foundry public access disabled, VNet integration present) per contracts/github-actions-contract.md's Infrastructure Testing workflow
+- [X] T026 [P] [US1] Create `.github/workflows/infrastructure-tests.yml` running `pytest infrastructure/tests/ -v` on a nightly schedule and on-demand (`workflow_dispatch`) per contracts/github-actions-contract.md
 - [X] T027 [US1] Execute quickstart.md Scenario 1 (Bootstrap Terraform State Storage) and Scenario 2 (Provision Complete Production Infrastructure) end-to-end to validate User Story 1 independently (depends on T006–T026)
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently (MVP).
@@ -91,8 +91,8 @@ Infrastructure-as-code project. Terraform config at `infrastructure/terraform/`,
 
 ### Implementation for User Story 2
 
-- [X] T028 [P] [US2] Create `.github/workflows/backend-deploy.yml` (triggered on `backend/**` changes to `main` or `workflow_dispatch`; Python 3.11 setup, `pytest backend/tests/`, Azure Login via OIDC, `func pack --build remote`, deploy to the Functions app, post-deploy smoke test against the health endpoint) per contracts/github-actions-contract.md
-- [X] T029 [P] [US2] Create `.github/workflows/frontend-deploy.yml` (triggered on `frontend/**` changes to `main` or `workflow_dispatch`; Node.js setup, `npm ci`, tests, build, deploy to the Static Web App) per contracts/github-actions-contract.md
+- [X] T028 [P] [US2] Create `.github/workflows/backend-deploy.yml` (triggered on `src/backend/**` changes to `main` or `workflow_dispatch`; Python 3.11 setup, `pytest src/backend/tests/`, Azure Login via OIDC, `func pack --build remote`, deploy to the Functions app, post-deploy smoke test against the health endpoint) per contracts/github-actions-contract.md
+- [X] T029 [P] [US2] Create `.github/workflows/frontend-deploy.yml` (triggered on `src/frontend/**` changes to `main` or `workflow_dispatch`; Node.js setup, `npm ci`, tests, build, deploy to the Static Web App) per contracts/github-actions-contract.md
 - [ ] T030 [US2] Execute quickstart.md Scenario 7 (Full Deployment Pipeline Test) end-to-end to validate User Story 2 independently (depends on T028, T029)
 
 **Checkpoint**: User Stories 1 AND 2 both work independently.
@@ -107,7 +107,7 @@ Infrastructure-as-code project. Terraform config at `infrastructure/terraform/`,
 
 ### Implementation for User Story 3
 
-- [X] T031 [P] [US3] Write `tests/infrastructure/test_oidc_authentication.py` verifying (a) Azure CLI/SDK calls authenticate successfully via the GitHub OIDC Managed Identity's federated token, with zero stored credentials present and zero fallback to a stored secret, and (b) a deliberately misconfigured/missing federated credential subject causes authentication to fail clearly rather than falling back to a stored secret or proceeding unauthenticated, per contracts/github-actions-contract.md's Infrastructure Testing workflow (FR-011/FR-011a/FR-016/SC-004, spec.md US3 Acceptance Scenario 2)
+- [X] T031 [P] [US3] Write `infrastructure/tests/test_oidc_authentication.py` verifying (a) Azure CLI/SDK calls authenticate successfully via the GitHub OIDC Managed Identity's federated token, with zero stored credentials present and zero fallback to a stored secret, and (b) a deliberately misconfigured/missing federated credential subject causes authentication to fail clearly rather than falling back to a stored secret or proceeding unauthenticated, per contracts/github-actions-contract.md's Infrastructure Testing workflow (FR-011/FR-011a/FR-016/SC-004, spec.md US3 Acceptance Scenario 2)
 - [ ] T032 [US3] Execute quickstart.md Scenario 3 (Validate Infrastructure via GitHub Actions) and Scenario 5 (Test GitHub → Azure OIDC Authentication) end-to-end, confirming no Azure secrets are stored in the GitHub repository and the GitHub OIDC Managed Identity's role assignment is scoped only to the `llm-dungeon` Resource Group (depends on T006, T031)
 
 **Checkpoint**: User Stories 1, 2, AND 3 all work independently.
@@ -125,7 +125,7 @@ Infrastructure-as-code project. Terraform config at `infrastructure/terraform/`,
 - [X] T033 [P] [US4] Create `infrastructure/terraform/identity.tf` with role assignments for the Functions app's system-assigned Managed Identity (`Storage Blob Data Contributor` on the assets Storage Account, `Cosmos DB Data Contributor` on the Cosmos DB account, `Cognitive Services User` on the AI Foundry account, `Monitoring Metrics Publisher` on Application Insights) per data-model.md's Managed Identity (Function App) entity
 - [X] T034 [US4] Extend `infrastructure/terraform/network.tf` with private endpoints for the Storage Account, Cosmos DB account, and AI Foundry account, attached to the private-endpoints subnet (T010) per data-model.md's Private Endpoints entity (depends on T018–T020, T010; same file as T010)
 - [X] T035 [US4] Extend `infrastructure/terraform/network.tf` with Private DNS Zones (`privatelink.blob.core.windows.net`, `privatelink.documents.azure.com`, `privatelink.openai.azure.com`) and their VNet links, per data-model.md's Private DNS Zones entity (depends on T034, same file)
-- [X] T036 [P] [US4] Write `tests/infrastructure/test_private_connectivity.py` verifying DNS resolves Storage/Cosmos DB/AI Foundry hostnames to private IPs, connections succeed over the private endpoint, and connections attempted over the public endpoint are rejected
+- [X] T036 [P] [US4] Write `infrastructure/tests/test_private_connectivity.py` verifying DNS resolves Storage/Cosmos DB/AI Foundry hostnames to private IPs, connections succeed over the private endpoint, and connections attempted over the public endpoint are rejected
 - [ ] T037 [US4] Execute quickstart.md Scenario 4 (Verify Private Connectivity) end-to-end to validate User Story 4 independently (depends on T033–T036)
 
 **Checkpoint**: User Stories 1–4 all work independently.
@@ -154,7 +154,7 @@ Infrastructure-as-code project. Terraform config at `infrastructure/terraform/`,
 
 - [X] T041 [P] Run `terraform fmt -recursive` across `infrastructure/terraform/` and resolve any remaining `terraform validate` warnings
 - [X] T042 [P] Update `README.md`/`docs/` with an infrastructure architecture overview linking to plan.md and quickstart.md
-- [X] T043 Security review: confirm no hardcoded secrets, access keys, or connection strings exist anywhere in `infrastructure/terraform/`, `.github/workflows/`, `tests/infrastructure/`, or `infrastructure/scripts/` (Constitution Principles II and VII)
+- [X] T043 Security review: confirm no hardcoded secrets, access keys, or connection strings exist anywhere in `infrastructure/terraform/`, `.github/workflows/`, `infrastructure/tests/`, or `infrastructure/scripts/` (Constitution Principles II and VII)
 - [ ] T044 Execute all 8 quickstart.md scenarios end-to-end as a final full-feature validation pass
 
 ---
@@ -177,7 +177,7 @@ Infrastructure-as-code project. Terraform config at `infrastructure/terraform/`,
 
 - `infrastructure/terraform/main.tf` and `infrastructure/terraform/monitoring.tf` edits within US1 are strictly sequential (same file)
 - `infrastructure/terraform/network.tf` edits within US4 are strictly sequential (same file, and depend on US1's resources existing)
-- Test files (`tests/infrastructure/test_*.py`) and workflow files (`.github/workflows/*.yml`) are independent of each other and of the `.tf` files they exercise, so can be authored in parallel with the resources they will later validate
+- Test files (`infrastructure/tests/test_*.py`) and workflow files (`.github/workflows/*.yml`) are independent of each other and of the `.tf` files they exercise, so can be authored in parallel with the resources they will later validate
 
 ### Parallel Opportunities
 
@@ -200,7 +200,7 @@ Task: "Create infrastructure/terraform/backend.tf and infrastructure/terraform/b
 Task: "Add a data \"azurerm_resource_group\" \"rg\" lookup to infrastructure/terraform/main.tf"
 Task: "Create infrastructure/terraform/network.tf with the Virtual Network and subnets"
 Task: "Create infrastructure/terraform/outputs.tf skeleton"
-Task: "Write tests/infrastructure/test_terraform_validate.sh"
+Task: "Write infrastructure/tests/test_terraform_validate.sh"
 Task: "Create the production and production-infra GitHub environments with production-infra's required-reviewer rule"
 
 # T013 (terraform-validate.yml) runs after T012, since it invokes that script

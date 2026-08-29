@@ -1,4 +1,4 @@
-"""Shared fixtures for infrastructure tests (tests/infrastructure/).
+"""Shared fixtures for infrastructure tests (infrastructure/tests/).
 
 These tests exercise the live, provisioned Azure infrastructure (see
 specs/007-azure-infrastructure-provisioning) rather than mocks — they are

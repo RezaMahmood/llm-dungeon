@@ -21,11 +21,11 @@ Give a signed-in Administrator a four-step wizard (name & cover, world & setting
 
 **Storage**: Azure Cosmos DB, serverless (per `007-azure-infrastructure-provisioning`) — two new containers: `storyDrafts` (TTL-enabled, ephemeral session state) and `stories` (persisted, unpublished-by-default) (resolved in research.md §3, data-model.md)
 
-**Testing**: pytest (backend `backend/tests/unit`, `backend/tests/integration`, existing convention, with the Foundry client mocked per research.md §1); Vitest + React Testing Library (frontend `frontend/tests`, existing convention)
+**Testing**: pytest (backend `src/backend/tests/unit`, `src/backend/tests/integration`, existing convention, with the Foundry client mocked per research.md §1); Vitest + React Testing Library (frontend `src/frontend/tests`, existing convention)
 
 **Target Platform**: Azure Functions (Python, Flex Consumption) + Azure Static Web App (React SPA), per `007-azure-infrastructure-provisioning`; LLM calls reach the Azure AI Foundry resource `007` provisions, over the same private-endpoint/Managed-Identity path as Cosmos DB
 
-**Project Type**: Web application (existing `backend/` + `frontend/` structure)
+**Project Type**: Web application (existing `src/backend/` + `src/frontend/` structure)
 
 **Performance Goals**: N/A — no throughput/latency target specified or needed (Principle IV); an LLM generation call is inherently seconds-scale and the wizard UI treats it as an async action with a loading state, not a request with a tight budget
 
@@ -59,7 +59,7 @@ Give a signed-in Administrator a four-step wizard (name & cover, world & setting
 **Status**: ✓ MET — The Foundry client authenticates via `DefaultAzureCredential` (Managed Identity), matching `CosmosService`'s existing pattern; no API key or connection string is introduced. Private-endpoint enforcement itself is `007`'s network-layer responsibility; this plan introduces no code path that could bypass it (no direct public-endpoint fallback).
 
 ### Principle VIII – UI Design System & Accessibility Compliance (NON-NEGOTIABLE)
-**Status**: ✓ MET, with a gap noted — The wizard shell reuses `specs/designs/04-admin-wizard.html`'s step-tab layout and `frontend/src/styles/designTokens.css` tokens/primitives (`.field`, `.input`, `.btn*`). The new character-type/completion-criteria fields (FR-008) have no reference markup in the static mockup (research.md §5); they are built from the same design-token primitives as repeatable list rows, not new one-off component classes, consistent with the constitution's "no parallel, screen-specific reimplementation" rule.
+**Status**: ✓ MET, with a gap noted — The wizard shell reuses `specs/designs/04-admin-wizard.html`'s step-tab layout and `src/frontend/src/styles/designTokens.css` tokens/primitives (`.field`, `.input`, `.btn*`). The new character-type/completion-criteria fields (FR-008) have no reference markup in the static mockup (research.md §5); they are built from the same design-token primitives as repeatable list rows, not new one-off component classes, consistent with the constitution's "no parallel, screen-specific reimplementation" rule.
 
 ### Security & Access Control Requirements (constitution, non-principle section)
 **Status**: ✓ MET — No secrets introduced (Foundry auth is Managed Identity, per Principle VII); story/draft data is only ever reachable by an authenticated, allow-listed Administrator.
@@ -83,10 +83,10 @@ specs/004-story-creation/
 
 ### Source Code (repository root)
 
-**Structure Decision**: Existing web-application layout (`backend/` Python Azure Functions + `frontend/` React SPA, established by `002-login-and-access-control`). This feature adds a new service layer (LLM client + drafts + stories) under `backend/` and a new wizard screen under `frontend/`; it does not modify any file `002`/`003` own.
+**Structure Decision**: Existing web-application layout (`src/backend/` Python Azure Functions + `src/frontend/` React SPA, established by `002-login-and-access-control`). This feature adds a new service layer (LLM client + drafts + stories) under `src/backend/` and a new wizard screen under `src/frontend/`; it does not modify any file `002`/`003` own.
 
 ```text
-backend/
+src/backend/
 ├── config.py                                    # MODIFY: add STORY_DRAFTS_CONTAINER, STORIES_CONTAINER,
 │                                                 #   AZURE_AI_FOUNDRY_ENDPOINT, LLM_*_TOKEN_PRICE_USD
 ├── models/
@@ -116,7 +116,7 @@ backend/
         └── test_admin_stories_endpoint.py       # NEW: full draft→generation lifecycle, abandonment/TTL,
                                                   #   malformed-output rejection, single-character-type case
 
-frontend/
+src/frontend/
 ├── src/
 │   ├── pages/
 │   │   ├── AdminPage.jsx                        # MODIFY: link to the new story wizard

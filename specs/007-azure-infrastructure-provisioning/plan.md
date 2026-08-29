@@ -147,7 +147,7 @@ infrastructure/terraform/
 ├── frontend-deploy.yml         # Triggered by code changes: build & deploy Static Web App
 └── infrastructure-tests.yml    # Infrastructure validation tests (connectivity, OIDC, private endpoint)
 
-tests/infrastructure/
+infrastructure/tests/
 ├── test_terraform_validate.sh  # terraform validate wrapper
 ├── test_private_connectivity.py    # Connectivity assertions to Storage, Cosmos, AI Foundry
 ├── test_oidc_authentication.py     # Federated OIDC flow validation
@@ -382,5 +382,5 @@ The quickstart will document end-to-end validation for each user story:
 2. **Implementation**: Follow tasks.md to:
    - Create Terraform configuration files (main.tf, network.tf, identity.tf, etc.)
    - Create GitHub Actions workflows (.github/workflows/*.yml)
-   - Create infrastructure tests (tests/infrastructure/*.py)
+   - Create infrastructure tests (infrastructure/tests/*.py)
 3. **Validation**: Execute quickstart scenarios to verify each feature works as specified

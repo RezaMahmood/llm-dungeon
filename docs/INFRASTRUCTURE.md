@@ -20,7 +20,7 @@ this page is a short map, not a restatement.
   human-approval-gated), `backend-deploy.yml`/`frontend-deploy.yml` (target
   `production`, fully automatic), `infrastructure-tests.yml` (nightly +
   on-demand).
-- `tests/infrastructure/` — Terraform validation wrapper plus pytest suites
+- `infrastructure/tests/` — Terraform validation wrapper plus pytest suites
   for resource existence, private connectivity, and OIDC authentication.
 - `infrastructure/scripts/` — one-time `bootstrap.sh` (Terraform state storage + GitHub OIDC
   Managed Identity) and `configure-github-environment.sh` (populates

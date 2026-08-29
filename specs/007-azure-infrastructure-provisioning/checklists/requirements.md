@@ -85,7 +85,7 @@
 - 2026-08-29: Ran `/speckit-implement`. All 44 tasks except the six "execute
   quickstart end-to-end" ones (T027, T030, T032, T037, T040, T044) are complete:
   every `infrastructure/terraform/*.tf` file, all 5 GitHub Actions workflows, `infrastructure/scripts/bootstrap.sh`,
-  `infrastructure/scripts/configure-github-environment.sh`, and all 4 `tests/infrastructure/*`
+  `infrastructure/scripts/configure-github-environment.sh`, and all 4 `infrastructure/tests/*`
   suites are written and pass `terraform fmt`/`validate` against the real azurerm
   v5.3.0 provider (contract said `>= 3.80.0`, no upper bound — v5 has breaking
   changes from v3/v4, e.g. `azurerm_function_app_flex_consumption` for the Flex

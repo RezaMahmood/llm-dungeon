@@ -97,7 +97,7 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
    - Store: Available as workflow artifact or variable
 
 7. **Post-Apply Validation** (optional)
-   - Script: `tests/infrastructure/test_resource_creation.py`
+   - Script: `infrastructure/tests/test_resource_creation.py`
    - Purpose: Verify all resources exist with expected configuration
    - Fail condition: Resource missing or misconfigured (e.g., public access enabled when it should be disabled)
 
@@ -120,7 +120,7 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
 **Trigger**: 
 - Push to main branch (after infrastructure-apply.yml confirms infrastructure exists)
 - Manual trigger (workflow_dispatch)
-- Path filter: `backend/**` (only if backend code changes)
+- Path filter: `src/backend/**` (only if backend code changes)
 
 **Purpose**: Build and deploy Python Azure Functions backend
 
@@ -140,11 +140,11 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
    - Input: `python-version: 3.11`
 
 3. **Install Dependencies**
-   - Command: `pip install -r backend/requirements.txt` (and `requirements-dev.txt` for testing)
+   - Command: `pip install -r src/backend/requirements.txt` (and `requirements-dev.txt` for testing)
    - Purpose: Install Python packages and tools
 
 4. **Run Tests** (per Principle I - Meaningful Testing)
-   - Command: `pytest backend/tests/ -v --cov=backend/src`
+   - Command: `pytest src/backend/tests/ -v --cov=src/backend/src`
    - Fail condition: Test failure blocks deployment
    - Purpose: Ensure backend code changes don't introduce regressions
 
@@ -166,7 +166,7 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
    - Duration: ~2-5 minutes
 
 8. **Smoke Test** (post-deployment)
-   - Script: `tests/infrastructure/test_oidc_authentication.py`
+   - Script: `infrastructure/tests/test_oidc_authentication.py`
    - Purpose: Verify backend is responding to authenticated requests
    - Fail condition: Backend endpoint unreachable or returning errors
 
@@ -186,7 +186,7 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
 **Trigger**: 
 - Push to main branch (after infrastructure-apply.yml confirms infrastructure exists)
 - Manual trigger (workflow_dispatch)
-- Path filter: `frontend/**` (only if frontend code changes)
+- Path filter: `src/frontend/**` (only if frontend code changes)
 
 **Purpose**: Build and deploy ReactJS frontend to Azure Static Web App
 
@@ -207,7 +207,7 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
    - Input: `node-version: 18` (or current LTS)
 
 3. **Install Dependencies**
-   - Command: `npm ci` (in `frontend/` directory)
+   - Command: `npm ci` (in `src/frontend/` directory)
    - Purpose: Install React and build tools
 
 4. **Run Tests** (per Principle I)
@@ -215,7 +215,7 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
    - Fail condition: Test failure blocks deployment
 
 5. **Build Static Site**
-   - Command: `npm run build` (outputs to `frontend/dist/` or configured directory)
+   - Command: `npm run build` (outputs to `src/frontend/dist/` or configured directory)
    - Purpose: Compile React to static HTML/CSS/JS
 
 6. **Azure Login** (via Federated OIDC)
@@ -225,9 +225,9 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
    - Action: `azure/static-web-apps-deploy@v1` (or manual az CLI)
    - Inputs:
      - `azure_static_web_apps_api_token`: From repository secret (configured once by repo admin)
-     - `app-location`: `frontend/dist/`
+     - `app-location`: `src/frontend/dist/`
      - `api-location`: (empty, APIs are Functions app)
-     - `output-location`: `frontend/dist/`
+     - `output-location`: `src/frontend/dist/`
    - Purpose: Upload static assets to Static Web App CDN
 
 **Success Criteria**:
@@ -271,7 +271,7 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
    - Action: `azure/login@v1`
 
 5. **Run Private Connectivity Tests**
-   - Script: `tests/infrastructure/test_private_connectivity.py`
+   - Script: `infrastructure/tests/test_private_connectivity.py`
    - Purpose: Verify backend resources are reachable over private endpoints
    - Assertions:
      - DNS resolves storage/cosmos/openai names to private IPs (not public)
@@ -279,7 +279,7 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
    - Fail condition: Any DNS or connection failure indicates misconfiguration
 
 6. **Run OIDC Authentication Test**
-   - Script: `tests/infrastructure/test_oidc_authentication.py`
+   - Script: `infrastructure/tests/test_oidc_authentication.py`
    - Purpose: Verify GitHub Actions can authenticate to Azure via federated OIDC
    - Assertions:
      - No error accessing Azure resources
@@ -287,7 +287,7 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
    - Fail condition: OIDC authentication fails or falls back to stored credentials
 
 7. **Run Resource Creation Tests**
-   - Script: `tests/infrastructure/test_resource_creation.py`
+   - Script: `infrastructure/tests/test_resource_creation.py`
    - Purpose: Verify all required resources exist and are configured correctly
    - Assertions:
      - Functions app exists, Managed Identity is enabled

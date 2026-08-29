@@ -24,8 +24,8 @@ Cosmos DB (allowListEntries, capabilityAssignments)
 
 ## Getting started
 
-- Backend: see [backend/README.md](backend/README.md)
-- Frontend: see [frontend/README.md](frontend/README.md)
+- Backend: see [src/backend/README.md](src/backend/README.md)
+- Frontend: see [src/frontend/README.md](src/frontend/README.md)
 - Infrastructure (Terraform, CI/CD, bootstrap): see [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md)
 - Login/access-control setup: see [docs/ADMIN_SETUP.md](docs/ADMIN_SETUP.md) and [docs/LOGIN_INSTRUCTIONS.md](docs/LOGIN_INSTRUCTIONS.md)
 

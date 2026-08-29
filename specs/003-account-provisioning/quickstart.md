@@ -23,7 +23,7 @@ This guide provides step-by-step validation scenarios confirming account provisi
 **Objective**: A freshly deployed system has exactly one working Administrator, with no manual data setup.
 
 **Steps**:
-1. Deploy fresh (or reset the `provisionedAccountEntries` container to contain only the seed entry, per `backend/db/seed_data.py`).
+1. Deploy fresh (or reset the `provisionedAccountEntries` container to contain only the seed entry, per `src/backend/db/seed_data.py`).
 2. Confirm via `GET /api/admin/accounts` (once signed in — see step 3) that exactly one entry exists, with `roles: ["Administrator"]` and `bound: false`.
 3. Sign in with the seed administrator's Microsoft account.
 
@@ -113,12 +113,12 @@ Every scenario above corresponds to at least one automated test required by FR-0
 
 | Scenario | Backend test location |
 |---|---|
-| 1 | `backend/tests/integration/test_login_endpoint.py` (seed + first-bind case) |
-| 2 | `backend/tests/integration/test_login_endpoint.py` (oid-mismatch case) |
-| 3 | `backend/tests/integration/test_admin_accounts_endpoint.py`, `test_login_endpoint.py` |
-| 4 | `backend/tests/unit/test_account_provisioning_service.py` |
-| 5 | `backend/tests/integration/test_admin_accounts_endpoint.py` |
-| 6 | `backend/tests/integration/test_admin_accounts_endpoint.py` |
-| 7 | `backend/tests/integration/test_admin_accounts_endpoint.py` |
+| 1 | `src/backend/tests/integration/test_login_endpoint.py` (seed + first-bind case) |
+| 2 | `src/backend/tests/integration/test_login_endpoint.py` (oid-mismatch case) |
+| 3 | `src/backend/tests/integration/test_admin_accounts_endpoint.py`, `test_login_endpoint.py` |
+| 4 | `src/backend/tests/unit/test_account_provisioning_service.py` |
+| 5 | `src/backend/tests/integration/test_admin_accounts_endpoint.py` |
+| 6 | `src/backend/tests/integration/test_admin_accounts_endpoint.py` |
+| 7 | `src/backend/tests/integration/test_admin_accounts_endpoint.py` |
 
-Frontend equivalents live in `frontend/tests/components/{AccountForm,AccountList}.test.jsx` and `frontend/tests/integration/admin_accounts.test.jsx`.
+Frontend equivalents live in `src/frontend/tests/components/{AccountForm,AccountList}.test.jsx` and `src/frontend/tests/integration/admin_accounts.test.jsx`.

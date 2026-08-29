@@ -21,11 +21,11 @@ Give a signed-in Administrator an in-app screen to grant new Microsoft accounts 
 
 **Storage**: Azure Cosmos DB, serverless (per `007-azure-infrastructure-provisioning`) — one container, `provisionedAccountEntries`, partition key `/email` (lowercased), replacing 002's `allowListEntries` + `capabilityAssignments` containers (resolved in research.md §4)
 
-**Testing**: pytest (backend `backend/tests/unit`, `backend/tests/integration`, existing convention); Vitest + React Testing Library (frontend `frontend/tests`, existing convention)
+**Testing**: pytest (backend `src/backend/tests/unit`, `src/backend/tests/integration`, existing convention); Vitest + React Testing Library (frontend `src/frontend/tests`, existing convention)
 
 **Target Platform**: Azure Functions (Python, Flex Consumption) + Azure Static Web App (React SPA), per `007-azure-infrastructure-provisioning`
 
-**Project Type**: Web application (existing `backend/` + `frontend/` structure)
+**Project Type**: Web application (existing `src/backend/` + `src/frontend/` structure)
 
 **Performance Goals**: N/A — no throughput/latency target specified or needed (Principle IV); sign-in adds a single Cosmos point read by partition key, no worse than 002's existing point read by oid
 
@@ -59,7 +59,7 @@ Give a signed-in Administrator an in-app screen to grant new Microsoft accounts 
 **Status**: ✓ MET — Continues to use `CosmosService`'s existing Managed-Identity (`DefaultAzureCredential`) authentication; no new Azure resource dependency, no shared keys introduced.
 
 ### Principle VIII – UI Design System & Accessibility Compliance (NON-NEGOTIABLE)
-**Status**: ✓ MET, with a gap noted — The new add-account form and account list reuse existing vendored primitives (`.field`, `.input`, `.btn*`, `.table`, `.tag*` in `frontend/src/styles/designTokens.css`); no ad hoc components. No hi-fi mockup exists for this screen in `specs/designs/` (that set covers login, story-select, play, and the admin story-wizard, not account provisioning) — layout will follow the constitution's non-negotiable visual rules (flush-left, zero radius, visible dividers, sparing accent use) directly, the same way `specs/designs/README.md` already tracks other screen gaps.
+**Status**: ✓ MET, with a gap noted — The new add-account form and account list reuse existing vendored primitives (`.field`, `.input`, `.btn*`, `.table`, `.tag*` in `src/frontend/src/styles/designTokens.css`); no ad hoc components. No hi-fi mockup exists for this screen in `specs/designs/` (that set covers login, story-select, play, and the admin story-wizard, not account provisioning) — layout will follow the constitution's non-negotiable visual rules (flush-left, zero radius, visible dividers, sparing accent use) directly, the same way `specs/designs/README.md` already tracks other screen gaps.
 
 ### Security & Access Control Requirements (constitution, non-principle section)
 **Status**: ✓ MET — Adding an account remains an explicit, auditable, admin-only action (entry carries `dateAdded`/`addedBy`); no self-service or implicit grant path is introduced.
@@ -83,10 +83,10 @@ specs/003-account-provisioning/
 
 ### Source Code (repository root)
 
-**Structure Decision**: Existing web-application layout (`backend/` Python Azure Functions + `frontend/` React SPA, established by `002-login-and-access-control`). This feature adds new files under both and modifies the sign-in/authorization path in `backend/`.
+**Structure Decision**: Existing web-application layout (`src/backend/` Python Azure Functions + `src/frontend/` React SPA, established by `002-login-and-access-control`). This feature adds new files under both and modifies the sign-in/authorization path in `src/backend/`.
 
 ```text
-backend/
+src/backend/
 ├── config.py                              # MODIFY: replace ALLOW_LIST_CONTAINER/CAPABILITY_CONTAINER
 │                                           #   with PROVISIONED_ACCOUNTS_CONTAINER
 ├── models/
@@ -126,7 +126,7 @@ backend/
         ├── test_dual_role_user.py                  # MODIFY
         └── test_admin_accounts_endpoint.py         # NEW
 
-frontend/
+src/frontend/
 ├── src/
 │   ├── pages/
 │   │   ├── AdminPage.jsx                  # MODIFY: link/route to the accounts screen

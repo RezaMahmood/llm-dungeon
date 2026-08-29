@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - "infrastructure/terraform/**"
-      - "tests/infrastructure/test_terraform_validate.sh"
+      - "infrastructure/tests/test_terraform_validate.sh"
       - ".github/workflows/terraform-validate.yml"
   push:
     branches: [main]
@@ -29,7 +29,7 @@ jobs:
           terraform_version: ${{ vars.TERRAFORM_VERSION }}
 
       - name: terraform fmt / validate
-        run: ./tests/infrastructure/test_terraform_validate.sh
+        run: ./infrastructure/tests/test_terraform_validate.sh
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2

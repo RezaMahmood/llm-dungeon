@@ -32,9 +32,9 @@
 - **Terraform Validation**: `terraform validate` + `terraform fmt` (built-in, no dependencies)
 - **Terraform Plan Review**: PR workflows export `terraform plan` as artifact for human review
 - **Custom Python Tests**: Use pytest (already in project per `001-ci-cd-foundation`)
-  - `tests/infrastructure/test_private_connectivity.py`: Verify private endpoints exist, public access disabled
-  - `tests/infrastructure/test_oidc_authentication.py`: Verify federated OIDC trust is configured, authenticate via OIDC
-  - `tests/infrastructure/test_resource_creation.py`: Verify all required resources exist post-apply
+  - `infrastructure/tests/test_private_connectivity.py`: Verify private endpoints exist, public access disabled
+  - `infrastructure/tests/test_oidc_authentication.py`: Verify federated OIDC trust is configured, authenticate via OIDC
+  - `infrastructure/tests/test_resource_creation.py`: Verify all required resources exist post-apply
 
 **Rationale**:
 - Terraform's built-in validation catches syntax/schema errors early

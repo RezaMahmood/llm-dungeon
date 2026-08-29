@@ -36,7 +36,7 @@ provision any Azure infrastructure itself.
      Contributor` on the Cosmos DB account (provisioned by 007).
 
 5. **Deploy backend** — merge to `main` triggers the GitHub Actions workflow
-   (from 007) that deploys `backend/` to the Function App.
+   (from 007) that deploys `src/backend/` to the Function App.
 
 6. **Deploy frontend** — set `VITE_AZURE_TENANT_ID`, `VITE_AZURE_APP_ID`,
    `VITE_AZURE_REDIRECT_URI` as deployment secrets/build variables, then

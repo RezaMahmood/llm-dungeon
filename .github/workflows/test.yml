@@ -21,9 +21,9 @@ jobs:
           pip install pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-          if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
-          if [ -f backend/requirements-dev.txt ]; then pip install -r backend/requirements-dev.txt; fi
-          if [ -f tests/infrastructure/requirements.txt ]; then pip install -r tests/infrastructure/requirements.txt; fi
+          if [ -f src/backend/requirements.txt ]; then pip install -r src/backend/requirements.txt; fi
+          if [ -f src/backend/requirements-dev.txt ]; then pip install -r src/backend/requirements-dev.txt; fi
+          if [ -f infrastructure/tests/requirements.txt ]; then pip install -r infrastructure/tests/requirements.txt; fi
 
       - name: Run test suite
         run: |
@@ -42,7 +42,7 @@ jobs:
     timeout-minutes: 30
     defaults:
       run:
-        working-directory: frontend
+        working-directory: src/frontend
     steps:
       - uses: actions/checkout@v4
 

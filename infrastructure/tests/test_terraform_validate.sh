@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-TERRAFORM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../infrastructure/terraform" && pwd)"
+TERRAFORM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../terraform" && pwd)"
 
 echo "== terraform fmt -check -recursive =="
 terraform -chdir="$TERRAFORM_DIR" fmt -check -recursive
