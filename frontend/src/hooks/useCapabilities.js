@@ -10,6 +10,12 @@ import { loginRequest } from "../services/msalConfig.js";
  */
 export function useCapabilities() {
   const { instance, accounts } = useMsal();
+  const account = accounts[0];
+  // Depend on a stable primitive rather than the `accounts` array/object
+  // reference, which some MSAL context updates (and test mocks) can recreate
+  // every render — depending on the reference directly causes fetchCapabilities
+  // to be re-created every render, re-triggering the effect below in a loop.
+  const accountKey = account?.homeAccountId ?? account?.username ?? null;
   const [state, setState] = useState({
     hasPlayer: false,
     hasAdministrator: false,
@@ -21,7 +27,6 @@ export function useCapabilities() {
   const fetchCapabilities = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
     try {
-      const account = accounts[0];
       const tokenResponse = await instance.acquireTokenSilent({
         ...loginRequest,
         account,
@@ -52,7 +57,9 @@ export function useCapabilities() {
       }
       setState((prev) => ({ ...prev, loading: false, error: err }));
     }
-  }, [instance, accounts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `account` is intentionally
+    // excluded: only `accountKey` (a stable primitive) should re-create this callback.
+  }, [instance, accountKey]);
 
   useEffect(() => {
     fetchCapabilities();

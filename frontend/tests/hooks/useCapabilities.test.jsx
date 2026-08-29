@@ -2,12 +2,14 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const acquireTokenSilent = vi.fn().mockResolvedValue({ accessToken: "test-token" });
+const loginRedirect = vi.fn();
+// Stable references across renders — mirrors real MSAL context behavior, and
+// avoids retriggering the hook's memoized callback (and its effect) on every render.
+const mockInstance = { acquireTokenSilent, loginRedirect };
+const mockAccounts = [{ username: "user@example.com" }];
 
 vi.mock("@azure/msal-react", () => ({
-  useMsal: () => ({
-    instance: { acquireTokenSilent, loginRedirect: vi.fn() },
-    accounts: [{ username: "user@example.com" }],
-  }),
+  useMsal: () => ({ instance: mockInstance, accounts: mockAccounts }),
 }));
 
 const getMe = vi.fn();
