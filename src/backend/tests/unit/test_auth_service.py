@@ -27,7 +27,7 @@ def key_pair():
     return _rsa_key_pair()
 
 
-def _make_token(private_key, *, issuer=ISSUER, audience=APP_ID, oid="user-oid-123", exp_delta=3600):
+def _make_token(private_key, *, issuer=ISSUER, audience=APP_ID, oid="user-oid-123", email="user@example.com", exp_delta=3600):
     payload = {
         "oid": oid,
         "iss": issuer,
@@ -35,6 +35,8 @@ def _make_token(private_key, *, issuer=ISSUER, audience=APP_ID, oid="user-oid-12
         "exp": int(time.time()) + exp_delta,
         "iat": int(time.time()),
     }
+    if email is not None:
+        payload["email"] = email
     return jwt.encode(payload, private_key, algorithm="RS256")
 
 
@@ -49,16 +51,29 @@ def _service_with_mocked_key(public_key):
     return service
 
 
-def test_validate_token_with_valid_token_returns_true_and_oid(key_pair):
+def test_validate_token_with_valid_token_returns_true_oid_and_email(key_pair):
     private_key, public_key = key_pair
     service = _service_with_mocked_key(public_key)
     token = _make_token(private_key)
 
-    is_valid, user_oid, error = service.validate_token(token)
+    is_valid, user_oid, email, error = service.validate_token(token)
 
     assert is_valid is True
     assert user_oid == "user-oid-123"
+    assert email == "user@example.com"
     assert error is None
+
+
+def test_validate_token_lowercases_are_not_applied_here_email_passed_through_raw(key_pair):
+    # Lowercasing is the caller's responsibility (FR-008); validate_token passes the
+    # claim through unchanged.
+    private_key, public_key = key_pair
+    service = _service_with_mocked_key(public_key)
+    token = _make_token(private_key, email="Mixed.Case@Example.com")
+
+    _is_valid, _user_oid, email, _error = service.validate_token(token)
+
+    assert email == "Mixed.Case@Example.com"
 
 
 def test_validate_token_with_expired_token_returns_false(key_pair):
@@ -66,10 +81,11 @@ def test_validate_token_with_expired_token_returns_false(key_pair):
     service = _service_with_mocked_key(public_key)
     token = _make_token(private_key, exp_delta=-3600)
 
-    is_valid, user_oid, error = service.validate_token(token)
+    is_valid, user_oid, email, error = service.validate_token(token)
 
     assert is_valid is False
     assert user_oid is None
+    assert email is None
 
 
 def test_validate_token_with_invalid_signature_returns_false(key_pair):
@@ -78,10 +94,11 @@ def test_validate_token_with_invalid_signature_returns_false(key_pair):
     service = _service_with_mocked_key(public_key)
     token = _make_token(other_private_key)
 
-    is_valid, user_oid, error = service.validate_token(token)
+    is_valid, user_oid, email, error = service.validate_token(token)
 
     assert is_valid is False
     assert user_oid is None
+    assert email is None
 
 
 def test_validate_token_with_wrong_issuer_returns_false(key_pair):
@@ -89,17 +106,31 @@ def test_validate_token_with_wrong_issuer_returns_false(key_pair):
     service = _service_with_mocked_key(public_key)
     token = _make_token(private_key, issuer="https://login.microsoftonline.com/wrong-tenant/v2.0")
 
-    is_valid, user_oid, error = service.validate_token(token)
+    is_valid, user_oid, email, error = service.validate_token(token)
 
     assert is_valid is False
     assert user_oid is None
+    assert email is None
 
 
 def test_validate_token_with_no_token_returns_false():
     service = AuthService(jwks_uri="https://example.invalid/keys", issuer=ISSUER, audience=APP_ID)
 
-    is_valid, user_oid, error = service.validate_token("")
+    is_valid, user_oid, email, error = service.validate_token("")
 
     assert is_valid is False
     assert user_oid is None
+    assert email is None
     assert error is not None
+
+
+def test_validate_token_missing_email_claim_returns_none_email(key_pair):
+    private_key, public_key = key_pair
+    service = _service_with_mocked_key(public_key)
+    token = _make_token(private_key, email=None)
+
+    is_valid, user_oid, email, error = service.validate_token(token)
+
+    assert is_valid is True
+    assert user_oid == "user-oid-123"
+    assert email is None

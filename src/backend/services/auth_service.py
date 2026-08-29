@@ -37,13 +37,13 @@ class AuthService:
             self._jwk_client_created_at = now
         return self._jwk_client
 
-    def validate_token(self, token_string: str) -> tuple[bool, Optional[str], Optional[str]]:
+    def validate_token(self, token_string: str) -> tuple[bool, Optional[str], Optional[str], Optional[str]]:
         """Validate a bearer token.
 
-        Returns (is_valid, user_oid, error_message).
+        Returns (is_valid, user_oid, email, error_message).
         """
         if not token_string:
-            return False, None, "No token provided"
+            return False, None, None, "No token provided"
 
         try:
             jwk_client = self._get_jwk_client()
@@ -57,13 +57,14 @@ class AuthService:
             )
         except InvalidTokenError as exc:
             logger.info("Token validation failed: %s", exc)
-            return False, None, str(exc)
+            return False, None, None, str(exc)
         except (requests.RequestException, Exception) as exc:  # noqa: BLE001 - log and deny on any failure
             logger.error("Unexpected error validating token: %s", exc)
-            return False, None, "Token validation error"
+            return False, None, None, "Token validation error"
 
         user_oid = decoded.get("oid")
         if not user_oid:
-            return False, None, "Token missing oid claim"
+            return False, None, None, "Token missing oid claim"
 
-        return True, user_oid, None
+        email = decoded.get("email")
+        return True, user_oid, email, None

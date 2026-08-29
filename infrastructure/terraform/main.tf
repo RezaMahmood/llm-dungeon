@@ -114,12 +114,17 @@ resource "azurerm_cosmosdb_sql_container" "stories" {
   partition_key_version = 2
 }
 
-resource "azurerm_cosmosdb_sql_container" "allow_list_entries" {
-  name                  = "allowListEntries"
+resource "azurerm_cosmosdb_sql_container" "provisioned_account_entries" {
+  # Replaces allowListEntries + capabilityAssignments (003-account-provisioning):
+  # both were keyed by user_oid; this single container is keyed by lowercased
+  # email so an entry can be looked up before its first sign-in binds an oid
+  # (data-model.md §"Migration Notes"). No production data existed in either
+  # superseded container, so this is a schema replacement, not a live migration.
+  name                  = "provisionedAccountEntries"
   resource_group_name   = data.azurerm_resource_group.rg.name
   account_name          = azurerm_cosmosdb_account.cosmos.name
   database_name         = azurerm_cosmosdb_sql_database.db.name
-  partition_key_paths   = ["/user_oid"]
+  partition_key_paths   = ["/email"]
   partition_key_version = 2
 
   indexing_policy {
@@ -127,46 +132,6 @@ resource "azurerm_cosmosdb_sql_container" "allow_list_entries" {
 
     included_path {
       path = "/*"
-    }
-
-    included_path {
-      path = "/dateRemoved/?"
-    }
-
-    included_path {
-      path = "/email/?"
-    }
-  }
-}
-
-resource "azurerm_cosmosdb_sql_container" "capability_assignments" {
-  name                  = "capabilityAssignments"
-  resource_group_name   = data.azurerm_resource_group.rg.name
-  account_name          = azurerm_cosmosdb_account.cosmos.name
-  database_name         = azurerm_cosmosdb_sql_database.db.name
-  partition_key_paths   = ["/user_oid"]
-  partition_key_version = 2
-
-  indexing_policy {
-    indexing_mode = "consistent"
-
-    included_path {
-      path = "/*"
-    }
-
-    composite_index {
-      index {
-        path  = "/user_oid"
-        order = "Ascending"
-      }
-      index {
-        path  = "/capability"
-        order = "Ascending"
-      }
-      index {
-        path  = "/dateRevoked"
-        order = "Ascending"
-      }
     }
   }
 }
@@ -257,6 +222,7 @@ resource "azurerm_function_app_flex_consumption" "functions" {
     AZURE_OPENAI_DEPLOYMENT_NAME    = azurerm_cognitive_deployment.model.name
     AZURE_TENANT_ID                 = var.azure_tenant_id
     AZURE_APP_ID                    = var.azure_app_id != "" ? var.azure_app_id : var.azure_client_id
+    SEED_ADMIN_EMAIL                = var.seed_admin_email
     PYTHON_ENABLE_WORKER_EXTENSIONS = "true"
   }
 

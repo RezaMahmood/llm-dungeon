@@ -1,13 +1,15 @@
 # LLM Dungeon Adventure
 
 A private, LLM-driven text adventure game. Backend: Python on Azure
-Functions. Frontend: ReactJS. Access is restricted to an explicit allow-list
-of Microsoft accounts (see [Constitution](.specify/memory/constitution.md)).
+Functions. Frontend: ReactJS. Access is restricted to an explicit,
+admin-provisioned list of Microsoft accounts (see
+[Constitution](.specify/memory/constitution.md)).
 
 ## Features
 
 - [`001-ci-cd-foundation`](specs/001-ci-cd-foundation-done/spec.md) — CI test gate on every PR
-- [`002-login-and-access-control`](specs/002-login-and-access-control-done/spec.md) — Microsoft Entra ID sign-in, allow-list, and Player/Administrator capabilities
+- [`002-login-and-access-control`](specs/002-login-and-access-control-done/spec.md) — Microsoft Entra ID sign-in and Player/Administrator roles
+- [`003-account-provisioning`](specs/003-account-provisioning/spec.md) — seed administrator bootstrap, admin UI to grant/view provisioned accounts by email
 - [`007-azure-infrastructure-provisioning`](specs/007-azure-infrastructure-provisioning/spec.md) — Azure infrastructure (Functions, Static Web App, Cosmos DB, Managed Identity), provisioned separately
 
 ## Architecture
@@ -17,9 +19,9 @@ Browser (React + MSAL)
    │  Authorization: Bearer <token>
    ▼
 Azure Functions (Python)
-   │  token validation → allow-list check → capability check
+   │  token validation → provisioned-account lookup by email → oid bind/verify
    ▼
-Cosmos DB (allowListEntries, capabilityAssignments)
+Cosmos DB (provisionedAccountEntries)
 ```
 
 ## Getting started

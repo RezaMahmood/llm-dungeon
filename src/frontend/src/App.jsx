@@ -6,6 +6,7 @@ import ProtectedRoute from "./components/Auth/ProtectedRoute.jsx";
 import ErrorBoundary from "./components/Common/ErrorBoundary.jsx";
 import LoginScreen from "./components/Login/LoginScreen.jsx";
 import MainMenu from "./components/Menu/MainMenu.jsx";
+import AdminAccountsPage from "./pages/AdminAccountsPage.jsx";
 import AdminPage from "./pages/AdminPage.jsx";
 import GamePage from "./pages/GamePage.jsx";
 
@@ -49,6 +50,14 @@ export function App() {
               element={
                 <ProtectedRoute capability="Administrator">
                   <AdminPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/accounts"
+              element={
+                <ProtectedRoute capability="Administrator">
+                  <AdminAccountsPage />
                 </ProtectedRoute>
               }
             />

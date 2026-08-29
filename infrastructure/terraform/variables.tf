@@ -83,6 +83,12 @@ variable "azure_app_id" {
   default     = ""
 }
 
+variable "seed_admin_email" {
+  description = "Email of the initial Administrator account, provisioned on first Function App cold start (003-account-provisioning, FR-001). Blank is a no-op."
+  type        = string
+  default     = ""
+}
+
 # --- Terraform Backend (informational only; actual backend config is passed via -backend-config) ---
 
 variable "terraform_backend_storage_account" {
