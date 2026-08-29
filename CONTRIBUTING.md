@@ -6,7 +6,7 @@ Thank you for contributing! This document outlines our development workflow, bra
 
 ## 1. Governance & Development Principles
 
-This repository enforces our project constitution ([`.specify/memory/constitution.md`](.specify/memory/constitution.md)) and repository governance policies ([`specs/001-ci-cd-foundation`](specs/001-ci-cd-foundation/spec.md)):
+This repository enforces our project constitution ([`.specify/memory/constitution.md`](.specify/memory/constitution.md)) and repository governance policies ([`specs/001-ci-cd-foundation`](specs/001-ci-cd-foundation-done/spec.md)):
 
 1. **Pull-Request-Only Changes**: Direct commits and pushes to the `main` branch are disabled via GitHub branch rulesets. All changes must be submitted via pull requests.
 2. **Automated CI Gating**: Every pull request triggers the automated test suite across backend (Python/pytest) and frontend (React/Node). PRs cannot merge while CI checks are failing.
@@ -53,6 +53,6 @@ Once all required status checks have passed and approval is obtained, merge the 
 ---
 
 ## 3. Reference Guides
-- [CI/CD Validation Guide (`quickstart.md`)](specs/001-ci-cd-foundation/quickstart.md)
+- [CI/CD Validation Guide (`quickstart.md`)](specs/001-ci-cd-foundation-done/quickstart.md)
 - [CI/CD Troubleshooting Guide](docs/CI_CD_TROUBLESHOOTING.md)
 - [GitHub Actions Workflows Documentation](.github/workflows/README.md)

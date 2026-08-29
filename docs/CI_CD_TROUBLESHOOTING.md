@@ -67,6 +67,6 @@ Workflow run gets cancelled after 30 minutes with a timeout error.
 ---
 
 ## 6. Further References
-- [CI/CD Validation Guide (`quickstart.md`)](../specs/001-ci-cd-foundation/quickstart.md)
-- [Feature Specification](../specs/001-ci-cd-foundation/spec.md)
-- [Implementation Plan](../specs/001-ci-cd-foundation/plan.md)
+- [CI/CD Validation Guide (`quickstart.md`)](../specs/001-ci-cd-foundation-done/quickstart.md)
+- [Feature Specification](../specs/001-ci-cd-foundation-done/spec.md)
+- [Implementation Plan](../specs/001-ci-cd-foundation-done/plan.md)
