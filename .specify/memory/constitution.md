@@ -138,7 +138,7 @@ mocks, local fixtures, or an already-configured test harness. They cannot verify
 feature actually works when a real user reaches it through the real deployed system,
 because deployment wiring, third-party identity-provider configuration, and hosting-
 platform routing behavior can all break a feature while every unit and integration test
-still passes. This was proven directly: during 003-account-provisioning's live
+still passes. This was proven directly: during 003-account-provisioning-done's live
 validation, all 82 backend and 31 frontend automated tests passed throughout, yet
 sign-in was completely broken in production for five separate, sequential reasons — a
 missing backend-to-frontend routing link, a client-side redirect loop, an overly narrow
@@ -384,7 +384,7 @@ that govern its behavior (see `specs/designs/README.md`).
   Administrator by email; existing accounts are listed with their role(s), and removed
   one at a time, always behind a confirmation dialog (no bulk removal). Accounts are
   Microsoft identities only — no password field, consistent with Principle II. See
-  `003-account-provisioning`.
+  `003-account-provisioning-done`.
 
 ### Save and session behaviour
 

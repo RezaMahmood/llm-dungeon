@@ -28,7 +28,7 @@ Give a `Story` document an explicit `published` boolean (already defined by `004
 
 **Constraints**: No per-player/per-group targeting capability (FR-009, explicit exclusion); no scheduled/future-dated publishing (Assumptions); the test-play gate (FR-008) is read-only from this feature's side — `017-story-publish-test-play-gate` owns writing `lastTestPlayedAt`, and until that feature ships, every publish attempt is correctly blocked (the field is always null), which is the safe and spec-correct interim state rather than a workaround
 
-**Scale/Scope**: Same small administrator population as `003-account-provisioning`/`004-story-creation`; one new wizard step tab, two new API endpoints, one new reusable frontend action (usable from the wizard now and from `012`'s story list once it exists)
+**Scale/Scope**: Same small administrator population as `003-account-provisioning-done`/`004-story-creation`; one new wizard step tab, two new API endpoints, one new reusable frontend action (usable from the wizard now and from `012`'s story list once it exists)
 
 ## Constitution Check
 
