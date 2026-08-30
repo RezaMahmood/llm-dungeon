@@ -1,6 +1,6 @@
 # Feature Specification: Frontend Dependency Security & Freshness Audit
 
-**Feature Branch**: `020-npm-dependency-audit`
+**Feature Branch**: `021-npm-dependency-audit`
 
 **Created**: 2026-08-30
 
