@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from backend.api.admin.stories import create_story
+from backend.api.admin.stories import list_stories
 from backend.api.auth.me import me
 from backend.api.game.start import start
 
@@ -25,7 +25,7 @@ def test_me_returns_403_for_unprovisioned_user(request_factory):
 
 
 def test_admin_endpoint_returns_403_without_administrator_role(request_factory):
-    req = request_factory(method="POST", url="/api/manage/stories/create", token="valid-token")
+    req = request_factory(method="GET", url="/api/manage/stories", token="valid-token")
     entry = MagicMock()
     entry.roles = ["Player"]
 
@@ -34,7 +34,7 @@ def test_admin_endpoint_returns_403_without_administrator_role(request_factory):
     ), patch("backend.api.admin.middleware.AccountProvisioningService") as MockService:
         MockService.return_value.authorize_sign_in.return_value = (True, entry)
 
-        response = create_story(req)
+        response = list_stories(req)
 
     assert response.status_code == 403
 

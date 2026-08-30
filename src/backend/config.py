@@ -21,7 +21,13 @@ class Config:
 
     COSMOS_DATABASE_NAME = os.environ.get("COSMOS_DATABASE_NAME") or os.environ.get("COSMOS_DATABASE") or "llmdungeon"
     PROVISIONED_ACCOUNTS_CONTAINER = "provisionedAccountEntries"
+    STORY_DRAFTS_CONTAINER = "storyDrafts"
+    STORIES_CONTAINER = "stories"
     SEED_ADMIN_EMAIL = os.environ.get("SEED_ADMIN_EMAIL", "")
+
+    AZURE_AI_FOUNDRY_ENDPOINT = os.environ.get("AZURE_AI_FOUNDRY_ENDPOINT", "")
+    LLM_INPUT_TOKEN_PRICE_USD = float(os.environ.get("LLM_INPUT_TOKEN_PRICE_USD", "0") or "0")
+    LLM_OUTPUT_TOKEN_PRICE_USD = float(os.environ.get("LLM_OUTPUT_TOKEN_PRICE_USD", "0") or "0")
 
     JWKS_CACHE_SECONDS = 24 * 60 * 60
 

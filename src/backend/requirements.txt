@@ -1,6 +1,8 @@
 azure-functions
 azure-cosmos
 azure-identity
+azure-ai-inference
+azure-monitor-opentelemetry
 PyJWT[crypto]
 python-dotenv
 requests

@@ -1,11 +1,20 @@
 """Azure Functions app entry point — registers HTTP routes for auth, admin, and game APIs."""
 
 import logging
+import os
 
 import azure.functions as func
+from azure.monitor.opentelemetry import configure_azure_monitor
 
 from backend.api.admin.accounts import add_account, list_accounts
-from backend.api.admin.stories import create_story, list_stories
+from backend.api.admin.stories import (
+    create_draft,
+    get_draft,
+    get_story,
+    list_stories,
+    patch_draft,
+    post_message,
+)
 from backend.api.auth.login import login
 from backend.api.auth.logout import logout
 from backend.api.auth.me import me
@@ -15,6 +24,15 @@ from backend.config import config
 from backend.services.account_provisioning_service import AccountProvisioningService
 
 logger = logging.getLogger("function_app")
+
+# Principle VI (Observability & AI Cost Transparency, NON-NEGOTIABLE) — one-call
+# OpenTelemetry -> Application Insights wiring, initialized once at startup so
+# every later span (e.g. llm_service.py's gen_ai.* spans) is exported. Skipped
+# when no Application Insights connection string is configured (e.g. local dev
+# without 007-azure-infrastructure-provisioning's resources) — configure_azure_monitor()
+# raises rather than no-opping if it's absent.
+if os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING"):
+    configure_azure_monitor()
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
@@ -48,14 +66,34 @@ def auth_logout(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(logout)(req)
 
 
-@app.route(route="manage/stories/create", methods=["POST"])
-def admin_stories_create(req: func.HttpRequest) -> func.HttpResponse:
-    return _guarded(create_story)(req)
+@app.route(route="manage/stories/drafts", methods=["POST"])
+def admin_story_drafts_create(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(create_draft)(req)
+
+
+@app.route(route="manage/stories/drafts/{draftId}", methods=["GET"])
+def admin_story_drafts_get(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(get_draft)(req)
+
+
+@app.route(route="manage/stories/drafts/{draftId}", methods=["PATCH"])
+def admin_story_drafts_patch(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(patch_draft)(req)
+
+
+@app.route(route="manage/stories/drafts/{draftId}/messages", methods=["POST"])
+def admin_story_drafts_post_message(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(post_message)(req)
 
 
 @app.route(route="manage/stories", methods=["GET"])
 def admin_stories_list(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(list_stories)(req)
+
+
+@app.route(route="manage/stories/{storyId}", methods=["GET"])
+def admin_stories_get(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(get_story)(req)
 
 
 @app.route(route="game/start", methods=["POST"])
