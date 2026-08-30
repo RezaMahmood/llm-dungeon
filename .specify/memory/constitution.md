@@ -1,29 +1,23 @@
 <!--
 Sync Impact Report
-Version change: 1.4.0 → 1.5.0
+Version change: 1.5.0 → 1.6.0
 Modified principles: none renamed or removed
 Added principles:
-  - IX. User-Verified Acceptance Before Completion (NON-NEGOTIABLE) — a feature is not
-    complete until a human actually exercises it end-to-end against the real deployed
-    (or otherwise representative) environment and confirms it works; automated tests
-    (Principle I) are necessary but not sufficient.
+  - X. PII Protection by Design (NON-NEGOTIABLE) — personally identifiable information must
+    live only in secure, access-controlled, purpose-built data stores (the application
+    database, Azure Key Vault, or an equivalent secret store); never in source control,
+    commit history, issue trackers, PR descriptions/comments, logs, or telemetry. Where a
+    record involving PII must be discussed in an issue/PR/commit, it must be referenced
+    indirectly, never included.
+Added sections:
+  - PII & Data Protection Requirements — detailed rules backing Principle X.
 Modified sections:
-  - Development Workflow & Quality Gates: added a bullet tying task lists to a mandatory
-    final user-verified acceptance task, mirroring how the existing bullets already tie
-    to Principle I/V.
-Added sections: none (new content added to Core Principles and Development Workflow &
-  Quality Gates, both pre-existing sections)
+  - Development Workflow & Quality Gates: added a bullet tying issues/PRs/commit messages
+    to the no-PII rule.
 Removed sections: none
-Source: live debugging session on 003-account-provisioning (2026-08-29/30) — all 82
-  backend and 31 frontend automated tests passed throughout, yet the deployed
-  application was broken end-to-end for five separate reasons in sequence (missing
-  Static-Web-App-to-Function-App backend link, a client-side redirect loop, an
-  overly narrow token-issuer check, an access token audienced to Microsoft Graph
-  instead of this app due to a missing exposed API scope, and Azure Functions
-  silently refusing to register any route beginning with the reserved "admin"
-  segment). None of these were catchable by unit/integration tests against mocks;
-  only a human actually signing in against the live deployed app surfaced them,
-  one at a time.
+Source: direct user instruction (2026-08-30) — PII must never be committed to the repo or
+  posted into issues/logs/anywhere publicly accessible; where an issue references a record
+  that involves PII, the PII itself must not be included, only a reference to it.
 Templates requiring follow-up: none — dependent templates read this file at runtime and
   are not modified by this command.
 Deferred/TODO placeholders: none.
@@ -155,6 +149,25 @@ platform route name — none of which any automated test exercised or could have
 Only a human actually attempting to sign in against the live deployed app surfaced
 them, one at a time.
 
+### X. PII Protection by Design (NON-NEGOTIABLE)
+Personally identifiable information (PII) — a real person's email address, name, phone
+number, physical address, or any other data that identifies a specific individual — MUST
+live only in a secure, access-controlled, purpose-built data store: the application's
+database, Azure Key Vault, or an equivalent managed secret/credential store. PII MUST NOT
+be committed to the GitHub repository, written into commit messages, or posted into GitHub
+issues, pull request descriptions, or comments, and MUST NOT be written to application
+logs, traces, or telemetry. Where an issue, PR, commit, or log entry must discuss a record
+that involves PII, it MUST reference that record indirectly (e.g., a role, an internal
+identifier, or "the seed administrator's entry") rather than including the PII itself. The
+detailed rules are in the PII & Data Protection Requirements section below.
+
+Rationale: GitHub issues, pull requests, comments, and commit history are effectively
+public or broadly-accessible-forever records for this project — indexed, cached, and
+retained indefinitely — and are not access-controlled the way the application's own data
+stores are. Including a real person's PII on any of these surfaces defeats the purpose of
+restricting where that data is allowed to live, and cannot be reliably un-published once
+posted.
+
 ## Security & Access Control Requirements
 
 - Authentication MUST use Microsoft Entra ID; the frontend MUST use a supported
@@ -176,6 +189,27 @@ them, one at a time.
 - Backend Azure resources MUST be connected via Private Endpoints for inter-resource
   traffic, with public network access disabled on those resources, unless a specific,
   documented exception applies.
+
+## PII & Data Protection Requirements
+
+- Personally identifiable information (PII) MUST only be stored in a secure,
+  access-controlled data store: the application's database (e.g., Cosmos DB), Azure Key
+  Vault, or an equivalent managed secret/credential store.
+- PII MUST NOT be committed to the GitHub repository in any form — source code,
+  configuration, fixtures, seed data, or documentation. Test and fixture data MUST use
+  synthetic values, never a real person's actual information.
+- PII MUST NOT be included in GitHub issues, pull request descriptions, or comments, nor
+  in commit messages. Where an issue, PR, or commit legitimately needs to discuss a
+  record that involves PII, it MUST reference that record indirectly (e.g., a role, an
+  internal identifier, or a redacted form) rather than including the PII itself.
+- PII MUST NOT be written to application logs, traces, or telemetry (see Observability &
+  Telemetry Requirements below) beyond what a feature's specification explicitly requires
+  and secures within an access-controlled data store — general-purpose logs and traces
+  MUST NOT capture a user's email, name, or other identifying data.
+- This requirement applies everywhere the project's output could become publicly
+  accessible or durably retained beyond the team's direct control (issue trackers, CI
+  logs, published artifacts, external documentation) — not solely the repository's own
+  commit history.
 
 ## Observability & Telemetry Requirements
 
@@ -210,6 +244,9 @@ them, one at a time.
   task, per Principle IX. That task is not complete until the requesting user or
   product owner has confirmed the feature works end-to-end against the real deployed
   environment — a passing automated test suite alone does not satisfy it.
+- Issues, pull request descriptions/comments, and commit messages MUST NOT include PII
+  (Principle X, PII & Data Protection Requirements) — reference affected records
+  indirectly instead.
 
 ## UI Design System Requirements
 
@@ -366,4 +403,4 @@ with the design-token, visual-rules, interaction-state, or layout/scroll require
 above as a blocking finding. No feature may ship a screen that is not traceable to a
 screen contract above or to a documented amendment extending it.
 
-**Version**: 1.5.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-08-30
+**Version**: 1.6.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-08-30
