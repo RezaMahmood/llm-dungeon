@@ -48,7 +48,7 @@
 - Frontend-only state (no backend draft document): would satisfy FR-005 trivially but breaks the constitution's "reachable in any order" + refresh-safe wizard expectation, and can't hold multi-turn LLM conversation history across a page reload.
 - Explicit "abandon" endpoint with a delete: adds a state transition FR-005 doesn't require the admin to trigger (they can just... stop), and still leaves orphaned drafts from closed tabs/crashed sessions without TTL as a backstop anyway. TTL is added regardless, making the explicit endpoint redundant (YAGNI).
 
-**Validation**: Integration test creates a draft, asserts it is queryable, then asserts (via a short TTL override in test configuration) that it is gone after expiry and was never visible via `GET /api/admin/stories`.
+**Validation**: Integration test creates a draft, asserts it is queryable, then asserts (via a short TTL override in test configuration) that it is gone after expiry and was never visible via `GET /api/manage/stories`.
 
 ---
 

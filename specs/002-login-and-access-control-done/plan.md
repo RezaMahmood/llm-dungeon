@@ -112,7 +112,7 @@ src/backend/
 │   │   └── start.py                 # POST /api/game/start (requires Player capability)
 │   └── admin/
 │       ├── __init__.py
-│       └── stories.py               # POST/GET /api/admin/stories (requires Administrator capability)
+│       └── stories.py               # POST/GET /api/manage/stories (requires Administrator capability)
 ├── models/
 │   ├── __init__.py
 │   ├── allow_list_entry.py          # AllowListEntry entity (schema, validation)
@@ -298,9 +298,9 @@ These endpoints are defined in their respective features but are protected by th
 - `POST /api/game/save`
 
 **Admin-Related** (require Administrator capability; features 005-story-publishing, 012-story-editing-and-review):
-- `POST /api/admin/stories/create`
-- `GET /api/admin/stories`
-- `PUT /api/admin/stories/{id}`
+- `POST /api/manage/stories/create`
+- `GET /api/manage/stories`
+- `PUT /api/manage/stories/{id}`
 
 All endpoints share the same token validation middleware and error response format (defined in [contracts/api.md](contracts/api.md))
 
@@ -747,7 +747,7 @@ This section verifies that the implementation plan satisfies all project governa
 
 - `/api/auth/login` with various token states
 - `/api/auth/me` returns correct capabilities
-- Capability-gated endpoints (`/api/game/start`, `/api/admin/stories`) enforce restrictions
+- Capability-gated endpoints (`/api/game/start`, `/api/manage/stories`) enforce restrictions
 - MSAL login flow end-to-end (in controlled environment)
 
 ### End-to-End Tests

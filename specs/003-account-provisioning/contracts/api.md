@@ -49,16 +49,16 @@ This document defines the two new admin endpoints this feature adds, and the beh
 
 ---
 
-## New: POST /api/admin/accounts
+## New: POST /api/manage/accounts
 
 **Purpose**: Create a new Provisioned Account Entry, or merge roles into an existing one (FR-002/FR-003/FR-004/FR-005/FR-009).
 
-**Authorization**: Administrator capability required (`authorize_admin` middleware, same pattern as `admin/stories/create`).
+**Authorization**: Administrator capability required (`authorize_admin` middleware, same pattern as `manage/stories/create`).
 
 **Request**:
 
 ```http
-POST /api/admin/accounts HTTP/1.1
+POST /api/manage/accounts HTTP/1.1
 Authorization: Bearer <access_token>
 Content-Type: application/json
 
@@ -106,7 +106,7 @@ Content-Type: application/json
 
 ---
 
-## New: GET /api/admin/accounts
+## New: GET /api/manage/accounts
 
 **Purpose**: List every Provisioned Account Entry (FR-010).
 
@@ -115,7 +115,7 @@ Content-Type: application/json
 **Request**:
 
 ```http
-GET /api/admin/accounts HTTP/1.1
+GET /api/manage/accounts HTTP/1.1
 Authorization: Bearer <access_token>
 ```
 

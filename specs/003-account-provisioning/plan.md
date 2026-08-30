@@ -111,7 +111,7 @@ src/backend/
 ├── db/
 │   └── seed_data.py                       # MODIFY: seed one Administrator ProvisionedAccountEntry
 │                                           #   from deployment configuration (FR-001)
-├── function_app.py                        # MODIFY: register admin/accounts routes
+├── function_app.py                        # MODIFY: register manage/accounts routes
 └── tests/
     ├── unit/
     │   ├── test_account_provisioning_service.py   # NEW
@@ -146,7 +146,7 @@ src/frontend/
 │   │       ├── AccountForm.jsx            # NEW: email field + role toggles, uses .field/.input/.btn-primary/.seg
 │   │       └── AccountList.jsx            # NEW: uses .table + .tag* for role chips
 │   └── services/
-│       └── accountService.js              # NEW: calls /api/admin/accounts (POST/GET)
+│       └── accountService.js              # NEW: calls /api/manage/accounts (POST/GET)
 └── tests/
     ├── components/
     │   ├── AccountForm.test.jsx           # NEW

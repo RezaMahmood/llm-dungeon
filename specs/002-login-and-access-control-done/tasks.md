@@ -447,9 +447,9 @@
 #### Backend: Admin Endpoints Skeleton
 
 - [X] T053 [P] Create `src/backend/api/admin/__init__.py` with admin endpoint initialization
-- [X] T054 [P] Create `src/backend/api/admin/stories.py` with placeholder endpoints:
-  - `POST /api/admin/stories/create`: Returns 200 with placeholder (actual implementation in feature 005)
-  - `GET /api/admin/stories`: Returns 200 with empty list (actual implementation in feature 005)
+- [X] T054 [P] Create `src/backend/api/manage/stories.py` with placeholder endpoints:
+  - `POST /api/manage/stories/create`: Returns 200 with placeholder (actual implementation in feature 005)
+  - `GET /api/manage/stories`: Returns 200 with empty list (actual implementation in feature 005)
   - Both endpoints apply admin capability middleware
   - Both endpoints log to Application Insights
 

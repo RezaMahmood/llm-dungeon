@@ -6,7 +6,7 @@ const client = axios.create({
 
 export async function addAccount(token, email, roles) {
   const response = await client.post(
-    "/admin/accounts",
+    "/manage/accounts",
     { email, roles },
     { headers: { Authorization: `Bearer ${token}` } },
   );
@@ -14,7 +14,7 @@ export async function addAccount(token, email, roles) {
 }
 
 export async function listAccounts(token) {
-  const response = await client.get("/admin/accounts", {
+  const response = await client.get("/manage/accounts", {
     headers: { Authorization: `Bearer ${token}` },
   });
   return response.data;

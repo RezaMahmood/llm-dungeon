@@ -71,8 +71,13 @@ request/response contracts.
 | `/api/auth/login` | POST | Valid bearer token |
 | `/api/auth/me` | GET | Valid bearer token |
 | `/api/auth/logout` | POST | Valid bearer token |
-| `/api/admin/accounts` | POST | Administrator role |
-| `/api/admin/accounts` | GET | Administrator role |
-| `/api/admin/stories` | GET | Administrator role |
-| `/api/admin/stories/create` | POST | Administrator role |
+| `/api/manage/accounts` | POST | Administrator role |
+| `/api/manage/accounts` | GET | Administrator role |
+| `/api/manage/stories` | GET | Administrator role |
+| `/api/manage/stories/create` | POST | Administrator role |
+
+`manage/*`, not `admin/*`: Azure Functions reserves any function route starting
+with the literal segment `admin` for its own internal management API,
+regardless of `routePrefix` — a route named `admin/...` fails to register at
+all ("route conflicts with one or more built in routes").
 | `/api/game/start` | POST | Player role |

@@ -6,11 +6,11 @@
 
 All endpoints require an authenticated Administrator (`authorize_admin`, per `src/backend/api/admin/middleware.py`), returning the same `unauthorized()`/`forbidden_access_not_granted()`/`forbidden_insufficient_permission()` shapes as existing admin endpoints on failure. Response shapes follow `src/backend/api/utils.py`'s `json_response`/`error_response` helpers.
 
-`src/backend/api/admin/stories.py`'s existing `create_story`/`list_stories` placeholders are replaced by the endpoints below; `POST /api/admin/stories/create` is renamed in place to draft-creation semantics (no external caller exists yet — the route was a placeholder returning "not yet implemented").
+`src/backend/api/manage/stories.py`'s existing `create_story`/`list_stories` placeholders are replaced by the endpoints below; `POST /api/manage/stories/create` is renamed in place to draft-creation semantics (no external caller exists yet — the route was a placeholder returning "not yet implemented").
 
 ---
 
-## POST /api/admin/stories/drafts
+## POST /api/manage/stories/drafts
 
 **Purpose**: Start a new story-creation session (FR-001). Optionally accepts an initial plain-language idea, which is immediately sent through the guiding-question exchange (research.md §1, §4).
 
@@ -41,7 +41,7 @@ If `idea` was supplied, the Foundry exchange call (research.md §4) has already 
 
 ---
 
-## GET /api/admin/stories/drafts/{draftId}
+## GET /api/manage/stories/drafts/{draftId}
 
 **Purpose**: Reload a draft's current state — used when navigating between wizard steps or resuming within the TTL window.
 
@@ -54,7 +54,7 @@ If `idea` was supplied, the Foundry exchange call (research.md §4) has already 
 
 ---
 
-## PATCH /api/admin/stories/drafts/{draftId}
+## PATCH /api/manage/stories/drafts/{draftId}
 
 **Purpose**: Directly edit structured fields from any wizard step (name & cover, tone & reading level, session length, character types, completion criteria) without going through the conversational exchange (FR-008 — dedicated fields, not only free text).
 
@@ -90,7 +90,7 @@ If `readyToGenerate` is `true`, the server has already attempted generation as p
 {
   "status": "generated",
   "storyId": "9f2a...",
-  "story": { "...": "see GET /api/admin/stories/{storyId}" }
+  "story": { "...": "see GET /api/manage/stories/{storyId}" }
 }
 ```
 
@@ -106,7 +106,7 @@ If `readyToGenerate` is `true`, the server has already attempted generation as p
 
 ---
 
-## POST /api/admin/stories/drafts/{draftId}/messages
+## POST /api/manage/stories/drafts/{draftId}/messages
 
 **Purpose**: Append one plain-language administrator message to the conversation (FR-001, FR-002) and receive the system's next guiding question or acknowledgment, with any extracted field updates already merged (research.md §4).
 
@@ -119,7 +119,7 @@ If `readyToGenerate` is `true`, the server has already attempted generation as p
 
 ---
 
-## GET /api/admin/stories
+## GET /api/manage/stories
 
 **Purpose**: List all persisted stories (existing placeholder, now returning real data).
 
@@ -136,7 +136,7 @@ List entries are summaries (`id`, `name`, `published`, `createdAt`); full detail
 
 ---
 
-## GET /api/admin/stories/{storyId}
+## GET /api/manage/stories/{storyId}
 
 **Purpose**: Fetch one persisted story's full configuration (needed by the wizard to display what was generated, and by `005-story-publishing`/`012-story-editing-and-review` later).
 
