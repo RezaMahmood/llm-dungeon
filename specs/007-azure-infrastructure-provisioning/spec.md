@@ -54,6 +54,7 @@ A merged code change triggers a GitHub Actions workflow that builds and deploys 
 
 - Terraform is run before its own remote-state storage account exists: this bootstrap step is handled distinctly from ordinary Terraform runs (see Assumptions), since Terraform cannot use a backend that doesn't exist yet.
 - Two GitHub Actions workflow runs are triggered close together against the same environment: they do not corrupt Terraform state or leave the environment in a partially-applied state (state locking prevents concurrent apply).
+- **Known gap (2026-08-29)**: the `production-infra` required-reviewer approval gate in front of `terraform apply` is not currently backed by a plan the reviewer has seen — see T045 in tasks.md.
 
 ## Requirements *(mandatory)*
 
