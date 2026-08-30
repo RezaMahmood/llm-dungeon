@@ -235,8 +235,8 @@ variable "github_repository_branch" {
 }
 
 # Gate behavior (validate -> test -> apply, manual approval) verified end-to-end
-# by the 020-terraform-apply-gating quickstart scenarios.
+# by the 020-terraform-apply-gating-done quickstart scenarios.
 
 # Scenario 4 (T010) verification run: this pending review is expected to be rejected.
 
-# Scenario 7B trivial passing change (020-terraform-apply-gating quick-succession test)
+# Scenario 7B trivial passing change (020-terraform-apply-gating-done quick-succession test)

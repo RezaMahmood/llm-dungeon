@@ -9,7 +9,7 @@ on:
 
 # Gates `terraform apply` behind two automated checks (`validate`, `test`) before the
 # apply job's production-infra approval prompt is ever reachable — see
-# specs/020-terraform-apply-gating/. `validate` and `test` mirror the steps that used to
+# specs/020-terraform-apply-gating-done/. `validate` and `test` mirror the steps that used to
 # run as the independent terraform-validate.yml/infrastructure-tests.yml push-triggered
 # workflows (those keep only their pull_request/schedule/workflow_dispatch triggers now).
 # `apply` targets the production-infra GitHub environment (created, along with its
