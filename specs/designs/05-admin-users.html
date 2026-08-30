@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lantern — Admin: people</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+html, body { height: 100%; }
+body { margin: 0; overflow: hidden; }
+.shell { height: 100vh; overflow: hidden; display: flex; flex-direction: column; font-family: var(--font-body); color: var(--color-text); }
+.ovnum { font-family: var(--font-heading); font-weight: 800; letter-spacing: -0.05em; line-height: 0.8; }
+.confirm { display: none; }
+/* toggle: add class "show" to .confirm to display the remove confirmation */
+.confirm.show { display: grid; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="nav" style="background:var(--color-bg);flex:none">
+    <span class="nav-brand">Lantern <span style="font-weight:400;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-accent-700);margin-left:8px">Admin</span></span>
+    <a href="#">All stories</a>
+    <a href="04-admin-wizard.html">New story</a>
+    <a href="#" aria-current="page">People</a>
+    <span class="tag tag-neutral">Ms Okafor</span>
+  </div>
+<div style="flex:1;overflow:auto;position:relative">
+  <div style="max-width:1080px;padding:36px 24px 64px">
+    <div style="display:flex;align-items:flex-end;gap:16px">
+      <div class="ovnum" style="font-size:96px;color:var(--color-accent)">6</div>
+      <div style="padding-bottom:8px">
+        <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent-700)">People</div>
+        <h2 style="margin:4px 0 0">accounts in Lantern</h2>
+      </div>
+    </div>
+    <hr class="hr" style="margin:24px 0 32px">
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:40px;align-items:start">
+      <div style="min-width:0">
+        <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 50%, transparent)">All accounts</div>
+        <table class="table" style="margin-top:10px">
+          <thead><tr><th>Name</th><th>Microsoft account</th><th>Role</th><th>Added</th><th style="width:1%"></th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Ada Bell</td>
+              <td class="text-muted" style="overflow-wrap:anywhere">ada.bell@school.internal</td>
+              <td><span class="tag tag-outline">Player</span></td>
+              <td class="text-muted" style="overflow-wrap:anywhere">12 Aug</td>
+              <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
+            </tr>
+            <tr>
+              <td>Sam Iyer</td>
+              <td class="text-muted" style="overflow-wrap:anywhere">sam.iyer@school.internal</td>
+              <td><span class="tag tag-outline">Player</span></td>
+              <td class="text-muted" style="overflow-wrap:anywhere">12 Aug</td>
+              <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
+            </tr>
+            <tr>
+              <td>Nell Okonkwo</td>
+              <td class="text-muted" style="overflow-wrap:anywhere">nell.okonkwo@school.internal</td>
+              <td><span class="tag tag-outline">Player</span></td>
+              <td class="text-muted" style="overflow-wrap:anywhere">9 Aug</td>
+              <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
+            </tr>
+            <tr>
+              <td>Ms Okafor</td>
+              <td class="text-muted" style="overflow-wrap:anywhere">j.okafor@school.internal</td>
+              <td><span class="tag tag-accent">Administrator</span></td>
+              <td class="text-muted" style="overflow-wrap:anywhere">2 Aug</td>
+              <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
+            </tr>
+            <tr>
+              <td>Mr Deane</td>
+              <td class="text-muted" style="overflow-wrap:anywhere">r.deane@school.internal</td>
+              <td><span class="tag tag-accent">Administrator</span></td>
+              <td class="text-muted" style="overflow-wrap:anywhere">2 Aug</td>
+              <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
+            </tr>
+            <tr>
+              <td>Theo Marsh</td>
+              <td class="text-muted" style="overflow-wrap:anywhere">theo.marsh@school.internal</td>
+              <td><span class="tag tag-outline">Player</span></td>
+              <td class="text-muted" style="overflow-wrap:anywhere">28 Jul</td>
+              <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="text-muted" style="margin:16px 0 0;font-size:13px;max-width:60ch">Removing an account revokes access at the next sign-in. Stories the player has finished stay in the class record.</p>
+      </div>
+
+      <div style="min-width:0;max-width:420px;border:1px solid var(--color-divider);background:var(--color-surface);padding:22px">
+        <div class="ovnum" style="font-size:48px;color:var(--color-accent)">+</div>
+        <h3 style="margin:8px 0 0;font-size:22px">Add someone</h3>
+        <p class="text-muted" style="margin:10px 0 22px;font-size:14px">They sign in with their school Microsoft account — no password is set here.</p>
+        <form style="display:flex;flex-direction:column;gap:18px" onsubmit="return false">
+          <div class="field"><label for="uname">Full name</label><input class="input" id="uname" placeholder="Ada Bell"></div>
+          <div class="field"><label for="uemail">Microsoft account</label><input class="input" id="uemail" placeholder="ada.bell@school.internal"></div>
+          <div class="field">
+            <label>Role</label>
+            <div class="seg" style="margin-top:2px">
+              <label class="seg-opt"><input type="radio" name="newrole" checked><span>Player</span></label>
+              <label class="seg-opt"><input type="radio" name="newrole"><span>Administrator</span></label>
+            </div>
+          </div>
+          <p class="text-muted" style="margin:0;font-size:13px">Players see only the stories assigned to their class. Administrators create and edit stories, and can add or remove accounts.</p>
+          <hr class="hr" style="margin:2px 0;height:1px">
+          <button class="btn btn-primary btn-block" type="submit" style="padding:14px 16px;font-size:15px;margin:0">Add account</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-backdrop confirm">
+    <div class="dialog" style="width:min(460px,100%);padding:32px">
+      <div class="dialog-title" style="font-size:24px">Remove Ada Bell?</div>
+      <div class="dialog-body">They lose access to Lantern at their next sign-in. This cannot be undone from here.</div>
+      <hr class="hr" style="margin:6px 0">
+      <button class="btn btn-primary btn-block" type="button" style="padding:13px 16px;margin:0" onclick="document.querySelector('.confirm').classList.remove('show')">Remove account</button>
+      <button class="btn btn-secondary btn-block" type="button" style="padding:13px 16px;margin:0" onclick="document.querySelector('.confirm').classList.remove('show')">Keep it</button>
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>

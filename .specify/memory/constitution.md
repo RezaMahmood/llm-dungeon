@@ -358,7 +358,7 @@ restyle these states locally.
 ### Screen contracts
 
 The prototype at `specs/designs/` is the acceptance reference for these screens' layout
-and copy; this constitution wins on rules where the two disagree. It contains four
+and copy; this constitution wins on rules where the two disagree. It contains five
 screens, a shared vendored stylesheet, and a README mapping each screen to the spec(s)
 that govern its behavior (see `specs/designs/README.md`).
 
@@ -380,6 +380,11 @@ that govern its behavior (see `specs/designs/README.md`).
   order; the adventure's core premise and its content-safety configuration are required
   fields. A story MUST NOT be publishable (see `005-story-publishing`) until it has
   completed a test play.
+- **Administrator — people** (`specs/designs/05-admin-users.html`) — add a new Player or
+  Administrator by email; existing accounts are listed with their role(s), and removed
+  one at a time, always behind a confirmation dialog (no bulk removal). Accounts are
+  Microsoft identities only — no password field, consistent with Principle II. See
+  `003-account-provisioning`.
 
 ### Save and session behaviour
 
