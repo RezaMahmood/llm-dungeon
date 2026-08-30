@@ -2,6 +2,10 @@ name: Test Suite
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    paths-ignore:
+      - "specs/**"
+      - "docs/**"
+      - "**/*.md"
 
 jobs:
   changes:
