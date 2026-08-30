@@ -74,6 +74,8 @@ Repeat with `roles: ["Administrator"]` on a third email to confirm the Administr
 
 **Expected**: Neither request creates or modifies an entry — confirm via `GET /api/manage/accounts` that the count is unchanged.
 
+**Note (live-validated 2026-08-30)**: an address like `2343.3ddasdf@outlook.com.asd` is accepted, not rejected — this is correct as designed: FR-005/research.md's clarification chose strict RFC 5322 grammar validation only, explicitly not deliverability/domain-existence checking (`pyisemail` makes no network call). Verifying the domain actually exists (e.g. an MX/DNS lookup) is a possible future enhancement, not a defect in this feature.
+
 ---
 
 ## Scenario 5: Adding an Already-Provisioned Email Merges Roles (User Story 3, FR-009, SC-004)
@@ -160,4 +162,4 @@ Every scenario above corresponds to at least one automated test required by FR-0
 
 Frontend equivalents live in `src/frontend/tests/components/{AccountForm,AccountList}.test.jsx` and `src/frontend/tests/integration/admin_accounts.test.jsx`.
 
-**Live-validation status (T070/T071)**: Scenarios 8-9 have not yet been run against a real deployed environment and a real Entra ID tenant — that requires `terraform apply`-ing the `azuread` app-role grant (T058) and deploying T057-T069's code, both outside this implementation pass's scope. The requesting user or product owner must run this full scenario set live (T071, Constitution Principle IX, NON-NEGOTIABLE) before this amendment can be considered complete.
+**Live-validation status (T070/T071)**: Completed 2026-08-30 by the requesting user against the deployed environment (see issue #32). Scenarios 3, 5, 6, 7, 8, 9 passed via the UI. Scenario 4 passed for malformed-email rejection; its domain-existence behavior is as-designed (see note above), not a defect. Scenario 9's `self_removal` rejection was not exercised live — the UI has no self-remove action to trigger it by design — but is covered by `test_admin_accounts_endpoint.py` (T068).
