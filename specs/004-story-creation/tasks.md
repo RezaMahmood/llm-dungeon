@@ -25,7 +25,9 @@ description: "Task list for Story Creation (004-story-creation)"
 
 **Purpose**: Constitution Principle XI (NON-NEGOTIABLE, added v1.7.0) requires the screen design to be explicitly agreed with the requesting user/product owner before implementation begins.
 
-- [ ] T000 **UI design agreement/sign-off** (Constitution Principle XI, NON-NEGOTIABLE): the requesting user or product owner reviews the story-creation wizard design at `specs/designs/04-admin-wizard.html` — steps 1–4 (name & cover, world & setting, tone & reading level, session length), reachable in any order — plus the dedicated character-type and completion-criteria fields this spec adds beyond that static mockup (FR-008, research.md §5, since the mockup has no reference markup for them) — and confirms it as the design for T016–T029's implementation. This task is not complete until that confirmation is given; the design artifact existing is not sufficient. **Gates all implementation tasks below (T001–T032).**
+- [X] T000 **UI design agreement/sign-off** (Constitution Principle XI, NON-NEGOTIABLE): the requesting user or product owner reviews the story-creation wizard design at `specs/designs/04-admin-wizard.html` — steps 1–4 (name & cover, world & setting, tone & reading level, session length), reachable in any order — plus the dedicated character-type and completion-criteria fields this spec adds beyond that static mockup (FR-008, research.md §5, since the mockup has no reference markup for them) — and confirms it as the design for T016–T029's implementation. This task is not complete until that confirmation is given; the design artifact existing is not sufficient. **Gates all implementation tasks below (T001–T032).**
+
+  Signed off 2026-08-30 by the requesting user, accepting the implemented wizard (including the rebuilt numbered-step tabs from PR #71 and the per-step Save buttons from PR #76) as sufficient for now.
 
 **Checkpoint**: Design confirmed — implementation tasks may begin.
 
@@ -102,6 +104,8 @@ description: "Task list for Story Creation (004-story-creation)"
 - [X] T031 [P] Update `src/frontend/README.md` documenting the new admin story-wizard route
 - [X] T032 Run the full backend (`pytest`) and frontend (`vitest run`) suites and confirm every new and existing test passes
 - [ ] T033 **User-verified acceptance** (Constitution Principle IX, NON-NEGOTIABLE): the requesting user or product owner — not the implementing agent — signs in as an Administrator against the real deployed environment (or the most representative environment available) and manually runs quickstart.md's Scenario 1 end-to-end: open `/admin/stories/new`, describe a story idea in plain language, answer the guiding question(s), add at least one character type and completion criterion through the dedicated fields, and confirm the wizard lands on a generated, unpublished story with no separate save step. This task is not complete until that confirmation is given; a passing T032 test run does not satisfy it.
+
+  **Blocked (2026-08-30)**: attempted by the requesting user; walkthrough surfaced two open issues (see spec.md § Open Questions — Flagged During T033 Acceptance Walkthrough) — `coverImageUrl`'s meaning is undefined, and the wizard auto-generates/persists the story as soon as World & setting is complete, jumping straight to the generated-story view before tone/reading level (step 03) and session length (step 04) are ever visited. Verification of steps 03/04 did not happen as a result. Re-attempt once the flow is redesigned.
 
 ---
 
