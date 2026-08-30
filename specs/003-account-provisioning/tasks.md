@@ -155,6 +155,33 @@ Existing web-application layout: `src/backend/` (Python Azure Functions) + `src/
 - [X] T054 Fix Constitution Principle VIII gap: restyle `AccountForm.jsx`'s Player/Administrator role checkboxes from unstyled native `<input type="checkbox">` (left at browser defaults — a review blocker per the constitution's Interaction States section) to the vendored `.seg`/`.seg-opt` segmented-toggle pattern already used elsewhere (`specs/designs/04-admin-wizard.html`'s session-length control), which ships all four themed states — depends on T029
 - [X] T055 Close SC-005's coverage gap: add an integration test to `test_login_endpoint.py` proving sign-in matches end-to-end regardless of the token email claim's letter case (prior coverage was unit-level only: `get_by_email` lowercasing and model-construction lowercasing, not the full `authorize_sign_in`/login-endpoint path) — depends on T020
 
+**Note**: this file's spec.md cross-references above (the Tests line's "FR-011", Phase 5's "FR-010"/"User Story 3") predate the 2026-08-29 `014-account-listing` split and are not reconciled with current `spec.md` numbering — that renumbering is pre-existing drift, out of scope for this pass. `spec.md`'s current User Story 3 (below) is a **different, newly added** story (account removal), unrelated to this file's Phase 5 (view accounts, already shipped, now specified in `014-account-listing`). New tasks below use `[Removal]` as their story tag to avoid colliding with this file's existing `[US3]` tag.
+
+---
+
+## Live-validation gap + spec amendment (2026-08-30)
+
+**Found while manually validating T050 (live quickstart run) against the deployed environment**: granting Player access to an account with no existing presence in the application's Entra ID tenant created an allow-list entry that could never actually sign in (`AADSTS50020` — tenant membership is a Microsoft-enforced prerequisite to sign-in that this feature never established). Recorded in `spec.md`'s Edge Cases as FR-011.
+
+**Also amended**: `spec.md` now specifies an account-removal capability (User Story 3, FR-012/FR-013) — administrators can revoke a Player/Administrator entry, removing it from both the allow-list and the Entra tenant, except their own entry or the seed administrator's.
+
+T056-T069 below implement both amendments. **Not yet implemented** — this update only records them, per FR-011/FR-012/FR-013 in `spec.md`.
+
+- [ ] T056 [P] Create `EntraDirectoryService` in `src/backend/services/entra_directory_service.py` (DI-mockable per the existing `cosmos_service` injection pattern in `account_provisioning_service.py`) exposing `invite_guest(email) -> None` (Microsoft Graph `POST /invitations`, no-op if the email is already a tenant member) and `remove_guest(email) -> None` (Graph user delete, no-op if no matching guest is found) — uses `DefaultAzureCredential` (`azure-identity`, already a dependency) against `https://graph.microsoft.com/.default`, matching `cosmos_service.py`/`llm_service.py`'s existing Managed Identity pattern
+- [ ] T057 Add the `azuread` Terraform provider (`infrastructure/terraform/versions.tf` currently configures only `azurerm`) and grant the Function App's system-assigned managed identity (`infrastructure/terraform/identity.tf`) the Microsoft Graph application permissions T056 needs (e.g. `User.Invite.All` plus a scoped delete permission such as `User.ReadWrite.All`) via `azuread_app_role_assignment`, with admin consent — infra concern per spec.md's Assumptions, no existing precedent for a Graph app-role grant in this repo
+- [ ] T058 [US2] Wire `EntraDirectoryService.invite_guest` (T056) into `add_or_merge` (`account_provisioning_service.py`) so a new grant, or a role-merge onto a not-yet-tenant-member email, invites the account (FR-011) — depends on T056
+- [ ] T059 [Removal] Implement `remove_account(email, requested_by_email, seed_admin_email) -> None` in `AccountProvisioningService`: reject if `email == requested_by_email` or `email == seed_admin_email` (FR-012), else delete the Cosmos entry and call `EntraDirectoryService.remove_guest` (T056, FR-013) — depends on T056
+- [ ] T060 [Removal] Add `remove_account(req)` handling `DELETE /api/manage/accounts` to `src/backend/api/manage/accounts.py`, gated by `authorize_admin`, mapping the self/seed-admin rejection to a 400 error code — depends on T059
+- [ ] T061 [Removal] Register the `DELETE /api/manage/accounts` route in `src/backend/function_app.py` — depends on T060
+- [ ] T062 [P] [Removal] Add `removeAccount(token, email)` to `src/frontend/src/services/accountService.js`
+- [ ] T063 [Removal] Add a delete action to `src/frontend/src/components/Admin/AccountList.jsx`, disabled/hidden for the signed-in administrator's own row and the seed administrator's row (client-side convenience only — T060's server-side check is the actual enforcement, per Constitution Principle II) — depends on T062
+- [ ] T064 [P] [Removal] Add `src/frontend/tests/components/AccountList.test.jsx` cases for the delete action, including the disabled self/seed-admin cases — depends on T063
+- [ ] T065 [P] Add unit tests for `EntraDirectoryService` (mocked Graph client/HTTP) in `src/backend/tests/unit/test_entra_directory_service.py` — depends on T056
+- [ ] T066 [P] Add unit tests for `AccountProvisioningService.remove_account` (self-rejection, seed-admin-rejection, success) in `src/backend/tests/unit/test_account_provisioning_service.py` — depends on T059
+- [ ] T067 [P] Add integration tests to `src/backend/tests/integration/test_admin_accounts_endpoint.py` for `DELETE /api/manage/accounts`: success, self-removal 400, seed-admin-removal 400, non-Administrator caller 403 — depends on T060
+- [ ] T068 [P] Add an integration test to `src/backend/tests/integration/test_login_endpoint.py` proving a removed account is denied sign-in immediately after removal — depends on T059
+- [ ] T069 Add 1-2 new scenarios to `quickstart.md` covering Entra-invite-on-grant and the removal flow, and re-run T050's live validation once T056-T068 are implemented — depends on T058, T059
+
 ---
 
 ## Dependencies & Execution Order
