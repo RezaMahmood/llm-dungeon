@@ -2,13 +2,26 @@ name: Test Suite
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    paths-ignore:
-      - "specs/**"
-      - "docs/**"
-      - "**/*.md"
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - '**'
+              - '!specs/**'
+              - '!docs/**'
+              - '!**/*.md'
+
   test:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -42,6 +55,8 @@ jobs:
           exit $exit_code
 
   frontend-test:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
