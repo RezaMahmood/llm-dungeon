@@ -4,10 +4,6 @@ on:
   schedule:
     - cron: "0 2 * * *" # 2 AM UTC nightly
   workflow_dispatch: {}
-  push:
-    branches: [main]
-    paths:
-      - "infrastructure/terraform/**"
 
 permissions:
   contents: read

@@ -6,10 +6,6 @@ on:
       - "infrastructure/terraform/**"
       - "infrastructure/tests/test_terraform_validate.sh"
       - ".github/workflows/terraform-validate.yml"
-  push:
-    branches: [main]
-    paths:
-      - "infrastructure/terraform/**"
 
 permissions:
   contents: read
