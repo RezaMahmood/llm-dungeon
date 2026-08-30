@@ -56,7 +56,8 @@ func start
 | `AZURE_TENANT_ID` | Azure AD tenant ID |
 | `AZURE_APP_ID` | Azure AD app registration ID (token audience) |
 | `COSMOS_ENDPOINT` | Cosmos DB account endpoint (Managed Identity auth, no keys) |
-| `AZURE_AI_FOUNDRY_ENDPOINT` | Azure AI Foundry deployed-model endpoint (Managed Identity auth, no keys) — `004-story-creation`'s `llm_service.py` |
+| `AZURE_AI_FOUNDRY_ENDPOINT` | Azure OpenAI resource endpoint (Managed Identity auth, no keys) — `004-story-creation`'s `llm_service.py`, via `agent_framework.openai.OpenAIChatCompletionClient` |
+| `AZURE_AI_FOUNDRY_DEPLOYMENT_NAME` | Deployed model name on that resource (e.g. `gpt-4o-mini`) — passed as `OpenAIChatCompletionClient`'s `model` |
 | `LLM_INPUT_TOKEN_PRICE_USD` | USD price per input token, used to compute `gen_ai.cost_usd` on every LLM call span (Constitution Principle VI) |
 | `LLM_OUTPUT_TOKEN_PRICE_USD` | USD price per output token, same purpose |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Application Insights connection string; when set, `configure_azure_monitor()` exports OpenTelemetry spans (incl. `gen_ai.*` LLM call spans) on startup — unset locally, this step is skipped |
