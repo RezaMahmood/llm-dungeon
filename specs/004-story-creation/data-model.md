@@ -21,7 +21,7 @@ This document defines the entities this feature introduces: an ephemeral `StoryD
 | `id` | string (UUID) | Yes | Draft identifier; also the partition key | One document per session |
 | `createdBy` | string | Yes | Administrator's Microsoft object id (`oid`) | Scopes the draft to its owner |
 | `name` | string or null | No | Story title (wizard step "Name & cover") | Optional until generation |
-| `coverImageUrl` | string or null | No | Cover image reference (wizard step "Name & cover") | Optional; not required for completeness |
+| `coverImageUrl` | string or null | No | Cover image reference (wizard step "Name & cover") | Optional; not required for completeness. **Open question (flagged 2026-08-30, see spec.md § Open Questions)**: what this string is meant to contain — an externally-hosted image link, an uploaded/managed asset reference, or something else — is not yet specified. |
 | `tone` | string or null | No | Narrative tone (wizard step "Tone & reading level") | Optional until generation |
 | `readingLevel` | string or null | No | Target reading level (wizard step "Tone & reading level") | Optional until generation |
 | `sessionLengthMinutes` | integer or null | No | Target session length (wizard step "Session length") | Optional until generation |

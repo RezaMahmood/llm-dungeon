@@ -111,6 +111,12 @@ figcaption {
   background: var(--color-divider);
 }
 
+/* Large step/section numerals (e.g. a wizard's "01"/"02" stepper) — specs/designs/04-admin-wizard.html */
+.ovnum {
+  font-family: var(--font-heading); font-weight: 800;
+  letter-spacing: -0.05em; line-height: 0.8;
+}
+
 /* — buttons — */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;

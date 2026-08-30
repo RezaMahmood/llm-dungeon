@@ -1,7 +1,7 @@
 azure-functions
 azure-cosmos
 azure-identity
-azure-ai-inference
+agent-framework-openai>=1.14.1
 azure-monitor-opentelemetry
 PyJWT[crypto]
 python-dotenv
