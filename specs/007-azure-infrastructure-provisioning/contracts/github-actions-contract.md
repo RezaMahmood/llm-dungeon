@@ -51,10 +51,10 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
 
 ## Workflow: Infrastructure Provisioning (terraform-apply.yml)
 
-> **Note**: This section predates the `020-terraform-apply-gating` feature, which folded
+> **Note**: This section predates the `020-terraform-apply-gating-done` feature, which folded
 > `terraform-validate.yml` and `infrastructure-tests.yml`'s push-to-main paths into this
 > workflow as chained `validate` → `test` → `apply` jobs. See
-> `specs/020-terraform-apply-gating/contracts/terraform-apply-pipeline-contract.md` for
+> `specs/020-terraform-apply-gating-done/contracts/terraform-apply-pipeline-contract.md` for
 > the current, accurate description of this workflow's triggers and job structure.
 
 **Trigger**: Push to main branch (after terraform-validate.yml passes)
@@ -249,11 +249,11 @@ This contract defines the GitHub Actions workflows for infrastructure provisioni
 
 ## Workflow: Infrastructure Testing (infrastructure-tests.yml)
 
-> **Note**: This section predates the `020-terraform-apply-gating` feature, which moved
+> **Note**: This section predates the `020-terraform-apply-gating-done` feature, which moved
 > this workflow's push-to-main path into `terraform-apply.yml`'s `test` job (chained
 > `validate` → `test` → `apply`); this workflow now keeps only its nightly/manual
 > triggers. See
-> `specs/020-terraform-apply-gating/contracts/terraform-apply-pipeline-contract.md` for
+> `specs/020-terraform-apply-gating-done/contracts/terraform-apply-pipeline-contract.md` for
 > the current, accurate description of these workflows' triggers and job structure.
 
 **Trigger**:
