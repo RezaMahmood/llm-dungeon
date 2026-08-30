@@ -28,12 +28,6 @@ One `.nav` bar, same markup on every signed-in surface.
 - **Play (03)** is the exception: the full nav is replaced by a compact title bar so the story
   keeps the height. The `Lantern` mark at its left returns to story select.
 
-## Refresh
-
-A ghost **Refresh** button (Lucide `refresh-cw` + label) sits right of the nav links on 02, 04
-and 05, and in the title bar on 03. Same treatment everywhere; it re-fetches the current view
-and never navigates.
-
 ## Notes for implementers
 
 - **Scroll contract (Article V):** the shell is `height:100vh; overflow:hidden`. On 03 only
