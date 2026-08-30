@@ -54,7 +54,7 @@ describe("Admin story creation: empty draft through generated, unpublished story
     expect(await screen.findByRole("tablist")).toBeInTheDocument();
 
     // Move to the World & setting step and answer the guiding question.
-    await userEvent.click(screen.getByRole("radio", { name: /world & setting/i }));
+    await userEvent.click(screen.getByRole("tab", { name: /world & setting/i }));
     postMessage.mockResolvedValueOnce({
       status: "success",
       draft: { ...EMPTY_DRAFT, worldPrompt: "A half-abandoned lighthouse...", exchanges: [{ role: "administrator", message: "A half-abandoned lighthouse...", timestamp: "t" }] },
