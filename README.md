@@ -9,7 +9,7 @@ admin-provisioned list of Microsoft accounts (see
 
 - [`001-ci-cd-foundation`](specs/001-ci-cd-foundation-done/spec.md) — CI test gate on every PR
 - [`002-login-and-access-control`](specs/002-login-and-access-control-done/spec.md) — Microsoft Entra ID sign-in and Player/Administrator roles
-- [`003-account-provisioning`](specs/003-account-provisioning/spec.md) — seed administrator bootstrap, admin UI to grant/view provisioned accounts by email
+- [`003-account-provisioning-done`](specs/003-account-provisioning-done/spec.md) — seed administrator bootstrap, admin UI to grant/view provisioned accounts by email
 - [`007-azure-infrastructure-provisioning`](specs/007-azure-infrastructure-provisioning/spec.md) — Azure infrastructure (Functions, Static Web App, Cosmos DB, Managed Identity), provisioned separately
 
 ## Architecture

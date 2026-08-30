@@ -2,7 +2,7 @@
 
 Python Azure Functions backend implementing authentication, account
 provisioning, and guided story creation (features `002-login-and-access-control`,
-`003-account-provisioning`, `004-story-creation`).
+`003-account-provisioning-done`, `004-story-creation`).
 
 ## Structure
 
@@ -70,7 +70,7 @@ via the GitHub Actions workflow, on merge to `main`.
 ## API endpoints
 
 See [002's contracts/api.md](../../specs/002-login-and-access-control-done/contracts/api.md),
-[003's contracts/api.md](../../specs/003-account-provisioning/contracts/api.md), and
+[003's contracts/api.md](../../specs/003-account-provisioning-done/contracts/api.md), and
 [004's contracts/api.md](../../specs/004-story-creation/contracts/api.md) for full
 request/response contracts.
 

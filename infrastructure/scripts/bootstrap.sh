@@ -11,7 +11,7 @@
 #      federated credential (not an App Registration — FR-011a), with a
 #      Contributor role assignment scoped to the Resource Group only.
 #   3. Microsoft Graph application permissions on that same Managed
-#      Identity (003-account-provisioning, T058) — a Microsoft Entra ID /
+#      Identity (003-account-provisioning-done, T058) — a Microsoft Entra ID /
 #      Graph API grant, not Azure RBAC, so it is not covered by the
 #      Contributor role above. Required so `terraform apply` (running as
 #      this identity in CI, via identity.tf's azuread provider resources)

@@ -84,7 +84,7 @@ variable "azure_app_id" {
 }
 
 variable "seed_admin_email" {
-  description = "Email of the initial Administrator account, provisioned on first Function App cold start (003-account-provisioning, FR-001). Blank is a no-op."
+  description = "Email of the initial Administrator account, provisioned on first Function App cold start (003-account-provisioning-done, FR-001). Blank is a no-op."
   type        = string
   default     = ""
 }

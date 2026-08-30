@@ -31,10 +31,10 @@
 
 ## Notes
 
-- Split out of `003-account-provisioning`'s former User Story 3 on 2026-08-29, as part of
+- Split out of `003-account-provisioning-done`'s former User Story 3 on 2026-08-29, as part of
   a project-wide pass to keep each spec to at most two user stories. Content is carried
   over unchanged in substance; only the Requirements/Success Criteria/Assumptions were
   re-scoped to cover viewing alone, since the underlying data and its creation/merge
-  behavior remain specified in `003-account-provisioning`.
+  behavior remain specified in `003-account-provisioning-done`.
 - No [NEEDS CLARIFICATION] markers were needed — this is a read-only view over an
   already-specified data set.
