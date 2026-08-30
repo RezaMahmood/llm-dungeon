@@ -233,3 +233,5 @@ variable "github_repository_branch" {
   type        = string
   default     = "main"
 }
+
+   # deliberately misformatted for gate-testing (Scenario 1)
