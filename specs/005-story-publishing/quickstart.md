@@ -10,7 +10,7 @@ This guide provides step-by-step validation scenarios confirming story publishin
 
 ## Prerequisites
 
-1. `004-story-creation` implemented and deployed (or running locally): a `Story` document can be created via its wizard/API, defaulting to `published: false`.
+1. `004-story-creation-done` implemented and deployed (or running locally): a `Story` document can be created via its wizard/API, defaulting to `published: false`.
 2. Backend deployed (or running locally) with `POST /api/manage/stories/{storyId}/publish` and `POST /api/manage/stories/{storyId}/unpublish`.
 3. A signed-in Administrator account (per `002-login-and-access-control` / `003-account-provisioning`).
 4. Until `017-story-publish-test-play-gate` ships, every story has `lastTestPlayedAt: null`, so Scenario 1 below will always return `409` — this is expected (research.md §1). Scenarios that need a passing gate note a manual Cosmos field edit as a stand-in for `017`.

@@ -2,7 +2,7 @@
 
 Python Azure Functions backend implementing authentication, account
 provisioning, and guided story creation (features `002-login-and-access-control`,
-`003-account-provisioning`, `004-story-creation`).
+`003-account-provisioning`, `004-story-creation-done`).
 
 ## Structure
 
@@ -56,7 +56,7 @@ func start
 | `AZURE_TENANT_ID` | Azure AD tenant ID |
 | `AZURE_APP_ID` | Azure AD app registration ID (token audience) |
 | `COSMOS_ENDPOINT` | Cosmos DB account endpoint (Managed Identity auth, no keys) |
-| `AZURE_AI_FOUNDRY_ENDPOINT` | Azure AI Foundry deployed-model endpoint (Managed Identity auth, no keys) — `004-story-creation`'s `llm_service.py` |
+| `AZURE_AI_FOUNDRY_ENDPOINT` | Azure AI Foundry deployed-model endpoint (Managed Identity auth, no keys) — `004-story-creation-done`'s `llm_service.py` |
 | `LLM_INPUT_TOKEN_PRICE_USD` | USD price per input token, used to compute `gen_ai.cost_usd` on every LLM call span (Constitution Principle VI) |
 | `LLM_OUTPUT_TOKEN_PRICE_USD` | USD price per output token, same purpose |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Application Insights connection string; when set, `configure_azure_monitor()` exports OpenTelemetry spans (incl. `gen_ai.*` LLM call spans) on startup — unset locally, this step is skipped |
@@ -71,7 +71,7 @@ via the GitHub Actions workflow, on merge to `main`.
 
 See [002's contracts/api.md](../../specs/002-login-and-access-control-done/contracts/api.md),
 [003's contracts/api.md](../../specs/003-account-provisioning/contracts/api.md), and
-[004's contracts/api.md](../../specs/004-story-creation/contracts/api.md) for full
+[004's contracts/api.md](../../specs/004-story-creation-done/contracts/api.md) for full
 request/response contracts.
 
 | Endpoint | Method | Requires |

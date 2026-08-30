@@ -16,7 +16,7 @@
 
 ### Session 2026-08-29
 
-- Q: Where can an administrator actually trigger publish/unpublish for a story — only from within the story-creation/editing wizard's "Publish & assign" step, only from the "all stories" list view, or from both places? → A: Both the wizard's step 6 and the story list (`012-story-editing-and-review`) expose the same publish/unpublish action; both entry points enforce the identical FR-008 precondition, with no separate completeness check needed (an incomplete story configuration is never persisted per `004-story-creation` FR-005). When a publish attempt is blocked, the administrator MUST be shown explanatory text stating why, rather than a silent or unexplained disabled control.
+- Q: Where can an administrator actually trigger publish/unpublish for a story — only from within the story-creation/editing wizard's "Publish & assign" step, only from the "all stories" list view, or from both places? → A: Both the wizard's step 6 and the story list (`012-story-editing-and-review`) expose the same publish/unpublish action; both entry points enforce the identical FR-008 precondition, with no separate completeness check needed (an incomplete story configuration is never persisted per `004-story-creation-done` FR-005). When a publish attempt is blocked, the administrator MUST be shown explanatory text stating why, rather than a silent or unexplained disabled control.
 - Q: Does the system need to record who published/unpublished a story and when, or is the current boolean flag sufficient? → A: Boolean flag plus a retained "last published" date/time, kept for reference (including after a later unpublish); no administrator-identity attribution is required.
 - Q: Should unpublishing a story require the administrator to confirm the action first, given that it immediately removes the story from every player's adventure list? → A: Yes, via a client-side confirmation step (e.g., an "are you sure?" prompt) before the action is sent; this is a UI safeguard only, not a server-side precondition like FR-008.
 - Q: Should the story list show a visible indicator for a publish-blocked story before the administrator clicks Publish, or is FR-011's post-click explanation sufficient? → A: Post-click only — no separate always-visible readiness indicator is required in the story list; FR-011's explanatory text on attempt is sufficient.
@@ -81,7 +81,7 @@ An administrator controls whether a given story is visible to players by explici
 
 ## Assumptions
 
-- This spec is the single source of truth for story visibility to players; `004-story-creation` and `011-story-import` both default new stories to unpublished and defer entirely to this spec for the publish/unpublish mechanism itself.
+- This spec is the single source of truth for story visibility to players; `004-story-creation-done` and `011-story-import` both default new stories to unpublished and defer entirely to this spec for the publish/unpublish mechanism itself.
 - There is no scheduled/automatic publishing (e.g., publish-at-a-future-date); publishing is always a direct, immediate administrator action.
 - Only an Administrator capability (see `002-login-and-access-control`) may publish or unpublish a story; no separate approval workflow exists beyond the test-play gate in `017-story-publish-test-play-gate`.
 - There is no per-player or per-group assignment/targeting capability for published stories — this was considered and explicitly excluded; "published" means available to every player, full stop.

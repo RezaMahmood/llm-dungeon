@@ -29,7 +29,7 @@ constitution's UI Design System Requirements win on rules (see `.specify/memory/
 | `01-login.html` | [`002-login-and-access-control`](../002-login-and-access-control-done/spec.md) |
 | `02-story-select.html` | [`006-adventure-and-character-setup`](../006-adventure-and-character-setup/spec.md) ("Start something new") · [`009-save-and-continue`](../009-save-and-continue/spec.md) ("stories in progress" / Resume) |
 | `03-play.html` | [`008-core-gameplay`](../008-core-gameplay/spec.md) (story pane, status panel, hint) · [`009-save-and-continue`](../009-save-and-continue/spec.md) (checkpoint save, pause & exit, autosave) |
-| `04-admin-wizard.html` | [`004-story-creation`](../004-story-creation/spec.md) (steps 01–04: name & cover, world & setting, tone & reading level, session length) · [`010-story-test-play`](../010-story-test-play/spec.md) (step 05: test play) · [`005-story-publishing`](../005-story-publishing/spec.md) (step 06: publish) |
+| `04-admin-wizard.html` | [`004-story-creation-done`](../004-story-creation-done/spec.md) (steps 01–04: name & cover, world & setting, tone & reading level, session length) · [`010-story-test-play`](../010-story-test-play/spec.md) (step 05: test play) · [`005-story-publishing`](../005-story-publishing/spec.md) (step 06: publish) |
 
 **Resolved gaps**:
 
@@ -51,7 +51,7 @@ covers — flagged here, not yet specified):
   separate hint mechanism.
 - **Reading level / chapter count as story metadata** (`02-story-select.html` cards,
   `04-admin-wizard.html` step 04 "Chapters" field): shown in the design but not named as
-  a Key Entity attribute in `004-story-creation` or `006-adventure-and-character-setup`.
+  a Key Entity attribute in `004-story-creation-done` or `006-adventure-and-character-setup`.
 
 ## Notes for implementers
 

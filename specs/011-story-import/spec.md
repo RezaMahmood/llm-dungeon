@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Reorganized from**: originally User Story 6 within `003-game-setup-and-authoring`, split out as its own domain since uploading a pre-built configuration is a distinct capability from guided/conversational creation (`004-story-creation`).
+**Reorganized from**: originally User Story 6 within `003-game-setup-and-authoring`, split out as its own domain since uploading a pre-built configuration is a distinct capability from guided/conversational creation (`004-story-creation-done`).
 
 **Input**: User description: "Upload story config file: Allow manual upload of story config file. Validate config file for structure and content. Select whether to overwrite existing story or create new. If new then provide name for story/game - this is the title that becomes visible for Players."
 
@@ -65,5 +65,5 @@ An administrator who already has a story configuration file uploads it directly.
 ## Assumptions
 
 - Validation covers structural correctness (required fields, correct format) and basic content consistency (e.g., no duplicate character type names); it does not evaluate narrative quality.
-- The file format and schema for a story configuration are defined by whichever process also produces them via guided creation (`004-story-creation`), so an exported/downloaded story (see `012-story-editing-and-review`) can always be re-imported here.
+- The file format and schema for a story configuration are defined by whichever process also produces them via guided creation (`004-story-creation-done`), so an exported/downloaded story (see `012-story-editing-and-review`) can always be re-imported here.
 - This spec covers the import mechanism itself; making an imported story visible to players is a separate, explicit action (see `005-story-publishing`).
