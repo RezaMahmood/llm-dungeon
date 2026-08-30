@@ -31,7 +31,7 @@ Give a signed-in Administrator a four-step wizard (name & cover, world & setting
 
 **Constraints**: No resume-after-abandonment capability (explicit Assumption); no story-count limit; multiple concurrent drafts per administrator are explicitly permitted (Clarifications) so draft identity is per-session, not per-administrator
 
-**Scale/Scope**: Same small administrator population as `003-account-provisioning`; one new wizard screen (four steps) plus the shared LLM/telemetry service layer
+**Scale/Scope**: Same small administrator population as `003-account-provisioning-done`; one new wizard screen (four steps) plus the shared LLM/telemetry service layer
 
 ## Constitution Check
 

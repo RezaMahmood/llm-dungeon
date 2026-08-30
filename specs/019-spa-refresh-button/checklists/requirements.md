@@ -1,7 +1,7 @@
-# Specification Quality Checklist: Account Listing
+# Specification Quality Checklist: In-App Screen Refresh & Reload Resilience
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-08-29
+**Created**: 2026-08-30
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -31,10 +31,5 @@
 
 ## Notes
 
-- Split out of `003-account-provisioning-done`'s former User Story 3 on 2026-08-29, as part of
-  a project-wide pass to keep each spec to at most two user stories. Content is carried
-  over unchanged in substance; only the Requirements/Success Criteria/Assumptions were
-  re-scoped to cover viewing alone, since the underlying data and its creation/merge
-  behavior remain specified in `003-account-provisioning-done`.
-- No [NEEDS CLARIFICATION] markers were needed — this is a read-only view over an
-  already-specified data set.
+- Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
+- No [NEEDS CLARIFICATION] markers were needed: the one genuinely ambiguous point (whether unsaved form/wizard input must survive a full browser reload) was resolved with an industry-standard reasonable default — warn before loss (FR-010) rather than guaranteeing full state restoration — and recorded in the Assumptions section.
