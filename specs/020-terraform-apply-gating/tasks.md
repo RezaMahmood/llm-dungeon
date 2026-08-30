@@ -171,7 +171,7 @@ control (Phase 4) are now confirmed to hold together on the same pipeline run.
   (that document was already stale relative to the as-built workflows before this
   feature; this avoids compounding the drift).
 
-- [ ] T012 Final user-verified acceptance (Constitution Principle IX): the requesting
+- [X] T012 Final user-verified acceptance (Constitution Principle IX): the requesting
   user or product owner reviews the real GitHub Actions runs produced by T004, T006a,
   T008, and T010 (or an equivalent live run they trigger themselves) directly in the
   repository's Actions tab, and confirms the gate and approval behavior match spec.md's
