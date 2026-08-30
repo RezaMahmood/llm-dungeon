@@ -126,11 +126,10 @@ htmlcov/
 .#*
 
 # Claude Code / Local Development
-.claude/
-!.claude/skills/
-!.specify/
-!.specify/extensions.yml
-!.specify/memory/
+# .claude/settings.json (shared project hooks/config) IS tracked.
+# .claude/settings.local.json (personal permission overrides) is not.
+.claude/settings.local.json
+.claude/.DS_Store
 
 # Spec Kit per-feature worktrees (speckit-branch-ensure) — local checkouts only
 .worktrees/
