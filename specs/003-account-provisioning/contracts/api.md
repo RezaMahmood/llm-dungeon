@@ -137,6 +137,55 @@ No pagination — list is returned in full (Constitution Principle IV; no stated
 
 ---
 
+## New: DELETE /api/manage/accounts
+
+**Purpose**: Remove an existing Provisioned Account Entry by email, revoking its access and deleting its corresponding Entra ID tenant guest user (FR-012, FR-013). Added 2026-08-30 alongside spec.md's User Story 3.
+
+**Authorization**: Administrator capability required.
+
+**Request**:
+
+```http
+DELETE /api/manage/accounts HTTP/1.1
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{ "email": "player@example.com" }
+```
+
+**Response (200 OK)**:
+
+```json
+{ "status": "success" }
+```
+
+**Response (400 Bad Request)** — self-removal or seed-administrator removal rejected:
+
+```json
+{ "error": "self_removal", "message": "Administrators cannot remove their own account." }
+```
+
+```json
+{ "error": "seed_admin_removal", "message": "The seed administrator's account cannot be removed." }
+```
+
+**Response (404 Not Found)** — no provisioned entry exists for the submitted email:
+
+```json
+{ "error": "not_found", "message": "No provisioned account entry exists for this email." }
+```
+
+**Response (401 / 403)** — same shared shapes as above.
+
+### Validation Rules
+
+- `email` (lowercased/normalized per FR-008) MUST match an existing Provisioned Account Entry, or the request is rejected with `not_found` (404) — removing a never-provisioned email is not a silent no-op (spec.md Edge Cases).
+- `email` MUST NOT equal the signed-in Administrator's own email — rejected with `self_removal` (400), regardless of the acting administrator's roles (FR-012).
+- `email` MUST NOT equal the deployment-configured seed administrator email — rejected with `seed_admin_removal` (400), regardless of who is signed in (FR-012), so the system can never end up with zero administrators via this path.
+- On success, the entry is deleted from `provisionedAccountEntries` and `EntraDirectoryService.remove_guest` (T056) is called for the same email; a removal succeeds even if no matching Entra guest user is found (FR-013, spec.md Edge Cases).
+
+---
+
 ## Standard Error Response Format (unchanged from 002)
 
 ```json
@@ -150,4 +199,7 @@ No pagination — list is returned in full (Constitution Principle IV; no stated
 | `insufficient_permission` | 403 | Authenticated and provisioned, but lacks Administrator capability |
 | `role_required` | 400 | Add/merge submitted with no valid role selected |
 | `invalid_email` | 400 | Add/merge submitted with a non-RFC-5322 email |
+| `self_removal` | 400 | Removal submitted for the signed-in Administrator's own email |
+| `seed_admin_removal` | 400 | Removal submitted for the seed administrator's email |
+| `not_found` | 404 | Removal submitted for an email with no provisioned entry |
 | `internal_error` | 500 | Unexpected server-side error |

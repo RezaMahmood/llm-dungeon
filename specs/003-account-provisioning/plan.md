@@ -17,6 +17,7 @@ Give a signed-in Administrator an in-app screen to grant new Microsoft accounts 
 **Primary Dependencies**:
 - Backend (existing): `azure-functions`, `azure-cosmos`, `azure-identity`, `PyJWT[crypto]`, `python-dotenv`, `requests`
 - Backend (new): `pyisemail` — full RFC 5322/5321 grammar validation for FR-005 (resolved in research.md §1)
+- Backend (new, 2026-08-30 amendment): Microsoft Graph, called via `azure-identity`'s existing `DefaultAzureCredential` (Managed Identity, `https://graph.microsoft.com/.default`) — `EntraDirectoryService` (T056) invites/removes Entra ID guest users for FR-011/FR-013, matching `cosmos_service.py`'s existing Managed Identity pattern (Principle VII); requires a new `azuread` Terraform provider and Graph application-permission role assignment (T057)
 - Frontend (existing): React 18, `@azure/msal-browser`/`@azure/msal-react` (via `authService.js`/`msalConfig.js`), `axios`
 
 **Storage**: Azure Cosmos DB, serverless (per `007-azure-infrastructure-provisioning`) — one container, `provisionedAccountEntries`, partition key `/email` (lowercased), replacing 002's `allowListEntries` + `capabilityAssignments` containers (resolved in research.md §4)
@@ -29,7 +30,7 @@ Give a signed-in Administrator an in-app screen to grant new Microsoft accounts 
 
 **Performance Goals**: N/A — no throughput/latency target specified or needed (Principle IV); sign-in adds a single Cosmos point read by partition key, no worse than 002's existing point read by oid
 
-**Constraints**: No account-removal/role-revocation UI (explicit scope boundary); no limit on entry count; no rebind capability for a changed Microsoft oid (explicit scope boundary, same as removal)
+**Constraints**: No limit on entry count; no rebind capability for a changed Microsoft oid (explicit scope boundary — clearing/replacing a bound object identifier is out of scope, per spec.md's Assumptions). Account removal is **in scope** (User Story 3, FR-012/FR-013, added 2026-08-30) — the "no account-removal UI" boundary stated in this plan's original version has been superseded; see `specs/designs/05-admin-users.html` for the removal screen (per-row remove behind a confirmation dialog, no bulk removal) and tasks.md T056-T069 for its implementation.
 
 **Scale/Scope**: Same ~5-10 named users as `007-azure-infrastructure-provisioning`; three screens/flows (seed bootstrap — no UI, add-account form, account list)
 

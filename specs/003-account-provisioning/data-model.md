@@ -25,7 +25,7 @@ This document defines the single entity that implements account provisioning, an
 | `addedBy` | string | No | Administrator's email (or `"seed"` for the bootstrap entry) | Audit trail — who granted this access (constitution: additions must be auditable) |
 | `dateBound` | ISO 8601 timestamp or null | No | When `objectId` was set | Distinguishes "never signed in" from "bound" without depending on `objectId`'s nullness alone in logs/telemetry |
 
-No `dateRemoved`/`revokedBy`/soft-delete fields: this feature has no removal or revocation capability (explicit scope boundary in spec.md's Edge Cases and Assumptions); adding audit fields for a state transition that cannot occur would be premature per Constitution Principle IV.
+No `dateRemoved`/`revokedBy`/soft-delete fields: removal (FR-012/FR-013, added 2026-08-30) is a hard delete of the Cosmos document, not a revocation state on a surviving entry — spec.md's Edge Cases treat a removed entry as gone entirely, matched the same as a never-provisioned email on any later sign-in attempt. Soft-delete/audit-revocation fields would model a state transition this feature doesn't have, so they remain dropped per Constitution Principle IV.
 
 ### Validation Rules
 
@@ -126,6 +126,6 @@ SELECT * FROM c WHERE c.entityType = "ProvisionedAccountEntry"
 |---|---|---|
 | Allow-List Entry (`allowListEntries`, keyed by `user_oid`) | Cosmos container | Folded into `provisionedAccountEntries` — its `email` field becomes the entry's identity; `user_oid` becomes `objectId` (nullable, bound not assumed) |
 | Capability Assignment (`capabilityAssignments`, keyed by `user_oid` + capability) | Cosmos container | Folded into `provisionedAccountEntries.roles` (array on the same document, no separate per-role documents) |
-| `dateRemoved`/`removedBy`/`dateRevoked`/`revokedBy` (soft-delete audit fields) | Both containers | Dropped — no removal/revocation capability exists in this feature (see Validation Rules above) |
+| `dateRemoved`/`removedBy`/`dateRevoked`/`revokedBy` (soft-delete audit fields) | Both containers | Dropped — removal (FR-012/FR-013) is a hard delete, not a soft-revocation state, so these fields have no state to record (see Validation Rules above) |
 
 No automated data migration script is defined here: per `007-azure-infrastructure-provisioning` and this project's current stage, there is no production data yet (Cosmos DB has not been provisioned/seeded outside of `src/backend/db/seed_data.py`'s manual test-data path), so the change ships as a schema replacement, not a live migration.
