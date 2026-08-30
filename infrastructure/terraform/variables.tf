@@ -233,3 +233,6 @@ variable "github_repository_branch" {
   type        = string
   default     = "main"
 }
+
+# Gate behavior (validate -> test -> apply, manual approval) verified end-to-end
+# by the 020-terraform-apply-gating quickstart scenarios.
