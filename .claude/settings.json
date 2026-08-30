@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".specify/scripts/bash/check-worktree-sync.sh",
+            "statusMessage": "Checking worktree sync..."
+          }
+        ]
+      }
+    ]
+  }
+}
