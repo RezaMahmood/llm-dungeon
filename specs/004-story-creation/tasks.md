@@ -21,6 +21,16 @@ description: "Task list for Story Creation (004-story-creation)"
 
 ---
 
+## Phase 0: UI Design Agreement
+
+**Purpose**: Constitution Principle XI (NON-NEGOTIABLE, added v1.7.0) requires the screen design to be explicitly agreed with the requesting user/product owner before implementation begins.
+
+- [ ] T000 **UI design agreement/sign-off** (Constitution Principle XI, NON-NEGOTIABLE): the requesting user or product owner reviews the story-creation wizard design at `specs/designs/04-admin-wizard.html` — steps 1–4 (name & cover, world & setting, tone & reading level, session length), reachable in any order — plus the dedicated character-type and completion-criteria fields this spec adds beyond that static mockup (FR-008, research.md §5, since the mockup has no reference markup for them) — and confirms it as the design for T016–T029's implementation. This task is not complete until that confirmation is given; the design artifact existing is not sufficient. **Gates all implementation tasks below (T001–T032).**
+
+**Checkpoint**: Design confirmed — implementation tasks may begin.
+
+---
+
 ## Phase 1: Setup (Shared Infrastructure)
 
 **Purpose**: Add the new dependencies and configuration this feature needs before any code can use them.
@@ -97,7 +107,8 @@ description: "Task list for Story Creation (004-story-creation)"
 
 ## Dependencies
 
-- **Phase 1 (Setup)** has no dependencies — start immediately.
+- **Phase 0 (UI Design Agreement)** has no dependencies — gates every implementation task below (T001–T032), per Principle XI.
+- **Phase 1 (Setup)** depends on Phase 0 (T000).
 - **Phase 2 (Foundational)** depends on Phase 1 (T006 needs T002's config keys). Blocks Phase 3 entirely.
 - **Phase 3 (US1)** depends on Phase 2 (models and `llm_service` must exist first). Backend tasks T009–T015 must precede or accompany the frontend tasks that call them (T016 needs the contract, not the implementation, so it can start once contracts/api.md is stable — already true).
 - **Phase 4 (Polish)** depends on Phase 3 being complete.
