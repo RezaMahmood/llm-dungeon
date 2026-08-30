@@ -110,6 +110,14 @@ def test_azure_openai_model_deployment_exists(cognitive_client, terraform_output
     )
     assert deployment is not None
 
-def test_gate_scenario_2_deliberate_failure():
-    """Deliberate failure for 020-terraform-apply-gating Scenario 2 verification."""
-    assert False, "intentional failure for gate verification — remove after Scenario 2"
+def test_gate_scenario_2_deliberate_failure(terraform_outputs):
+    """Deliberate failure for 020-terraform-apply-gating Scenario 2 verification.
+
+    Depends on terraform_outputs so it skips (like every other test in this
+    file) when run outside a live-Azure context — e.g. the repo-wide test.yml
+    job — and only fails for real inside infrastructure-tests.yml's job,
+    where terraform init has already run against live state.
+    """
+    assert "gate_scenario_2_nonexistent_output" in terraform_outputs, (
+        "intentional failure for gate verification — remove after Scenario 2"
+    )
