@@ -106,7 +106,7 @@ fails an infrastructure test) to `main`, and confirm the `apply` job in that run
   if `validate` passes) from scratch rather than jumping straight to `apply` or an
   approval prompt. Depends on: T001.
 
-- [ ] T006a [US1] Push two Terraform changes to `main` in quick succession — one that
+- [X] T006a [US1] Push two Terraform changes to `main` in quick succession — one that
   fails `terraform validate` (or infra tests), one right behind it that passes both —
   and confirm, per `quickstart.md` Scenario 7, that each run's `apply` gate reflects only
   its own commit's `validate`/`test` results, independent of the other push's outcome.
