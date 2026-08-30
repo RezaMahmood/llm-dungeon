@@ -256,7 +256,7 @@ Before running validation scenarios, ensure:
 2. Using a REST client (e.g., curl, Postman) or browser console, call:
    ```bash
    curl -H "Authorization: Bearer <access_token>" \
-        https://yourapp.azurewebsites.net/api/admin/stories
+        https://yourapp.azurewebsites.net/api/manage/stories
    ```
 3. Observe the response
 

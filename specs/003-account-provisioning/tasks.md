@@ -44,8 +44,8 @@ Existing web-application layout: `src/backend/` (Python Azure Functions) + `src/
 - [X] T003 [P] Create `ProvisionedAccountEntry` in `src/backend/models/provisioned_account_entry.py` per data-model.md's schema: `email`/`id` (lowercased, identical), `roles` (non-empty list drawn from `Player`/`Administrator`), `objectId` (nullable), `dateAdded`, `addedBy`, `dateBound` (nullable); include `to_dict`/`from_dict` matching the existing model style (see `src/backend/models/allow_list_entry.py` for the pattern being replaced)
 - [X] T004 Create `AccountProvisioningService` in `src/backend/services/account_provisioning_service.py` with `get_by_email(email) -> ProvisionedAccountEntry | None` (point read by lowercased email) and `authorize_sign_in(email, oid) -> tuple[bool, ProvisionedAccountEntry | None]` implementing FR-006/FR-007's bind-on-first-sign-in / verify-bound-oid logic (no entry → `(False, None)`; entry with `objectId is None` → bind `objectId`/`dateBound`, persist, return `(True, entry)`; entry with matching `objectId` → `(True, entry)`; entry with mismatched `objectId` → `(False, None)`), and `ensure_seed_administrator(email) -> None` (FR-001: create-if-absent only — a point read first, skip silently if an entry already exists, so it never clobbers roles an admin has since merged in) — depends on T003
 - [X] T005 [P] Modify `src/backend/services/auth_service.py`: extract the `email` claim from the validated token alongside `oid`; `validate_token` now returns `(is_valid, user_oid, email, error_message)` (research.md §2 — use the `email` claim, not `preferred_username`)
-- [X] T006 Modify `src/backend/api/auth/middleware.py`: add `authenticate_with_email(req) -> tuple[bool, str|None, str|None, str|None]` (is_valid, user_oid, email, error) built on T005's new `validate_token` return shape; keep the existing `authenticate(req)` (3-tuple: is_valid, user_oid, error) unchanged and working, so unrelated call sites outside this feature's scope (e.g. `src/backend/api/admin/stories.py`) need no changes — depends on T005
-- [X] T007 Modify `src/backend/api/admin/middleware.py`: `authorize_admin()` now calls `authenticate_with_email` (T006) and `AccountProvisioningService.authorize_sign_in(email, oid)` (T004) in place of `AllowListService`/`CapabilityService`, checking `"Administrator" in entry.roles`; keep its external return shape `(is_authorized, user_oid, error_response)` unchanged so `src/backend/api/admin/stories.py` needs no changes — depends on T004, T006
+- [X] T006 Modify `src/backend/api/auth/middleware.py`: add `authenticate_with_email(req) -> tuple[bool, str|None, str|None, str|None]` (is_valid, user_oid, email, error) built on T005's new `validate_token` return shape; keep the existing `authenticate(req)` (3-tuple: is_valid, user_oid, error) unchanged and working, so unrelated call sites outside this feature's scope (e.g. `src/backend/api/manage/stories.py`) need no changes — depends on T005
+- [X] T007 Modify `src/backend/api/admin/middleware.py`: `authorize_admin()` now calls `authenticate_with_email` (T006) and `AccountProvisioningService.authorize_sign_in(email, oid)` (T004) in place of `AllowListService`/`CapabilityService`, checking `"Administrator" in entry.roles`; keep its external return shape `(is_authorized, user_oid, error_response)` unchanged so `src/backend/api/manage/stories.py` needs no changes — depends on T004, T006
 - [X] T008 Modify `src/backend/api/game/start.py` (unrelated `008-core-gameplay` placeholder, updated only because this feature removes the services it currently imports): replace its direct `AllowListService`/`CapabilityService` usage with `authenticate_with_email` (T006) + `AccountProvisioningService.authorize_sign_in` (T004), checking `"Player" in entry.roles` — depends on T004, T006
 - [X] T009 Modify `src/backend/function_app.py`: call `AccountProvisioningService().ensure_seed_administrator(config.SEED_ADMIN_EMAIL)` once at module load (Function App cold start), guarded so a blank `SEED_ADMIN_EMAIL` is a no-op (FR-001) — depends on T002, T004
 - [X] T010 [P] Add unit tests for `ProvisionedAccountEntry` validation (empty `roles` rejected, `email`/`id` lowercased and identical) in `src/backend/tests/unit/test_models.py`
@@ -90,15 +90,15 @@ Existing web-application layout: `src/backend/` (Python Azure Functions) + `src/
 
 ### Tests for User Story 2
 
-- [X] T023 [P] [US2] Create `src/backend/tests/integration/test_admin_accounts_endpoint.py` with tests for `POST /api/admin/accounts`: creates an entry for `["Player"]`, `["Administrator"]`, and `["Player", "Administrator"]`; returns 400 `role_required` for an empty roles list; returns 400 `invalid_email` for a malformed email (per contracts/api.md)
-- [X] T024 [P] [US2] Add an integration test to `src/backend/tests/integration/test_login_endpoint.py`: an email newly added via `POST /api/admin/accounts` can subsequently sign in and binds its `objectId` (ties US2's add flow to US1's sign-in flow)
+- [X] T023 [P] [US2] Create `src/backend/tests/integration/test_admin_accounts_endpoint.py` with tests for `POST /api/manage/accounts`: creates an entry for `["Player"]`, `["Administrator"]`, and `["Player", "Administrator"]`; returns 400 `role_required` for an empty roles list; returns 400 `invalid_email` for a malformed email (per contracts/api.md)
+- [X] T024 [P] [US2] Add an integration test to `src/backend/tests/integration/test_login_endpoint.py`: an email newly added via `POST /api/manage/accounts` can subsequently sign in and binds its `objectId` (ties US2's add flow to US1's sign-in flow)
 
 ### Implementation for User Story 2
 
 - [X] T025 [P] [US2] Implement `add_or_merge(email, roles, added_by) -> ProvisionedAccountEntry` in `src/backend/services/account_provisioning_service.py`: validate `email` via `pyisemail` (T001, FR-005) and `roles` as a non-empty subset of `Player`/`Administrator` (FR-003/FR-004), raising distinguishable errors the endpoint maps to `invalid_email`/`role_required`; on an existing email, union the roles and leave `objectId`/`dateBound` untouched (FR-009); resubmitting identical roles is a no-op
-- [X] T026 [US2] Create `src/backend/api/admin/accounts.py` with `add_account(req)` handling `POST /api/admin/accounts`: gated by `authorize_admin` (T007), calls `add_or_merge` (T025), returns the shapes in contracts/api.md — depends on T025
-- [X] T027 [US2] Register the `POST /api/admin/accounts` route in `src/backend/function_app.py` — depends on T026
-- [X] T028 [P] [US2] Create `src/frontend/src/services/accountService.js` with `addAccount(token, email, roles)` calling `POST /api/admin/accounts` (mirrors the pattern in `src/frontend/src/services/authService.js`)
+- [X] T026 [US2] Create `src/backend/api/manage/accounts.py` with `add_account(req)` handling `POST /api/manage/accounts`: gated by `authorize_admin` (T007), calls `add_or_merge` (T025), returns the shapes in contracts/api.md — depends on T025
+- [X] T027 [US2] Register the `POST /api/manage/accounts` route in `src/backend/function_app.py` — depends on T026
+- [X] T028 [P] [US2] Create `src/frontend/src/services/accountService.js` with `addAccount(token, email, roles)` calling `POST /api/manage/accounts` (mirrors the pattern in `src/frontend/src/services/authService.js`)
 - [X] T029 [US2] Create `src/frontend/src/components/Admin/AccountForm.jsx`: email input + Player/Administrator checkboxes, built from the vendored design system's `.field`/`.input`/`.btn-primary` classes (no ad hoc styles — Constitution Principle VIII), surfacing `role_required`/`invalid_email` errors from T028 — depends on T028
 - [X] T030 [US2] Add `src/frontend/tests/components/AccountForm.test.jsx` — depends on T029
 - [X] T031 [US2] Create `src/frontend/src/pages/AdminAccountsPage.jsx` hosting `AccountForm` — depends on T029
@@ -116,13 +116,13 @@ Existing web-application layout: `src/backend/` (Python Azure Functions) + `src/
 
 ### Tests for User Story 3
 
-- [X] T033 [P] [US3] Add tests to `src/backend/tests/integration/test_admin_accounts_endpoint.py`: `GET /api/admin/accounts` lists every entry with its email and roles; re-adding an already-provisioned email with an additional role results in one merged entry (not two) with its bound `objectId` unchanged; resubmitting an identical add request twice is a no-op; a non-Administrator caller gets 403 `insufficient_permission` from both `POST` and `GET /api/admin/accounts`
+- [X] T033 [P] [US3] Add tests to `src/backend/tests/integration/test_admin_accounts_endpoint.py`: `GET /api/manage/accounts` lists every entry with its email and roles; re-adding an already-provisioned email with an additional role results in one merged entry (not two) with its bound `objectId` unchanged; resubmitting an identical add request twice is a no-op; a non-Administrator caller gets 403 `insufficient_permission` from both `POST` and `GET /api/manage/accounts`
 
 ### Implementation for User Story 3
 
 - [X] T034 [P] [US3] Implement `list_all() -> list[ProvisionedAccountEntry]` in `src/backend/services/account_provisioning_service.py` (FR-010)
-- [X] T035 [US3] Add `list_accounts(req)` handling `GET /api/admin/accounts` to `src/backend/api/admin/accounts.py`, gated by `authorize_admin`, returning the shape in contracts/api.md — depends on T026, T034
-- [X] T036 [US3] Register the `GET /api/admin/accounts` route in `src/backend/function_app.py` — depends on T035
+- [X] T035 [US3] Add `list_accounts(req)` handling `GET /api/manage/accounts` to `src/backend/api/manage/accounts.py`, gated by `authorize_admin`, returning the shape in contracts/api.md — depends on T026, T034
+- [X] T036 [US3] Register the `GET /api/manage/accounts` route in `src/backend/function_app.py` — depends on T035
 - [X] T037 [P] [US3] Add `listAccounts(token)` to `src/frontend/src/services/accountService.js` (created in T028)
 - [X] T038 [US3] Create `src/frontend/src/components/Admin/AccountList.jsx` using the design system's `.table` and `.tag*` classes for role chips — depends on T037
 - [X] T039 [US3] Add `src/frontend/tests/components/AccountList.test.jsx` — depends on T038
@@ -165,7 +165,7 @@ Existing web-application layout: `src/backend/` (Python Azure Functions) + `src/
 - **Foundational (Phase 2)**: Depends on Setup. **Blocks all user stories** — this is where 002's oid-keyed backend is migrated.
 - **User Story 1 (Phase 3)**: Depends on Foundational only.
 - **User Story 2 (Phase 4)**: Depends on Foundational only; T024's test also exercises US1's login endpoint, so run after Phase 3 for a clean pass, though the add-account functionality itself has no code dependency on US1.
-- **User Story 3 (Phase 5)**: Depends on Foundational and on US2's `src/backend/api/admin/accounts.py`/`src/frontend/src/services/accountService.js`/`AdminAccountsPage.jsx` existing (T026, T028, T031) — extends files US2 created rather than duplicating them.
+- **User Story 3 (Phase 5)**: Depends on Foundational and on US2's `src/backend/api/manage/accounts.py`/`src/frontend/src/services/accountService.js`/`AdminAccountsPage.jsx` existing (T026, T028, T031) — extends files US2 created rather than duplicating them.
 - **Polish (Phase 6)**: Depends on all three user stories being complete (the old services can only be deleted once nothing references them).
 
 ### Within Each User Story

@@ -226,7 +226,7 @@ All combinations of Player and Administrator capabilities:
 
 **Example**:
 - Frontend hides admin menu item (user is Player only)
-- Malicious user manually navigates to `/admin` or calls `/api/admin/stories`
+- Malicious user manually navigates to `/admin` or calls `/api/manage/stories`
 - Backend checks user's capabilities and returns 403 Forbidden
 - User cannot access admin features regardless of menu state
 
@@ -234,8 +234,8 @@ All combinations of Player and Administrator capabilities:
 - `GET /api/auth/me` — No capability required (returns what user has)
 - `GET /api/game/stories` — Requires Player capability
 - `POST /api/game/start` — Requires Player capability
-- `GET /api/admin/stories` — Requires Administrator capability
-- `POST /api/admin/stories/create` — Requires Administrator capability
+- `GET /api/manage/stories` — Requires Administrator capability
+- `POST /api/manage/stories/create` — Requires Administrator capability
 - (Other endpoints defined in respective feature specs)
 
 ---
@@ -326,7 +326,7 @@ All combinations of Player and Administrator capabilities:
 
 **Steps**:
 1. Sign in as Player-only user
-2. Open browser console and call `fetch('/api/admin/stories')`
+2. Open browser console and call `fetch('/api/manage/stories')`
 3. Verify request returns 403 Forbidden (not 200 OK)
 
 **Expected**:

@@ -133,7 +133,7 @@ src/frontend/
 │   │           ├── CharacterTypeList.jsx        # NEW: repeatable add/remove rows
 │   │           └── CompletionCriteriaFields.jsx # NEW
 │   └── services/
-│       └── storyDraftService.js                 # NEW: calls /api/admin/stories/drafts* endpoints
+│       └── storyDraftService.js                 # NEW: calls /api/manage/stories/drafts* endpoints
 └── tests/
     ├── components/
     │   └── StoryWizard/

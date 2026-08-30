@@ -48,12 +48,12 @@ def auth_logout(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(logout)(req)
 
 
-@app.route(route="admin/stories/create", methods=["POST"])
+@app.route(route="manage/stories/create", methods=["POST"])
 def admin_stories_create(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(create_story)(req)
 
 
-@app.route(route="admin/stories", methods=["GET"])
+@app.route(route="manage/stories", methods=["GET"])
 def admin_stories_list(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(list_stories)(req)
 
@@ -63,11 +63,11 @@ def game_start(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(start)(req)
 
 
-@app.route(route="admin/accounts", methods=["POST"])
+@app.route(route="manage/accounts", methods=["POST"])
 def admin_accounts_add(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(add_account)(req)
 
 
-@app.route(route="admin/accounts", methods=["GET"])
+@app.route(route="manage/accounts", methods=["GET"])
 def admin_accounts_list(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(list_accounts)(req)

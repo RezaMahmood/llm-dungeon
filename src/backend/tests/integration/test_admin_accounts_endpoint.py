@@ -1,4 +1,4 @@
-"""Integration tests for POST /api/admin/accounts and GET /api/admin/accounts."""
+"""Integration tests for POST /api/manage/accounts and GET /api/manage/accounts."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ ADMIN_OID = "550e8400-e29b-41d4-a716-446655440000"
 ADMIN_EMAIL = "admin@example.com"
 
 
-def _authorized_request(request_factory, method="POST", url="/api/admin/accounts", body=b""):
+def _authorized_request(request_factory, method="POST", url="/api/manage/accounts", body=b""):
     return request_factory(method=method, url=url, token="valid-token", body=body)
 
 
@@ -28,7 +28,7 @@ def _patched_authorize_admin(entry_roles=("Administrator",)):
     )
 
 
-# --- POST /api/admin/accounts (User Story 2) ---
+# --- POST /api/manage/accounts (User Story 2) ---
 
 
 def test_add_account_creates_entry_with_player_role(request_factory):
@@ -151,11 +151,11 @@ def test_resubmitting_identical_request_twice_is_a_no_op(request_factory):
     assert json.loads(response1.get_body()) == json.loads(response2.get_body())
 
 
-# --- GET /api/admin/accounts (User Story 3) ---
+# --- GET /api/manage/accounts (User Story 3) ---
 
 
 def test_list_accounts_returns_every_entry_with_email_and_roles(request_factory):
-    req = request_factory(method="GET", url="/api/admin/accounts", token="valid-token")
+    req = request_factory(method="GET", url="/api/manage/accounts", token="valid-token")
     service = MagicMock()
     service.list_all.return_value = [
         ProvisionedAccountEntry(email="admin@example.com", roles=["Administrator"], objectId="oid-1"),
@@ -175,7 +175,7 @@ def test_list_accounts_returns_every_entry_with_email_and_roles(request_factory)
 
 
 def test_list_accounts_returns_403_for_non_administrator(request_factory):
-    req = request_factory(method="GET", url="/api/admin/accounts", token="valid-token")
+    req = request_factory(method="GET", url="/api/manage/accounts", token="valid-token")
     service = MagicMock()
 
     with patch("backend.api.admin.accounts.authorize_admin", return_value=(False, ADMIN_OID, MagicMock(status_code=403))):

@@ -150,7 +150,7 @@ def test_second_sign_in_with_mismatched_object_id_is_denied(request_factory):
 
 
 def test_newly_added_account_can_subsequently_sign_in_and_binds_object_id(request_factory):
-    """An email added via POST /api/admin/accounts (add_or_merge) can then sign in
+    """An email added via POST /api/manage/accounts (add_or_merge) can then sign in
     and bind its objectId on that first sign-in."""
     service, container = _real_service_with_container()
     container.read_item.side_effect = CosmosResourceNotFoundError(message="not found")

@@ -274,7 +274,7 @@ Content-Type: application/json
 **Endpoint requiring Administrator capability**:
 
 ```http
-POST /api/admin/stories/create HTTP/1.1
+POST /api/manage/stories/create HTTP/1.1
 Authorization: Bearer <access_token>
 Content-Type: application/json
 

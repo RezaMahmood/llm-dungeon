@@ -25,7 +25,7 @@ def test_me_returns_403_for_unprovisioned_user(request_factory):
 
 
 def test_admin_endpoint_returns_403_without_administrator_role(request_factory):
-    req = request_factory(method="POST", url="/api/admin/stories/create", token="valid-token")
+    req = request_factory(method="POST", url="/api/manage/stories/create", token="valid-token")
     entry = MagicMock()
     entry.roles = ["Player"]
 
