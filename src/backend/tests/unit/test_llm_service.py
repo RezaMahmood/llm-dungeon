@@ -1,40 +1,53 @@
-"""Unit tests for llm_service.py, mocking ChatCompletionsClient — no live Foundry call
-(research.md §1)."""
+"""Unit tests for llm_service.py, mocking OpenAIChatCompletionClient.get_response — no live
+Azure OpenAI call (research.md §1). ChatResponse itself is real (not mocked) so `.value`'s
+actual JSON/schema parsing is exercised for real."""
 
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from agent_framework import ChatResponse, Message, UsageDetails
 
-from backend.services.llm_service import LLMOutputError, LLMService
+from backend.services.llm_service import (
+    LLMOutputError,
+    LLMService,
+    _ExchangeResponse,
+    _GenerationResponse,
+)
 
 
-def _mock_response(content: str, prompt_tokens: int = 42, completion_tokens: int = 17):
-    response = MagicMock()
-    response.choices = [MagicMock(message=MagicMock(content=content))]
-    response.usage = MagicMock(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
-    return response
+def _mock_response(payload_json: str, response_format, prompt_tokens: int = 42, completion_tokens: int = 17):
+    return ChatResponse(
+        messages=[Message(role="assistant", contents=[payload_json])],
+        usage_details=UsageDetails(input_token_count=prompt_tokens, output_token_count=completion_tokens),
+        response_format=response_format,
+    )
+
+
+def _service_with_response(response: ChatResponse) -> LLMService:
+    client = MagicMock()
+    client.get_response = AsyncMock(return_value=response)
+    return LLMService(client=client)
 
 
 def test_generate_exchange_response_parses_valid_json():
-    client = MagicMock()
-    client.complete.return_value = _mock_response(
-        json.dumps({"assistantMessage": "Who is the player?", "fieldUpdates": {"worldPrompt": "A lighthouse..."}})
+    response = _mock_response(
+        json.dumps({"assistantMessage": "Who is the player?", "fieldUpdates": {"worldPrompt": "A lighthouse..."}}),
+        _ExchangeResponse,
     )
-    service = LLMService(client=client)
+    service = _service_with_response(response)
 
     result = service.generate_exchange_response({"worldPrompt": None}, "A half-abandoned lighthouse...")
 
     assert result == {"assistantMessage": "Who is the player?", "fieldUpdates": {"worldPrompt": "A lighthouse..."}}
-    client.complete.assert_called_once()
+    service.client.get_response.assert_called_once()
 
 
 def test_generate_story_config_parses_valid_json():
-    client = MagicMock()
-    client.complete.return_value = _mock_response(json.dumps({"narrativeGuidance": "Keep it eerie but safe."}))
-    service = LLMService(client=client)
+    response = _mock_response(json.dumps({"narrativeGuidance": "Keep it eerie but safe."}), _GenerationResponse)
+    service = _service_with_response(response)
 
     result = service.generate_story_config({"worldPrompt": "A lighthouse..."})
 
@@ -42,31 +55,29 @@ def test_generate_story_config_parses_valid_json():
 
 
 def test_generate_exchange_response_rejects_malformed_json():
-    client = MagicMock()
-    client.complete.return_value = _mock_response("not valid json{")
-    service = LLMService(client=client)
+    response = _mock_response("not valid json{", _ExchangeResponse)
+    service = _service_with_response(response)
 
     with pytest.raises(LLMOutputError):
         service.generate_exchange_response({}, "hello")
 
 
 def test_generate_story_config_rejects_missing_required_key():
-    client = MagicMock()
-    client.complete.return_value = _mock_response(json.dumps({"somethingElse": "oops"}))
-    service = LLMService(client=client)
+    response = _mock_response(json.dumps({"somethingElse": "oops"}), _GenerationResponse)
+    service = _service_with_response(response)
 
     with pytest.raises(LLMOutputError):
         service.generate_story_config({})
 
 
 def test_call_populates_span_attributes_from_usage():
-    client = MagicMock()
-    client.complete.return_value = _mock_response(
+    response = _mock_response(
         json.dumps({"assistantMessage": "hi", "fieldUpdates": {}}),
+        _ExchangeResponse,
         prompt_tokens=100,
         completion_tokens=50,
     )
-    service = LLMService(client=client)
+    service = _service_with_response(response)
 
     span = MagicMock()
     tracer = MagicMock()

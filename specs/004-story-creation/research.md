@@ -16,6 +16,8 @@
 
 **Validation**: `llm_service.py` is unit-tested against a mocked `ChatCompletionsClient` (no live Foundry call in tests, matching how `cosmos_service.py`'s tests mock `CosmosClient`).
 
+**Amendment (2026-08-30)**: `azure-ai-inference` was retired by Microsoft on 2026-08-26, and the endpoint/auth pairing above never actually worked against `007`'s provisioned resource (a plain `azurerm_cognitive_account` of `kind = "OpenAI"`, which only serves the classic `/openai/deployments/{name}/chat/completions` route — not the `{endpoint}/chat/completions` route `azure-ai-inference`'s `ChatCompletionsClient` calls). `llm_service.py` now uses `agent_framework.openai.OpenAIChatCompletionClient` (the `agent-framework-openai` package) instead: same Managed-Identity auth (`credential=DefaultAzureCredential()`, Principle VII), same JSON-mode call shape, but talking the endpoint/API-version pairing Azure OpenAI actually expects, with structured output validated via Pydantic `response_format` models rather than manual `json.loads`. Only the plain chat-completion client is used — no agent/tool/workflow orchestration from the framework (YAGNI) — so this stays a drop-in replacement for the retired SDK, not a framework adoption. `007`'s Terraform gained a matching `AZURE_AI_FOUNDRY_DEPLOYMENT_NAME` app setting (the deployment name Azure OpenAI addresses by, distinct from the bare endpoint).
+
 ---
 
 ## 2. LLM Observability (Constitution Principle VI, NON-NEGOTIABLE)
