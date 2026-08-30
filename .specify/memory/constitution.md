@@ -1,30 +1,32 @@
 <!--
 Sync Impact Report
-Version change: 1.3.0 → 1.4.0
+Version change: 1.4.0 → 1.5.0
 Modified principles: none renamed or removed
+Added principles:
+  - IX. User-Verified Acceptance Before Completion (NON-NEGOTIABLE) — a feature is not
+    complete until a human actually exercises it end-to-end against the real deployed
+    (or otherwise representative) environment and confirms it works; automated tests
+    (Principle I) are necessary but not sufficient.
 Modified sections:
-  - UI Design System Requirements → Screen contracts: the acceptance-reference
-    prototype now exists in-repo at `specs/designs/` (four screens + README + vendored
-    stylesheet), replacing the prior "not yet part of this repository" placeholder.
-    Each screen bullet now names its concrete file, and the admin wizard's six steps
-    are enumerated by name.
-  - UI Design System Requirements → Design tokens & components: named the concrete
-    vendored stylesheet (`specs/designs/styles.css`) and added a new rule limiting
-    screen-local utility classes, both sourced from `specs/designs/README.md`'s
-    implementer notes.
-Added sections: none
+  - Development Workflow & Quality Gates: added a bullet tying task lists to a mandatory
+    final user-verified acceptance task, mirroring how the existing bullets already tie
+    to Principle I/V.
+Added sections: none (new content added to Core Principles and Development Workflow &
+  Quality Gates, both pre-existing sections)
 Removed sections: none
-Source: `specs/designs/` (README.md "Notes for implementers", styles.css, and the four
-  screen files), added to the repo since the v1.3.0 amendment.
+Source: live debugging session on 003-account-provisioning (2026-08-29/30) — all 82
+  backend and 31 frontend automated tests passed throughout, yet the deployed
+  application was broken end-to-end for five separate reasons in sequence (missing
+  Static-Web-App-to-Function-App backend link, a client-side redirect loop, an
+  overly narrow token-issuer check, an access token audienced to Microsoft Graph
+  instead of this app due to a missing exposed API scope, and Azure Functions
+  silently refusing to register any route beginning with the reserved "admin"
+  segment). None of these were catchable by unit/integration tests against mocks;
+  only a human actually signing in against the live deployed app surfaced them,
+  one at a time.
 Templates requiring follow-up: none — dependent templates read this file at runtime and
   are not modified by this command.
 Deferred/TODO placeholders: none.
-Carried-forward note (from the v1.3.0 amendment, now resolved): the acceptance-reference
-  prototype was previously absent from the repo; it has now been added at
-  `specs/designs/` and is named below. The "story cannot be published without a
-  completed test play" rule still needs reconciling into 005-story-publishing's
-  functional requirements — see specs/designs/README.md's Gaps note — not addressed
-  by this constitution-only command.
 -->
 
 # LLM Dungeon Adventure Constitution
@@ -128,6 +130,31 @@ story authoring, gameplay, save/continue); without a single enforced design syst
 accessibility bar, screens built in different cycles would visually and behaviorally
 drift apart, degrading the experience and making the interface harder to maintain.
 
+### IX. User-Verified Acceptance Before Completion (NON-NEGOTIABLE)
+A feature is not complete when its automated tests pass; it is complete when a human
+has actually exercised it end-to-end against the real deployed environment (or, where
+no deployed environment exists yet, the most representative environment available) and
+confirmed it behaves as intended. Every feature's task list MUST include an explicit
+final acceptance task for this, and that task MUST be verified by the requesting user
+or product owner — not marked complete on the strength of the implementing agent's own
+testing, automated or manual. This check is not a substitute for Principle I's automated
+tests and does not relax them; it is a distinct, additional gate that automated tests
+cannot satisfy on their own.
+
+Rationale: Automated tests verify code-level behavior in isolation — they run against
+mocks, local fixtures, or an already-configured test harness. They cannot verify that a
+feature actually works when a real user reaches it through the real deployed system,
+because deployment wiring, third-party identity-provider configuration, and hosting-
+platform routing behavior can all break a feature while every unit and integration test
+still passes. This was proven directly: during 003-account-provisioning's live
+validation, all 82 backend and 31 frontend automated tests passed throughout, yet
+sign-in was completely broken in production for five separate, sequential reasons — a
+missing backend-to-frontend routing link, a client-side redirect loop, an overly narrow
+token-issuer check, an access token audienced to the wrong resource, and a reserved
+platform route name — none of which any automated test exercised or could have caught.
+Only a human actually attempting to sign in against the live deployed app surfaced
+them, one at a time.
+
 ## Security & Access Control Requirements
 
 - Authentication MUST use Microsoft Entra ID; the frontend MUST use a supported
@@ -179,6 +206,10 @@ drift apart, degrading the experience and making the interface harder to maintai
 - Code review by at least one other contributor is required before merge, focused on
   correctness, adherence to this constitution, and meaningful test quality (not just
   presence of tests).
+- Every feature's task list MUST end with a final, explicit user-verified acceptance
+  task, per Principle IX. That task is not complete until the requesting user or
+  product owner has confirmed the feature works end-to-end against the real deployed
+  environment — a passing automated test suite alone does not satisfy it.
 
 ## UI Design System Requirements
 
@@ -335,4 +366,4 @@ with the design-token, visual-rules, interaction-state, or layout/scroll require
 above as a blocking finding. No feature may ship a screen that is not traceable to a
 screen contract above or to a documented amendment extending it.
 
-**Version**: 1.4.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-08-28
+**Version**: 1.5.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-08-30
