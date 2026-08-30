@@ -6,6 +6,19 @@ export default defineConfig({
   server: {
     port: 5173,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Vendor libraries change far less often than app code — splitting them
+        // into their own chunks means a routine app deploy doesn't invalidate the
+        // browser's cache of these (msal-browser in particular is the largest).
+        manualChunks: {
+          msal: ["@azure/msal-browser", "@azure/msal-react"],
+          react: ["react", "react-dom", "react-router-dom"],
+        },
+      },
+    },
+  },
   test: {
     environment: "jsdom",
     setupFiles: "./tests/setup.js",
