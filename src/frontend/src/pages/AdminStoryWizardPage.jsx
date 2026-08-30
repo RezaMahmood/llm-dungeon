@@ -9,10 +9,42 @@ import { loginRequest } from "../services/msalConfig.js";
 import { createDraft, patchDraft, postMessage } from "../services/storyDraftService.js";
 
 const STEPS = [
-  { key: "name-cover", label: "Name & cover", Component: StepNameCover },
-  { key: "world-setting", label: "World & setting", Component: StepWorldSetting },
-  { key: "tone-reading-level", label: "Tone & reading level", Component: StepToneReadingLevel },
-  { key: "session-length", label: "Session length", Component: StepSessionLength },
+  {
+    key: "name-cover",
+    number: "01",
+    label: "Name & cover",
+    description: "What players see in their list.",
+    Component: StepNameCover,
+    isDone: (draft) => Boolean(draft.name || draft.coverImageUrl),
+  },
+  {
+    key: "world-setting",
+    number: "02",
+    label: "World & setting",
+    description:
+      "The engine improvises everything from this. Write it like you are telling a colleague about the place.",
+    Component: StepWorldSetting,
+    isDone: (draft) =>
+      Boolean(draft.worldPrompt) &&
+      (draft.characterTypes?.length ?? 0) > 0 &&
+      (draft.completionCriteria?.successConditions?.length ?? 0) > 0,
+  },
+  {
+    key: "tone-reading-level",
+    number: "03",
+    label: "Tone & reading level",
+    description: "Sets the voice and vocabulary the narrator keeps to.",
+    Component: StepToneReadingLevel,
+    isDone: (draft) => Boolean(draft.tone || draft.readingLevel),
+  },
+  {
+    key: "session-length",
+    number: "04",
+    label: "Session length",
+    description: "How long a sitting runs before a natural place to stop.",
+    Component: StepSessionLength,
+    isDone: (draft) => Boolean(draft.sessionLengthMinutes || draft.chapters),
+  },
 ];
 
 export function AdminStoryWizardPage() {
@@ -88,19 +120,68 @@ export function AdminStoryWizardPage() {
     );
   }
 
-  const ActiveStep = STEPS.find((step) => step.key === activeStep).Component;
+  const activeStepConfig = STEPS.find((step) => step.key === activeStep);
+  const ActiveStep = activeStepConfig.Component;
 
   return (
-    <div style={{ padding: "var(--space-6)" }}>
+    <div style={{ maxWidth: "1080px", padding: "var(--space-6) var(--space-4) 64px" }}>
       <h1>New story</h1>
-      <div className="seg" role="tablist" style={{ marginBottom: "var(--space-6)" }}>
-        {STEPS.map((step) => (
-          <label key={step.key} className="seg-opt" role="tab" aria-selected={activeStep === step.key}>
-            <input type="radio" name="wizard-step" checked={activeStep === step.key} onChange={() => setActiveStep(step.key)} />
-            <span>{step.label}</span>
-          </label>
-        ))}
+      <hr className="hr" />
+
+      <div
+        role="tablist"
+        style={{
+          display: "flex",
+          gap: "2px",
+          background: "var(--color-divider)",
+          border: "1px solid var(--color-divider)",
+          marginBottom: "var(--space-6)",
+          overflow: "hidden",
+        }}
+      >
+        {STEPS.map((step) => {
+          const isActive = step.key === activeStep;
+          const status = isActive ? "In progress" : step.isDone(draft) ? "Done" : "Not started";
+          return (
+            <button
+              key={step.key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setActiveStep(step.key)}
+              style={{
+                flex: 1,
+                background: "var(--color-bg)",
+                border: 0,
+                cursor: "pointer",
+                textAlign: "left",
+                padding: "12px 14px",
+                fontFamily: "var(--font-body)",
+                color: "inherit",
+                display: "flex",
+                flexDirection: "column",
+                gap: "4px",
+              }}
+            >
+              <span className="ovnum" style={{ fontSize: "26px" }}>
+                {step.number}
+              </span>
+              <span style={{ fontSize: "12px", letterSpacing: "0.06em", textTransform: "uppercase" }}>{step.label}</span>
+              <span style={{ fontSize: "11px", color: "var(--color-accent-700)" }}>{status}</span>
+            </button>
+          );
+        })}
       </div>
+
+      <div style={{ display: "flex", alignItems: "flex-end", gap: "14px" }}>
+        <span className="ovnum" style={{ fontSize: "64px", color: "var(--color-accent)" }}>
+          {activeStepConfig.number}
+        </span>
+        <h3 style={{ margin: "0 0 6px" }}>{activeStepConfig.label}</h3>
+      </div>
+      <p className="text-muted" style={{ margin: "14px 0 24px", fontSize: "14px", maxWidth: "56ch" }}>
+        {activeStepConfig.description}
+      </p>
 
       <ActiveStep draft={draft} onPatch={handlePatch} onSendMessage={handleSendMessage} />
     </div>
