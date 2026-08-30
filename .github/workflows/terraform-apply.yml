@@ -7,7 +7,12 @@ on:
       - "infrastructure/terraform/**"
   workflow_dispatch: {}
 
-# Targets the production-infra GitHub environment (created, along with its
+# Gates `terraform apply` behind two automated checks (`validate`, `test`) before the
+# apply job's production-infra approval prompt is ever reachable — see
+# specs/020-terraform-apply-gating/. `validate` and `test` mirror the steps that used to
+# run as the independent terraform-validate.yml/infrastructure-tests.yml push-triggered
+# workflows (those keep only their pull_request/schedule/workflow_dispatch triggers now).
+# `apply` targets the production-infra GitHub environment (created, along with its
 # required-reviewer protection rule, by T014 in Foundational — see
 # specs/007-azure-infrastructure-provisioning/tasks.md) so this workflow pauses
 # for manual approval before `terraform apply` touches Azure. backend-deploy.yml
@@ -18,7 +23,86 @@ permissions:
   id-token: write
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ vars.TERRAFORM_VERSION }}
+
+      - name: terraform fmt / validate
+        run: ./infrastructure/tests/test_terraform_validate.sh
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Init (with backend)
+        working-directory: infrastructure/terraform
+        run: terraform init -backend-config=backend-prod.hcl -input=false
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: infrastructure/terraform
+        env:
+          TF_VAR_azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_azure_tenant_id: ${{ vars.AZURE_TENANT_ID }}
+        run: terraform plan -input=false -out=tfplan -var-file=terraform.tfvars
+
+      # This plan step is FR-016's automated drift check: a manually-changed
+      # resource surfaces here as a non-empty plan on the very next push,
+      # rather than being silently reverted or accepted (spec.md Edge Cases).
+
+  test:
+    needs: validate
+    if: needs.validate.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ vars.TERRAFORM_VERSION }}
+
+      - name: Install test dependencies
+        run: pip install -r infrastructure/tests/requirements.txt
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Init (read-only, for `terraform output`)
+        working-directory: infrastructure/terraform
+        run: terraform init -backend-config=backend-prod.hcl -input=false
+
+      - name: Run infrastructure tests
+        env:
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_APP_ID: ${{ vars.AZURE_APP_ID }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+        run: pytest infrastructure/tests/ -v
+
   apply:
+    needs: test
+    if: needs.test.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production-infra

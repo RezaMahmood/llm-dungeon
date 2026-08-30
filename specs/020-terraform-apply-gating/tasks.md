@@ -61,7 +61,7 @@ fails an infrastructure test) to `main`, and confirm the `apply` job in that run
 
 ### Implementation for User Story 1
 
-- [ ] T001 [US1] In `.github/workflows/terraform-apply.yml`, replace the single `apply`
+- [X] T001 [US1] In `.github/workflows/terraform-apply.yml`, replace the single `apply`
   job with three jobs — `validate`, `test`, `apply` — per
   `contracts/terraform-apply-pipeline-contract.md`: (a) `validate` runs the existing
   `terraform-validate.yml` push-path steps (checkout, setup Terraform, run
@@ -79,12 +79,12 @@ fails an infrastructure test) to `main`, and confirm the `apply` job in that run
   `github.event_name == 'pull_request'`) from the new `validate` job, since that condition
   can never be true on a `push`/`workflow_dispatch` trigger.
 
-- [ ] T002 [P] [US1] In `.github/workflows/terraform-validate.yml`, remove the
+- [X] T002 [P] [US1] In `.github/workflows/terraform-validate.yml`, remove the
   `push: branches: [main]` trigger entry (now redundant with the `validate` job added in
   T001), keeping only the `pull_request` trigger so PR-time fmt/validate/plan feedback is
   unaffected.
 
-- [ ] T003 [P] [US1] In `.github/workflows/infrastructure-tests.yml`, remove the
+- [X] T003 [P] [US1] In `.github/workflows/infrastructure-tests.yml`, remove the
   `push: branches: [main]` trigger entry (now redundant with the `test` job added in
   T001), keeping only the nightly `schedule` and standalone `workflow_dispatch` triggers
   for ops/monitoring use.
@@ -162,7 +162,7 @@ control (Phase 4) are now confirmed to hold together on the same pipeline run.
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T011 [P] In
+- [X] T011 [P] In
   `specs/007-azure-infrastructure-provisioning/contracts/github-actions-contract.md`,
   add a short note above the "Workflow: Infrastructure Provisioning (terraform-apply.yml)"
   and "Workflow: Infrastructure Testing (infrastructure-tests.yml)" sections pointing
