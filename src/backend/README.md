@@ -1,15 +1,18 @@
 # Backend — LLM Dungeon Adventure
 
-Python Azure Functions backend implementing authentication and account
-provisioning (features `002-login-and-access-control`, `003-account-provisioning`).
+Python Azure Functions backend implementing authentication, account
+provisioning, and guided story creation (features `002-login-and-access-control`,
+`003-account-provisioning`, `004-story-creation`).
 
 ## Structure
 
 ```
 src/backend/
 ├── api/            # HTTP route handlers (auth, admin, game)
-├── models/         # ProvisionedAccountEntry
-├── services/       # Cosmos DB, token validation, account provisioning
+├── models/         # ProvisionedAccountEntry, Story, StoryDraft, CharacterType,
+│                   # CompletionCriteria, StoryCreationExchange
+├── services/       # Cosmos DB, token validation, account provisioning,
+│                   # LLM client (Azure AI Foundry), story draft/story persistence
 ├── db/             # Seed data script
 ├── config.py       # Environment-driven configuration
 └── function_app.py # Azure Functions entry point (route registration)
@@ -53,6 +56,10 @@ func start
 | `AZURE_TENANT_ID` | Azure AD tenant ID |
 | `AZURE_APP_ID` | Azure AD app registration ID (token audience) |
 | `COSMOS_ENDPOINT` | Cosmos DB account endpoint (Managed Identity auth, no keys) |
+| `AZURE_AI_FOUNDRY_ENDPOINT` | Azure AI Foundry deployed-model endpoint (Managed Identity auth, no keys) — `004-story-creation`'s `llm_service.py` |
+| `LLM_INPUT_TOKEN_PRICE_USD` | USD price per input token, used to compute `gen_ai.cost_usd` on every LLM call span (Constitution Principle VI) |
+| `LLM_OUTPUT_TOKEN_PRICE_USD` | USD price per output token, same purpose |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Application Insights connection string; when set, `configure_azure_monitor()` exports OpenTelemetry spans (incl. `gen_ai.*` LLM call spans) on startup — unset locally, this step is skipped |
 
 ## Deployment
 
@@ -62,8 +69,9 @@ via the GitHub Actions workflow, on merge to `main`.
 
 ## API endpoints
 
-See [002's contracts/api.md](../../specs/002-login-and-access-control-done/contracts/api.md) and
-[003's contracts/api.md](../../specs/003-account-provisioning/contracts/api.md) for full
+See [002's contracts/api.md](../../specs/002-login-and-access-control-done/contracts/api.md),
+[003's contracts/api.md](../../specs/003-account-provisioning/contracts/api.md), and
+[004's contracts/api.md](../../specs/004-story-creation/contracts/api.md) for full
 request/response contracts.
 
 | Endpoint | Method | Requires |
@@ -73,11 +81,15 @@ request/response contracts.
 | `/api/auth/logout` | POST | Valid bearer token |
 | `/api/manage/accounts` | POST | Administrator role |
 | `/api/manage/accounts` | GET | Administrator role |
+| `/api/manage/stories/drafts` | POST | Administrator role |
+| `/api/manage/stories/drafts/{draftId}` | GET | Administrator role |
+| `/api/manage/stories/drafts/{draftId}` | PATCH | Administrator role |
+| `/api/manage/stories/drafts/{draftId}/messages` | POST | Administrator role |
 | `/api/manage/stories` | GET | Administrator role |
-| `/api/manage/stories/create` | POST | Administrator role |
+| `/api/manage/stories/{storyId}` | GET | Administrator role |
+| `/api/game/start` | POST | Player role |
 
 `manage/*`, not `admin/*`: Azure Functions reserves any function route starting
 with the literal segment `admin` for its own internal management API,
 regardless of `routePrefix` — a route named `admin/...` fails to register at
 all ("route conflicts with one or more built in routes").
-| `/api/game/start` | POST | Player role |

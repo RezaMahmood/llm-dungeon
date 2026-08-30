@@ -8,6 +8,7 @@ import LoginScreen from "./components/Login/LoginScreen.jsx";
 import MainMenu from "./components/Menu/MainMenu.jsx";
 import AdminAccountsPage from "./pages/AdminAccountsPage.jsx";
 import AdminPage from "./pages/AdminPage.jsx";
+import AdminStoryWizardPage from "./pages/AdminStoryWizardPage.jsx";
 import GamePage from "./pages/GamePage.jsx";
 
 export function App() {
@@ -58,6 +59,14 @@ export function App() {
               element={
                 <ProtectedRoute capability="Administrator">
                   <AdminAccountsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/stories/new"
+              element={
+                <ProtectedRoute capability="Administrator">
+                  <AdminStoryWizardPage />
                 </ProtectedRoute>
               }
             />

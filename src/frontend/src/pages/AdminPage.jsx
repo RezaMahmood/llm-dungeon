@@ -12,6 +12,9 @@ export function AdminPage() {
       <Link to="/admin/accounts" className="btn btn-secondary">
         Accounts
       </Link>
+      <Link to="/admin/stories/new" className="btn btn-primary" style={{ marginLeft: "var(--space-2)" }}>
+        New story
+      </Link>
     </div>
   );
 }
