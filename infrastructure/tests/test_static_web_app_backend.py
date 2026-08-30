@@ -3,7 +3,7 @@
 Without this link, Azure has no route for the frontend's relative /api/*
 calls (authService.js, accountService.js) — the SWA's own router 404s
 before the request ever reaches the Function App. Found live during
-003-account-provisioning's quickstart validation (issue #32): sign-in
+003-account-provisioning-done's quickstart validation (issue #32): sign-in
 succeeded through MSAL, but GET /api/auth/me 404'd because neither a linked
 backend nor Function App CORS had ever been provisioned.
 """

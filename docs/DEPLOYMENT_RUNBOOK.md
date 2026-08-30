@@ -12,7 +12,7 @@ provision any Azure infrastructure itself.
      `infrastructure/terraform/main.tf`, applied by 007's Terraform pipeline.
      Replaces this feature's original `allowListEntries`/
      `capabilityAssignments` containers; superseded by
-     [`003-account-provisioning`](../specs/003-account-provisioning/data-model.md).
+     [`003-account-provisioning-done`](../specs/003-account-provisioning-done/data-model.md).
 
 2. **Seed test data**
    ```bash

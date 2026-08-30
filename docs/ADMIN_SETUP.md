@@ -1,7 +1,7 @@
 # Administrator Setup: Account Provisioning
 
 Account access is managed through the in-app Administration → Accounts
-screen (`003-account-provisioning`), not by editing Cosmos DB directly.
+screen (`003-account-provisioning-done`), not by editing Cosmos DB directly.
 
 ## Bootstrapping the first administrator
 
@@ -35,7 +35,7 @@ its role(s), and whether it has signed in yet ("bound").
 ## Removing / revoking access
 
 Not supported by this feature (explicit scope boundary — see
-[`003-account-provisioning`'s spec](../specs/003-account-provisioning/spec.md)
+[`003-account-provisioning-done`'s spec](../specs/003-account-provisioning-done/spec.md)
 Assumptions). Removing an entry today requires a direct edit to the
 `provisionedAccountEntries` Cosmos DB container.
 

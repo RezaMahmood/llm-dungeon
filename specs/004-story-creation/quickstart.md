@@ -13,7 +13,7 @@ This guide provides step-by-step validation scenarios confirming story creation 
 1. Cosmos DB `storyDrafts` (TTL-enabled) and `stories` containers exist (per `007-azure-infrastructure-provisioning` and data-model.md's Storage Model).
 2. Backend deployed (or running locally) with `/api/manage/stories/drafts` (POST/GET/PATCH), `/api/manage/stories/drafts/{id}/messages` (POST), `/api/manage/stories` (GET), `/api/manage/stories/{id}` (GET).
 3. The Azure AI Foundry deployed model is reachable from the backend (Managed Identity, per `007-azure-infrastructure-provisioning`); locally, `llm_service.py` can be run against a real Foundry endpoint the developer has access to, or exercised via its mocked unit tests only.
-4. A signed-in Administrator account (per `002-login-and-access-control` / `003-account-provisioning`).
+4. A signed-in Administrator account (per `002-login-and-access-control` / `003-account-provisioning-done`).
 5. Frontend running with the "New story" wizard reachable from the admin story list.
 
 ---
