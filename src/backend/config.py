@@ -27,6 +27,7 @@ class Config:
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
 
     AZURE_AI_FOUNDRY_ENDPOINT = os.environ.get("AZURE_AI_FOUNDRY_ENDPOINT", "")
+    AZURE_AI_FOUNDRY_DEPLOYMENT_NAME = os.environ.get("AZURE_AI_FOUNDRY_DEPLOYMENT_NAME", "")
     LLM_INPUT_TOKEN_PRICE_USD = float(os.environ.get("LLM_INPUT_TOKEN_PRICE_USD", "0") or "0")
     LLM_OUTPUT_TOKEN_PRICE_USD = float(os.environ.get("LLM_OUTPUT_TOKEN_PRICE_USD", "0") or "0")
 

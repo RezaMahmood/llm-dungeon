@@ -114,6 +114,21 @@ resource "azurerm_cosmosdb_sql_container" "stories" {
   partition_key_version = 2
 }
 
+resource "azurerm_cosmosdb_sql_container" "story_drafts" {
+  # 004-story-creation, data-model.md Storage Model: ephemeral in-progress
+  # wizard sessions, one document per draft. default_ttl = -1 enables
+  # per-item TTL without a container-wide expiry — every StoryDraft document
+  # sets its own `ttl` field (reset to 86400 on each update, research.md §3),
+  # so nothing expires unless the application says so.
+  name                  = "storyDrafts"
+  resource_group_name   = data.azurerm_resource_group.rg.name
+  account_name          = azurerm_cosmosdb_account.cosmos.name
+  database_name         = azurerm_cosmosdb_sql_database.db.name
+  partition_key_paths   = ["/id"]
+  partition_key_version = 2
+  default_ttl           = -1
+}
+
 resource "azurerm_cosmosdb_sql_container" "provisioned_account_entries" {
   # Replaces allowListEntries + capabilityAssignments (003-account-provisioning-done):
   # both were keyed by user_oid; this single container is keyed by lowercased
@@ -213,18 +228,28 @@ resource "azurerm_function_app_flex_consumption" "functions" {
   }
 
   app_settings = {
-    COSMOS_ENDPOINT                 = azurerm_cosmosdb_account.cosmos.endpoint
-    COSMOS_DATABASE                 = azurerm_cosmosdb_sql_database.db.name
-    COSMOS_CONTAINER                = azurerm_cosmosdb_sql_container.stories.name
-    STORAGE_ACCOUNT_URL             = azurerm_storage_account.app_storage.primary_blob_endpoint
-    STORAGE_CONTAINER               = azurerm_storage_container.assets.name
-    AZURE_OPENAI_ENDPOINT           = azurerm_cognitive_account.openai.endpoint
-    AZURE_OPENAI_DEPLOYMENT_NAME    = azurerm_cognitive_deployment.model.name
-    AZURE_TENANT_ID                 = var.azure_tenant_id
-    AZURE_APP_ID                    = var.azure_app_id != "" ? var.azure_app_id : var.azure_client_id
-    SEED_ADMIN_EMAIL                = var.seed_admin_email
-    FRONTEND_URL                    = "https://${azurerm_static_web_app.web.default_host_name}/"
-    PYTHON_ENABLE_WORKER_EXTENSIONS = "true"
+    COSMOS_ENDPOINT              = azurerm_cosmosdb_account.cosmos.endpoint
+    COSMOS_DATABASE              = azurerm_cosmosdb_sql_database.db.name
+    COSMOS_CONTAINER             = azurerm_cosmosdb_sql_container.stories.name
+    STORY_DRAFTS_CONTAINER       = azurerm_cosmosdb_sql_container.story_drafts.name
+    STORIES_CONTAINER            = azurerm_cosmosdb_sql_container.stories.name
+    STORAGE_ACCOUNT_URL          = azurerm_storage_account.app_storage.primary_blob_endpoint
+    STORAGE_CONTAINER            = azurerm_storage_container.assets.name
+    AZURE_OPENAI_ENDPOINT        = azurerm_cognitive_account.openai.endpoint
+    AZURE_OPENAI_DEPLOYMENT_NAME = azurerm_cognitive_deployment.model.name
+    # 004-story-creation's llm_service.py reads AZURE_AI_FOUNDRY_ENDPOINT
+    # (research.md §1's azure-ai-inference client), not the AZURE_OPENAI_*
+    # names above — same cognitive account, the name this feature's code
+    # actually looks up.
+    AZURE_AI_FOUNDRY_ENDPOINT        = azurerm_cognitive_account.openai.endpoint
+    AZURE_AI_FOUNDRY_DEPLOYMENT_NAME = azurerm_cognitive_deployment.model.name
+    LLM_INPUT_TOKEN_PRICE_USD        = var.llm_input_token_price_usd
+    LLM_OUTPUT_TOKEN_PRICE_USD       = var.llm_output_token_price_usd
+    AZURE_TENANT_ID                  = var.azure_tenant_id
+    AZURE_APP_ID                     = var.azure_app_id != "" ? var.azure_app_id : var.azure_client_id
+    SEED_ADMIN_EMAIL                 = var.seed_admin_email
+    FRONTEND_URL                     = "https://${azurerm_static_web_app.web.default_host_name}/"
+    PYTHON_ENABLE_WORKER_EXTENSIONS  = "true"
   }
 
   tags = local.common_tags
