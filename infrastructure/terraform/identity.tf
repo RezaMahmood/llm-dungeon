@@ -39,3 +39,32 @@ resource "azurerm_role_assignment" "functions_monitoring_metrics_publisher" {
   role_definition_name = "Monitoring Metrics Publisher"
   principal_id         = azurerm_function_app_flex_consumption.functions.identity[0].principal_id
 }
+
+# --- Microsoft Graph application permissions (EntraDirectoryService, T057/T058) ---
+# Grants the Function App's system-assigned Managed Identity application-level
+# (not delegated) Graph permissions to invite (FR-011) and remove (FR-013)
+# Entra ID guest users, matching EntraDirectoryService's use of
+# DefaultAzureCredential against https://graph.microsoft.com/.default. An
+# azuread_app_role_assignment against an application permission constitutes
+# admin consent — no separate consent step is required.
+
+# Well-known application ID for the Microsoft Graph service principal —
+# fixed by Microsoft in every tenant, not something Terraform creates.
+data "azuread_service_principal" "msgraph" {
+  client_id = "00000003-0000-0000-c000-000000000000"
+}
+
+resource "azuread_app_role_assignment" "functions_graph_user_invite_all" {
+  app_role_id         = data.azuread_service_principal.msgraph.app_role_ids["User.Invite.All"]
+  principal_object_id = azurerm_function_app_flex_consumption.functions.identity[0].principal_id
+  resource_object_id  = data.azuread_service_principal.msgraph.object_id
+}
+
+# Scoped delete permission for remove_guest (T057) — User.ReadWrite.All is the
+# narrowest built-in Graph application role that includes deleting a guest
+# user; there is no permission scoped to "delete guest users" alone.
+resource "azuread_app_role_assignment" "functions_graph_user_readwrite_all" {
+  app_role_id         = data.azuread_service_principal.msgraph.app_role_ids["User.ReadWrite.All"]
+  principal_object_id = azurerm_function_app_flex_consumption.functions.identity[0].principal_id
+  resource_object_id  = data.azuread_service_principal.msgraph.object_id
+}

@@ -24,6 +24,7 @@ class Config:
     STORY_DRAFTS_CONTAINER = "storyDrafts"
     STORIES_CONTAINER = "stories"
     SEED_ADMIN_EMAIL = os.environ.get("SEED_ADMIN_EMAIL", "")
+    FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
 
     AZURE_AI_FOUNDRY_ENDPOINT = os.environ.get("AZURE_AI_FOUNDRY_ENDPOINT", "")
     LLM_INPUT_TOKEN_PRICE_USD = float(os.environ.get("LLM_INPUT_TOKEN_PRICE_USD", "0") or "0")

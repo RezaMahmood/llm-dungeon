@@ -8,9 +8,12 @@ import pytest
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 from backend.services.account_provisioning_service import (
+    AccountNotFoundError,
     AccountProvisioningService,
     InvalidEmailError,
     RoleRequiredError,
+    SeedAdminRemovalError,
+    SelfRemovalError,
 )
 
 OID = "550e8400-e29b-41d4-a716-446655440000"
@@ -37,7 +40,16 @@ def _service_with_container():
     cosmos = MagicMock()
     container = MagicMock()
     cosmos.get_container.return_value = container
-    return AccountProvisioningService(cosmos_service=cosmos), cosmos, container
+    entra = MagicMock()
+    return AccountProvisioningService(cosmos_service=cosmos, entra_directory_service=entra), cosmos, container
+
+
+def _service_with_container_and_entra():
+    cosmos = MagicMock()
+    container = MagicMock()
+    cosmos.get_container.return_value = container
+    entra = MagicMock()
+    return AccountProvisioningService(cosmos_service=cosmos, entra_directory_service=entra), container, entra
 
 
 # --- get_by_email ---
@@ -222,3 +234,62 @@ def test_list_all_returns_every_entry():
 
     assert len(entries) == 2
     assert {e.email for e in entries} == {EMAIL, "admin@example.com"}
+
+
+# --- add_or_merge invites the account's Entra guest user (FR-011, T059) ---
+
+
+def test_add_or_merge_invites_entra_guest_on_new_entry():
+    service, container, entra = _service_with_container_and_entra()
+    container.read_item.side_effect = CosmosResourceNotFoundError(message="not found")
+
+    service.add_or_merge(EMAIL, ["Player"], added_by="admin@example.com")
+
+    entra.invite_guest.assert_called_once_with(EMAIL)
+
+
+def test_add_or_merge_invites_entra_guest_on_merge():
+    service, container, entra = _service_with_container_and_entra()
+    container.read_item.return_value = _entry_dict(roles=["Player"], objectId=OID, dateBound="2026-08-29T00:05:00Z")
+
+    service.add_or_merge(EMAIL, ["Administrator"], added_by="admin@example.com")
+
+    entra.invite_guest.assert_called_once_with(EMAIL)
+
+
+# --- remove_account (FR-012/FR-013, T060) ---
+
+ADMIN_EMAIL = "admin@example.com"
+SEED_ADMIN_EMAIL = "seed-admin@example.com"
+
+
+def test_remove_account_rejects_self_removal():
+    service, _container, _entra = _service_with_container_and_entra()
+
+    with pytest.raises(SelfRemovalError):
+        service.remove_account(ADMIN_EMAIL, requested_by_email=ADMIN_EMAIL, seed_admin_email=SEED_ADMIN_EMAIL)
+
+
+def test_remove_account_rejects_seed_administrator_removal():
+    service, _container, _entra = _service_with_container_and_entra()
+
+    with pytest.raises(SeedAdminRemovalError):
+        service.remove_account(SEED_ADMIN_EMAIL, requested_by_email=ADMIN_EMAIL, seed_admin_email=SEED_ADMIN_EMAIL)
+
+
+def test_remove_account_raises_not_found_when_no_entry_exists():
+    service, container, _entra = _service_with_container_and_entra()
+    container.read_item.side_effect = CosmosResourceNotFoundError(message="not found")
+
+    with pytest.raises(AccountNotFoundError):
+        service.remove_account(EMAIL, requested_by_email=ADMIN_EMAIL, seed_admin_email=SEED_ADMIN_EMAIL)
+
+
+def test_remove_account_deletes_entry_and_removes_entra_guest():
+    service, container, entra = _service_with_container_and_entra()
+    container.read_item.return_value = _entry_dict()
+
+    service.remove_account(EMAIL, requested_by_email=ADMIN_EMAIL, seed_admin_email=SEED_ADMIN_EMAIL)
+
+    container.delete_item.assert_called_once_with(item=EMAIL, partition_key=EMAIL)
+    entra.remove_guest.assert_called_once_with(EMAIL)

@@ -223,6 +223,7 @@ resource "azurerm_function_app_flex_consumption" "functions" {
     AZURE_TENANT_ID                 = var.azure_tenant_id
     AZURE_APP_ID                    = var.azure_app_id != "" ? var.azure_app_id : var.azure_client_id
     SEED_ADMIN_EMAIL                = var.seed_admin_email
+    FRONTEND_URL                    = "https://${azurerm_static_web_app.web.default_host_name}/"
     PYTHON_ENABLE_WORKER_EXTENSIONS = "true"
   }
 
