@@ -27,10 +27,12 @@ logger = logging.getLogger("function_app")
 
 # Principle VI (Observability & AI Cost Transparency, NON-NEGOTIABLE) — one-call
 # OpenTelemetry -> Application Insights wiring, initialized once at startup so
-# every later span (e.g. llm_service.py's gen_ai.* spans) is exported. Skipped
-# when no Application Insights connection string is configured (e.g. local dev
-# without 007-azure-infrastructure-provisioning's resources) — configure_azure_monitor()
-# raises rather than no-opping if it's absent.
+# every later span (e.g. llm_service.py's gen_ai.* spans) is exported.
+# APPLICATIONINSIGHTS_CONNECTION_STRING is supplied as an Azure Functions
+# application setting by 007-azure-infrastructure-provisioning, same as
+# config.py's Azure AD / Cosmos settings — not present locally, where this
+# step is skipped (configure_azure_monitor() raises rather than no-opping
+# if it's absent).
 if os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING"):
     configure_azure_monitor()
 
