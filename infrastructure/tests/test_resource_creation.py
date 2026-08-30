@@ -109,3 +109,7 @@ def test_azure_openai_model_deployment_exists(cognitive_client, terraform_output
         terraform_outputs["azure_openai_deployment_name"],
     )
     assert deployment is not None
+
+def test_gate_scenario_2_deliberate_failure():
+    """Deliberate failure for 020-terraform-apply-gating Scenario 2 verification."""
+    assert False, "intentional failure for gate verification — remove after Scenario 2"
