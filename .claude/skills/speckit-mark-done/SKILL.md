@@ -139,7 +139,27 @@ git mv "specs/$old" "specs/$new"
 If the destination already exists (collision), stop, leave that one pair out, report the
 conflict, and continue with the rest.
 
-### 7. Fix cross-references
+### 7. Clean up the finished feature's own worktree pointer
+
+For each `(old → new)` pair that is a **forward** rename (`base` → `base-done`, i.e. the
+feature just became fully done — not a revert): if a worktree exists at
+`$PRIMARY_REPO_ROOT/.worktrees/$base` (check with `git -C "$PRIMARY_REPO_ROOT" worktree list
+--porcelain`), delete its `.specify/feature.json` if present:
+
+```bash
+rm -f "$PRIMARY_REPO_ROOT/.worktrees/$base/.specify/feature.json"
+```
+
+The feature is finished, so that per-checkout pointer no longer needs to resolve anything —
+leaving it in place risks the same kind of staleness the `check-worktree-sync.sh` PreToolUse
+hook exists to catch, if that worktree's branch is ever reused or checked out elsewhere later.
+This is a plain file deletion outside `$WORKTREE_PATH` (the temporary worktree this run is
+using for the rename/PR), not a git operation, and it does not touch or remove the feature's
+worktree itself — per the Key Rules, worktree removal stays a separate, manual step for the
+user to do once the feature's branch is merged. Skip silently if no such worktree exists (the
+feature may never have had one, or it was already removed).
+
+### 8. Fix cross-references
 
 For each `(old → new)` pair, find every file elsewhere in the repo that mentions the old
 folder name and update it:
@@ -165,7 +185,7 @@ After running it for every pair, re-grep for each `old` name repo-wide (same exc
 confirm nothing outside the renamed spec's own directory still references it. Report any
 survivors rather than silently leaving them.
 
-### 8. Review and commit
+### 9. Review and commit
 
 ```bash
 git status
@@ -191,7 +211,7 @@ EOF
 
 Model the message on `d56dedd`'s commit message.
 
-### 9. Push and open a PR
+### 10. Push and open a PR
 
 ```bash
 git push -u origin "$BRANCH"
@@ -212,7 +232,7 @@ failing the run — retry `gh pr create` without `--label` rather than aborting.
 
 Report the PR URL back to the user.
 
-### 10. Clean up the working worktree and branch
+### 11. Clean up the working worktree and branch
 
 ```bash
 cd "$PRIMARY_REPO_ROOT"
@@ -233,6 +253,9 @@ still using the path, stop and report rather than forcing removal.
       (`git mv`), preserving history.
 - [ ] Every reference to a renamed folder elsewhere in the repo (outside the renamed spec's
       own directory) has been updated to the new path.
+- [ ] For each spec newly marked done, `.specify/feature.json` has been removed from that
+      feature's own worktree (`.worktrees/<base>`) if one exists — the worktree itself is left
+      alone.
 - [ ] If — and only if — a rename occurred: the change is committed, pushed, and a PR is
       open, and the temporary local worktree and branch used to produce it have been removed
       (leaving `main` untouched throughout and the remote PR branch intact).
