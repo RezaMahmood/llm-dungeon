@@ -62,6 +62,16 @@
    `waiting`/pending-review are visually and textually distinct in the GitHub UI and in
    `gh run view` output.
 
+## Scenario 7 — Quick-succession pushes gate independently (FR-007, Edge Case 2)
+
+1. Push two independent Terraform changes to `main` in quick succession: change A
+   deliberately fails `terraform validate` (as in Scenario 1); change B, pushed right
+   behind it, is valid and passes both checks.
+2. `gh run list --workflow=terraform-apply.yml --limit=2` → open both runs.
+3. **Expected**: A's run shows `validate = failure`, `test`/`apply` = `skipped`. B's run
+   independently shows `validate = success`, `test = success`, `apply = waiting`
+   (pending review) — unaffected by A's failure.
+
 ## Final acceptance (Constitution Principle IX)
 
 Per this project's constitution, this feature is not complete on automated evidence
