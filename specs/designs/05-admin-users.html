@@ -44,42 +44,67 @@ body { margin: 0; overflow: hidden; }
             <tr>
               <td>Ada Bell</td>
               <td class="text-muted" style="overflow-wrap:anywhere">ada.bell@school.internal</td>
-              <td><span class="tag tag-outline">Player</span></td>
+              <td>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <span class="tag tag-outline" style="white-space:nowrap">Player</span>
+                </div>
+              </td>
               <td class="text-muted" style="overflow-wrap:anywhere">12 Aug</td>
               <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
             </tr>
             <tr>
               <td>Sam Iyer</td>
               <td class="text-muted" style="overflow-wrap:anywhere">sam.iyer@school.internal</td>
-              <td><span class="tag tag-outline">Player</span></td>
+              <td>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <span class="tag tag-outline" style="white-space:nowrap">Player</span>
+                </div>
+              </td>
               <td class="text-muted" style="overflow-wrap:anywhere">12 Aug</td>
               <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
             </tr>
             <tr>
               <td>Nell Okonkwo</td>
               <td class="text-muted" style="overflow-wrap:anywhere">nell.okonkwo@school.internal</td>
-              <td><span class="tag tag-outline">Player</span></td>
+              <td>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <span class="tag tag-outline" style="white-space:nowrap">Player</span>
+                </div>
+              </td>
               <td class="text-muted" style="overflow-wrap:anywhere">9 Aug</td>
               <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
             </tr>
             <tr>
               <td>Ms Okafor</td>
               <td class="text-muted" style="overflow-wrap:anywhere">j.okafor@school.internal</td>
-              <td><span class="tag tag-accent">Administrator</span></td>
+              <td>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <span class="tag tag-accent" style="white-space:nowrap">Administrator</span>
+                </div>
+              </td>
               <td class="text-muted" style="overflow-wrap:anywhere">2 Aug</td>
               <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
             </tr>
             <tr>
               <td>Mr Deane</td>
               <td class="text-muted" style="overflow-wrap:anywhere">r.deane@school.internal</td>
-              <td><span class="tag tag-accent">Administrator</span></td>
+              <td>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <span class="tag tag-outline" style="white-space:nowrap">Player</span>
+                  <span class="tag tag-accent" style="white-space:nowrap">Administrator</span>
+                </div>
+              </td>
               <td class="text-muted" style="overflow-wrap:anywhere">2 Aug</td>
               <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
             </tr>
             <tr>
               <td>Theo Marsh</td>
               <td class="text-muted" style="overflow-wrap:anywhere">theo.marsh@school.internal</td>
-              <td><span class="tag tag-outline">Player</span></td>
+              <td>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <span class="tag tag-outline" style="white-space:nowrap">Player</span>
+                </div>
+              </td>
               <td class="text-muted" style="overflow-wrap:anywhere">28 Jul</td>
               <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
             </tr>
@@ -96,13 +121,19 @@ body { margin: 0; overflow: hidden; }
           <div class="field"><label for="uname">Full name</label><input class="input" id="uname" placeholder="Ada Bell"></div>
           <div class="field"><label for="uemail">Microsoft account</label><input class="input" id="uemail" placeholder="ada.bell@school.internal"></div>
           <div class="field">
-            <label>Role</label>
-            <div class="seg" style="margin-top:2px">
-              <label class="seg-opt"><input type="radio" name="newrole" checked><span>Player</span></label>
-              <label class="seg-opt"><input type="radio" name="newrole"><span>Administrator</span></label>
+            <label>Roles — choose one or both</label>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+              <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;min-height:44px;padding:8px 0">
+                <input type="checkbox" checked style="width:20px;height:20px;accent-color:var(--color-accent);margin:2px 0 0;flex:none">
+                <span><span style="font-size:15px">Player</span><br><span class="text-muted" style="font-size:13px">Sees only the stories assigned to their class.</span></span>
+              </label>
+              <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;min-height:44px;padding:8px 0">
+                <input type="checkbox" style="width:20px;height:20px;accent-color:var(--color-accent);margin:2px 0 0;flex:none">
+                <span><span style="font-size:15px">Administrator</span><br><span class="text-muted" style="font-size:13px">Creates and edits stories, adds and removes accounts.</span></span>
+              </label>
             </div>
           </div>
-          <p class="text-muted" style="margin:0;font-size:13px">Players see only the stories assigned to their class. Administrators create and edit stories, and can add or remove accounts.</p>
+          <p class="text-muted" style="margin:0;font-size:13px">An account can hold both roles. You can grant the other role at any time.</p>
           <hr class="hr" style="margin:2px 0;height:1px">
           <button class="btn btn-primary btn-block" type="submit" style="padding:14px 16px;font-size:15px;margin:0">Add account</button>
         </form>
