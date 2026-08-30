@@ -239,4 +239,4 @@ variable "github_repository_branch" {
 
 # Scenario 4 (T010) verification run: this pending review is expected to be rejected.
 
-   # Scenario 7A deliberate fmt failure (020-terraform-apply-gating quick-succession test)
+# Scenario 7B trivial passing change (020-terraform-apply-gating quick-succession test)
