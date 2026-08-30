@@ -91,6 +91,7 @@ description: "Task list for Story Creation (004-story-creation)"
 - [X] T030 [P] Update `src/backend/README.md` documenting the new story-creation endpoints and the `AZURE_AI_FOUNDRY_ENDPOINT`/`LLM_*_TOKEN_PRICE_USD` configuration
 - [X] T031 [P] Update `src/frontend/README.md` documenting the new admin story-wizard route
 - [X] T032 Run the full backend (`pytest`) and frontend (`vitest run`) suites and confirm every new and existing test passes
+- [ ] T033 **User-verified acceptance** (Constitution Principle IX, NON-NEGOTIABLE): the requesting user or product owner — not the implementing agent — signs in as an Administrator against the real deployed environment (or the most representative environment available) and manually runs quickstart.md's Scenario 1 end-to-end: open `/admin/stories/new`, describe a story idea in plain language, answer the guiding question(s), add at least one character type and completion criterion through the dedicated fields, and confirm the wizard lands on a generated, unpublished story with no separate save step. This task is not complete until that confirmation is given; a passing T032 test run does not satisfy it.
 
 ---
 
