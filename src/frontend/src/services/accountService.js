@@ -20,4 +20,12 @@ export async function listAccounts(token) {
   return response.data;
 }
 
-export default { addAccount, listAccounts };
+export async function removeAccount(token, email) {
+  const response = await client.delete("/manage/accounts", {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { email },
+  });
+  return response.data;
+}
+
+export default { addAccount, listAccounts, removeAccount };

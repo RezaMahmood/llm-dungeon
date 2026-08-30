@@ -6,7 +6,7 @@ import os
 import azure.functions as func
 from azure.monitor.opentelemetry import configure_azure_monitor
 
-from backend.api.admin.accounts import add_account, list_accounts
+from backend.api.admin.accounts import add_account, list_accounts, remove_account
 from backend.api.admin.stories import (
     create_draft,
     get_draft,
@@ -111,3 +111,8 @@ def admin_accounts_add(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="manage/accounts", methods=["GET"])
 def admin_accounts_list(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(list_accounts)(req)
+
+
+@app.route(route="manage/accounts", methods=["DELETE"])
+def admin_accounts_remove(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(remove_account)(req)

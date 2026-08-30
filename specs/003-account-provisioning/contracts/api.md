@@ -76,12 +76,13 @@ Content-Type: application/json
   "account": {
     "email": "newplayer@example.com",
     "roles": ["Player"],
-    "bound": false
+    "bound": false,
+    "isSeedAdmin": false
   }
 }
 ```
 
-`bound` is `true` once the entry has a non-null `objectId` (i.e., that account has signed in at least once) — surfaced so the admin list (below) can show it without exposing the raw `objectId`.
+`bound` is `true` once the entry has a non-null `objectId` (i.e., that account has signed in at least once) — surfaced so the admin list (below) can show it without exposing the raw `objectId`. `isSeedAdmin` is `true` only for the entry matching the deployment-configured seed administrator email — a client-side convenience (added 2026-08-30 alongside removal) so the accounts screen can disable that row's removal action; `remove_account`'s server-side rejection (below) is the actual enforcement.
 
 **Response (400 Bad Request)** — no role selected:
 
@@ -125,8 +126,8 @@ Authorization: Bearer <access_token>
 {
   "status": "success",
   "accounts": [
-    { "email": "admin@example.com", "roles": ["Administrator"], "bound": true },
-    { "email": "newplayer@example.com", "roles": ["Player"], "bound": false }
+    { "email": "admin@example.com", "roles": ["Administrator"], "bound": true, "isSeedAdmin": true },
+    { "email": "newplayer@example.com", "roles": ["Player"], "bound": false, "isSeedAdmin": false }
   ]
 }
 ```

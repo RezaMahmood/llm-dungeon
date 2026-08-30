@@ -31,12 +31,14 @@ def _entry_dict(**overrides):
 
 
 def _real_service_with_container():
-    """A real AccountProvisioningService over a mocked Cosmos container, so
-    authorize_sign_in's bind logic runs for real against test doubles."""
+    """A real AccountProvisioningService over a mocked Cosmos container and a
+    mocked EntraDirectoryService, so authorize_sign_in's bind logic runs for
+    real against test doubles without making any real Graph calls."""
     cosmos = MagicMock()
     container = MagicMock()
     cosmos.get_container.return_value = container
-    return AccountProvisioningService(cosmos_service=cosmos), container
+    entra = MagicMock()
+    return AccountProvisioningService(cosmos_service=cosmos, entra_directory_service=entra), container
 
 
 def test_login_valid_token_provisioned_player_returns_200(request_factory):
@@ -172,3 +174,23 @@ def test_newly_added_account_can_subsequently_sign_in_and_binds_object_id(reques
     assert response.status_code == 200
     persisted = container.upsert_item.call_args[0][0]
     assert persisted["objectId"] == USER_OID
+
+
+# --- A removed account is denied sign-in immediately after removal (T069, FR-012/FR-013) ---
+
+
+def test_removed_account_is_denied_sign_in(request_factory):
+    service, container = _real_service_with_container()
+    container.read_item.return_value = _entry_dict(objectId=USER_OID, dateBound="2026-08-29T00:05:00Z")
+
+    service.remove_account(EMAIL, requested_by_email="other-admin@example.com", seed_admin_email="")
+
+    container.read_item.side_effect = CosmosResourceNotFoundError(message="not found")
+    req = request_factory(method="POST", url="/api/auth/login", token="valid-token")
+    with patch(
+        "backend.api.auth.login.authenticate_with_email",
+        return_value=(True, USER_OID, EMAIL, None),
+    ):
+        response = login(req, account_provisioning_service=service)
+
+    assert response.status_code == 403

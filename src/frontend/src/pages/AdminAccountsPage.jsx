@@ -3,11 +3,13 @@ import { useCallback, useEffect, useState } from "react";
 
 import AccountForm from "../components/Admin/AccountForm.jsx";
 import AccountList from "../components/Admin/AccountList.jsx";
+import { useAuth } from "../hooks/useAuth.js";
 import { listAccounts } from "../services/accountService.js";
 import { loginRequest } from "../services/msalConfig.js";
 
 export function AdminAccountsPage() {
   const { instance, accounts: msalAccounts } = useMsal();
+  const { user } = useAuth();
   const account = msalAccounts[0];
   const accountKey = account?.homeAccountId ?? account?.username ?? null;
 
@@ -34,7 +36,11 @@ export function AdminAccountsPage() {
       <h1>Accounts</h1>
       <AccountForm token={token} onAdded={refresh} />
       <hr className="hr" />
-      {loading ? <p className="text-muted">Loading accounts…</p> : <AccountList accounts={accounts} />}
+      {loading ? (
+        <p className="text-muted">Loading accounts…</p>
+      ) : (
+        <AccountList accounts={accounts} token={token} currentUserEmail={user?.email} onRemoved={refresh} />
+      )}
     </div>
   );
 }

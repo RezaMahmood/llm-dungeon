@@ -12,6 +12,7 @@ from pyisemail import is_email
 from backend.config import config
 from backend.models.provisioned_account_entry import VALID_ROLES, ProvisionedAccountEntry
 from backend.services.cosmos_service import CosmosService
+from backend.services.entra_directory_service import EntraDirectoryService
 
 logger = logging.getLogger("account_provisioning_service")
 
@@ -24,6 +25,18 @@ class RoleRequiredError(ValueError):
     """Raised when no valid role is supplied (FR-003/FR-004)."""
 
 
+class SelfRemovalError(ValueError):
+    """Raised when an administrator attempts to remove their own account (FR-012)."""
+
+
+class SeedAdminRemovalError(ValueError):
+    """Raised when removal targets the seed administrator's account (FR-012)."""
+
+
+class AccountNotFoundError(ValueError):
+    """Raised when no provisioned entry exists for the removal target."""
+
+
 def _now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -31,8 +44,13 @@ def _now() -> str:
 class AccountProvisioningService:
     """Looks up, binds, adds, merges, and lists Provisioned Account Entries."""
 
-    def __init__(self, cosmos_service: Optional[CosmosService] = None) -> None:
+    def __init__(
+        self,
+        cosmos_service: Optional[CosmosService] = None,
+        entra_directory_service: Optional[EntraDirectoryService] = None,
+    ) -> None:
         self._cosmos = cosmos_service or CosmosService()
+        self._entra = entra_directory_service or EntraDirectoryService()
 
     def get_by_email(self, email: str) -> Optional[ProvisionedAccountEntry]:
         """Point read by lowercased email."""
@@ -117,6 +135,9 @@ class AccountProvisioningService:
 
         container = self._cosmos.get_container(config.PROVISIONED_ACCOUNTS_CONTAINER)
         container.upsert_item(entry.to_dict())
+
+        self._entra.invite_guest(normalized_email)
+
         return entry
 
     def list_all(self) -> list[ProvisionedAccountEntry]:
@@ -126,3 +147,28 @@ class AccountProvisioningService:
             "SELECT * FROM c WHERE c.entityType = 'ProvisionedAccountEntry'",
         )
         return [ProvisionedAccountEntry.from_dict(row) for row in results]
+
+    def remove_account(self, email: str, requested_by_email: str, seed_admin_email: str) -> None:
+        """Remove a Provisioned Account Entry and its Entra guest user (FR-012/FR-013).
+
+        Rejects removal of the signed-in administrator's own email or the
+        deployment-configured seed administrator's email. Raises
+        AccountNotFoundError if no entry exists for the target email. On
+        success, deletes the Cosmos entry and calls EntraDirectoryService.remove_guest
+        (a no-op if no matching guest is found).
+        """
+        normalized_email = email.lower()
+
+        if normalized_email == (requested_by_email or "").lower():
+            raise SelfRemovalError(f"{email!r} is the requesting administrator's own account")
+        if seed_admin_email and normalized_email == seed_admin_email.lower():
+            raise SeedAdminRemovalError(f"{email!r} is the seed administrator's account")
+
+        if self.get_by_email(normalized_email) is None:
+            raise AccountNotFoundError(f"No provisioned account entry exists for {email!r}")
+
+        container = self._cosmos.get_container(config.PROVISIONED_ACCOUNTS_CONTAINER)
+        container.delete_item(item=normalized_email, partition_key=normalized_email)
+
+        self._entra.remove_guest(normalized_email)
+        logger.info("Account removed", extra={"email": normalized_email})

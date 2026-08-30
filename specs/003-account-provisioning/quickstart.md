@@ -107,6 +107,41 @@ Repeat with `roles: ["Administrator"]` on a third email to confirm the Administr
 
 ---
 
+## Scenario 8: Granting Access Invites an Entra ID Guest (FR-011, added 2026-08-30)
+
+**Objective**: An account with no prior presence in the application's Entra ID tenant can actually sign in after being granted access — closing the live-validation gap found while first running this quickstart (an entry with no tenant guest user hits `AADSTS50020` at sign-in even though it is correctly provisioned).
+
+**Steps**:
+1. Signed in as an Administrator, submit `POST /api/manage/accounts` with the email of a Microsoft account that has never signed in to, or been invited to, this application's Entra ID tenant.
+2. Check the tenant's Entra ID users list (Azure Portal or `GET /v1.0/users` via Graph Explorer) for that email.
+3. Have that account accept the invitation (link sent to its inbox, or via the tenant's pending-invitations list) and sign in.
+
+**Expected**:
+- A guest user for that email appears in the tenant immediately after step 1 (FR-011).
+- Submitting the same email again (e.g. adding a second role) does not create a duplicate guest invitation — `EntraDirectoryService.invite_guest` no-ops when the email is already a tenant member.
+- The account can sign in and bind its `objectId`, exactly as in Scenario 3.
+
+---
+
+## Scenario 9: Administrator Removes an Account (User Story 3 — Removal, FR-012/FR-013, added 2026-08-30)
+
+**Objective**: Removing a provisioned account revokes both application access and Entra ID tenant membership, except for protected accounts.
+
+**Steps**:
+1. Signed in as an Administrator, on the Accounts screen, click "Remove" on a previously granted Player or Administrator account (not your own row, not the seed administrator's row — those rows have no Remove action, per `specs/designs/05-admin-users.html`).
+2. Confirm the dialog ("Remove {email}?" / "Remove account").
+3. Attempt `DELETE /api/manage/accounts` directly (bypassing the UI) with your own signed-in email.
+4. Attempt `DELETE /api/manage/accounts` with the seed administrator's email.
+5. Attempt `DELETE /api/manage/accounts` with an email that has no provisioned entry.
+
+**Expected**:
+- Step 2: the entry disappears from `GET /api/manage/accounts`, the account can no longer sign in (`access_denied`, same as never-provisioned), and its guest user is gone from the Entra ID tenant (SC-008).
+- Step 3: 400 `self_removal`.
+- Step 4: 400 `seed_admin_removal`, regardless of who is signed in.
+- Step 5: 404 `not_found`.
+
+---
+
 ## Automated Test Coverage Cross-Reference
 
 Every scenario above corresponds to at least one automated test required by FR-011:
@@ -120,5 +155,9 @@ Every scenario above corresponds to at least one automated test required by FR-0
 | 5 | `src/backend/tests/integration/test_admin_accounts_endpoint.py` |
 | 6 | `src/backend/tests/integration/test_admin_accounts_endpoint.py` |
 | 7 | `src/backend/tests/integration/test_admin_accounts_endpoint.py` |
+| 8 | `src/backend/tests/unit/test_entra_directory_service.py`, `test_account_provisioning_service.py` (invite-on-grant wiring) |
+| 9 | `src/backend/tests/integration/test_admin_accounts_endpoint.py` (DELETE cases), `test_login_endpoint.py` (post-removal denial) |
 
 Frontend equivalents live in `src/frontend/tests/components/{AccountForm,AccountList}.test.jsx` and `src/frontend/tests/integration/admin_accounts.test.jsx`.
+
+**Live-validation status (T070/T071)**: Scenarios 8-9 have not yet been run against a real deployed environment and a real Entra ID tenant — that requires `terraform apply`-ing the `azuread` app-role grant (T058) and deploying T057-T069's code, both outside this implementation pass's scope. The requesting user or product owner must run this full scenario set live (T071, Constitution Principle IX, NON-NEGOTIABLE) before this amendment can be considered complete.

@@ -10,6 +10,14 @@
 #   2. A dedicated user-assigned Managed Identity carrying the GitHub OIDC
 #      federated credential (not an App Registration — FR-011a), with a
 #      Contributor role assignment scoped to the Resource Group only.
+#   3. Microsoft Graph application permissions on that same Managed
+#      Identity (003-account-provisioning, T058) — a Microsoft Entra ID /
+#      Graph API grant, not Azure RBAC, so it is not covered by the
+#      Contributor role above. Required so `terraform apply` (running as
+#      this identity in CI, via identity.tf's azuread provider resources)
+#      can itself read the Microsoft Graph service principal and grant the
+#      Function App's managed identity the Graph permissions
+#      EntraDirectoryService needs. Idempotent — safe to re-run.
 #
 # Usage: ./infrastructure/scripts/bootstrap.sh
 # Requires: az CLI, authenticated (`az login`) with access to the target
@@ -146,6 +154,49 @@ if [ -n "$CURRENT_USER_OID" ]; then
     echo "✓ Storage Blob Data Contributor assigned to current user on $STORAGE_ACCOUNT"
   fi
 fi
+
+# --- Step 3: Microsoft Graph application permissions on the Managed Identity ---
+# Needed by identity.tf's azuread_app_role_assignment resources (T057/T058):
+# this identity's own `terraform apply` run must be able to read the
+# Microsoft Graph service principal and create app-role assignments on the
+# Function App's managed identity. Requires the human running this script to
+# already hold sufficient Entra ID privilege to grant Graph application
+# permissions (e.g. Global Administrator / Privileged Role Administrator, or
+# the Application.ReadWrite.All + AppRoleAssignment.ReadWrite.All Graph
+# permissions themselves) — the same "someone privileged bootstraps the
+# least-privilege CI identity once" pattern as the Contributor role above.
+#
+# AppRoleAssignment.ReadWrite.All is broad (it can assign any Graph app role
+# to any principal tenant-wide, not just these two roles to this one
+# identity) — there is no narrower built-in Graph permission scoped to "grant
+# only these specific roles." Granting it to this identity is a deliberate,
+# reviewed trade-off, not an oversight.
+GRAPH_APP_ID="00000003-0000-0000-c000-000000000000"
+GRAPH_SP_ID=$(az ad sp show --id "$GRAPH_APP_ID" --query id -o tsv)
+
+grant_graph_app_role() {
+  local role_value="$1"
+  local role_id
+  role_id=$(az ad sp show --id "$GRAPH_APP_ID" --query "appRoles[?value=='$role_value'].id | [0]" -o tsv)
+
+  local existing
+  existing=$(az rest --method GET \
+    --uri "https://graph.microsoft.com/v1.0/servicePrincipals/$IDENTITY_PRINCIPAL_ID/appRoleAssignments" \
+    --query "value[?appRoleId=='$role_id'].id | [0]" -o tsv 2>/dev/null || true)
+
+  if [ -n "$existing" ]; then
+    echo "✓ Graph app role '$role_value' already granted to Managed Identity, skipping"
+  else
+    az rest --method POST \
+      --uri "https://graph.microsoft.com/v1.0/servicePrincipals/$IDENTITY_PRINCIPAL_ID/appRoleAssignments" \
+      --headers "Content-Type=application/json" \
+      --body "{\"principalId\": \"$IDENTITY_PRINCIPAL_ID\", \"resourceId\": \"$GRAPH_SP_ID\", \"appRoleId\": \"$role_id\"}" >/dev/null
+    echo "✓ Graph app role '$role_value' granted to Managed Identity"
+  fi
+}
+
+grant_graph_app_role "Application.Read.All"
+grant_graph_app_role "AppRoleAssignment.ReadWrite.All"
 
 # Federated credentials on the Managed Identity — NOT an App Registration
 # (az ad app federated-credential create), per research.md §7 / FR-011a.
