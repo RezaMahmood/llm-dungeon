@@ -1,23 +1,21 @@
 <!--
 Sync Impact Report
-Version change: 1.5.0 → 1.6.0
+Version change: 1.6.0 → 1.7.0
 Modified principles: none renamed or removed
 Added principles:
-  - X. PII Protection by Design (NON-NEGOTIABLE) — personally identifiable information must
-    live only in secure, access-controlled, purpose-built data stores (the application
-    database, Azure Key Vault, or an equivalent secret store); never in source control,
-    commit history, issue trackers, PR descriptions/comments, logs, or telemetry. Where a
-    record involving PII must be discussed in an issue/PR/commit, it must be referenced
-    indirectly, never included.
+  - XI. UI Design Pre-Agreement Before Implementation (NON-NEGOTIABLE) — any feature with a
+    user-facing UI must have its screen design agreed with the requesting user/product owner
+    during the design/planning phase, before implementation tasks begin; the feature's
+    tasks.md must contain an explicit UI design agreement/sign-off task that gates and is
+    sequenced before implementation tasks.
 Added sections:
-  - PII & Data Protection Requirements — detailed rules backing Principle X.
-Modified sections:
-  - Development Workflow & Quality Gates: added a bullet tying issues/PRs/commit messages
-    to the no-PII rule.
+  - Development Workflow & Quality Gates: added a bullet requiring the UI design
+    agreement/sign-off task in tasks.md, gating implementation, per Principle XI.
+Modified sections: none
 Removed sections: none
-Source: direct user instruction (2026-08-30) — PII must never be committed to the repo or
-  posted into issues/logs/anywhere publicly accessible; where an issue references a record
-  that involves PII, the PII itself must not be included, only a reference to it.
+Source: direct user instruction (2026-08-30) — prior to any implementation, and preferably
+  during design time, the specification should have a UI design pre-agreed before
+  implementation starts; this must be part of the task checklist.
 Templates requiring follow-up: none — dependent templates read this file at runtime and
   are not modified by this command.
 Deferred/TODO placeholders: none.
@@ -168,6 +166,26 @@ stores are. Including a real person's PII on any of these surfaces defeats the p
 restricting where that data is allowed to live, and cannot be reliably un-published once
 posted.
 
+### XI. UI Design Pre-Agreement Before Implementation (NON-NEGOTIABLE)
+For any feature that includes a user-facing UI, the screen design (mockup, wireframe, or an
+extension of the existing screen contracts under UI Design System Requirements) MUST be
+explicitly reviewed and agreed with the requesting user or product owner during the
+design/planning phase — before any implementation task for that feature begins. This
+agreement is a design-time gate, not a post-hoc review: implementation MUST NOT start on
+the strength of the implementing agent's or team's own design judgment alone. Every such
+feature's task list (`tasks.md`) MUST include an explicit UI design agreement/sign-off task,
+sequenced before all implementation tasks for that feature; that task is not complete until
+the requesting user or product owner has confirmed the design, not merely until a design
+artifact exists.
+
+Rationale: Principle VIII enforces that any UI built stays inside this project's design
+system and accessibility bar; it does not by itself force the specific screen layout and
+flow to be agreed before code is written. Without a design-time sign-off gate, implementation
+can proceed on a screen design that turns out to be wrong or unwanted, wasting build effort
+that a five-minute mockup review would have caught. Making this an explicit tasks.md item —
+rather than an informal expectation — ensures it is actually enforced the same way Principle
+IX's acceptance gate is: as a checklist item someone can verify was done, not skipped.
+
 ## Security & Access Control Requirements
 
 - Authentication MUST use Microsoft Entra ID; the frontend MUST use a supported
@@ -247,6 +265,10 @@ posted.
 - Issues, pull request descriptions/comments, and commit messages MUST NOT include PII
   (Principle X, PII & Data Protection Requirements) — reference affected records
   indirectly instead.
+- Every feature with a user-facing UI MUST have an explicit UI design agreement/sign-off
+  task in its `tasks.md`, sequenced before that feature's implementation tasks, per
+  Principle XI. That task is not complete until the requesting user or product owner has
+  confirmed the design — a design artifact merely existing does not satisfy it.
 
 ## UI Design System Requirements
 
@@ -403,4 +425,4 @@ with the design-token, visual-rules, interaction-state, or layout/scroll require
 above as a blocking finding. No feature may ship a screen that is not traceable to a
 screen contract above or to a documented amendment extending it.
 
-**Version**: 1.6.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-08-30
+**Version**: 1.7.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-08-30
