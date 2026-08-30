@@ -89,18 +89,18 @@ fails an infrastructure test) to `main`, and confirm the `apply` job in that run
   T001), keeping only the nightly `schedule` and standalone `workflow_dispatch` triggers
   for ops/monitoring use.
 
-- [ ] T004 [US1] Push a Terraform change to a branch that deliberately fails
+- [X] T004 [US1] Push a Terraform change to a branch that deliberately fails
   `terraform fmt`/`validate` (e.g., an unformatted `.tf` file) and merge to `main`.
   Confirm, per `quickstart.md` Scenario 1: `validate` job = `failure`; `test` and `apply`
   jobs = `skipped`; no pending review request appears on the `production-infra`
   environment. Depends on: T001.
 
-- [ ] T005 [US1] Push a Terraform change that passes validate but fails an
+- [X] T005 [US1] Push a Terraform change that passes validate but fails an
   `infrastructure/tests/` assertion, and merge to `main`. Confirm, per `quickstart.md`
   Scenario 2: `validate` = `success`; `test` = `failure`; `apply` = `skipped`; no pending
   review request. Depends on: T001.
 
-- [ ] T006 [US1] With the commit from T004 (or any commit whose gate has not passed)
+- [X] T006 [US1] With the commit from T004 (or any commit whose gate has not passed)
   still at the tip of `main`, run `gh workflow run terraform-apply.yml` and confirm, per
   `quickstart.md` Scenario 5: the dispatched run re-executes `validate` (and `test` only
   if `validate` passes) from scratch rather than jumping straight to `apply` or an
@@ -112,7 +112,7 @@ fails an infrastructure test) to `main`, and confirm the `apply` job in that run
   its own commit's `validate`/`test` results, independent of the other push's outcome.
   Depends on: T001.
 
-- [ ] T007 [US1] Confirm the runs from T004 and T005 both show `apply` = `skipped` with
+- [X] T007 [US1] Confirm the runs from T004 and T005 both show `apply` = `skipped` with
   no pending environment review requested against `production-infra` — the
   automated-gate-blocked half of `quickstart.md` Scenario 6. Depends on: T004, T005.
 
@@ -135,22 +135,22 @@ from executing — per `quickstart.md` Scenarios 3 and 4.
 
 ### Verification for User Story 2
 
-- [ ] T008 [US2] Merge a valid, passing Terraform change to `main`. Watch the run:
+- [X] T008 [US2] Merge a valid, passing Terraform change to `main`. Watch the run:
   `validate` → `success`, `test` → `success`. Confirm, per `quickstart.md` Scenario 3,
   that the `apply` job's status becomes `waiting` with a pending deployment review
   requested against the `production-infra` environment, and that `terraform apply` has
   not executed yet. Depends on: T001 (no separate implementation task — this exercises
   the unmodified environment protection rule reached through the new gate).
 
-- [ ] T009 [US2] Approve the pending review from T008 (via `gh run view` or the Actions
+- [X] T009 [US2] Approve the pending review from T008 (via `gh run view` or the Actions
   UI "Review deployments"). Confirm `apply` proceeds, `terraform apply` completes, and
   the outputs artifact is uploaded. Depends on: T008.
 
-- [ ] T010 [US2] Repeat T008 on a separate passing change, but reject the pending review
+- [X] T010 [US2] Repeat T008 on a separate passing change, but reject the pending review
   instead of approving. Confirm, per `quickstart.md` Scenario 4, that the `apply` job
   ends without running `terraform apply` and no changes reach Azure. Depends on: T001.
 
-- [ ] T010a [US1][US2] Compare the `skipped` run from T007 against the `waiting` run from
+- [X] T010a [US1][US2] Compare the `skipped` run from T007 against the `waiting` run from
   T008 (before approval) and confirm, per `quickstart.md` Scenario 6, that an engineer
   can tell "blocked by the automated gate" apart from "blocked on manual approval"
   without opening any other workflow's run. Depends on: T007, T008.
