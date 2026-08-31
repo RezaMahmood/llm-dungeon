@@ -48,16 +48,33 @@ function fieldErrorMessage(err, fieldKey) {
   return reason.charAt(0).toUpperCase() + reason.slice(1);
 }
 
-// The Completeness Rule (data-model.md) — mirrors StoryDraft.is_complete() on the
-// backend, so the wizard can tell the administrator generation is possible without
-// waiting on a round trip. Filling this in never generates or navigates by itself
-// (#33) — only the explicit "Generate story" action does.
-function isReadyToGenerate(draft) {
+// World & Setting's own fields (worldPrompt, characterTypes, completionCriteria) — used
+// for that step tab's own "Done" status, separate from the overall generate gate below,
+// which also requires a story name from the Name & cover step.
+function isWorldSettingComplete(draft) {
   return (
     Boolean(draft.worldPrompt) &&
     (draft.characterTypes?.length ?? 0) > 0 &&
     (draft.completionCriteria?.successConditions?.length ?? 0) > 0
   );
+}
+
+// The Completeness Rule (data-model.md) — mirrors StoryDraft.is_complete() on the
+// backend, so the wizard can tell the administrator generation is possible without
+// waiting on a round trip. Filling this in never generates or navigates by itself
+// (#33) — only the explicit "Generate story" action does. A story name is required
+// (revised 2026-08-31) — narrative content alone isn't enough to generate a story.
+function missingRequirements(draft) {
+  const missing = [];
+  if (!draft.name) missing.push("a story name (Name & cover)");
+  if (!draft.worldPrompt) missing.push("a world prompt");
+  if (!(draft.characterTypes?.length > 0)) missing.push("at least one character type");
+  if (!(draft.completionCriteria?.successConditions?.length > 0)) missing.push("at least one success condition");
+  return missing;
+}
+
+function isReadyToGenerate(draft) {
+  return missingRequirements(draft).length === 0;
 }
 
 const STEPS = [
@@ -76,7 +93,7 @@ const STEPS = [
     description:
       "The engine improvises everything from this. Write it like you are telling a colleague about the place.",
     Component: StepWorldSetting,
-    isDone: isReadyToGenerate,
+    isDone: isWorldSettingComplete,
   },
   {
     key: "tone-reading-level",
@@ -301,7 +318,7 @@ export function AdminStoryWizardPage() {
         <span className="text-muted" style={{ fontSize: "13px" }}>
           {isReadyToGenerate(draft)
             ? "Ready — this saves the story and leaves the wizard."
-            : "World & setting needs a world prompt, at least one character type, and at least one success condition first."}
+            : `Still needs ${missingRequirements(draft).join(", ")}.`}
         </span>
       </div>
       {generateStatus === "error" && (

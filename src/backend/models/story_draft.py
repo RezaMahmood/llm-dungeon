@@ -65,7 +65,8 @@ class StoryDraft:
         """The Completeness Rule (data-model.md) — generation triggers on the write that
         makes this true (FR-003/FR-004)."""
         return bool(
-            self.worldPrompt
+            self.name
+            and self.worldPrompt
             and self.characterTypes
             and self.completionCriteria
             and self.completionCriteria.successConditions

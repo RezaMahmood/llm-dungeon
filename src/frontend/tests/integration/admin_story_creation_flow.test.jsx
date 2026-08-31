@@ -59,11 +59,29 @@ describe("Admin story creation: empty draft through generated, unpublished story
     // The "Generate story" action is disabled until the draft is complete.
     expect(screen.getByRole("button", { name: /generate story/i })).toBeDisabled();
 
+    // Fill in the story name (Name & cover, the default first tab) — required to
+    // generate (revised 2026-08-31), independently of World & setting's own fields.
+    patchDraft.mockResolvedValueOnce({
+      status: "success",
+      draft: { ...EMPTY_DRAFT, name: "The Lighthouse at Gullwing Cove" },
+      readyToGenerate: false,
+    });
+    await userEvent.type(screen.getByLabelText(/story name/i), "The Lighthouse at Gullwing Cove");
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(patchDraft).toHaveBeenCalledWith("tok", "draft-1", { name: "The Lighthouse at Gullwing Cove", coverImageUrl: "" });
+    expect(screen.getByRole("button", { name: /generate story/i })).toBeDisabled();
+
     // Move to the World & setting step and answer the guiding question.
     await userEvent.click(screen.getByRole("tab", { name: /world & setting/i }));
     postMessage.mockResolvedValueOnce({
       status: "success",
-      draft: { ...EMPTY_DRAFT, worldPrompt: "A half-abandoned lighthouse...", exchanges: [{ role: "administrator", message: "A half-abandoned lighthouse...", timestamp: "t" }] },
+      draft: {
+        ...EMPTY_DRAFT,
+        name: "The Lighthouse at Gullwing Cove",
+        worldPrompt: "A half-abandoned lighthouse...",
+        exchanges: [{ role: "administrator", message: "A half-abandoned lighthouse...", timestamp: "t" }],
+      },
       readyToGenerate: false,
     });
     await userEvent.type(screen.getByPlaceholderText(/describe your idea/i), "A half-abandoned lighthouse...");
@@ -79,6 +97,7 @@ describe("Admin story creation: empty draft through generated, unpublished story
       status: "success",
       draft: {
         ...EMPTY_DRAFT,
+        name: "The Lighthouse at Gullwing Cove",
         worldPrompt: "A half-abandoned lighthouse...",
         characterTypes: [{ name: "Curious Cousin", description: "" }],
       },
@@ -103,6 +122,7 @@ describe("Admin story creation: empty draft through generated, unpublished story
       status: "success",
       draft: {
         ...EMPTY_DRAFT,
+        name: "The Lighthouse at Gullwing Cove",
         worldPrompt: "A half-abandoned lighthouse...",
         characterTypes: [{ name: "Curious Cousin", description: "" }],
         completionCriteria: { maxDurationMinutes: null, successConditions: ["Find the keeper"], failureConditions: [], rule: null },
@@ -125,7 +145,7 @@ describe("Admin story creation: empty draft through generated, unpublished story
       storyId: "story-1",
       story: {
         id: "story-1",
-        name: null,
+        name: "The Lighthouse at Gullwing Cove",
         worldPrompt: "A half-abandoned lighthouse...",
         characterTypes: [{ name: "Curious Cousin", description: "" }],
         completionCriteria: { maxDurationMinutes: null, successConditions: ["Find the keeper"], failureConditions: [], rule: null },
@@ -138,6 +158,7 @@ describe("Admin story creation: empty draft through generated, unpublished story
 
     expect(generateStory).toHaveBeenCalledWith("tok", "draft-1");
     expect(await screen.findByText(/story generated/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /the lighthouse at gullwing cove/i })).toBeInTheDocument();
     expect(screen.getByText(/keep it eerie but never actually dangerous/i)).toBeInTheDocument();
     expect(screen.getByText(/unpublished/i)).toBeInTheDocument();
 

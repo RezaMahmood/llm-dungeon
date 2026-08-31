@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 function emptyCriteria() {
   return { maxDurationMinutes: null, successConditions: [], failureConditions: [], rule: null };
@@ -13,9 +13,22 @@ function emptyCriteria() {
  */
 export function CompletionCriteriaFields({ completionCriteria, onChange, error }) {
   const [criteria, setCriteria] = useState(completionCriteria || emptyCriteria());
+  const lastSyncedRef = useRef(completionCriteria);
 
   useEffect(() => {
-    setCriteria(completionCriteria || emptyCriteria());
+    // Resync only when the server's completionCriteria actually changed content, not merely
+    // whenever the parent draft object is replaced (e.g. by an unrelated field's write
+    // resolving) — every such write hands down a freshly deserialized object, a new
+    // reference even when nothing about completion criteria changed. Resetting on reference
+    // alone wiped a just-added, not-yet-committed condition row out from under the
+    // administrator the instant any concurrent write landed. Comparing against the
+    // *previous prop* (not against `criteria`, which may hold that uncommitted row) tells
+    // genuine remote changes apart from reference churn.
+    const changed = JSON.stringify(completionCriteria) !== JSON.stringify(lastSyncedRef.current);
+    lastSyncedRef.current = completionCriteria;
+    if (changed) {
+      setCriteria(completionCriteria || emptyCriteria());
+    }
   }, [completionCriteria]);
 
   const totalConditions = criteria.successConditions.length + criteria.failureConditions.length;
