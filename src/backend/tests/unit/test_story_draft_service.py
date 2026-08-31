@@ -9,10 +9,11 @@ import pytest
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 from backend.models.story_draft import StoryDraft
-from backend.services.llm_service import LLMOutputError
+from backend.services.llm_service import LLMOutputError, LLMRateLimitError
 from backend.services.story_draft_service import (
     DraftValidationError,
     GenerationFailedError,
+    LLMRateLimitedError,
     StoryDraftService,
 )
 
@@ -167,3 +168,39 @@ def test_malformed_generation_output_leaves_draft_intact_and_raises():
     container.delete_item.assert_not_called()
     # The draft write still happens (touch/TTL refresh) but no Story was created.
     container.upsert_item.assert_called_once()
+
+
+# --- Rate-limited generation leaves the draft intact (#33) ---
+
+
+def test_rate_limited_generation_leaves_draft_intact_and_raises():
+    service, cosmos, llm, stories = _service()
+    container = cosmos.get_container.return_value
+    draft = StoryDraft(id="draft-1", createdBy=CREATED_BY, worldPrompt="A lighthouse...")
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+    llm.generate_story_config.side_effect = LLMRateLimitError("rate limited")
+
+    with pytest.raises(LLMRateLimitedError):
+        service.patch_draft(
+            "draft-1",
+            {"characterTypes": _valid_character_types(), "completionCriteria": _valid_completion_criteria()},
+        )
+
+    stories.create_story.assert_not_called()
+    container.delete_item.assert_not_called()
+    container.upsert_item.assert_called_once()
+
+
+def test_rate_limited_exchange_raises_without_persisting():
+    service, cosmos, llm, stories = _service()
+    container = cosmos.get_container.return_value
+    draft = StoryDraft(id="draft-1", createdBy=CREATED_BY)
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+    llm.generate_exchange_response.side_effect = LLMRateLimitError("rate limited")
+
+    with pytest.raises(LLMRateLimitedError):
+        service.post_message("draft-1", "hello")
+
+    container.upsert_item.assert_not_called()
