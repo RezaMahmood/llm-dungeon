@@ -8,7 +8,7 @@
 
 ## Cross-feature dependency: the persistent nav bar (resolved 2026-08-31)
 
-The agreed mockups mount this control inside a persistent top nav bar (a compact title bar on the Play screen). That nav bar was built by a separate feature, `022-persistent-nav-redesign`, which has since **merged to `main`** (`1b79aa8`, `5a4dce6`; PRs #103/#104): `src/frontend/src/components/Layout/NavBar.jsx` and `TitleBar.jsx` now exist, and `NavBar.jsx` reserves an explicit `data-nav-slot="trailing-actions"` `<span>` for this feature's `RefreshButton`. 022's own FR-001–FR-012 own the nav bar's structure and capability-based visibility; none of them mention a refresh control, so there is no functional overlap — only the (now-resolved) physical one.
+The agreed mockups mount this control inside a persistent top nav bar (a compact title bar on the Play screen). That nav bar was built by a separate feature, `022-persistent-nav-redesign-done`, which has since **merged to `main`** (`1b79aa8`, `5a4dce6`; PRs #103/#104): `src/frontend/src/components/Layout/NavBar.jsx` and `TitleBar.jsx` now exist, and `NavBar.jsx` reserves an explicit `data-nav-slot="trailing-actions"` `<span>` for this feature's `RefreshButton`. 022's own FR-001–FR-012 own the nav bar's structure and capability-based visibility; none of them mention a refresh control, so there is no functional overlap — only the (now-resolved) physical one.
 
 **Newly discovered wiring gap**: `AuthenticatedLayout.jsx` renders `NavBar`/`TitleBar` as a **sibling** of the active page's content, not a parent — `{isStoryPlay ? <TitleBar/> : <NavBar/>} {children}` — so a page has no prop-based path to hand its `useRefreshable` state to the nav bar next to it. (`TitleBar.jsx` has this identical, still-unsolved gap for its own `onSaveCheckpoint`/`onPauseExit` props.)
 
@@ -106,4 +106,4 @@ The agreed mockups mount this control inside a persistent top nav bar (a compact
 - No client-side response caching or stale-while-revalidate behavior — every `refresh()` call re-fetches from the network (needed for FR-011's "current permissions" guarantee, see research.md §6).
 - No global/app-wide refresh-all action — each screen's control refreshes only that screen's own data (FR-002's "that screen's current data"), even though it visually sits in a shared nav bar.
 - No new icon library dependency — one inlined SVG, per Constraints above.
-- Building the persistent nav bar itself is explicitly out of scope for 019 — that is `022-persistent-nav-redesign`'s deliverable (see Cross-feature dependency above).
+- Building the persistent nav bar itself is explicitly out of scope for 019 — that is `022-persistent-nav-redesign-done`'s deliverable (see Cross-feature dependency above).
