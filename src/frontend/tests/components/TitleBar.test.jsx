@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import TitleBar from "../../src/components/Layout/TitleBar.jsx";
@@ -9,6 +9,17 @@ const renderTitleBar = (props = {}) =>
   render(
     <MemoryRouter>
       <TitleBar {...props} />
+    </MemoryRouter>,
+  );
+
+/** Renders with a real route so a fall-through navigation can be observed. */
+const renderTitleBarWithRouting = (props = {}) =>
+  render(
+    <MemoryRouter initialEntries={["/game"]}>
+      <Routes>
+        <Route path="/menu" element={<p>story select</p>} />
+        <Route path="/game" element={<TitleBar {...props} />} />
+      </Routes>
     </MemoryRouter>,
   );
 
@@ -60,5 +71,17 @@ describe("TitleBar (FR-006)", () => {
 
     expect(onSaveCheckpoint).toHaveBeenCalledOnce();
     expect(onPauseExit).toHaveBeenCalledOnce();
+  });
+
+  it("returns to story select on Pause & exit when the page supplies no handler yet", async () => {
+    // GamePage doesn't wire onPauseExit until 008-core-gameplay builds real
+    // pause behavior — until then this must not be a dead button (found in
+    // Principle IX final acceptance, Gate 7).
+    const user = userEvent.setup();
+    renderTitleBarWithRouting({ storyTitle: "Story" });
+
+    await user.click(screen.getByRole("button", { name: /pause & exit/i }));
+
+    expect(screen.getByText("story select")).toBeInTheDocument();
   });
 });
