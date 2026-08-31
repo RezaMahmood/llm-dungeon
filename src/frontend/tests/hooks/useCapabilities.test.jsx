@@ -24,9 +24,16 @@ vi.mock("../../src/services/authService.js", () => ({
   getMe: (...args) => getMe(...args),
 }));
 
-import { useCapabilities } from "../../src/hooks/useCapabilities.js";
+import { CapabilitiesProvider, useCapabilities } from "../../src/hooks/useCapabilities.js";
 
-const wrapper = ({ children }) => <MemoryRouter>{children}</MemoryRouter>;
+// The fetching logic lives in `CapabilitiesProvider` (a single shared instance
+// mounted once at the app root); `useCapabilities()` is just its context
+// consumer, so the hook under test must be rendered inside the provider.
+const wrapper = ({ children }) => (
+  <MemoryRouter>
+    <CapabilitiesProvider>{children}</CapabilitiesProvider>
+  </MemoryRouter>
+);
 
 describe("useCapabilities", () => {
   afterEach(() => {
