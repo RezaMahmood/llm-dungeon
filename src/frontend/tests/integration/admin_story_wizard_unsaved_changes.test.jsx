@@ -87,10 +87,14 @@ describe("Admin Story Wizard unsaved-changes warning (FR-010)", () => {
 
     expect(await screen.findByRole("tablist")).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText(/story name/i), "A Name");
-    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
+    // Set up the spy before the save round-trip completes — the cleanup that
+    // removes the listener can fire synchronously as part of the click/await
+    // below, so it must already be observed rather than attached afterward.
     const removeSpy = vi.spyOn(window, "removeEventListener");
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
     await screen.findByText(/saved/i);
+
     expect(removeSpy).toHaveBeenCalledWith("beforeunload", expect.any(Function));
     removeSpy.mockRestore();
   });

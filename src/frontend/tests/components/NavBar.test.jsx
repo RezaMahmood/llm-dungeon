@@ -166,7 +166,11 @@ describe("NavBar RefreshContext consumption (019-spa-refresh-button, contracts/r
         </RefreshProvider>
       </MemoryRouter>,
     );
-    expect(screen.getByRole("button", { name: /refreshing/i })).toBeDisabled();
+    // aria-label stays the static "Refresh"; the "Refreshing…" swap is in the
+    // visible text content, not the accessible name.
+    const refreshedButton = screen.getByRole("button", { name: /^refresh$/i });
+    expect(refreshedButton).toBeDisabled();
+    expect(refreshedButton).toHaveTextContent("Refreshing…");
   });
 });
 

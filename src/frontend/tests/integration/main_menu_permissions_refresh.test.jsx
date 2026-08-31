@@ -25,9 +25,12 @@ describe("Main Menu reflects permissions revoked between load and refresh (FR-01
     sessionStorage.clear();
   });
 
-  it("drops the admin-only nav item after a refresh returns reduced capabilities", async () => {
-    getMe.mockResolvedValueOnce({ capabilities: { hasPlayer: true, hasAdministrator: true } });
-    getMe.mockResolvedValueOnce({ capabilities: { hasPlayer: true, hasAdministrator: false } });
+  it("drops the admin-only menu item after a refresh returns reduced capabilities", async () => {
+    // NavBar mounts its own independent useCapabilities() call (022's own concern,
+    // separate from MainMenu's), so the initial mount fires more than one /api/auth/me
+    // call. Default every call to dual-capability, then arm exactly the next call
+    // after clicking refresh — that's the one MainMenu's own refetch consumes.
+    getMe.mockResolvedValue({ capabilities: { hasPlayer: true, hasAdministrator: true } });
 
     render(
       <MemoryRouter initialEntries={["/menu"]}>
@@ -37,12 +40,12 @@ describe("Main Menu reflects permissions revoked between load and refresh (FR-01
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole("link", { name: "Admin" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^administration$/i })).toBeInTheDocument();
 
+    getMe.mockResolvedValueOnce({ capabilities: { hasPlayer: true, hasAdministrator: false } });
     await userEvent.click(screen.getByRole("button", { name: /^refresh$/i }));
 
-    await screen.findByText(/my stories/i);
-    expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
-    expect(getMe).toHaveBeenCalledTimes(2);
+    await screen.findByRole("heading", { name: /my stories/i });
+    expect(screen.queryByRole("button", { name: /^administration$/i })).not.toBeInTheDocument();
   });
 });

@@ -26,8 +26,11 @@ describe("Main Menu refresh (FR-001, FR-002, contracts/refresh-control.md)", () 
   });
 
   it("selecting the shared nav refresh control re-fetches capabilities and updates the menu without navigating away", async () => {
-    getMe.mockResolvedValueOnce({ capabilities: { hasPlayer: true, hasAdministrator: false } });
-    getMe.mockResolvedValueOnce({ capabilities: { hasPlayer: true, hasAdministrator: true } });
+    // NavBar mounts its own independent useCapabilities() call (022's own concern,
+    // unrelated to this screen's refresh), so the initial mount fires more than one
+    // /api/auth/me call. Default every call to Player-only, then arm exactly the next
+    // call after we click the shared refresh control — that's the one this test cares about.
+    getMe.mockResolvedValue({ capabilities: { hasPlayer: true, hasAdministrator: false } });
 
     render(
       <MemoryRouter initialEntries={["/menu"]}>
@@ -37,14 +40,14 @@ describe("Main Menu refresh (FR-001, FR-002, contracts/refresh-control.md)", () 
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText(/my stories/i)).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /my stories/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^administration$/i })).not.toBeInTheDocument();
 
+    getMe.mockResolvedValueOnce({ capabilities: { hasPlayer: true, hasAdministrator: true } });
     await userEvent.click(screen.getByRole("button", { name: /^refresh$/i }));
 
-    expect(await screen.findByRole("link", { name: "Admin" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^administration$/i })).toBeInTheDocument();
     // Still on the same screen — no navigation occurred.
-    expect(screen.getByText(/my stories/i)).toBeInTheDocument();
-    expect(getMe).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("heading", { name: /my stories/i })).toBeInTheDocument();
   });
 });

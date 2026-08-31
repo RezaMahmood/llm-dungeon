@@ -17,8 +17,11 @@ describe("RefreshButton (contracts/refresh-control.md)", () => {
   it("is disabled and shows Refreshing… while loading", () => {
     render(<RefreshButton onClick={vi.fn()} loading />);
 
-    const button = screen.getByRole("button", { name: /refreshing/i });
+    // aria-label stays the static "Refresh" per the agreed markup — the
+    // "Refreshing…" swap is in the visible text content, not the accessible name.
+    const button = screen.getByRole("button", { name: /^refresh$/i });
     expect(button).toBeDisabled();
+    expect(button).toHaveTextContent("Refreshing…");
   });
 
   it("calls onClick when activated", async () => {
