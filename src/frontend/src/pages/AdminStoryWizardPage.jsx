@@ -6,7 +6,32 @@ import StepSessionLength from "../components/Admin/StoryWizard/StepSessionLength
 import StepToneReadingLevel from "../components/Admin/StoryWizard/StepToneReadingLevel.jsx";
 import StepWorldSetting from "../components/Admin/StoryWizard/StepWorldSetting.jsx";
 import { loginRequest } from "../services/msalConfig.js";
-import { createDraft, patchDraft, postMessage } from "../services/storyDraftService.js";
+import { createDraft, getDraft, patchDraft, postMessage } from "../services/storyDraftService.js";
+
+// Which draft this browser session is currently building. Without this, leaving
+// the wizard via the nav bar and coming back would start a brand-new blank
+// draft, stranding work the server had already saved (FR-005, SC-003).
+const ACTIVE_DRAFT_KEY = "llmdungeon.storyWizard.activeDraftId";
+
+function readActiveDraftId() {
+  try {
+    return sessionStorage.getItem(ACTIVE_DRAFT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeActiveDraftId(draftId) {
+  try {
+    if (draftId) {
+      sessionStorage.setItem(ACTIVE_DRAFT_KEY, draftId);
+    } else {
+      sessionStorage.removeItem(ACTIVE_DRAFT_KEY);
+    }
+  } catch {
+    // A blocked/full store only costs draft resumption, never the wizard itself.
+  }
+}
 
 const STEPS = [
   {
@@ -63,8 +88,29 @@ export function AdminStoryWizardPage() {
       const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
       if (cancelled) return;
       setToken(tokenResponse.accessToken);
+
+      // Resume the draft this session was already building, so navigating away
+      // via the nav bar and back does not discard saved progress (FR-005).
+      const activeDraftId = readActiveDraftId();
+      if (activeDraftId) {
+        try {
+          const existing = await getDraft(tokenResponse.accessToken, activeDraftId);
+          if (cancelled) return;
+          if (existing?.draft) {
+            setDraft(existing.draft);
+            return;
+          }
+        } catch {
+          // Draft is gone (already generated, or expired) — fall through and
+          // start a fresh one rather than dead-ending the administrator.
+        }
+        if (cancelled) return;
+        writeActiveDraftId(null);
+      }
+
       const data = await createDraft(tokenResponse.accessToken);
       if (cancelled) return;
+      writeActiveDraftId(data.draft?.id ?? null);
       setDraft(data.draft);
     })();
     return () => {
@@ -75,6 +121,8 @@ export function AdminStoryWizardPage() {
 
   const applyWriteResult = useCallback((data) => {
     if (data.status === "generated") {
+      // The draft became a story — there is nothing left to resume.
+      writeActiveDraftId(null);
       setStory(data.story);
       setDraft(null);
     } else {

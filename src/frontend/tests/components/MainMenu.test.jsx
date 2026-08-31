@@ -91,4 +91,26 @@ describe("MainMenu", () => {
 
     expect(screen.getByText(/access provisioned/i)).toBeInTheDocument();
   });
+
+  it("no longer renders its own sign-out control, now owned by the shared nav bar", () => {
+    mockUseCapabilities.mockReturnValue({
+      hasPlayer: true,
+      hasAdministrator: false,
+      loading: false,
+      error: null,
+      denied: false,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter>
+        <MainMenu />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole("button", { name: /sign out/i })).not.toBeInTheDocument();
+    // The screen keeps its own content heading and its menu items.
+    expect(screen.getByRole("heading", { name: /my stories/i })).toBeInTheDocument();
+    expect(screen.getByText(/start or continue game/i)).toBeInTheDocument();
+  });
 });

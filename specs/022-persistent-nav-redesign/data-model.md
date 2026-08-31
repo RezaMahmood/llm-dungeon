@@ -43,6 +43,27 @@ A single derived enum, not stored:
 **Validation rule**: Exactly one of `NavBar`/`TitleBar` renders per authenticated
 screen — never both, never neither (FR-001, FR-006, SC-002).
 
+## StorySummary (existing backend shape, newly consumed by this feature's frontend)
+
+Not a new entity — `StoryService.list_summaries()` (`backend/services/story_service.py:62-68`)
+already returns this shape via the already-wired `GET /api/manage/stories` endpoint.
+FR-013's admin stories list renders it read-only; no new field, mutation, or backend
+change is introduced.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | Story identifier |
+| `name` | string | Story title, shown as the list row's label |
+| `published` | boolean | Drives the row's status label ("Published" / "Draft") |
+| `createdAt` | string (ISO 8601) | Not required to render per FR-013, but available if the list needs a secondary sort/label later |
+
+**Validation rule**: An empty list (`[]`) renders an explicit empty-state message,
+never an error state (FR-013, Edge Cases).
+
+**State transitions**: None from this feature's perspective — publishing/unpublishing
+a story is `005-story-publishing`'s scope; this list simply re-fetches on mount and
+reflects whatever `list_summaries()` currently returns.
+
 ## Relationship to existing data
 
 - `useCapabilities()` (`src/frontend/src/hooks/useCapabilities.js`) is the sole data

@@ -8,6 +8,12 @@
 
 **Input**: User description: "the UI for admin and player should have a persistent navigation bar across the top. So if they are creating a story, they need the ability to navigate to other parts of the application. Designs have been updated in /workspaces/llmdungeon/specs/designs and there is a README in there with instructions - make use of chrome devtools to inspect these and also use the attached image as reference"
 
+## Clarifications
+
+### Session 2026-08-30
+
+- Q: When an administrator clicks "Stories" in the nav bar, should it just land on the existing `/admin` placeholder page (no new content built), or does this feature need to build a minimal stories-list view there? → A: This feature must build a minimal stories-list view at `/admin` (title + list of existing stories), captured as FR-013/SC-007 (a standalone requirement, distinct from FR-010's five named screens).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Navigate away from an in-progress story without losing it (Priority: P1)
@@ -81,13 +87,14 @@ Any signed-in user glances at the nav bar and can tell, without further clicking
 - How does the system handle a very long story title or a long user display name in the nav bar or the play-screen title bar? Text truncates/ellipsizes gracefully without breaking the bar's layout or pushing other controls out of view.
 - What happens on the active story-play screen? The full nav bar is replaced by a compact title bar (story title + return-to-story-select + pause/exit), by design, to preserve the full-height reading area — this is not a missing nav bar, it's the documented exception.
 - What happens if a user's session expires while they click a nav link? Existing authentication handling applies (redirect to sign-in), unchanged by this feature.
+- What happens on the admin "Stories" list when no stories exist yet? An empty state is shown (no error), consistent with the list only ever growing as stories are generated via the wizard.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: The system MUST display a persistent top navigation bar on every authenticated screen except the active story-play screen.
-- **FR-002**: For administrators, the nav bar MUST provide links to "Stories," "New story," "People," and "Player view."
+- **FR-002**: For administrators, the nav bar MUST provide links to "Stories," "New story," "People," and "Player view." "Stories" MUST be a distinct destination from "New story" (see FR-013), not an alias for the same wizard screen.
 - **FR-003**: For players, the nav bar MUST provide links to "My stories" and "Badges," plus an "Admin" link when the signed-in account also holds administrator capability.
 - **FR-004**: The nav bar MUST always show a "Sign out" control and the signed-in user's name, right-aligned.
 - **FR-005**: Users MUST be able to reach any other primary section from within the story-creation wizard, at any step, without losing wizard progress that was already saved.
@@ -98,6 +105,7 @@ Any signed-in user glances at the nav bar and can tell, without further clicking
 - **FR-010**: All five primary screens (sign-in, story select, story play, story-creation wizard, People/account management) MUST be restyled to use the shared design system referenced in `specs/designs` (color palette, typography, spacing, and component styling), replacing current styling.
 - **FR-011**: The People screen's existing one-account-at-a-time remove-with-confirmation behavior MUST be preserved through the redesign.
 - **FR-012**: The redesign and nav bar addition MUST NOT change existing functional behavior (data operations, validations, capability enforcement) of any screen — this is a visual and navigational change only.
+- **FR-013**: The "Stories" nav link MUST land on a minimal admin stories-list view (at `/admin`) showing at least each existing story's title and status, sourced from the existing admin story-listing capability. When no stories exist yet, the view MUST show an empty state rather than an error.
 
 ## Success Criteria *(mandatory)*
 
@@ -109,6 +117,7 @@ Any signed-in user glances at the nav bar and can tell, without further clicking
 - **SC-004**: Across player-only, admin-only, and dual-capability accounts, nav items outside a user's granted capabilities never appear.
 - **SC-005**: All five primary screens present one consistent visual design language (shared color palette and typography), eliminating the prior visual inconsistency between screens.
 - **SC-006**: Players in an active story session retain the same usable story-reading area as before this change, with no reduction caused by the new title bar.
+- **SC-007**: From the admin nav, "Stories" and "New story" lead to two visibly different screens — a list of existing stories versus the creation wizard — with the list reflecting the current set of stories with no manual refresh workaround needed beyond a normal page load.
 
 ## Assumptions
 

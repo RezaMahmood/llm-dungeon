@@ -17,6 +17,19 @@ and `LoginScreen.jsx` are restyled in place to match `specs/designs/02, 04, 05, 
 respectively, with all functional behavior (account remove/confirm, wizard step
 save/autosave, capability checks) unchanged.
 
+**Post-clarification addition (2026-08-30, FR-013/SC-007)**: the admin nav's "Stories"
+link must be a distinct destination from "New story," not an alias for the wizard.
+This feature now also builds a minimal admin stories-list view at `/admin`
+(`AdminPage.jsx`) showing each existing story's name and status (published/draft),
+sourced from the already-existing, already-wired `GET /api/manage/stories` endpoint
+(`backend/api/admin/stories.py:list_stories` → `StoryService.list_summaries()`,
+returning `id`/`name`/`published`/`createdAt`). No backend change is required — this
+is a frontend-only addition following the same fetch-on-mount pattern
+`AdminAccountsPage.jsx` already uses via `accountService.js` (a parallel
+`storyService.js` is added for stories). Building the real story-authoring/publishing
+workflow behind that list remains `005-story-publishing`'s scope; this feature only
+lists existing stories read-only.
+
 **Cross-feature note (read before implementing)**: this feature is a hard, in-repo
 dependency for `019-spa-refresh-button`'s User Story 1 mounting tasks (019's
 `RefreshButton` is designed to render inside the nav bar this feature builds) and
@@ -39,6 +52,10 @@ Dependencies & Sequencing (022 ↔ 019)" below. Read that section before startin
   (copied from `specs/designs/styles.css`, per Constitution Principle VIII) — already
   imported globally via `index.css`, and already defines unused `.nav`/`.nav-brand`
   classes (`designTokens.css:216-227`) this feature is the first to consume
+- `GET /api/manage/stories` (`backend/function_app.py:91-93` → `list_stories` →
+  `StoryService.list_summaries()`) — already implemented, already admin-authorized
+  (`authorize_admin`), already covered by `backend/tests/integration/test_admin_stories_endpoint.py`;
+  this feature only adds a frontend consumer of it (FR-013)
 
 **Storage**: N/A — no persisted entity is introduced; capability state is already
 fetched by `useCapabilities()` and nav visibility is derived from it at render time
@@ -50,7 +67,9 @@ fetched by `useCapabilities()` and nav visibility is derived from it at render t
 
 **Project Type**: Web application — frontend-only change to `src/frontend/`; no
 `src/backend/` or `infrastructure/terraform/` changes (no new/changed API surface —
-`GET /api/auth/me` already returns the capabilities this feature reads)
+`GET /api/auth/me` already returns the capabilities this feature reads, and
+`GET /api/manage/stories` already exists and is already admin-authorized for FR-013's
+stories list)
 
 **Performance Goals**: N/A — no throughput/latency target specified (Principle IV);
 this is a rendering/styling change with no new network calls
@@ -66,6 +85,9 @@ this is a rendering/styling change with no new network calls
   change anywhere) constrain this to a rendering/layout refactor of
   `AdminAccountsPage.jsx`, `AdminStoryWizardPage.jsx`, and `MainMenu.jsx` — their data
   fetching, mutation, and validation logic must not change.
+- FR-013's stories list is read-only (list name + status) — no create/edit/delete
+  action is added to `/admin`; publishing/editing a story remains
+  `005-story-publishing`/`012-story-editing-and-review`'s scope.
 - **Open design gap requiring resolution before/alongside `/speckit-tasks`**: the
   actual current mockups (`specs/designs/02-story-select.html`, `04-admin-wizard.html`,
   `05-admin-users.html`) contain the shared `.nav` bar with **no Refresh control** in
@@ -77,15 +99,23 @@ this is a rendering/styling change with no new network calls
   title-bar entry exist). See "Cross-Feature Dependencies" below for the resolution
   this plan recommends.
 
-**Scale/Scope**: Applies to all five primary screens named in FR-010. Two of the
-routes this feature restyles a *header* for — `/menu` (mapped loosely to the "hub"
-role `02-story-select.html` plays in the mockups) and `/game` — are themselves still
-functional placeholders (`MainMenu.jsx` has no real story list yet; `GamePage.jsx`
-renders "Game features loading…", per `019-spa-refresh-button`'s plan and
-`008-core-gameplay`/`004-story-creation`'s own scope). This feature restyles what
-exists today (the hub menu, the placeholder game landing) and builds the nav/title
-bar correctly for when those screens gain real content later — it does not invent a
-new story-list UI; that remains `004-story-creation`'s and `008-core-gameplay`'s scope.
+**Scale/Scope**: Applies to all five primary screens named in FR-010, plus `/admin`
+(no dedicated mockup, but now in scope per FR-013 for a minimal stories list — see
+below). Two of the routes this feature restyles a *header* for — `/menu` (mapped
+loosely to the "hub" role `02-story-select.html` plays in the mockups) and `/game` —
+are themselves still functional placeholders (`MainMenu.jsx` has no real
+in-progress/published story list yet; `GamePage.jsx` renders "Game features
+loading…", per `019-spa-refresh-button`'s plan and `008-core-gameplay`/
+`004-story-creation`'s own scope). This feature restyles what exists today (the hub
+menu, the placeholder game landing) and builds the nav/title bar correctly for when
+those screens gain real content later — it does not invent a new player-facing
+story-list UI; that remains `004-story-creation`'s and `008-core-gameplay`'s scope.
+`/admin` is the one exception: per the 2026-08-30 clarification (FR-013/SC-007), this
+feature *does* build a minimal, read-only admin stories list there (name + published
+status, sourced from the already-existing `GET /api/manage/stories`), specifically so
+"Stories" is a distinct nav destination from "New story" — this is a narrowly-scoped
+addition, not the full story-authoring/publishing UI that `005-story-publishing`/
+`012-story-editing-and-review` will eventually build in its place.
 
 ## Constitution Check
 
@@ -95,8 +125,10 @@ new story-list UI; that remains `004-story-creation`'s and `008-core-gameplay`'s
 **Status**: ✓ MET — Each FR maps to a distinct, testable behavior: nav item
 visibility per capability combination (FR-002/003/008), `aria-current` on the active
 route (FR-007), presence/absence of the nav bar on `/login` and `/game` (FR-006/009),
-wizard-progress survival across a nav click (FR-005), and People's preserved
-remove/confirm flow (FR-011). Phase 1 contracts define exactly what these tests assert.
+wizard-progress survival across a nav click (FR-005), People's preserved
+remove/confirm flow (FR-011), and the admin stories list rendering existing
+stories plus an empty state with no error (FR-013). Phase 1 contracts define exactly
+what these tests assert.
 
 ### Principle II – Secure-by-Default Access (NON-NEGOTIABLE)
 **Status**: ✓ MET — Nav-item visibility is a rendering convenience layered on top of
@@ -112,7 +144,12 @@ gate is unchanged in substance — this feature only adds a layout wrapper aroun
 **Status**: ✓ MET — One `NavBar`/`TitleBar`/`AuthenticatedLayout` set, reusing the
 design system's already-vendored, already-defined `.nav` classes; no new
 state-management library, no client-side routing beyond existing `react-router-dom`
-usage, no new permission model (reuses `hasPlayer`/`hasAdministrator` as-is).
+usage, no new permission model (reuses `hasPlayer`/`hasAdministrator` as-is). The
+FR-013 stories list reuses an already-implemented, already-authorized backend
+endpoint (`GET /api/manage/stories`) and follows the existing
+`accountService.js`/`AdminAccountsPage.jsx` fetch-on-mount pattern verbatim — no new
+data-fetching abstraction, pagination, filtering, or caching layer is introduced for
+what is, today, a short list.
 
 ### Principle V – Continuous Integration Gate
 **Status**: ✓ MET — New/changed tests run in the existing Vitest suite already wired
@@ -141,8 +178,9 @@ is required, only implementation of an already-agreed control.
 ### Principle IX – User-Verified Acceptance Before Completion (NON-NEGOTIABLE)
 **Status**: Deferred to tasks.md — per constitution, `tasks.md` must end with an
 explicit final acceptance task verified by the requesting user/product owner against
-the real deployed environment, covering all five restyled screens and both
-single-capability and dual-capability accounts (User Stories 1–4).
+the real deployed environment, covering all five restyled screens, the FR-013 admin
+stories list (including its empty state), and both single-capability and
+dual-capability accounts (User Stories 1–4).
 
 ### Principle X – PII Protection by Design (NON-NEGOTIABLE)
 **Status**: N/A — No new data is stored, logged, or displayed; the nav bar shows the
@@ -171,6 +209,29 @@ does not decide between (a)/(b) — that is exactly what Principle XI's human ga
 for — but recommends building `NavBar`'s right-aligned button cluster (before "Sign
 out") as an ordinary flex row rather than a fixed two-slot layout, so that either
 outcome is a small, non-restructuring addition.
+
+**RESOLVED 2026-08-31 (product owner decision, T001)**: the Refresh control belongs
+to `019-spa-refresh-button`'s scope, not this feature's. This feature builds `NavBar`'s
+trailing button cluster as an ordinary flex row containing an explicit, empty
+placeholder mount point (before "Sign out") where 019's `RefreshButton` will later be
+inserted without restructuring. This feature ships **no** Refresh button of its own,
+and does **not** modify `specs/designs/02-story-select.html`, `04-admin-wizard.html`,
+`05-admin-users.html`, or `README.md` — those mockups remain accurate as-is for this
+feature. `019-spa-refresh-button`'s plan.md/research.md/tasks.md claims that a Refresh
+control was already added to those three mockups remain inaccurate and should be
+corrected within 019's own docs when that feature resumes (see Cross-Feature
+Dependencies finding 2). Principle XI is now fully satisfied for this feature.
+
+**Resolved separately, 2026-08-30 (`/speckit-clarify`)**: a second, distinct
+Principle XI gap was found by `/speckit-analyze` and resolved via clarification
+before this plan update: the admin nav's "Stories" link had no agreed destination —
+both `04-admin-wizard.html` and `05-admin-users.html` point "Stories" at the same
+file as "New story," and this plan previously assumed (without an explicit sign-off)
+that "Stories" would simply land on the `/admin` placeholder unchanged. The
+requesting user has now confirmed the design intent directly (spec.md
+Clarifications, 2026-08-30): "Stories" must lead to a distinct, minimal stories-list
+view, captured as FR-013/SC-007 above. This resolves that gap; the Refresh-slot gap
+above remains the only still-open Principle XI item for `tasks.md`.
 
 No unjustified constitution violations — Complexity Tracking table is not needed.
 
@@ -284,10 +345,14 @@ src/frontend/src/
 │   ├── AdminStoryWizardPage.jsx      # MODIFY: adopt NavBar via AuthenticatedLayout; restyle
 │   │                                 #   step-tab row per 04-admin-wizard.html; wizard save/autosave
 │   │                                 #   logic and activeStep state untouched (FR-005/FR-012)
-│   ├── AdminPage.jsx                 # MODIFY: minor restyle only (still a placeholder pending
-│   │                                 #   005-story-publishing/012-story-editing-and-review)
+│   ├── AdminPage.jsx                 # MODIFY: adopt NavBar via AuthenticatedLayout; fetch and
+│   │                                 #   render the minimal stories list (name + published status,
+│   │                                 #   empty state) via storyService.js's listStories (FR-013)
 │   └── GamePage.jsx                  # MODIFY: render under TitleBar instead of NavBar (FR-006);
 │                                     #   remains a content placeholder pending 008-core-gameplay
+├── services/
+│   └── storyService.js               # NEW: listStories(token) → GET /api/manage/stories, mirroring
+│                                     #   accountService.js's existing fetch pattern (FR-013)
 └── App.jsx                            # Unchanged routing table; ProtectedRoute now renders the
                                       # shared layout for every guarded route
 ```

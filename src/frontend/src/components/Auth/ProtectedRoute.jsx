@@ -2,6 +2,7 @@ import { useIsAuthenticated } from "@azure/msal-react";
 import { Navigate } from "react-router-dom";
 
 import { useCapabilities } from "../../hooks/useCapabilities.js";
+import AuthenticatedLayout from "../Layout/AuthenticatedLayout.jsx";
 
 /**
  * Wraps a route that requires authentication and, optionally, a specific
@@ -24,13 +25,15 @@ export function ProtectedRoute({ capability, children }) {
   const capabilityMap = { Player: hasPlayer, Administrator: hasAdministrator };
   if (capability && !capabilityMap[capability]) {
     return (
-      <div role="alert" style={{ padding: "var(--space-6)" }}>
-        Access not granted
-      </div>
+      <AuthenticatedLayout>
+        <div role="alert" style={{ padding: "var(--space-6)" }}>
+          Access not granted
+        </div>
+      </AuthenticatedLayout>
     );
   }
 
-  return children;
+  return <AuthenticatedLayout>{children}</AuthenticatedLayout>;
 }
 
 export default ProtectedRoute;

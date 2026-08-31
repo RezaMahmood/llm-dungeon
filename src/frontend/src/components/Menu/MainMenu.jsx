@@ -8,13 +8,8 @@ import GameMenuItem from "./GameMenuItem.jsx";
 import "./MainMenu.css";
 
 export function MainMenu() {
-  const { instance } = useMsal();
   const navigate = useNavigate();
   const { hasPlayer, hasAdministrator, loading, error, denied, refetch } = useCapabilities();
-
-  const handleLogout = () => {
-    instance.logoutRedirect();
-  };
 
   if (loading) {
     return <div className="main-menu">Loading…</div>;
@@ -39,7 +34,10 @@ export function MainMenu() {
 
   return (
     <div className="main-menu">
-      <h1>LLM Dungeon Adventure</h1>
+      {/* The signed-in identity, sign-out and wayfinding now live in the shared
+          nav bar (AuthenticatedLayout), so this screen owns only its content. */}
+      <h1>My stories</h1>
+      <hr className="hr" />
       {hasNoCapabilities && (
         <div className="no-access-message">
           <h2>Access Provisioned</h2>
@@ -58,9 +56,6 @@ export function MainMenu() {
           {hasAdministrator && <AdminMenuItem onClick={() => navigate("/admin")} />}
         </div>
       )}
-      <button type="button" className="btn btn-ghost logout-btn" onClick={handleLogout}>
-        Sign out
-      </button>
     </div>
   );
 }

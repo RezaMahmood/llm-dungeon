@@ -32,8 +32,9 @@ export function AdminAccountsPage() {
   }, [refresh]);
 
   return (
-    <div style={{ padding: "var(--space-6)" }}>
-      <h1>Accounts</h1>
+    <div style={{ maxWidth: "1020px", padding: "var(--space-6) var(--space-4) 64px" }}>
+      <h1 style={{ margin: 0 }}>People</h1>
+      <hr className="hr" />
       <AccountForm token={token} onAdded={refresh} />
       <hr className="hr" />
       {loading ? (

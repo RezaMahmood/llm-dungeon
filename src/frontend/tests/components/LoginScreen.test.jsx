@@ -59,4 +59,31 @@ describe("LoginScreen", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/cancelled/i);
   });
+
+  it("shows no persistent nav bar on the unauthenticated screen (FR-009)", () => {
+    render(
+      <MemoryRouter>
+        <LoginScreen />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /sign out/i })).not.toBeInTheDocument();
+    for (const label of ["Stories", "New story", "People", "My stories"]) {
+      expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
+    }
+  });
+
+  it("styles its controls from the shared design system, not ad hoc rules", () => {
+    render(
+      <MemoryRouter>
+        <LoginScreen />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("button", { name: /sign in with microsoft/i })).toHaveClass(
+      "btn",
+      "btn-primary",
+    );
+  });
 });
