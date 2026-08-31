@@ -8,7 +8,8 @@
 		"ghcr.io/devcontainers/features/azure-cli:1": {},
 		"ghcr.io/devcontainers/features/dotnet:2": {},
 		"ghcr.io/devcontainers/features/github-cli:1": {},
-		"ghcr.io/devcontainers/features/terraform:1": {}
+		"ghcr.io/devcontainers/features/terraform:1": {},
+		"ghcr.io/devcontainers/features/node:1": {}
 	},
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},
@@ -58,6 +59,19 @@
 	//    first time this mount is used, and `gh auth login` run once
 	//    inside any worktree's container persists there for all of
 	//    them (and survives --rebuild), same as the ~/.claude mounts.
+	//  - ~/.azure: same idea again, for the Azure CLI (installed via the
+	//    azure-cli feature above). `az` stores its login under $HOME/.azure
+	//    (msal_token_cache.bin etc.), not a keychain, on any OS.
+	//    `az login --use-device-code` cannot be run through Claude Code's
+	//    `!` bash mode or its Bash tool -- both execute non-interactively
+	//    (captured output, no stdin, a short timeout), and the device-code
+	//    flow needs a real TTY to print the code and then poll for a few
+	//    minutes while you finish auth in a browser. Run it once in a real
+	//    interactive shell instead -- either on the host, or inside any
+	//    worktree's container via `bin/wt <branch> --shell` -- and it
+	//    persists to the host and is picked up by every other worktree's
+	//    container from then on (including through --rebuild), same as the
+	//    gh mount.
 	//  - the uv and Terraform plugin-cache volumes are download caches, safe
 	//    to share across worktrees/branches, and cut postCreateCommand /
 	//    `terraform init` time on every container after the first.
@@ -65,6 +79,7 @@
 		"source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind",
 		"source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind",
 		"source=${localEnv:HOME}/.config/gh,target=/home/vscode/.config/gh,type=bind",
+		"source=${localEnv:HOME}/.azure,target=/home/vscode/.azure,type=bind",
 		"source=llmdungeon-uv-cache,target=/home/vscode/.cache/uv,type=volume",
 		"source=llmdungeon-tf-plugin-cache,target=/home/vscode/.terraform.d/plugin-cache,type=volume"
 	],
