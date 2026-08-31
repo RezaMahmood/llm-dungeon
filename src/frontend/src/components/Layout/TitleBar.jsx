@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 /**
  * The compact title bar that replaces the full nav bar on the active
@@ -10,10 +10,17 @@ import { Link } from "react-router-dom";
  * cluster below is an ordinary flex row so it can be inserted later without
  * restructuring (plan.md Constitution Check, Principle XI).
  *
- * `onSaveCheckpoint`/`onPauseExit` are supplied by the page — their real
- * behavior is `008-core-gameplay`'s scope.
+ * `onSaveCheckpoint`/`onPauseExit` may be supplied by the page once real
+ * checkpoint/pause behavior exists (`008-core-gameplay`'s scope). Until then,
+ * "Pause & exit" must still return the player to story select rather than
+ * being a dead button — this feature's nav bar is the only wayfinding
+ * mechanism now, so `onPauseExit` defaults to that return trip when the page
+ * doesn't yet supply its own handler.
  */
 export function TitleBar({ storyTitle = "", onSaveCheckpoint, onPauseExit }) {
+  const navigate = useNavigate();
+  const handlePauseExit = onPauseExit ?? (() => navigate("/menu"));
+
   return (
     <div
       style={{
@@ -58,7 +65,7 @@ export function TitleBar({ storyTitle = "", onSaveCheckpoint, onPauseExit }) {
         <button className="btn btn-secondary" type="button" onClick={onSaveCheckpoint}>
           Save a checkpoint
         </button>
-        <button className="btn btn-primary" type="button" onClick={onPauseExit}>
+        <button className="btn btn-primary" type="button" onClick={handlePauseExit}>
           Pause &amp; exit
         </button>
       </span>

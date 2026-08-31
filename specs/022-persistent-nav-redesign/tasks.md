@@ -148,8 +148,19 @@ description: "Task list for Persistent Navigation & Design Refresh"
 **Purpose**: Final regression pass, quickstart validation, and the constitution-mandated user-verified acceptance gate.
 
 - [X] T028 [P] Run the full `src/frontend/` Vitest suite and confirm all pre-existing tests for `MainMenu`, `AdminAccountsPage`, `AdminStoryWizardPage`, `LoginScreen`, and capability/auth scenarios (`tests/e2e/denial_scenarios.test.jsx`, `tests/scenarios/unauthorized_user.test.jsx`, `tests/hooks/useCapabilities.test.jsx`) still pass, with only rendering assertions changed (FR-012), and that the new `admin_stories_list.test.jsx` (T017a) passes.
-- [ ] T029 Run `quickstart.md`'s manual validation scenarios 1–7 locally (`npm run dev` in `src/frontend/`) across player-only, admin-only, dual-capability, and no-capability test accounts, including scenario 1 (admin "Stories" list vs. "New story").
-- [ ] T030 **Final acceptance (Constitution Principle IX, NON-NEGOTIABLE)**: the requesting user/product owner — not the implementing agent — exercises scenarios 1–7 from `quickstart.md` against the real deployed environment (or the most representative environment available), including explicit confirmation of the Principle XI Refresh-slot outcome recorded in T001 and of the FR-013 admin stories list, and confirms the feature behaves as intended end-to-end. This task is not complete until that confirmation is given.
+- [X] T029 Run `quickstart.md`'s manual validation scenarios 1–7 locally (`npm run dev` in `src/frontend/`) across player-only, admin-only, dual-capability, and no-capability test accounts, including scenario 1 (admin "Stories" list vs. "New story").
+- [X] T030 **Final acceptance (Constitution Principle IX, NON-NEGOTIABLE)**: the requesting user/product owner — not the implementing agent — exercises scenarios 1–7 from `quickstart.md` against the real deployed environment (or the most representative environment available), including explicit confirmation of the Principle XI Refresh-slot outcome recorded in T001 and of the FR-013 admin stories list, and confirms the feature behaves as intended end-to-end. This task is not complete until that confirmation is given.
+
+  **Approved 2026-08-31** against the deployed environment
+  (`https://calm-bay-063862603.7.azurestaticapps.net/`), Gates 0–8, by the
+  requesting user. **Gate 7 initially failed**: on `/game`, "Pause & exit" had
+  no handler wired at all (`AuthenticatedLayout` rendered `<TitleBar />` with
+  no props) and did not return the player to story select. Fixed:
+  `TitleBar.jsx` now defaults `onPauseExit` to `navigate("/menu")` when the
+  page supplies no handler of its own, so the button is never a dead end
+  while `008-core-gameplay` still owns the real pause/checkpoint behavior.
+  Covered by a new test in `tests/components/TitleBar.test.jsx`. Re-verified
+  and approved after the fix.
 
 ---
 
