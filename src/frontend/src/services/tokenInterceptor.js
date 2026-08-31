@@ -1,5 +1,3 @@
-import axios from "axios";
-
 /**
  * Attaches an `Authorization: Bearer <token>` header to every outgoing request
  * and retries once with a freshly-refreshed token on a 401 response.
