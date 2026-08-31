@@ -1,26 +1,11 @@
-import { useEffect, useState } from "react";
-
-export function StepNameCover({ draft, onPatch }) {
-  const [name, setName] = useState(draft.name || "");
-  const [coverImageUrl, setCoverImageUrl] = useState(draft.coverImageUrl || "");
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => setName(draft.name || ""), [draft.name]);
-  useEffect(() => setCoverImageUrl(draft.coverImageUrl || ""), [draft.coverImageUrl]);
-
-  const dirty = name !== (draft.name || "") || coverImageUrl !== (draft.coverImageUrl || "");
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await onPatch({ name, coverImageUrl });
-      setSaved(true);
-    } finally {
-      setSaving(false);
-    }
-  };
-
+/**
+ * Tab 01 — name & cover (FR-009). A required story name and an optional cover image
+ * uploaded from the administrator's device; the selected file is held locally (not
+ * localStorage — File objects don't survive JSON serialization) until Save uploads it to
+ * blob storage. Both fields are bound directly to the wizard's central, localStorage-backed
+ * field state (FR-010) via `onChange`.
+ */
+export function StepNameCover({ fields, onChange, pendingCoverImageFile, onCoverImageFileSelected }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
       <div className="field">
@@ -28,30 +13,32 @@ export function StepNameCover({ draft, onPatch }) {
         <input
           id="story-name"
           className="input"
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value);
-            setSaved(false);
-          }}
+          value={fields.name}
+          onChange={(event) => onChange({ name: event.target.value })}
         />
       </div>
       <div className="field">
-        <label htmlFor="story-cover">Cover image URL</label>
+        <label htmlFor="story-cover">Cover image (optional)</label>
         <input
           id="story-cover"
           className="input"
-          value={coverImageUrl}
-          onChange={(event) => {
-            setCoverImageUrl(event.target.value);
-            setSaved(false);
-          }}
+          type="file"
+          accept="image/*"
+          onChange={(event) => onCoverImageFileSelected(event.target.files?.[0] ?? null)}
         />
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        <button type="button" className="btn btn-primary" onClick={handleSave} disabled={!dirty || saving}>
-          {saving ? "Saving…" : "Save"}
-        </button>
-        {saved && !dirty && <span className="text-muted" style={{ fontSize: "13px" }}>Saved</span>}
+        {pendingCoverImageFile ? (
+          <p className="text-muted" style={{ fontSize: "13px", marginTop: "8px" }}>
+            Selected &ldquo;{pendingCoverImageFile.name}&rdquo; — uploads when you Save.
+          </p>
+        ) : (
+          fields.coverImageUrl && (
+            <img
+              src={fields.coverImageUrl}
+              alt="Current cover"
+              style={{ maxWidth: "220px", filter: "grayscale(1)", marginTop: "8px" }}
+            />
+          )
+        )}
       </div>
     </div>
   );

@@ -16,10 +16,10 @@ src/frontend/
 │   │   └── Common/    # ErrorBoundary
 │   │   └── Admin/
 │   │       ├── AccountForm.jsx, AccountList.jsx
-│   │       └── StoryWizard/  # ConversationPanel, CharacterTypeList,
-│   │                         # CompletionCriteriaFields, Step* (004-story-creation)
+│   │       └── StoryWizard/  # CharacterTypeList, CompletionCriteriaFields,
+│   │                         # Step* (004-story-creation)
 │   ├── services/      # msalConfig, authService, tokenInterceptor, accountService,
-│   │                  # storyDraftService (004-story-creation)
+│   │                  # storyService (004-story-creation)
 │   ├── hooks/         # useAuth, useCapabilities
 │   ├── pages/         # AdminPage, AdminAccountsPage, AdminStoryWizardPage, GamePage
 │   └── styles/        # designTokens.css (vendored from specs/designs/styles.css)
@@ -62,17 +62,31 @@ Uses Vitest + React Testing Library; MSAL and network calls are mocked.
 
 ## Story creation wizard (004-story-creation)
 
-`/admin/stories/new` (linked from the Administration page) is a four-step
-guided wizard — Name & cover, World & setting, Tone & reading level, Session
-length, reachable in any order — for creating a new story. The World &
-setting step embeds a conversational panel (plain-language idea plus
-guiding questions) alongside dedicated character-type and completion-criteria
-fields. The wizard has no manual "save" button: once the world prompt, at
-least one character type, and at least one completion criterion exist, the
-backend generates and persists the story automatically on that same write,
-and the page shows the generated (unpublished) result. See
-[004's contracts/api.md](../../specs/004-story-creation/contracts/api.md) for
-the underlying draft/story endpoints `storyDraftService.js` calls.
+`/admin/stories/new` (linked from the Administration/Stories page, `/admin`)
+is a four-tab guided wizard — Name & cover, World & setting, Tone & reading
+level, Session length, reachable in any order — for creating a new story.
+
+- **Save** is available from any tab at any time and is the only thing that
+  writes to the database — there is no automatic/implicit save. The first
+  Save creates the story record (name required, everything else optional);
+  every later Save updates that same record.
+- Field values across all four tabs are held in browser local storage
+  (`llmdungeon.storyWizard.draft`) until a Save persists them, so switching
+  tabs never loses in-progress work — a purely frontend concern; there is no
+  server-side draft resource.
+- Tab 01's cover image is a file selected from the administrator's device;
+  it uploads to blob storage (via `POST /manage/stories/{storyId}/cover-image`)
+  as part of the same Save action once the story has an id.
+- Tab 02's "Suggest" action is a single, one-shot call to
+  `POST /manage/stories/suggest-outline` that injects a suggested outline
+  into the editable outline box — not an ongoing chat.
+- **Abandon** (with confirmation) discards the local draft and deletes the
+  story record if one was ever saved, then returns to `/admin`. **Finished**
+  (with confirmation) leaves whatever was saved alone and also returns to
+  `/admin`, which doubles as the stories list.
+
+See [004's contracts/api.md](../../specs/004-story-creation/contracts/api.md)
+for the underlying story endpoints `storyService.js` calls.
 
 ## Deployment
 

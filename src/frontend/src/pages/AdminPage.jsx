@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { loginRequest } from "../services/msalConfig.js";
-import { listStories } from "../services/storyDraftService.js";
+import { listStories } from "../services/storyService.js";
 
 /**
  * The admin "Stories" destination — a minimal, read-only list of the stories

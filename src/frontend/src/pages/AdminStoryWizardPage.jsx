@@ -1,36 +1,113 @@
 import { useMsal } from "@azure/msal-react";
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import StepNameCover from "../components/Admin/StoryWizard/StepNameCover.jsx";
 import StepSessionLength from "../components/Admin/StoryWizard/StepSessionLength.jsx";
 import StepToneReadingLevel from "../components/Admin/StoryWizard/StepToneReadingLevel.jsx";
 import StepWorldSetting from "../components/Admin/StoryWizard/StepWorldSetting.jsx";
 import { loginRequest } from "../services/msalConfig.js";
-import { createDraft, getDraft, patchDraft, postMessage } from "../services/storyDraftService.js";
+import { createStory, deleteStory, suggestOutline, updateStory, uploadCoverImage } from "../services/storyService.js";
 
-// Which draft this browser session is currently building. Without this, leaving
-// the wizard via the nav bar and coming back would start a brand-new blank
-// draft, stranding work the server had already saved (FR-005, SC-003).
-const ACTIVE_DRAFT_KEY = "llmdungeon.storyWizard.activeDraftId";
+// Holds this session's in-progress, unsaved field values in browser local storage (FR-010,
+// User Story 2) so tab switching before Save never loses data. Unlike the earlier
+// server-side StoryDraft/Cosmos-TTL design, this is purely a frontend concern — nothing
+// about it is ever sent to the backend until an explicit Save.
+const DRAFT_STORAGE_KEY = "llmdungeon.storyWizard.draft";
 
-function readActiveDraftId() {
+function emptyFields() {
+  return {
+    name: "",
+    coverImageUrl: null,
+    tone: "",
+    readingLevel: "",
+    sessionLengthMinutes: "",
+    chapters: "",
+    outline: "",
+    rules: "",
+    characterTypes: [],
+    completionCriteria: null,
+  };
+}
+
+function loadStoredDraft() {
   try {
-    return sessionStorage.getItem(ACTIVE_DRAFT_KEY);
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
 
-function writeActiveDraftId(draftId) {
+function writeStoredDraft(draft) {
   try {
-    if (draftId) {
-      sessionStorage.setItem(ACTIVE_DRAFT_KEY, draftId);
-    } else {
-      sessionStorage.removeItem(ACTIVE_DRAFT_KEY);
-    }
+    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
   } catch {
-    // A blocked/full store only costs draft resumption, never the wizard itself.
+    // Local storage unavailable (e.g. private browsing) — only unsaved, in-progress
+    // input is at risk (Edge Cases); anything already persisted via a prior Save is
+    // unaffected.
   }
+}
+
+function clearStoredDraft() {
+  try {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+  } catch {
+    // no-op
+  }
+}
+
+/** Strips still-being-typed, not-yet-valid rows (an added character type with no name
+ * yet, an added condition with no text yet) before a Save reaches the backend — the
+ * dedicated-field components intentionally hold those locally without calling `onChange`
+ * until they're valid, but a still-empty row can survive a page reload via localStorage,
+ * so this is enforced again here, at the Save boundary. */
+function toApiPayload(fields) {
+  const characterTypes = (fields.characterTypes || []).filter((ct) => ct.name && ct.name.trim());
+
+  let completionCriteria = fields.completionCriteria;
+  if (completionCriteria) {
+    const successConditions = (completionCriteria.successConditions || []).filter((c) => c && c.trim());
+    const failureConditions = (completionCriteria.failureConditions || []).filter((c) => c && c.trim());
+    if (successConditions.length === 0) {
+      completionCriteria = null;
+    } else {
+      const totalConditions = successConditions.length + failureConditions.length;
+      completionCriteria = {
+        maxDurationMinutes: completionCriteria.maxDurationMinutes ?? null,
+        successConditions,
+        failureConditions,
+        rule: totalConditions > 1 ? completionCriteria.rule || "any" : null,
+      };
+    }
+  }
+
+  return {
+    name: fields.name || "",
+    tone: fields.tone || null,
+    readingLevel: fields.readingLevel || null,
+    sessionLengthMinutes: fields.sessionLengthMinutes ? Number(fields.sessionLengthMinutes) : null,
+    chapters: fields.chapters ? Number(fields.chapters) : null,
+    outline: fields.outline || null,
+    rules: fields.rules || null,
+    characterTypes,
+    completionCriteria,
+  };
+}
+
+function storyToFields(story) {
+  return {
+    name: story.name || "",
+    coverImageUrl: story.coverImageUrl || null,
+    tone: story.tone || "",
+    readingLevel: story.readingLevel || "",
+    sessionLengthMinutes: story.sessionLengthMinutes ?? "",
+    chapters: story.chapters ?? "",
+    outline: story.outline || "",
+    rules: story.rules || "",
+    characterTypes: story.characterTypes || [],
+    completionCriteria: story.completionCriteria || null,
+  };
 }
 
 const STEPS = [
@@ -40,19 +117,13 @@ const STEPS = [
     label: "Name & cover",
     description: "What players see in their list.",
     Component: StepNameCover,
-    isDone: (draft) => Boolean(draft.name || draft.coverImageUrl),
   },
   {
     key: "world-setting",
     number: "02",
     label: "World & setting",
-    description:
-      "The engine improvises everything from this. Write it like you are telling a colleague about the place.",
+    description: "The engine improvises everything from this. Write it like you are telling a colleague about the place.",
     Component: StepWorldSetting,
-    isDone: (draft) =>
-      Boolean(draft.worldPrompt) &&
-      (draft.characterTypes?.length ?? 0) > 0 &&
-      (draft.completionCriteria?.successConditions?.length ?? 0) > 0,
   },
   {
     key: "tone-reading-level",
@@ -60,7 +131,6 @@ const STEPS = [
     label: "Tone & reading level",
     description: "Sets the voice and vocabulary the narrator keeps to.",
     Component: StepToneReadingLevel,
-    isDone: (draft) => Boolean(draft.tone || draft.readingLevel),
   },
   {
     key: "session-length",
@@ -68,7 +138,6 @@ const STEPS = [
     label: "Session length",
     description: "How long a sitting runs before a natural place to stop.",
     Component: StepSessionLength,
-    isDone: (draft) => Boolean(draft.sessionLengthMinutes || draft.chapters),
   },
 ];
 
@@ -76,42 +145,22 @@ export function AdminStoryWizardPage() {
   const { instance, accounts: msalAccounts } = useMsal();
   const account = msalAccounts[0];
   const accountKey = account?.homeAccountId ?? account?.username ?? null;
+  const navigate = useNavigate();
 
   const [token, setToken] = useState(null);
-  const [draft, setDraft] = useState(null);
-  const [story, setStory] = useState(null);
+  const [storyId, setStoryId] = useState(() => loadStoredDraft()?.storyId ?? null);
+  const [fields, setFields] = useState(() => loadStoredDraft()?.fields ?? emptyFields());
+  const [pendingCoverImageFile, setPendingCoverImageFile] = useState(null);
   const [activeStep, setActiveStep] = useState(STEPS[0].key);
+  const [saveStatus, setSaveStatus] = useState("idle"); // idle | saving | saved | error | name-required
+  const [confirmAction, setConfirmAction] = useState(null); // null | "abandon" | "finished"
+  const [actionStatus, setActionStatus] = useState("idle"); // idle | working | error
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
-      if (cancelled) return;
-      setToken(tokenResponse.accessToken);
-
-      // Resume the draft this session was already building, so navigating away
-      // via the nav bar and back does not discard saved progress (FR-005).
-      const activeDraftId = readActiveDraftId();
-      if (activeDraftId) {
-        try {
-          const existing = await getDraft(tokenResponse.accessToken, activeDraftId);
-          if (cancelled) return;
-          if (existing?.draft) {
-            setDraft(existing.draft);
-            return;
-          }
-        } catch {
-          // Draft is gone (already generated, or expired) — fall through and
-          // start a fresh one rather than dead-ending the administrator.
-        }
-        if (cancelled) return;
-        writeActiveDraftId(null);
-      }
-
-      const data = await createDraft(tokenResponse.accessToken);
-      if (cancelled) return;
-      writeActiveDraftId(data.draft?.id ?? null);
-      setDraft(data.draft);
+      if (!cancelled) setToken(tokenResponse.accessToken);
     })();
     return () => {
       cancelled = true;
@@ -119,48 +168,70 @@ export function AdminStoryWizardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- accountKey is the stable dependency
   }, [instance, accountKey]);
 
-  const applyWriteResult = useCallback((data) => {
-    if (data.status === "generated") {
-      // The draft became a story — there is nothing left to resume.
-      writeActiveDraftId(null);
-      setStory(data.story);
-      setDraft(null);
-    } else {
-      setDraft(data.draft);
-    }
+  // Every field change (any tab) is written straight to local storage (FR-010) — nothing
+  // reaches the backend until Save.
+  useEffect(() => {
+    writeStoredDraft({ storyId, fields });
+  }, [storyId, fields]);
+
+  const updateFields = useCallback((patch) => {
+    setFields((current) => ({ ...current, ...patch }));
+    setSaveStatus("idle");
   }, []);
 
-  const handlePatch = useCallback(
-    async (updates) => {
-      const data = await patchDraft(token, draft.id, updates);
-      applyWriteResult(data);
+  const handleSuggestOutline = useCallback(
+    async (idea) => {
+      const data = await suggestOutline(token, idea);
+      return data.outline;
     },
-    [token, draft, applyWriteResult],
+    [token],
   );
 
-  const handleSendMessage = useCallback(
-    async (message) => {
-      const data = await postMessage(token, draft.id, message);
-      applyWriteResult(data);
-    },
-    [token, draft, applyWriteResult],
-  );
+  const handleSave = useCallback(async () => {
+    if (!storyId && !fields.name.trim()) {
+      setSaveStatus("name-required");
+      return;
+    }
 
-  if (story) {
-    return (
-      <div style={{ padding: "var(--space-6)" }}>
-        <div style={{ fontSize: "12px", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-accent-700)" }}>
-          Story generated
-        </div>
-        <h1>{story.name || "Untitled story"}</h1>
-        <p className="text-muted">Saved automatically, unpublished. Publishing is handled elsewhere.</p>
-        <h3>Narrative guidance</h3>
-        <p>{story.narrativeGuidance}</p>
-      </div>
-    );
-  }
+    setSaveStatus("saving");
+    try {
+      const payload = toApiPayload(fields);
+      const data = storyId ? await updateStory(token, storyId, payload) : await createStory(token, payload);
+      let story = data.story;
 
-  if (!draft) {
+      if (pendingCoverImageFile) {
+        const uploaded = await uploadCoverImage(token, story.id, pendingCoverImageFile);
+        story = uploaded.story;
+        setPendingCoverImageFile(null);
+      }
+
+      setStoryId(story.id);
+      setFields(storyToFields(story));
+      setSaveStatus("saved");
+    } catch {
+      setSaveStatus("error");
+    }
+  }, [token, storyId, fields, pendingCoverImageFile]);
+
+  const handleConfirmAbandon = useCallback(async () => {
+    setActionStatus("working");
+    try {
+      if (storyId) {
+        await deleteStory(token, storyId);
+      }
+      clearStoredDraft();
+      navigate("/admin");
+    } catch {
+      setActionStatus("error");
+    }
+  }, [token, storyId, navigate]);
+
+  const handleConfirmFinished = useCallback(() => {
+    clearStoredDraft();
+    navigate("/admin");
+  }, [navigate]);
+
+  if (!token) {
     return (
       <div style={{ padding: "var(--space-6)" }}>
         <p className="text-muted">Starting a new story…</p>
@@ -173,7 +244,35 @@ export function AdminStoryWizardPage() {
 
   return (
     <div style={{ maxWidth: "1080px", padding: "var(--space-6) var(--space-4) 64px" }}>
-      <h1>New story</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "var(--space-4)", flexWrap: "wrap" }}>
+        <h1 style={{ margin: 0 }}>New story</h1>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+          {saveStatus === "saved" && (
+            <span className="text-muted" style={{ fontSize: "13px" }}>
+              Saved
+            </span>
+          )}
+          {saveStatus === "name-required" && (
+            <span role="alert" className="text-muted" style={{ fontSize: "13px" }}>
+              A story name is required to save.
+            </span>
+          )}
+          {saveStatus === "error" && (
+            <span role="alert" className="text-muted" style={{ fontSize: "13px" }}>
+              Could not save. Please try again.
+            </span>
+          )}
+          <button type="button" className="btn btn-secondary" onClick={() => setConfirmAction("abandon")}>
+            Abandon
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={() => setConfirmAction("finished")}>
+            Finished
+          </button>
+          <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saveStatus === "saving"}>
+            {saveStatus === "saving" ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
       <hr className="hr" />
 
       <div
@@ -189,7 +288,6 @@ export function AdminStoryWizardPage() {
       >
         {STEPS.map((step) => {
           const isActive = step.key === activeStep;
-          const status = isActive ? "In progress" : step.isDone(draft) ? "Done" : "Not started";
           return (
             <button
               key={step.key}
@@ -215,7 +313,6 @@ export function AdminStoryWizardPage() {
                 {step.number}
               </span>
               <span style={{ fontSize: "12px", letterSpacing: "0.06em", textTransform: "uppercase" }}>{step.label}</span>
-              <span style={{ fontSize: "11px", color: "var(--color-accent-700)" }}>{status}</span>
             </button>
           );
         })}
@@ -231,7 +328,52 @@ export function AdminStoryWizardPage() {
         {activeStepConfig.description}
       </p>
 
-      <ActiveStep draft={draft} onPatch={handlePatch} onSendMessage={handleSendMessage} />
+      <ActiveStep
+        fields={fields}
+        onChange={updateFields}
+        onSuggestOutline={handleSuggestOutline}
+        pendingCoverImageFile={pendingCoverImageFile}
+        onCoverImageFileSelected={setPendingCoverImageFile}
+      />
+
+      {confirmAction && (
+        <div className="dialog-backdrop">
+          <div className="dialog" role="dialog" aria-modal="true">
+            <div className="dialog-title">{confirmAction === "abandon" ? "Abandon this story?" : "Finish this creation session?"}</div>
+            <div className="dialog-body">
+              {confirmAction === "abandon"
+                ? "Unsaved changes are discarded, and if this story was ever saved, that record is deleted. This cannot be undone."
+                : "Whatever has already been saved — complete or partial — stays saved. You can come back and edit it later."}
+            </div>
+            {actionStatus === "error" && (
+              <div role="alert" className="text-muted">
+                Something went wrong. Please try again.
+              </div>
+            )}
+            <div className="dialog-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setConfirmAction(null);
+                  setActionStatus("idle");
+                }}
+                disabled={actionStatus === "working"}
+              >
+                Keep working
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={confirmAction === "abandon" ? handleConfirmAbandon : handleConfirmFinished}
+                disabled={actionStatus === "working"}
+              >
+                {confirmAction === "abandon" ? (actionStatus === "working" ? "Abandoning…" : "Abandon") : "Finished"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

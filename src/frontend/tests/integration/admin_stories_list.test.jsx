@@ -15,7 +15,7 @@ vi.mock("@azure/msal-react", () => ({
   useMsal: () => ({ instance: mockInstance, accounts: mockAccounts }),
 }));
 
-vi.mock("../../src/services/storyDraftService.js", () => ({
+vi.mock("../../src/services/storyService.js", () => ({
   listStories: (...args) => listStories(...args),
 }));
 
