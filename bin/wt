@@ -93,7 +93,7 @@ case "$_common_dir" in
   /*) : ;;
   *) _common_dir="$(pwd)/$_common_dir" ;;
 esac
-PRIMARY_REPO_ROOT="$(CDPATH= cd "$(dirname "$_common_dir")" && pwd)"
+PRIMARY_REPO_ROOT="$(CDPATH= cd "$(dirname "$_common_dir")" && pwd -P)"
 WORKTREE_PATH="$PRIMARY_REPO_ROOT/.worktrees/$BRANCH"
 
 cd "$PRIMARY_REPO_ROOT"
