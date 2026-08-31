@@ -205,7 +205,7 @@ current dependency set is clean (US2), and future drift is monitored automatical
 - [X] T018 [P] Run `specs/021-npm-dependency-audit/quickstart.md` sections 1-5 end-to-end
   (on-demand audit, PR-blocking demonstration, remediation validation, Critical-finding
   issue creation + dedupe, Dependabot visibility) and note results
-- [ ] T019 User-verified acceptance (Constitution Principle IX, NON-NEGOTIABLE): the
+- [X] T019 User-verified acceptance (Constitution Principle IX, NON-NEGOTIABLE): the
   requesting user/product owner confirms, against the real GitHub repository — not the
   implementing agent's own local/CI runs — that (a) a deliberately vulnerable test PR is
   blocked by the new required check, (b) the remediated `src/frontend` dependency set
