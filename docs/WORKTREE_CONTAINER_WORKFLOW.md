@@ -158,10 +158,11 @@ that only has this one worktree mounted (via `--mount-git-worktree-common-dir`
 + `git worktree add --relative-paths`); `/workspaces` inside the container
 shows only this worktree, no siblings; `WORKTREE_CONTAINER` reaches the
 session and `check-worktree-sync.sh`'s container-identity check correctly
-blocks on a mismatch and passes on a match; `~/.claude` auth carried over
-from the host with no `claude login` needed (this host stores it as files,
-not in the macOS keychain — still verify on yours). Two real bugs turned up
-and are already fixed in this repo, not just noted here:
+blocks on a mismatch and passes on a match; Claude Code auth carried over
+from the host with no `claude login` needed, including across a
+`--rebuild` (verified by force-recreating the container and running
+`claude -p "..."` non-interactively — no login prompt). Three real bugs
+turned up and are already fixed in this repo, not just noted here:
 
 - The `~/.claude` mount was originally read-only (to protect host
   credentials). The `claude` installer needs to write its download cache to
@@ -176,28 +177,88 @@ and are already fixed in this repo, not just noted here:
   writing to `~/.cache/claude`, a sibling directory. `.devcontainer/post-create.sh`
   now `sudo chown`s both cache-volume mount points before installing
   anything.
-
-## Known gaps to verify on your machine
-
-- **Docker Desktop's own VM disk, not your Mac's disk.** While testing,
-  Docker Desktop's virtual disk was at 561MB free of 59GB even though the
-  host Mac had 63GB+ free — `docker system df` showed ~12GB in stopped
-  containers and ~10GB of reclaimable build cache. This is what actually
-  bit the `claude` binary download (a few hundred MB) before the two fixes
-  above. Check yours with `docker system df` before your first `bin/wt`
-  run; free space with `docker system prune` (asks before deleting
-  anything) or raise the disk limit in Docker Desktop → Settings →
-  Resources.
-- If Claude Code's credential is stored in the macOS keychain rather
-  than a file under `~/.claude` on your machine, the mount won't carry
-  auth in — run `claude login` (or set `ANTHROPIC_API_KEY`) inside the
-  container once if `bin/wt` fails to authenticate.
+- Recreating a container (`bin/wt --rebuild`, or after cleanup) forced a
+  fresh `claude login` even though `~/.claude/.credentials.json` looked
+  mounted and present. Cause: Claude Code's oauth account/onboarding state
+  (`oauthAccount`, `hasCompletedOnboarding`, ...) lives in a *sibling*
+  file, `~/.claude.json`, not inside the `~/.claude` directory — so it
+  wasn't covered by the existing mount, and each new container got its own
+  empty one. Fixed by adding a second bind mount for that file
+  (`.devcontainer/devcontainer.json`); see **Claude Code auth inside the
+  container** below.
 - The container-removal filters in `bin/wt`, `prune-worktree-containers.sh`,
   and `speckit-mark-done` match on the `devcontainer.local_folder` label —
   confirmed as the real label the devcontainer CLI sets by default while
   testing (`docker inspect <container> --format '{{json .Config.Labels}}'`
   if cleanup ever seems to miss one).
-- `devcontainer.json` / `bin/wt` / the hook scripts only take effect in a
-  worktree once they're *committed* — a worktree checks out committed
-  content from its branch, so uncommitted edits to these files on `main`
-  won't appear in a worktree created before that commit lands.
+
+## Docker Desktop resources
+
+Docker Desktop's VM has its own disk/CPU/memory allocation, separate from
+the host Mac's — a resource crunch shows up there even when the host has
+plenty free. While first writing this workflow, the VM disk was at 561MB
+free of 59GB (host had 63GB+ free); `docker system df` showed ~12GB in
+stopped containers and ~10GB of reclaimable build cache, and that's what
+actually broke the `claude` binary download (a few hundred MB) before the
+two fixes above.
+
+Resources have since been raised in Docker Desktop → Settings → Resources;
+re-checked 2026-08-31 with `docker system df` and a throwaway container's
+`df -h /` showing 93G+ free of 125G on the VM disk. If it ever gets tight
+again: `docker system df` shows what's reclaimable, `docker system prune`
+frees it (asks before deleting anything), and the same Settings → Resources
+panel raises the disk/CPU/memory ceiling.
+
+## Claude Code auth inside the container
+
+`bin/wt` bind-mounts two things from the host so a container never needs
+its own `claude login`, including across a `--rebuild` or after cleanup
+recreates it from scratch (`.devcontainer/devcontainer.json`):
+
+- `~/.claude` → `/home/vscode/.claude` — holds
+  `~/.claude/.credentials.json` when the host stores its credential as a
+  file.
+- `~/.claude.json` → `/home/vscode/.claude.json` — a *sibling* file (not
+  inside the `~/.claude` directory), holding the oauth account/onboarding
+  state (`oauthAccount`, `hasCompletedOnboarding`, ...). Mounting only
+  `~/.claude` and not this file was the original bug: each new container
+  got its own empty `~/.claude.json`, so it looked authenticated
+  (credentials present) but wasn't, and any container recreation forced a
+  fresh login. Both mounts together are what actually fixes it — verified
+  2026-08-31 by force-recreating a container and running
+  `claude -p "..."` non-interactively with no login prompt.
+
+Both mounts only carry auth in if the host's credential is stored as a
+**file** in the first place. On Linux/Windows that's always true. On
+macOS, Claude Code prefers the Keychain by default and only falls back to
+`~/.claude/.credentials.json` when the Keychain is unavailable (locked,
+headless/SSH session, or a Keychain write failure) — there's no setting to
+force file-based storage ahead of time. Check what your host is actually
+using:
+
+```bash
+security find-generic-password -s "Claude Code-credentials" 2>&1 | head -1
+```
+
+If that finds an entry, your credential lives in the Keychain and neither
+mount carries anything in — `bin/wt` will need one of:
+
+- `claude login` run once inside the container (writes its own
+  `~/.claude/.credentials.json` and `~/.claude.json` inside the
+  container's filesystem, independent of the host Keychain — note this
+  container-local state does *not* survive `--rebuild`, since the mounts
+  don't cover it), or
+- an `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` environment variable, or
+- an `apiKeyHelper` script referenced from Claude Code settings.
+
+This host (verified 2026-08-31) stores its credential as
+`~/.claude/.credentials.json`, not the Keychain, so both mounts carry auth
+in with no extra step — still verify on yours with the command above
+before assuming it'll "just work".
+
+## `devcontainer.json` changes only apply once committed
+
+`devcontainer.json` / `bin/wt` / the hook scripts only take effect in a
+worktree once they're *committed* — a worktree checks out committed
+content from its branch, so uncommitted edits to these files on `main`
+won't appear in a worktree created before that commit lands.

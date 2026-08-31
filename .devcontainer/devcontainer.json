@@ -22,8 +22,15 @@
 	// One container is created per git worktree (see bin/wt and
 	// docs/WORKTREE_CONTAINER_WORKFLOW.md), all from this same image/config --
 	// so these mounts are shared *across every worktree's container*:
-	//  - ~/.claude: carries Claude Code auth/config in from the host so you
-	//    don't have to `claude login` inside every container. NOT read-only:
+	//  - ~/.claude and ~/.claude.json: carry Claude Code auth/config in from
+	//    the host so you don't have to `claude login` inside every
+	//    container. Both are needed -- ~/.claude/.credentials.json alone is
+	//    not enough, since the oauth account/onboarding state
+	//    (oauthAccount, hasCompletedOnboarding, ...) lives in the sibling
+	//    ~/.claude.json file, not inside the ~/.claude directory. Without
+	//    it mounted too, each container got its own empty ~/.claude.json,
+	//    so recreating a container (--rebuild, or after cleanup) forced a
+	//    fresh login even though credentials looked present. NOT read-only:
 	//    the `claude` installer itself needs to write its download cache to
 	//    ~/.claude/downloads (confirmed while building this config -- a
 	//    read-only mount here makes the installer fail with a misleading
@@ -42,6 +49,7 @@
 	//    `terraform init` time on every container after the first.
 	"mounts": [
 		"source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind",
+		"source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind",
 		"source=llmdungeon-uv-cache,target=/home/vscode/.cache/uv,type=volume",
 		"source=llmdungeon-tf-plugin-cache,target=/home/vscode/.terraform.d/plugin-cache,type=volume"
 	],
