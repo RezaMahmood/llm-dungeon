@@ -23,6 +23,8 @@ As a maintainer, I want every pull request that touches the frontend to be autom
 1. **Given** a pull request that changes the frontend's npm dependencies, **When** the dependency check runs, **Then** it reports any package with a known security vulnerability, including the affected package name, installed version, and severity.
 2. **Given** a pull request whose frontend npm dependencies contain a vulnerability at or above the blocking threshold, **When** the check completes, **Then** the pull request is prevented from merging until the vulnerability is resolved.
 3. **Given** a pull request whose frontend npm dependencies contain no vulnerabilities at or above the blocking threshold, **When** the check completes, **Then** the pull request is allowed to proceed to merge (subject to the project's other merge gates).
+4. **Given** the check identifies a vulnerability of Critical severity, **When** the check completes, **Then** a GitHub issue is automatically created documenting the finding (package, installed version, severity, fixed version if available) and is marked with a high-priority label.
+5. **Given** a Critical-severity finding for a specific package already has an open, automatically-created issue, **When** a later check run detects that same finding again, **Then** no duplicate issue is created for it.
 
 ---
 
@@ -65,6 +67,8 @@ As a maintainer, I want GitHub Dependabot configured for the frontend's npm pack
 - What happens when resolving a finding requires a breaking major-version upgrade of a package that is deeply integrated into the frontend?
 - How are findings that have no fix currently available (only a future fix promised by the package's maintainers) tracked so they are not silently lost?
 - What happens when Dependabot proposes an update whose accompanying pull request causes the frontend's automated tests to fail?
+- What happens when the same Critical finding is detected again on a subsequent check run while its automatically-created issue is still open? (See FR-011: no duplicate issue is created; the existing open issue is treated as still tracking it.)
+- What happens once a Critical finding's automatically-created issue has been closed (the vulnerability was resolved) and, later, an unrelated new Critical finding appears for the same package? (Treated as a new finding: a new issue is created, since no open issue currently tracks it.)
 
 ## Requirements *(mandatory)*
 
@@ -80,12 +84,14 @@ As a maintainer, I want GitHub Dependabot configured for the frontend's npm pack
 - **FR-008**: The project MUST configure GitHub Dependabot to monitor the frontend's npm package manifest on a recurring schedule and to report packages that have available updates or disclosed vulnerabilities.
 - **FR-009**: Dependabot's reports MUST be visible to maintainers through the repository's normal GitHub workflow (e.g., pull requests and/or security alerts) so that no separate tool or process is required to see them.
 - **FR-010**: The dependency check from FR-001 MUST be re-runnable on demand (not only automatically in CI) so a maintainer can verify the current state of the frontend's dependencies at any time.
+- **FR-011**: When the check in FR-001 identifies a vulnerability of Critical severity, the project MUST automatically create a GitHub issue documenting that finding (at minimum the fields required by FR-004: package name, installed version, severity, fixed version if available) and MUST mark that issue as high priority (e.g., a dedicated priority label). If an open, automatically-created issue already exists for that same Critical finding (same package and vulnerability), a new duplicate issue MUST NOT be created for it.
 
 ### Key Entities
 
 - **Dependency Finding**: A single reported issue against one frontend npm package — includes the package name, installed version, severity, vulnerability identifier (if security-related), and available fixed version (if any).
 - **Dependency Audit Report**: The aggregated set of Dependency Findings produced by one run of the check, used both for the one-time initial remediation (User Story 2) and for each CI run (User Story 1).
 - **Dependabot Configuration**: The repository setting that defines which package ecosystem (npm) and manifest location Dependabot monitors, and how often it checks.
+- **Critical Finding Issue**: A GitHub issue automatically opened when a Dependency Finding's severity is Critical — carries the finding's details (per FR-004) and a high-priority label; deduplicated per open finding per FR-011.
 
 ## Success Criteria *(mandatory)*
 
@@ -96,6 +102,7 @@ As a maintainer, I want GitHub Dependabot configured for the frontend's npm pack
 - **SC-003**: A pull request that introduces a frontend npm package with a vulnerability at or above the blocking threshold is blocked from merging in 100% of cases.
 - **SC-004**: Newly disclosed vulnerabilities or available updates in the frontend's npm packages are surfaced to maintainers automatically (without a manual audit) within Dependabot's configured check interval.
 - **SC-005**: The frontend continues to build successfully and pass its existing automated test suite immediately after every dependency upgrade or replacement performed under this feature.
+- **SC-006**: 100% of Critical-severity findings surfaced by the automated check result in a high-priority GitHub issue existing (either newly created, or an existing open one already tracking that finding) by the time the check run completes.
 
 ## Assumptions
 
@@ -104,3 +111,5 @@ As a maintainer, I want GitHub Dependabot configured for the frontend's npm pack
 - This feature covers the frontend's npm dependencies only; the Python backend's dependency hygiene is out of scope for this feature.
 - Existing automated tests are assumed sufficient to catch a behavioral regression introduced by a dependency upgrade or replacement; this feature does not introduce new test coverage beyond what FR-007/SC-005 require passing.
 - Dependabot's default recurring check interval (daily or weekly, configured per this project's preference) is acceptable; no specific real-time/instant-alert requirement was stated.
+- "Marked with high priority" (FR-011) is satisfied by a dedicated GitHub label (e.g. `priority: high`) applied to the automatically-created issue, since this repository has no pre-existing priority-labeling scheme; the label is created as part of this feature if it does not already exist.
+- Automatic issue creation (FR-011) is scoped to the CI check in FR-001/User Story 1 (i.e., a Critical finding surfaced by a PR's audit run), not to Dependabot's separate scheduled scan (User Story 3), which already has its own native alert/PR reporting channel (FR-008/FR-009).
