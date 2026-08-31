@@ -30,6 +30,7 @@ Cosmos DB (provisionedAccountEntries)
 - Frontend: see [src/frontend/README.md](src/frontend/README.md)
 - Infrastructure (Terraform, CI/CD, bootstrap): see [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md)
 - Login/access-control setup: see [docs/ADMIN_SETUP.md](docs/ADMIN_SETUP.md) and [docs/LOGIN_INSTRUCTIONS.md](docs/LOGIN_INSTRUCTIONS.md)
+- Working on a spec (per-worktree isolated devcontainers, `bin/wt`): see [docs/WORKTREE_CONTAINER_WORKFLOW.md](docs/WORKTREE_CONTAINER_WORKFLOW.md)
 
 `002-login-and-access-control` depends on infrastructure provisioned by
 `007-azure-infrastructure-provisioning` (Cosmos DB account, Function App,

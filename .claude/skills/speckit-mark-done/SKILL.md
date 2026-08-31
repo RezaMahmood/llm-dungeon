@@ -159,6 +159,19 @@ worktree itself — per the Key Rules, worktree removal stays a separate, manual
 user to do once the feature's branch is merged. Skip silently if no such worktree exists (the
 feature may never have had one, or it was already removed).
 
+Also remove that worktree's devcontainer, if the per-worktree isolated-devcontainer workflow
+(`bin/wt`, see `docs/WORKTREE_CONTAINER_WORKFLOW.md`) is in use — unlike the worktree itself,
+the container holds no unique state worth keeping (it's cheaply recreated by `bin/wt` from the
+shared cached image/volumes), so it's safe to fully remove rather than just stop:
+
+```bash
+CONTAINER_ID="$(docker ps -aq --filter "label=devcontainer.local_folder=$PRIMARY_REPO_ROOT/.worktrees/$base" 2>/dev/null || true)"
+[ -n "$CONTAINER_ID" ] && docker rm -f "$CONTAINER_ID" >/dev/null
+```
+
+Skip silently if `docker` isn't available or no such container is found — the workflow may not
+be in use for this repo/session.
+
 ### 8. Fix cross-references
 
 For each `(old → new)` pair, find every file elsewhere in the repo that mentions the old
@@ -256,6 +269,8 @@ still using the path, stop and report rather than forcing removal.
 - [ ] For each spec newly marked done, `.specify/feature.json` has been removed from that
       feature's own worktree (`.worktrees/<base>`) if one exists — the worktree itself is left
       alone.
+- [ ] For each spec newly marked done, that worktree's devcontainer (if the `bin/wt` workflow
+      is in use) has been removed — skipped silently if `docker`/the container isn't present.
 - [ ] If — and only if — a rename occurred: the change is committed, pushed, and a PR is
       open, and the temporary local worktree and branch used to produce it have been removed
       (leaving `main` untouched throughout and the remote PR branch intact).

@@ -1,21 +1,18 @@
 <!--
 Sync Impact Report
-Version change: 1.6.0 → 1.7.0
+Version change: 1.7.0 → 1.8.0
 Modified principles: none renamed or removed
-Added principles:
-  - XI. UI Design Pre-Agreement Before Implementation (NON-NEGOTIABLE) — any feature with a
-    user-facing UI must have its screen design agreed with the requesting user/product owner
-    during the design/planning phase, before implementation tasks begin; the feature's
-    tasks.md must contain an explicit UI design agreement/sign-off task that gates and is
-    sequenced before implementation tasks.
+Added principles: none — this is a process/tooling rule, not a new product principle
 Added sections:
-  - Development Workflow & Quality Gates: added a bullet requiring the UI design
-    agreement/sign-off task in tasks.md, gating implementation, per Principle XI.
+  - Development Workflow & Quality Gates: added a bullet requiring feature work to happen
+    inside that feature's own git worktree, running inside that worktree's own isolated
+    devcontainer (`bin/wt <branch>`), never directly in the primary checkout, and never
+    sharing a container between worktrees — so concurrent specs cannot cross-contaminate.
 Modified sections: none
 Removed sections: none
-Source: direct user instruction (2026-08-30) — prior to any implementation, and preferably
-  during design time, the specification should have a UI design pre-agreed before
-  implementation starts; this must be part of the task checklist.
+Source: direct user instruction (2026-08-31) — codify the newly implemented per-worktree
+  isolated-devcontainer workflow (bin/wt, docs/WORKTREE_CONTAINER_WORKFLOW.md) as an
+  enforced constitution rule rather than an informal convention.
 Templates requiring follow-up: none — dependent templates read this file at runtime and
   are not modified by this command.
 Deferred/TODO placeholders: none.
@@ -269,6 +266,12 @@ IX's acceptance gate is: as a checklist item someone can verify was done, not sk
   task in its `tasks.md`, sequenced before that feature's implementation tasks, per
   Principle XI. That task is not complete until the requesting user or product owner has
   confirmed the design — a design artifact merely existing does not satisfy it.
+- Feature work MUST happen inside that feature's own git worktree, running inside that
+  worktree's own isolated devcontainer (started via `bin/wt <branch>`) — never directly in
+  the primary checkout, and a worktree's container MUST NOT be shared with another
+  worktree. This keeps concurrent specs from cross-contaminating: a session for one spec
+  has no filesystem access to any other spec's worktree. See
+  `docs/WORKTREE_CONTAINER_WORKFLOW.md` for the full workflow.
 
 ## UI Design System Requirements
 
@@ -430,4 +433,4 @@ with the design-token, visual-rules, interaction-state, or layout/scroll require
 above as a blocking finding. No feature may ship a screen that is not traceable to a
 screen contract above or to a documented amendment extending it.
 
-**Version**: 1.7.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-08-30
+**Version**: 1.8.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-08-31

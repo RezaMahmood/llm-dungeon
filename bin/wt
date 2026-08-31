@@ -1,0 +1,173 @@
+#!/usr/bin/env bash
+# bin/wt <branch> [options]
+#
+# Deterministic entrypoint for the per-worktree isolated-devcontainer
+# workflow (see docs/WORKTREE_CONTAINER_WORKFLOW.md). Ensures a git
+# worktree for <branch> exists, brings up (or resumes) that worktree's
+# OWN devcontainer instance, and execs `claude` inside it -- so Claude's
+# process and filesystem view are confined to that one worktree.
+#
+# This is plain, static bash -- not a Claude skill, and not something
+# Claude decides to run on its own. You run it yourself, once per
+# terminal tab/window, before Claude exists for that worktree.
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: bin/wt <branch> [options]
+
+Ensures a git worktree for <branch> exists at .worktrees/<branch>
+(creating it from --base, or main, if it's new), brings up that
+worktree's own isolated devcontainer, and execs into it. Re-running
+against an existing worktree just resumes its container.
+
+Options:
+  --base=<branch>   Base branch to create <branch> from if it's new
+                     (default: main). Use this when <branch> depends on
+                     another spec's in-flight, already-committed work.
+  --shell           Exec an interactive shell instead of `claude`.
+  --rebuild          Force-recreate the container (passes
+                     --remove-existing-container to `devcontainer up`).
+  -h, --help         Show this help.
+EOF
+}
+
+BRANCH=""
+BASE="main"
+MODE="claude"
+REBUILD=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --base=*) BASE="${arg#--base=}" ;;
+    --shell) MODE="shell" ;;
+    --rebuild) REBUILD=1 ;;
+    -h|--help) usage; exit 0 ;;
+    -*)
+      echo "Unknown option: $arg" >&2
+      usage >&2
+      exit 1
+      ;;
+    *)
+      if [[ -n "$BRANCH" ]]; then
+        echo "Only one branch may be given (got '$BRANCH' and '$arg')." >&2
+        exit 1
+      fi
+      BRANCH="$arg"
+      ;;
+  esac
+done
+
+if [[ -z "$BRANCH" ]]; then
+  usage >&2
+  exit 1
+fi
+
+if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
+  echo "Refusing to create a worktree/container for '$BRANCH' -- it's the trunk; work never happens there." >&2
+  exit 1
+fi
+
+if ! command -v git >/dev/null 2>&1; then
+  echo "git is required on the host but was not found on PATH." >&2
+  exit 1
+fi
+
+DEVCONTAINER_BIN="$(command -v devcontainer || true)"
+if [[ -z "$DEVCONTAINER_BIN" ]]; then
+  echo "The devcontainer CLI was not found on PATH. Install it with: npm install -g @devcontainers/cli" >&2
+  exit 1
+fi
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "Not inside a git repository." >&2
+  exit 1
+fi
+
+# Resolve the primary repo root the same way ensure_feature_branch.py and
+# speckit-mark-done do: via --git-common-dir (not --show-toplevel), so this
+# works correctly whether invoked from the primary checkout or an existing
+# worktree.
+_common_dir="$(git rev-parse --git-common-dir)"
+case "$_common_dir" in
+  /*) : ;;
+  *) _common_dir="$(pwd)/$_common_dir" ;;
+esac
+PRIMARY_REPO_ROOT="$(CDPATH= cd "$(dirname "$_common_dir")" && pwd)"
+WORKTREE_PATH="$PRIMARY_REPO_ROOT/.worktrees/$BRANCH"
+
+cd "$PRIMARY_REPO_ROOT"
+
+# --- Ensure the worktree exists --------------------------------------------
+if git worktree list --porcelain | grep -qx "worktree $WORKTREE_PATH"; then
+  echo "Worktree already registered at $WORKTREE_PATH."
+elif [[ -e "$WORKTREE_PATH" ]]; then
+  echo "'$WORKTREE_PATH' exists but is not a registered git worktree -- not touching it. Resolve manually (see if it's stale)." >&2
+  exit 1
+elif git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+  echo "Creating worktree for existing local branch '$BRANCH'..."
+  git worktree add --relative-paths "$WORKTREE_PATH" "$BRANCH"
+elif git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
+  echo "Creating worktree tracking 'origin/$BRANCH'..."
+  git worktree add --relative-paths "$WORKTREE_PATH" -b "$BRANCH" "origin/$BRANCH"
+else
+  if ! git show-ref --verify --quiet "refs/heads/$BASE"; then
+    echo "Base branch '$BASE' does not exist locally -- cannot branch '$BRANCH' from it." >&2
+    exit 1
+  fi
+  echo "Creating new branch '$BRANCH' from '$BASE'..."
+  git worktree add --relative-paths "$WORKTREE_PATH" -b "$BRANCH" "$BASE"
+fi
+
+# Bootstrap .specify/feature.json the same way speckit-branch-ensure does,
+# but only when this branch actually corresponds to a spec folder -- bin/wt
+# is also used for non-speckit branches (e.g. chore/*).
+if [[ -d "$WORKTREE_PATH/specs/$BRANCH" && -d "$WORKTREE_PATH/.specify" ]]; then
+  printf '{"feature_directory": "specs/%s"}\n' "$BRANCH" > "$WORKTREE_PATH/.specify/feature.json"
+fi
+
+# --- Bring up this worktree's own container ---------------------------------
+# --mount-git-worktree-common-dir is what makes `git` work inside a
+# container that only has this one worktree mounted: it mounts the primary
+# checkout's shared .git directory (which --relative-paths above makes
+# resolvable from a different absolute path than the host's), without
+# mounting any *sibling* worktree. Nothing else under .worktrees/ is
+# reachable from inside this container.
+UP_ARGS=(
+  up
+  --workspace-folder "$WORKTREE_PATH"
+  --mount-git-worktree-common-dir
+  --remote-env "WORKTREE_CONTAINER=$BRANCH"
+)
+[[ "$REBUILD" == "1" ]] && UP_ARGS+=(--remove-existing-container)
+
+echo "Bringing up container for worktree '$BRANCH'..."
+devcontainer "${UP_ARGS[@]}"
+
+EXEC_ARGS=(
+  exec
+  --workspace-folder "$WORKTREE_PATH"
+  --mount-git-worktree-common-dir
+  --remote-env "WORKTREE_CONTAINER=$BRANCH"
+)
+
+set +e
+case "$MODE" in
+  claude) devcontainer "${EXEC_ARGS[@]}" -- claude ;;
+  shell)  devcontainer "${EXEC_ARGS[@]}" -- bash ;;
+esac
+SESSION_EXIT=$?
+set -e
+
+# Stop (not remove) this worktree's container once the session inside it
+# ends, to free CPU/RAM -- caches and any uncommitted worktree state are
+# preserved, so the next `bin/wt <branch>` resumes quickly. This has to
+# happen out here on the host, after `devcontainer exec` returns: a
+# container cannot reliably stop itself from a hook running inside it.
+CONTAINER_ID="$(docker ps -q --filter "label=devcontainer.local_folder=$WORKTREE_PATH" 2>/dev/null || true)"
+if [[ -n "$CONTAINER_ID" ]]; then
+  echo "Session ended -- stopping container for worktree '$BRANCH'..."
+  docker stop "$CONTAINER_ID" >/dev/null 2>&1 || true
+fi
+
+exit "$SESSION_EXIT"
