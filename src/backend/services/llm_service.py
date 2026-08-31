@@ -60,9 +60,25 @@ class LLMOutputError(ValueError):
     triggering write is never partially applied."""
 
 
+class _FieldUpdates(BaseModel):
+    """Mirrors the fields listed in `EXCHANGE_SYSTEM_PROMPT`. Declared explicitly (rather
+    than `dict[str, Any]`) because Azure OpenAI's structured-output mode requires every
+    object in the response schema to have `additionalProperties: false`, which can't be
+    inferred for a free-form dict."""
+
+    worldPrompt: Optional[str] = None
+    rules: Optional[str] = None
+    name: Optional[str] = None
+    coverImageUrl: Optional[str] = None
+    tone: Optional[str] = None
+    readingLevel: Optional[str] = None
+    sessionLengthMinutes: Optional[int] = None
+    chapters: Optional[int] = None
+
+
 class _ExchangeResponse(BaseModel):
     assistantMessage: str
-    fieldUpdates: dict[str, Any] = {}
+    fieldUpdates: _FieldUpdates = _FieldUpdates()
 
 
 class _GenerationResponse(BaseModel):
@@ -95,7 +111,7 @@ class LLMService:
         `{"assistantMessage": str, "fieldUpdates": dict}` (research.md §4)."""
         prompt = self._build_exchange_prompt(draft, message)
         result = self._call("gen_ai.story_creation.exchange", EXCHANGE_SYSTEM_PROMPT, prompt, _ExchangeResponse)
-        return result.model_dump()
+        return result.model_dump(exclude_none=True)
 
     def generate_story_config(self, draft: dict[str, Any]) -> dict[str, Any]:
         """Final generation call once the Completeness Rule is met. Returns
