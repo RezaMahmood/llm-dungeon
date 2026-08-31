@@ -6,15 +6,31 @@
 
 ---
 
-## Cross-feature dependency: the persistent nav bar
+## Cross-feature dependency: the persistent nav bar (resolved 2026-08-31)
 
-The agreed mockups mount this control inside a persistent top nav bar (a compact title bar on the Play screen). **That nav bar does not exist as a React component yet** — it is the subject of a separate feature, `022-persistent-nav-redesign` (Draft: spec.md only, no plan/tasks yet as of 2026-08-30). 022's FR-001–FR-012 own building the nav bar itself, capability-based item visibility, and the per-screen restyling; none of them mention a refresh control, so there's no functional overlap with 019 — only a physical one: this feature's `RefreshButton` is designed to render as one of that nav bar's (or title bar's) children.
+The agreed mockups mount this control inside a persistent top nav bar (a compact title bar on the Play screen). That nav bar was built by a separate feature, `022-persistent-nav-redesign`, which has since **merged to `main`** (`1b79aa8`, `5a4dce6`; PRs #103/#104): `src/frontend/src/components/Layout/NavBar.jsx` and `TitleBar.jsx` now exist, and `NavBar.jsx` reserves an explicit `data-nav-slot="trailing-actions"` `<span>` for this feature's `RefreshButton`. 022's own FR-001–FR-012 own the nav bar's structure and capability-based visibility; none of them mention a refresh control, so there is no functional overlap — only the (now-resolved) physical one.
 
-**`tasks.md` MUST resolve, not silently assume, one of:**
-- (a) 019 is sequenced after 022 lands, and `RefreshButton` is added directly into 022's finished nav component; or
-- (b) 019 ships first with an interim mount point (e.g., each page's own current placeholder header) and a follow-up task relocates it once 022's nav bar exists.
+**Newly discovered wiring gap**: `AuthenticatedLayout.jsx` renders `NavBar`/`TitleBar` as a **sibling** of the active page's content, not a parent — `{isStoryPlay ? <TitleBar/> : <NavBar/>} {children}` — so a page has no prop-based path to hand its `useRefreshable` state to the nav bar next to it. (`TitleBar.jsx` has this identical, still-unsolved gap for its own `onSaveCheckpoint`/`onPauseExit` props.)
 
-This plan does not pick between (a)/(b) — see plan.md's Constitution Check, Principle XI.
+**Resolution (decided 2026-08-31, `/speckit-analyze` remediation)**: a small `RefreshContext` — see below. Rejected alternative: lifting `NavBar` rendering into each page, which would undo 022's centralization and reintroduce per-page header duplication.
+
+---
+
+## `RefreshContext`
+
+**Location**: `src/frontend/src/context/RefreshContext.jsx`
+
+**Purpose**: Lets a page publish its `useRefreshable` state up to `NavBar`/`TitleBar`, which render as its sibling (not its parent) under `AuthenticatedLayout`.
+
+**API**:
+- `<RefreshProvider>` — wraps `AuthenticatedLayout`'s children once, near the app root, so any page underneath can publish into it and `NavBar`/`TitleBar` (also underneath the same provider) can read it.
+- `usePublishRefresh({ refresh, loading })` — called by a page (e.g. `MainMenu`, `AdminAccountsPage`, `AdminStoryWizardPage`) with its `useRefreshable` output; sets the context value while mounted and clears it on unmount, so navigating away from a page removes its control from the nav bar.
+- `useRefreshContext()` — called by `NavBar` (and, once the Play screen has real data, `TitleBar`); returns `{ refresh, loading } | null`. `NavBar` renders `RefreshButton` in `trailing-actions` only when this is non-null.
+
+**Behavior contract**:
+1. Exactly one page's state is published at a time — the currently-mounted page's `usePublishRefresh` call. A page that never calls it (e.g. `LoginScreen`) leaves the context `null`, so `NavBar` shows no refresh control.
+2. Unmounting the publishing page (route change) clears the published value before the next page's `useEffect` runs, so the nav bar never briefly shows a stale/wrong screen's refresh control.
+3. This is UI wiring state only — no data, no persistence; scoped to a single mounted tree.
 
 ---
 
@@ -77,11 +93,11 @@ This plan does not pick between (a)/(b) — see plan.md's Constitution Check, Pr
 
 | Screen | Route | Data source | Mount point (per updated mockup) | Notes |
 |--------|-------|--------------|------------------------------------|-------|
-| Story select / Main Menu | `/menu` (mockup: `02-story-select.html`) | `useCapabilities` (`GET /api/auth/me`) and/or story list, once that exists | Persistent nav bar, right-aligned before "Sign out" | Migrates `MainMenu`'s existing ad hoc `refetch`/error-button pattern onto `useRefreshable`/`RefreshButton`, inside 022's nav bar once it exists |
-| Play surface | `/game` (mockup: `03-play.html`) | Placeholder today (008-core-gameplay builds real content) | Compact title bar, left of "Save a checkpoint" / "Pause & exit" | Deferred until 008 gives this screen real data — see plan.md Scale/Scope; mount point is now confirmed in advance |
-| Admin Story Wizard | `/admin/stories/new` (mockup: `04-admin-wizard.html`) | `createDraft` | Persistent nav bar, right-aligned before "Sign out" | MUST NOT change `activeStep` (FR-003) — `useRefreshable` never touches step-selection state, only `draft`/`story` |
-| Admin Accounts (People) | `/admin/accounts` (mockup: `05-admin-users.html`) | `listAccounts` | Persistent nav bar, right-aligned before "Sign out" | Currently has a `refresh()` callback with no visible button and no error handling — both gaps close here |
-| Login | `/login` (mockup: `01-login.html`) | none | No control | Unchanged — no fetched data, matches spec Assumptions |
+| Story select / Main Menu | `/menu` (mockup: `02-story-select.html`) | `useCapabilities` (`GET /api/auth/me`) and/or story list, once that exists | `NavBar.jsx`'s `trailing-actions` slot, via `usePublishRefresh` | Migrates `MainMenu`'s existing ad hoc `refetch`/error-button pattern onto `useRefreshable`; publishes into `RefreshContext` rather than rendering `RefreshButton` itself |
+| Play surface | `/game` (mockup: `03-play.html`) | Placeholder today (008-core-gameplay builds real content) | `TitleBar.jsx`'s `trailing-actions` slot (not wired in this feature) | Deferred until 008 gives this screen real data — see plan.md Scale/Scope; `TitleBar` will consume `RefreshContext` the same way `NavBar` does once that lands |
+| Admin Story Wizard | `/admin/stories/new` (mockup: `04-admin-wizard.html`) | `createDraft` | `NavBar.jsx`'s `trailing-actions` slot, via `usePublishRefresh` | MUST NOT change `activeStep` (FR-003) — `useRefreshable` never touches step-selection state, only `draft`/`story` |
+| Admin Accounts (People) | `/admin/accounts` (mockup: `05-admin-users.html`) | `listAccounts` | `NavBar.jsx`'s `trailing-actions` slot, via `usePublishRefresh` | Currently has a `refresh()` callback with no visible button and no error handling — both gaps close here |
+| Login | `/login` (mockup: `01-login.html`) | none | No control | Unchanged — no fetched data, matches spec Assumptions; never calls `usePublishRefresh` |
 
 ---
 
