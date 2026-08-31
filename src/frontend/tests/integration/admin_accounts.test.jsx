@@ -76,4 +76,20 @@ describe("Admin accounts: add -> list -> re-add merges", () => {
     await within(table).findByText("Administrator");
     expect(within(table).getAllByRole("row")).toHaveLength(2); // still one merged entry, not two
   });
+
+  it("keeps the add form and account list intact through the restyle (FR-011, FR-012)", async () => {
+    listAccounts.mockResolvedValue({
+      accounts: [{ email: "player@example.com", roles: ["Player"] }],
+    });
+
+    render(<AdminAccountsPage />);
+
+    expect(await screen.findByRole("heading", { name: /people/i })).toBeInTheDocument();
+    // Add-account form still present and labelled.
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /add account/i })).toBeInTheDocument();
+    // Per-row removal is still offered one account at a time — no bulk control.
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /remove all|delete all/i })).not.toBeInTheDocument();
+  });
 });

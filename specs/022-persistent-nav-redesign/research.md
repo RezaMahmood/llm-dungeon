@@ -127,14 +127,54 @@ implementing agent's own design judgment where the requesting product owner's ac
 current intent is genuinely ambiguous — and here it is ambiguous precisely because two
 features' planning artifacts disagree with the actual mockup files.
 
+## 7a. Admin "Stories" nav destination (post-clarification, 2026-08-30)
+
+**Finding**: Both `04-admin-wizard.html` and `05-admin-users.html` point their
+"Stories" nav link at the same file as "New story" (`04-admin-wizard.html`), i.e. the
+mockups never actually differentiate the two destinations — there is no separate
+"Stories list" mockup. This plan originally assumed (without a recorded sign-off)
+that "Stories" would simply land on the existing `/admin` placeholder page unchanged.
+`/speckit-analyze` flagged this as an unresolved Principle XI gap; `/speckit-clarify`
+resolved it directly with the requesting user (spec.md Clarifications, 2026-08-30):
+"Stories" must lead to a distinct, minimal, read-only stories-list view (FR-013,
+SC-007).
+
+**Decision**: Build the list at `/admin` (`AdminPage.jsx`) using the
+already-implemented, already-authorized `GET /api/manage/stories` endpoint
+(`backend/api/admin/stories.py:list_stories` → `StoryService.list_summaries()` →
+`{id, name, published, createdAt}` per story). Add `storyService.js` mirroring
+`accountService.js`'s existing fetch pattern; `AdminPage.jsx` fetches on mount (same
+pattern as `AdminAccountsPage.jsx`'s `refresh()`) and renders each story's name and
+published/draft status, or an empty-state message when the list is empty.
+
+**Rationale**: No backend work is needed — the endpoint, its admin authorization, and
+its integration test (`backend/tests/integration/test_admin_stories_endpoint.py`)
+already exist and are unrelated to this feature's own scope; reusing them keeps this
+addition a small, in-pattern frontend change rather than a new subsystem (Principle
+IV/YAGNI). This also gives "Stories" and "New story" the visibly distinct
+destinations FR-002 now explicitly requires.
+
+**Alternatives considered**:
+- *Leave "Stories" pointed at the `/admin` placeholder unchanged*: rejected by the
+  requesting user during clarification — an admin clicking "Stories" expecting to see
+  existing stories and finding nothing was judged confusing enough to fix now rather
+  than defer.
+- *Build a full story-management view (edit/publish/delete actions) at `/admin`*:
+  rejected — out of scope; `005-story-publishing`/`012-story-editing-and-review` own
+  those actions. This feature's list is read-only.
+
 ## 7. Testing approach
 
 **Decision**: Component tests for `NavBar` (each capability combination → expected
 link set + cross-role link + `aria-current`), `TitleBar` (renders on `/game`, not
 elsewhere), and `AuthenticatedLayout` (picks `NavBar` vs `TitleBar` by route);
 integration tests re-asserting `AdminAccountsPage`'s existing remove/confirm behavior
-still passes with the new markup, and a wizard-navigation test (start a step, click a
-nav link, return, confirm saved fields persist) covering FR-005/SC-003.
+still passes with the new markup, a wizard-navigation test (start a step, click a
+nav link, return, confirm saved fields persist) covering FR-005/SC-003, and an
+`AdminPage` integration test covering FR-013/SC-007 (renders fetched stories'
+name/status; renders an empty state with no error when the list is empty), mocking
+`storyService.js`'s `listStories` the same way `AdminAccountsPage.test.jsx`-style
+tests already mock `accountService.js`.
 
 **Rationale**: Matches the existing Vitest + RTL convention
 (`src/frontend/tests/{components,hooks,integration}`) already used by

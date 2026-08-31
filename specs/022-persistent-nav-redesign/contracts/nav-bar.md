@@ -63,9 +63,23 @@ for the admin link set, `specs/designs/02-story-select.html:21-26` for the playe
 ```
 
 **Behavior contract**:
-1. Item visibility follows the derivation rules in `data-model.md`'s `NavItem` table
-   — driven solely by `useCapabilities()`'s `hasPlayer`/`hasAdministrator`, with no
-   new capability or permission concept (FR-008, spec Assumptions).
+
+0. **Clarified during implementation (2026-08-31) — the bar has two variants, not one
+   merged set.** `specs/designs/README.md` states this directly: "**Player:** My stories
+   · Badges · Admin (staff only)" and "**Admin:** Stories · New story · People, a 1px
+   vertical divider, then Player view". So the bar renders the *admin* variant on admin
+   surfaces (`/admin*`) and the *player* variant elsewhere, rather than rendering both
+   link sets at once as `data-model.md`'s original table implied. The cross-role link
+   into the other variant ("Player view" on the admin bar, "Admin" on the player bar)
+   renders only when the account holds **both** capabilities — README's "staff only"
+   qualifier — which is also what FR-008/SC-004 require, since a link to an experience
+   the account's route guard would refuse is exactly a destination the bar must not
+   advertise. (Spec User Story 3, acceptance scenario 2 reads as though an admin-only
+   account should also see "Player view"; that would contradict FR-008/SC-004, so the
+   MUST requirements win and the cross-link stays dual-capability-gated.)
+1. Item visibility is driven solely by `useCapabilities()`'s
+   `hasPlayer`/`hasAdministrator` plus the current section, with no new capability or
+   permission concept (FR-008, spec Assumptions).
 2. Exactly one item (or none, on `/login` — unreachable here) carries
    `aria-current="page"`, matching `useLocation().pathname` (FR-007). No two items are
    ever both current at once.

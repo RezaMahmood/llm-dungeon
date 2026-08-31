@@ -257,3 +257,11 @@ textarea.input { min-height: 90px; resize: vertical; }
 .dialog-body { font-size: 14px; opacity: 0.85; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
 
+
+/* — narrowly-scoped layout utilities (no visual-design opinion of their own) — */
+.nav-divider {
+  width: 1px; align-self: stretch; background: var(--color-divider); flex: none;
+}
+.truncate {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
