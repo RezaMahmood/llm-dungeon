@@ -23,7 +23,7 @@ This is a frontend-only feature. No backend endpoint, data model, or Azure resou
 
 **Testing**: Vitest + React Testing Library (`src/frontend/tests/{components,hooks,integration}`, existing convention) — new tests for `useRefreshable`, `RefreshButton`, `ProtectedRoute`'s initialization gating, and an integration test simulating a hard reload on a nested route
 
-**Target Platform**: Azure Static Web App (React SPA), per `007-azure-infrastructure-provisioning` — this feature adds `src/frontend/staticwebapp.config.json` to pin navigation-fallback routing behavior
+**Target Platform**: Azure Static Web App (React SPA), per `007-azure-infrastructure-provisioning` — this feature adds `src/frontend/public/staticwebapp.config.json` to pin navigation-fallback routing behavior
 
 **Project Type**: Web application — frontend-only change to the existing `src/frontend/` structure; no `src/backend/` or `infrastructure/terraform/` changes
 
@@ -97,7 +97,10 @@ specs/019-spa-refresh-button/
 
 ```text
 src/frontend/
-├── staticwebapp.config.json          # NEW: pins SPA navigation-fallback rewrite (FR-006/SC-003)
+├── public/
+│   └── staticwebapp.config.json      # NEW: pins SPA navigation-fallback rewrite (FR-006/SC-003) —
+│                                     #   must live under public/ so Vite copies it into dist/,
+│                                     #   which is what frontend-deploy.yml actually uploads
 ├── src/
 │   ├── hooks/
 │   │   ├── useRefreshable.js         # NEW: in-flight-guarded refresh state (loading/error/data), FR-002/FR-004/FR-005

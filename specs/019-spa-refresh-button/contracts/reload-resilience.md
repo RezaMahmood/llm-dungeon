@@ -8,7 +8,7 @@ This is a UI/hosting behavior contract covering what MUST happen when the browse
 
 ## Guarantee 1 — Deep-link routes resolve to the app shell, not a platform 404 (FR-006, SC-003)
 
-**Mechanism**: `src/frontend/staticwebapp.config.json`, deployed as part of `src/frontend/dist` (per `frontend-deploy.yml`).
+**Mechanism**: `src/frontend/public/staticwebapp.config.json`, deployed as part of `src/frontend/dist` (per `frontend-deploy.yml`).
 
 **Contract**:
 - A request for any path that is not a real static asset (no file extension) and not under the linked backend's `/api/*` prefix MUST be rewritten to `/index.html` (`navigationFallback.rewrite`).

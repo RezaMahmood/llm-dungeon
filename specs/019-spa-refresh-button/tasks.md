@@ -90,7 +90,7 @@ Frontend-only feature within the existing web-application layout: `src/frontend/
 
 ### Implementation for User Story 2
 
-- [x] T015 [P] [US2] Create `src/frontend/staticwebapp.config.json` per `contracts/reload-resilience.md` Guarantee 1: `navigationFallback.rewrite` to `/index.html`, excluding `/api/*` (the linked Function App backend) and static asset extensions
+- [x] T015 [P] [US2] Create `src/frontend/public/staticwebapp.config.json` per `contracts/reload-resilience.md` Guarantee 1: `navigationFallback.rewrite` to `/index.html`, excluding `/api/*` (the linked Function App backend) and static asset extensions. **Fixed 2026-08-31**: initially created at `src/frontend/staticwebapp.config.json` (source root) — Vite's build only copies `public/`'s contents into `dist/`, and `frontend-deploy.yml` uploads `src/frontend/dist`, so the file never reached the deployed site. Caught by the user's own T024 walkthrough (Scenarios 4–6 all 404'd on reload). Moved to `src/frontend/public/staticwebapp.config.json` so the build actually includes it.
 - [x] T016 [US2] Modify `src/frontend/src/components/Auth/ProtectedRoute.jsx` per `contracts/reload-resilience.md` Guarantee 2: read `useMsal().inProgress`; render a loading state while `inProgress !== InteractionStatus.None`; only evaluate `isAuthenticated` (and the existing capability check) once initialization completes
 - [x] T017 [P] [US2] Modify `src/frontend/src/hooks/useCapabilities.js`'s existing `REDIRECT_ATTEMPTED_KEY`-guarded 401 handler per `contracts/reload-resilience.md` Guarantee 3 / research.md §4: instead of calling `instance.loginRedirect(loginRequest)` immediately, navigate to `/login` with `state: { reason: "session-expired" }` so the user sees `LoginScreen`'s explanation before re-authenticating
 - [x] T018 [US2] Modify `src/frontend/src/components/Login/LoginScreen.jsx`: add a `sessionExpired: "Your session ended — please sign in again."` entry to the existing `MESSAGES` map; on mount, read `useLocation().state?.reason` and seed `status`/`message` from it when equal to `"session-expired"` — depends on T017
@@ -176,7 +176,7 @@ Task: "reload_resilience.test.jsx — hard reload on a nested route"
 Task: "LoginScreen.test.jsx — sessionExpired message present/absent"
 
 # Then implement:
-Task: "Create src/frontend/staticwebapp.config.json"
+Task: "Create src/frontend/public/staticwebapp.config.json"
 Task: "Modify ProtectedRoute.jsx to gate on inProgress"
 Task: "Modify useCapabilities.js's 401 handler to navigate with a reason"
 Task: "Modify LoginScreen.jsx to render the sessionExpired message"
