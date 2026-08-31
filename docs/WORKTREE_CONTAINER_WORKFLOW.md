@@ -158,11 +158,12 @@ that only has this one worktree mounted (via `--mount-git-worktree-common-dir`
 + `git worktree add --relative-paths`); `/workspaces` inside the container
 shows only this worktree, no siblings; `WORKTREE_CONTAINER` reaches the
 session and `check-worktree-sync.sh`'s container-identity check correctly
-blocks on a mismatch and passes on a match; Claude Code auth carried over
-from the host with no `claude login` needed, including across a
-`--rebuild` (verified by force-recreating the container and running
-`claude -p "..."` non-interactively — no login prompt). Three real bugs
-turned up and are already fixed in this repo, not just noted here:
+blocks on a mismatch and passes on a match; Claude Code and `gh` CLI auth
+both carried over from the host with no interactive login needed,
+including across a `--rebuild` (verified by force-recreating containers
+and running `claude -p "..."` non-interactively — no login prompt).
+Four real bugs turned up and are already fixed in this repo, not just
+noted here:
 
 - The `~/.claude` mount was originally read-only (to protect host
   credentials). The `claude` installer needs to write its download cache to
@@ -186,6 +187,11 @@ turned up and are already fixed in this repo, not just noted here:
   empty one. Fixed by adding a second bind mount for that file
   (`.devcontainer/devcontainer.json`); see **Claude Code auth inside the
   container** below.
+- The `gh` CLI (from the `github-cli` feature) asked for `gh auth login`
+  in every container, with no way to persist it — nothing mounted
+  `~/.config/gh`, where `gh` keeps its own login independent of any OS
+  keychain. Fixed the same way, with a third bind mount; see **`gh` CLI
+  auth inside the container** below.
 - The container-removal filters in `bin/wt`, `prune-worktree-containers.sh`,
   and `speckit-mark-done` match on the `devcontainer.local_folder` label —
   confirmed as the real label the devcontainer CLI sets by default while
@@ -255,6 +261,23 @@ This host (verified 2026-08-31) stores its credential as
 `~/.claude/.credentials.json`, not the Keychain, so both mounts carry auth
 in with no extra step — still verify on yours with the command above
 before assuming it'll "just work".
+
+## `gh` CLI auth inside the container
+
+Same problem, same fix, one more tool: the `github-cli` devcontainer
+feature installs `gh`, but nothing carried its login in until
+`~/.config/gh` (where `gh` stores `hosts.yml` with its oauth token, on any
+OS — no keychain involved) was added as a bind mount alongside the two
+Claude ones (`.devcontainer/devcontainer.json`). Before that fix, every
+container asked for `gh auth login` fresh, every time.
+
+Unlike `~/.claude.json`, this mount doesn't need the host path to already
+exist — Docker creates `~/.config/gh` on the host automatically the first
+time the mount is used, even if you've never run `gh` on the host itself.
+Run `gh auth login` **once**, inside any worktree's container, and it
+persists to the host and is picked up by every other worktree's container
+from then on (including through `--rebuild`) — verified 2026-08-31 by
+inspecting the mount on a freshly built container.
 
 ## `devcontainer.json` changes only apply once committed
 

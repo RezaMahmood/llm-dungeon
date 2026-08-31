@@ -44,12 +44,21 @@
 	//    carry it over -- verify after first use, and fall back to
 	//    `claude login` (or an API key via ANTHROPIC_API_KEY) inside the
 	//    container if needed.
+	//  - ~/.config/gh: same idea for the `gh` CLI (installed via the
+	//    github-cli feature above) -- it stores its login under
+	//    $HOME/.config/gh (hosts.yml with the oauth token), not the
+	//    macOS keychain, so mounting it is enough on any OS. Directory
+	//    doesn't need to pre-exist: Docker creates it on the host the
+	//    first time this mount is used, and `gh auth login` run once
+	//    inside any worktree's container persists there for all of
+	//    them (and survives --rebuild), same as the ~/.claude mounts.
 	//  - the uv and Terraform plugin-cache volumes are download caches, safe
 	//    to share across worktrees/branches, and cut postCreateCommand /
 	//    `terraform init` time on every container after the first.
 	"mounts": [
 		"source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind",
 		"source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind",
+		"source=${localEnv:HOME}/.config/gh,target=/home/vscode/.config/gh,type=bind",
 		"source=llmdungeon-uv-cache,target=/home/vscode/.cache/uv,type=volume",
 		"source=llmdungeon-tf-plugin-cache,target=/home/vscode/.terraform.d/plugin-cache,type=volume"
 	],
