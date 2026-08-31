@@ -8,8 +8,11 @@
 #   1. A Storage Account + container for Terraform's own remote state
 #      (separate from application storage — spec.md FR-002).
 #   2. A dedicated user-assigned Managed Identity carrying the GitHub OIDC
-#      federated credential (not an App Registration — FR-011a), with a
-#      Contributor role assignment scoped to the Resource Group only.
+#      federated credential (not an App Registration — FR-011a), with
+#      Contributor and Role Based Access Control Administrator role
+#      assignments scoped to the Resource Group only — the latter so
+#      `terraform apply` (running as this identity) can create/delete the
+#      role assignments in identity.tf, which plain Contributor cannot.
 #   3. Microsoft Graph application permissions on that same Managed
 #      Identity (003-account-provisioning-done, T058) — a Microsoft Entra ID /
 #      Graph API grant, not Azure RBAC, so it is not covered by the
@@ -121,6 +124,23 @@ else
     --role "Contributor" \
     --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP"
   echo "✓ Contributor role assigned, scoped to Resource Group '$RESOURCE_GROUP'"
+fi
+
+# Role Based Access Control Administrator, scoped to the Resource Group.
+# Contributor (above) explicitly excludes Microsoft.Authorization/* actions,
+# so `terraform apply` running as this identity cannot create or delete role
+# assignments (e.g. identity.tf's azurerm_role_assignment resources) without
+# this — surfaced as a 403 on roleAssignments/delete when a role assignment's
+# role_definition_name changed and Terraform had to replace it (2026-08-31).
+if az role assignment list --assignee "$IDENTITY_PRINCIPAL_ID" --role "Role Based Access Control Administrator" --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP" --query "[0].id" -o tsv | grep -q .; then
+  echo "✓ Role Based Access Control Administrator role assignment already exists, skipping"
+else
+  az role assignment create \
+    --assignee-object-id "$IDENTITY_PRINCIPAL_ID" \
+    --assignee-principal-type ServicePrincipal \
+    --role "Role Based Access Control Administrator" \
+    --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP"
+  echo "✓ Role Based Access Control Administrator role assigned, scoped to Resource Group '$RESOURCE_GROUP'"
 fi
 
 # Storage Blob Data Contributor on the state Storage Account specifically:
