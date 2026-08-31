@@ -91,8 +91,8 @@ export function useCapabilities() {
     } finally {
       loadingRef.current = false;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `account` is intentionally
-    // excluded: only `accountKey` (a stable primitive) should re-create this callback.
+    // `account` is intentionally excluded: only `accountKey` (a stable primitive)
+    // should re-create this callback.
   }, [instance, accountKey, navigate]);
 
   useEffect(() => {
