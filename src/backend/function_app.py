@@ -9,6 +9,7 @@ from azure.monitor.opentelemetry import configure_azure_monitor
 from backend.api.admin.accounts import add_account, list_accounts, remove_account
 from backend.api.admin.stories import (
     create_draft,
+    generate_story_from_draft,
     get_draft,
     get_story,
     list_stories,
@@ -86,6 +87,11 @@ def admin_story_drafts_patch(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="manage/stories/drafts/{draftId}/messages", methods=["POST"])
 def admin_story_drafts_post_message(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(post_message)(req)
+
+
+@app.route(route="manage/stories/drafts/{draftId}/generate", methods=["POST"])
+def admin_story_drafts_generate(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(generate_story_from_draft)(req)
 
 
 @app.route(route="manage/stories", methods=["GET"])
