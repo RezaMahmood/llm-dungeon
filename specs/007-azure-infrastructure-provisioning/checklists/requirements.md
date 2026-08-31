@@ -129,7 +129,7 @@
   Terraform recreate over a failed record with the same name.
   T027/T030/T032/T037/T040/T044 (the quickstart end-to-end validations) are
   correctly left unchecked in tasks.md pending Cosmos DB/Functions completion.
-- 2026-08-29: Split former User Stories 3, 4, and 5 out into `015-keyless-azure-authentication`
+- 2026-08-29: Split former User Stories 3, 4, and 5 out into `015-keyless-azure-authentication-done`
   (User Stories 3 and 4: GitHub OIDC, backend private connectivity/Managed Identity) and
   `016-environment-configuration-externalization` (User Story 5), as part of a
   project-wide pass to keep each spec to at most two user stories. This spec now covers
