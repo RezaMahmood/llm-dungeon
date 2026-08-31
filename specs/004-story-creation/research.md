@@ -1,6 +1,13 @@
 # Research: Story Creation
 
-**Date**: 2026-08-29 | **Status**: Research Phase Complete
+**Date**: 2026-08-29 | **Status**: Research Phase Complete (redesign amendments 2026-08-31)
+
+**Amendment (2026-08-31)**: Following the T033 acceptance walkthrough (2026-08-30) and the
+resulting spec.md Clarifications, this feature's design changed from auto-generate-on-
+completeness to explicit Save/Abandon/Finished with a purely frontend, local-storage draft
+and a blob-stored cover image. §1, §2, and §4 below still apply to the one LLM call this
+feature keeps (Tab 02's one-shot outline suggestion); §3's Cosmos-TTL-draft design and the
+conversational multi-turn exchange described in §4/§5 are superseded — see §6 and §7.
 
 ## 1. Calling the Azure AI Foundry Deployed Model
 
@@ -79,3 +86,36 @@
 **Rationale**: "World & setting" is already the step most semantically connected to what a character type or a win/lose condition is about, and it is the one step the reference mockup actually shows field styling for, so extending it keeps the new fields visually consistent without inventing a fifth step or reopening the screen-contract decision made during clarification.
 
 **Alternatives considered**: A dedicated fifth wizard step for characters/criteria — rejected for now as a bigger design change than this spec's clarification called for ("added to the existing steps **or** an additional step" left both open); revisit only if the World & Setting panel becomes visually crowded during implementation.
+
+---
+
+## 6. Cover Image Storage (resolves the T033-flagged "coverImageUrl has no defined meaning" question)
+
+**Unknown**: The original data-model.md left `coverImageUrl`'s expected content unspecified — an external link, an uploaded/managed asset reference, or something else.
+
+**Decision**: The Session 2026-08-30 Clarifications (FR-009) settle this: the cover image is a file uploaded from the administrator's own device, written to blob storage on Save, with the `Story` record storing a reference (the blob's URL) rather than an externally-hosted link or the image bytes themselves.
+
+**Infrastructure**: No new infrastructure is needed. `007-azure-infrastructure-provisioning` already provisions a Storage Account + `assets` blob container for "application-generated or static assets" (`specs/007-azure-infrastructure-provisioning/data-model.md`), reachable from Azure Functions via Managed Identity (`Storage Blob Data Contributor`) over a private endpoint — the same zero-trust pattern `CosmosService` already uses (Constitution Principle VII). This feature is simply the first backend code path to use that existing resource (`blob_service.py`), writing objects under a `story-covers/{storyId}/` prefix inside the shared `assets` container so a dedicated container isn't required. `STORAGE_ACCOUNT_URL` and `STORY_COVER_IMAGES_CONTAINER` (defaulting to `assets`) are added to `src/backend/config.py`/`.env.example`, mirroring `007`'s already-documented `STORAGE_ACCOUNT_URL`/`STORAGE_CONTAINER` deployment configuration.
+
+**Rationale**: Reusing the already-provisioned assets container avoids adding new Terraform resources (or a `007` scope change) for a need `007` already anticipated generically; a `story-covers/` prefix keeps cover images logically separated without a second container, role assignment, or private endpoint to provision and audit.
+
+**Validation**: `test_blob_service.py` mocks `BlobServiceClient` (no live Azure Storage call, matching `cosmos_service.py`'s tests); the integration test for `POST /manage/stories/{storyId}/cover-image` asserts the returned `Story.coverImageUrl` is the blob client's URL.
+
+---
+
+## 7. Explicit Save/Abandon/Finished Replaces Auto-Generation-on-Completeness (resolves the T033-flagged premature-generation bug)
+
+**Unknown**: FR-004 originally required the system to generate and auto-persist a `Story` the moment a `StoryDraft` became "complete" (world prompt + ≥1 character type + ≥1 completion criterion), with completeness defined independently of whether the administrator had ever visited Tabs 03/04. The T033 walkthrough showed this could — and did — jump the administrator straight from a single conversational exchange to a finished, generated-story screen, mid-flow and without warning.
+
+**Decision**: The Session 2026-08-30 Clarifications replace this entirely. There is no more automatic generation trigger and no more server-side `StoryDraft`/Cosmos-TTL resource (§3, above, is superseded). Instead:
+- A `Story` is written to Cosmos only on an explicit **Save** (FR-004), available from any tab at any time, gating on nothing but a non-empty `name` for the very first Save.
+- In-progress, unsaved field values across all four tabs live in the browser's local storage (FR-010) — a purely frontend concern; nothing analogous to the old draft document is sent to or held by the backend before a Save.
+- **Abandon** (FR-013/014) and **Finished** (FR-015) are explicit, confirmed actions the administrator takes to end a session, rather than an implicit TTL expiry or an auto-generation side effect.
+
+**Rationale**: Removing the "complete → auto-generate → auto-persist" step removes the exact failure mode T033 found — there is no code path left that can silently replace the wizard view mid-conversation. Moving the draft to local storage also removes an entire class of infrastructure (a TTL-enabled Cosmos container, its cleanup semantics, and the server-side merge/completeness logic) that existed largely to support a design this redesign no longer needs (YAGNI, Constitution Principle IV) — the browser is a perfectly adequate store for data that is explicitly defined as non-authoritative until Save.
+
+**Alternatives considered**:
+- Keep auto-generation but require all four tabs to be visited first: considered directly in the T033 walkthrough notes; rejected once the Clarifications session determined explicit Save was the more predictable and simpler model to reason about (and matches how every other admin surface in this codebase — accounts, `005-story-publishing` — already works: an explicit action commits a change).
+- Keep the server-side `StoryDraft`/TTL container but gate generation behind a manual trigger: would still require maintaining the draft container, its TTL semantics, and a merge step whose only remaining purpose (multi-turn conversational fill-in) is also removed by FR-003's one-shot Suggest redesign — strictly more moving parts for no remaining benefit.
+
+**Validation**: `src/backend/tests/unit/test_story_service.py` and `src/backend/tests/integration/test_admin_stories_endpoint.py` cover create/update/delete/cover-image directly against `Story`, with no draft entity involved; `src/frontend/tests/integration/admin_story_wizard_flow.test.jsx` covers the local-storage draft surviving tab switches and reloads, Save's create-then-update semantics, and confirmed Abandon/Finished.

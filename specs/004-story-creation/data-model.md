@@ -1,64 +1,18 @@
 # Data Model: Story Creation
 
-**Date**: 2026-08-29
+**Date**: 2026-08-29 | **Revised**: 2026-08-31 (Session 2026-08-30 Clarifications: explicit Save/Abandon/Finished, local-storage draft, blob-stored cover image)
 
 **Feature**: Story Creation (004-story-creation)
 
-This document defines the entities this feature introduces: an ephemeral `StoryDraft` (the in-progress wizard/conversation session) and the persisted `Story` it produces, along with the `Character Type` and `Completion Criteria` structures FR-008 requires as dedicated fields on both.
+This document defines the persisted `Story` entity this feature writes, the `Character Type` and `Completion Criteria` structures FR-008 requires as dedicated fields on it, and the purely frontend `Wizard Draft` concept that holds in-progress, unsaved wizard state before a Save.
 
----
-
-## Entity: Story Draft
-
-**Definition**: The in-progress state of one story-creation session — the wizard's structured field values plus the guiding-question conversation history — before enough detail exists to generate and persist a `Story`. Never visible to players; never itself a playable/catalog entry (see research.md §3).
-
-**Scope**: Owned by the administrator who started it. Multiple concurrent drafts per administrator are permitted (Clarifications).
-
-### Properties
-
-| Property | Type | Required | Value | Rationale |
-|----------|------|----------|-------|-----------|
-| `id` | string (UUID) | Yes | Draft identifier; also the partition key | One document per session |
-| `createdBy` | string | Yes | Administrator's Microsoft object id (`oid`) | Scopes the draft to its owner |
-| `name` | string or null | No | Story title (wizard step "Name & cover") | Optional until generation |
-| `coverImageUrl` | string or null | No | Cover image reference (wizard step "Name & cover") | Optional; not required for completeness. **Open question (flagged 2026-08-30, see spec.md § Open Questions)**: what this string is meant to contain — an externally-hosted image link, an uploaded/managed asset reference, or something else — is not yet specified. |
-| `tone` | string or null | No | Narrative tone (wizard step "Tone & reading level") | Optional until generation |
-| `readingLevel` | string or null | No | Target reading level (wizard step "Tone & reading level") | Optional until generation |
-| `sessionLengthMinutes` | integer or null | No | Target session length (wizard step "Session length") | Optional until generation |
-| `chapters` | integer or null | No | Target chapter count (wizard step "Session length") | Optional until generation |
-| `worldPrompt` | string or null | No | Free-language setting/plot description (FR-001, FR-002) | Required (non-empty) before generation can trigger |
-| `rules` | string or null | No | Free-language constraints the narration must keep | Optional |
-| `characterTypes` | array of Character Type | Yes, may be empty | See Character Type below | At least one required before generation can trigger (FR-008) |
-| `completionCriteria` | Completion Criteria or null | No | See Completion Criteria below | Required (non-null, ≥1 success condition) before generation can trigger (FR-008) |
-| `exchanges` | array of Story-Creation Exchange | Yes, may be empty | See Story-Creation Exchange below | Conversation history driving `worldPrompt`/`rules` extraction (research.md §4) |
-| `createdAt` | ISO 8601 timestamp | Yes | Session start time | Audit/debugging |
-| `updatedAt` | ISO 8601 timestamp | Yes | Last write time | Drives the TTL refresh (research.md §3) |
-| `ttl` | integer (seconds) | Yes | Cosmos TTL, reset to 86400 on every update | Auto-expires an abandoned draft (FR-005) — see research.md §3 |
-| `entityType` | string | Yes | Always `"StoryDraft"` | Container discriminator, matches existing model convention |
-
-### Completeness Rule (triggers generation — FR-003/FR-004)
-
-A draft is complete, and generation triggers automatically on the write that makes it true, when all of:
-- `worldPrompt` is non-empty, AND
-- `characterTypes` has at least one entry, AND
-- `completionCriteria` is non-null and has at least one entry in `successConditions`.
-
-### State Transitions
-
-```
-Created (empty fields, entityType="StoryDraft")
-  → updated repeatedly via PATCH / conversational exchange (any order, any number of times)
-  → [Completeness Rule met] → Story generated and persisted → draft document deleted
-  → [administrator stops interacting] → ttl expires → draft document deleted (never became a Story)
-```
-
-A draft is never directly deleted by an explicit "abandon" action (Assumptions: no resume requirement, so no abandon UI is needed either — TTL is the only exit path besides successful generation).
+There is no longer a server-side "StoryDraft" Cosmos entity — see research.md §7. A prior revision of this document defined one (TTL-enabled, generation-triggering); it is superseded entirely by explicit Save (FR-004) and a browser-local-storage-only draft (FR-010).
 
 ---
 
 ## Entity: Story
 
-**Definition**: A complete adventure narrative — setting, character types, plot, and completion criteria — along with the guidance needed to keep the LLM's later narration consistent with it (spec.md Key Entities). Created only by successful generation from a complete `StoryDraft`; unpublished by default (FR-006).
+**Definition**: A complete (or partially complete) adventure narrative — name, optional cover image reference, outline, rules, character types, and completion criteria (spec.md Key Entities). Written to Cosmos only by an explicit administrator Save (FR-004); unpublished by default (FR-006).
 
 **Scope**: Global; visible to administrators immediately, to players only once `005-story-publishing` marks it published.
 
@@ -66,34 +20,35 @@ A draft is never directly deleted by an explicit "abandon" action (Assumptions: 
 
 | Property | Type | Required | Value | Rationale |
 |----------|------|----------|-------|-----------|
-| `id` | string (UUID) | Yes | Story identifier; also the partition key | |
-| `name` | string or null | No | Carried over from the draft | Deferred as a formal Key Entity attribute (Clarifications) but still stored — the wizard collects it and the design's story-select/catalog screens display it |
-| `coverImageUrl` | string or null | No | Carried over from the draft | Same deferral as `name` |
-| `tone` | string or null | No | Carried over from the draft | Deferred (Clarifications) |
-| `readingLevel` | string or null | No | Carried over from the draft | Deferred (Clarifications) |
-| `sessionLengthMinutes` | integer or null | No | Carried over from the draft | Deferred (Clarifications) |
-| `chapters` | integer or null | No | Carried over from the draft | Deferred (Clarifications) |
-| `worldPrompt` | string | Yes | The administrator's setting/plot description | Required input to generation |
-| `rules` | string or null | No | The administrator's constraints | Optional input to generation |
-| `characterTypes` | array of Character Type | Yes, min length 1 | See below | FR-008, SC-003 |
-| `completionCriteria` | Completion Criteria | Yes, min 1 success condition | See below | FR-008, SC-003; shape matches `008-core-gameplay`'s Key Entity |
-| `narrativeGuidance` | string | Yes | LLM-generated prose the play-session narrator (`008-core-gameplay`) uses to stay consistent with this story | The "guidance... to keep the LLM's later narration consistent" named in spec.md's Story Key Entity |
+| `id` | string (UUID) | Yes | Story identifier; also the partition key | Assigned by the backend on the first Save (create) |
+| `name` | string | Yes | Story title (wizard Tab 01) | The only field required to Save at all (FR-004, FR-009) |
+| `coverImageUrl` | string or null | No | Blob storage URL for an uploaded cover image (wizard Tab 01) | FR-009 — set only once a cover image has actually been uploaded via `POST /manage/stories/{storyId}/cover-image`; never a client-supplied arbitrary URL |
+| `tone` | string or null | No | Narrative tone (wizard Tab 03) | No change from the original design (Clarifications: "No changes") |
+| `readingLevel` | string or null | No | Target reading level (wizard Tab 03) | Same |
+| `sessionLengthMinutes` | integer or null | No | Target session length (wizard Tab 04) | Same |
+| `chapters` | integer or null | No | Target chapter count (wizard Tab 04) | Same |
+| `outline` | string or null | No | Free-language setting/plot outline (wizard Tab 02) — editable directly, or seeded once via the one-shot "Suggest" action (FR-003) | Optional; a Story may be Saved before this is filled in |
+| `rules` | string or null | No | Free-language constraints the narration must keep (wizard Tab 02), independently editable from `outline` (FR-011) | Optional |
+| `characterTypes` | array of Character Type | No, may be empty | See Character Type below | No longer required to Save (unlike the superseded auto-generation design); still the dedicated field FR-008 requires when the administrator does define them |
+| `completionCriteria` | Completion Criteria or null | No | See Completion Criteria below | Same relaxation as `characterTypes` |
 | `published` | boolean | Yes | Defaults to `false` on creation | FR-006; flipped only by `005-story-publishing` |
-| `createdBy` | string | Yes | Administrator's `oid` | Audit trail |
-| `createdAt` | ISO 8601 timestamp | Yes | Generation time | Audit trail |
-| `entityType` | string | Yes | Always `"Story"` | Container discriminator |
+| `createdBy` | string | Yes | Administrator's email address, from the authenticated admin session | FR-012 |
+| `createdAt` | ISO 8601 timestamp | Yes | First Save (create) time | FR-012 |
+| `updatedBy` | string | Yes | Administrator's email address who performed the most recent Save | FR-012 |
+| `updatedAt` | ISO 8601 timestamp | Yes | Most recent Save time | FR-012 |
+| `entityType` | string | Yes | Always `"Story"` | Container discriminator, matches existing model convention |
 
 ### Validation Rules
 
-- A `Story` is only ever created by the backend's generation step, never directly via a client-supplied write — enforces FR-003 (LLM-generated) and FR-004 (auto-persisted as one atomic step).
-- `characterTypes` and `completionCriteria` MUST satisfy the same minimums as the draft's Completeness Rule — re-validated server-side at generation time even though the draft's own writes already enforce it, since the LLM's own output (`narrativeGuidance`) is what's actually new and unvalidated at that point (Edge Cases: malformed LLM output must not be persisted).
-- If the Foundry call for `narrativeGuidance` fails or returns content that fails validation (empty, or not parseable per research.md §4's schema for the generation call), no `Story` is written and the draft is left intact for another attempt (Edge Cases).
+- `name` must be non-empty to create a Story (first Save); it cannot be cleared to empty on a later Save (update).
+- `characterTypes`/`completionCriteria`, when supplied, MUST satisfy the Shared Structures below — validated server-side on every Save; the first invalid field short-circuits the whole write with a `422` (no partial merge of a rejected field alongside accepted ones in the same request), matching the prior draft-PATCH validation behavior.
+- Unlike the superseded design, a Story is never required to be "complete" (non-empty outline, ≥1 character type, ≥1 completion criterion) to exist in Cosmos — Save is available and effective at any point in the wizard (FR-004).
 
 ---
 
 ## Shared Structure: Character Type
 
-Used identically inside `StoryDraft.characterTypes` and `Story.characterTypes`.
+Unchanged from the original design.
 
 | Property | Type | Required | Rationale |
 |----------|------|----------|-----------|
@@ -104,44 +59,63 @@ Used identically inside `StoryDraft.characterTypes` and `Story.characterTypes`.
 
 ## Shared Structure: Completion Criteria
 
-Used identically inside `StoryDraft.completionCriteria` and `Story.completionCriteria`. Shape matches `008-core-gameplay`'s Key Entity by clarification decision.
+Unchanged from the original design; shape still matches `008-core-gameplay`'s Key Entity by clarification decision.
 
 | Property | Type | Required | Rationale |
 |----------|------|----------|-----------|
 | `maxDurationMinutes` | integer or null | No | Optional maximum session duration |
-| `successConditions` | array of string, min length 1 | Yes | At least one win condition (SC-003) |
+| `successConditions` | array of string, min length 1 when the structure is present at all | Yes (when present) | At least one win condition (SC-003) once completion criteria are defined |
 | `failureConditions` | array of string | No, may be empty | Optional lose condition(s) |
 | `rule` | `"any"` \| `"all"` \| null | Required only when `len(successConditions) + len(failureConditions) > 1` | How `008-core-gameplay` combines multiple conditions; omitted/null when only one condition total exists (nothing to combine) |
 
 ---
 
-## Entity: Story-Creation Exchange
+## Concept: Wizard Draft (frontend-only — not a Cosmos entity)
 
-**Definition**: A single turn in the conversation between an administrator and the system while building a Story (spec.md Key Entities) — the atomic unit of the elicitation process. Stored only inside its parent `StoryDraft.exchanges`; never a top-level Cosmos document.
+**Definition**: The in-progress, unsaved state of a story-creation session across all four wizard tabs, held entirely in the administrator's browser via `localStorage` (FR-010, User Story 2) under the key `llmdungeon.storyWizard.draft`. Never sent to, or held by, the backend until an explicit Save.
 
-| Property | Type | Required | Rationale |
-|----------|------|----------|-----------|
-| `role` | `"administrator"` \| `"system"` | Yes | Who produced this turn |
-| `message` | string | Yes | Administrator's plain-language input, or the system's guiding question/acknowledgment |
-| `timestamp` | ISO 8601 timestamp | Yes | Ordering within the conversation |
+**Shape** (frontend-internal; not a wire contract):
+
+```json
+{
+  "storyId": "9f2a... or null (null until the first Save creates the record)",
+  "fields": {
+    "name": "", "coverImageUrl": null,
+    "tone": "", "readingLevel": "", "sessionLengthMinutes": "", "chapters": "",
+    "outline": "", "rules": "", "characterTypes": [], "completionCriteria": null
+  }
+}
+```
+
+A pending, not-yet-uploaded cover image `File` object is held in React component state only — `File` objects are not JSON-serializable and so cannot round-trip through `localStorage`; if the browser is closed or the tab reloaded before Save, a selected-but-unsaved cover image is lost (the same "only unsaved changes are at risk" guarantee spec.md's Edge Cases already state for local storage generally).
+
+**State transitions**:
+
+```
+Created (empty fields, storyId = null)
+  → updated on every field change, any tab, any order (written to localStorage immediately)
+  → [Save] → POST (storyId == null) or PATCH (storyId set) → Story upserted in Cosmos,
+             storyId set from the response, fields refreshed from the persisted Story
+  → [Abandon, confirmed] → DELETE the Story if storyId is set (no-op otherwise) →
+             localStorage entry cleared → redirect to the main admin page
+  → [Finished, confirmed] → localStorage entry cleared (nothing already saved is
+             touched) → redirect to the stories list page
+```
 
 ---
 
 ## Storage Model
 
-**Container: `storyDrafts`** — partition key `/id`. TTL enabled per-item (research.md §3). Query patterns:
-
-```
-Point read: container.read_item(id=draftId, partition_key=draftId)
-```
-**Cost**: ~1 RU per read; write cost dominated by `exchanges` array growth (bounded in practice by a single wizard session's conversation length).
-
-**Container: `stories`** — partition key `/id`. No TTL. Query patterns:
+**Container: `stories`** (Cosmos DB, existing) — partition key `/id`. No TTL. Query patterns:
 
 ```
 Point read (single story): container.read_item(id=storyId, partition_key=storyId)
-List (admin view): SELECT * FROM c WHERE c.entityType = "Story"
+List (admin view): SELECT c.id, c.name, c.published, c.createdAt FROM c WHERE c.entityType = "Story"
+Delete (Abandon): container.delete_item(id=storyId, partition_key=storyId)
 ```
-**Cost**: List is a cross-partition query, acceptable at this project's small catalog scale (Principle IV — no pagination built ahead of a stated need).
 
-Both containers are provisioned by `007-azure-infrastructure-provisioning`'s Cosmos DB account (serverless, Managed Identity access via `CosmosService`, no new authentication pattern).
+**Cost**: List is a cross-partition query, acceptable at this project's small catalog scale (Principle IV — no pagination built ahead of a stated need). Provisioned by `007-azure-infrastructure-provisioning`'s Cosmos DB account (serverless, Managed Identity access via `CosmosService`, no new authentication pattern).
+
+There is no longer a `storyDrafts` container — see research.md §7. The Cosmos-TTL-based ephemeral draft container from the original design is removed entirely; its only remaining conceptual counterpart is the frontend-only Wizard Draft above.
+
+**Blob container: `assets`** (Azure Storage, provisioned by `007-azure-infrastructure-provisioning` for general application assets) — this feature's cover images are written under a `story-covers/{storyId}/{filename}` path prefix within that existing container (research.md §6), reached via Managed Identity (`Storage Blob Data Contributor`) over the same private-endpoint path `007` already provisions. No new blob container or Terraform change is required.
