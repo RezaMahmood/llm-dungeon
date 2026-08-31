@@ -65,6 +65,24 @@ describe("CompletionCriteriaFields", () => {
     });
   });
 
+  it("keeps a just-added, uncommitted condition row when the parent re-renders with unrelated but content-identical completionCriteria (regression)", async () => {
+    // Same root cause as CharacterTypeList's equivalent test: the wizard replaces the
+    // whole draft object on every write, handing down a fresh completionCriteria object
+    // reference even when its content is unchanged. Resetting local state on prop
+    // *reference* alone wiped an in-progress "Add success condition" row.
+    const onChange = vi.fn();
+    const initial = { maxDurationMinutes: null, successConditions: [], failureConditions: [], rule: null };
+    const { rerender } = render(<CompletionCriteriaFields completionCriteria={initial} onChange={onChange} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /add success condition/i }));
+    expect(screen.getByLabelText(/success condition/i)).toBeInTheDocument();
+
+    // A new object instance, same content — simulates an unrelated draft refresh.
+    rerender(<CompletionCriteriaFields completionCriteria={{ ...initial }} onChange={onChange} />);
+
+    expect(screen.getByLabelText(/success condition/i)).toBeInTheDocument();
+  });
+
   it("clears the whole structure when the last success condition is removed", async () => {
     const onChange = vi.fn();
     render(

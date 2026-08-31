@@ -20,7 +20,7 @@ This document defines the entities this feature introduces: an ephemeral `StoryD
 |----------|------|----------|-------|-----------|
 | `id` | string (UUID) | Yes | Draft identifier; also the partition key | One document per session |
 | `createdBy` | string | Yes | Administrator's Microsoft object id (`oid`) | Scopes the draft to its owner |
-| `name` | string or null | No | Story title (wizard step "Name & cover") | Optional until generation |
+| `name` | string or null | No | Story title (wizard step "Name & cover") | Required (non-empty) before generation can trigger (revised 2026-08-31) |
 | `coverImageUrl` | string or null | No | Cover image reference (wizard step "Name & cover") | Optional; not required for completeness. **Open question (flagged 2026-08-30, see spec.md § Open Questions)**: what this string is meant to contain — an externally-hosted image link, an uploaded/managed asset reference, or something else — is not yet specified. |
 | `tone` | string or null | No | Narrative tone (wizard step "Tone & reading level") | Optional until generation |
 | `readingLevel` | string or null | No | Target reading level (wizard step "Tone & reading level") | Optional until generation |
@@ -39,9 +39,12 @@ This document defines the entities this feature introduces: an ephemeral `StoryD
 ### Completeness Rule (unlocks generation — FR-003/FR-004)
 
 A draft is complete — meaning the explicit `POST .../generate` action (contracts/api.md) is available — when all of:
+- `name` is non-empty, AND
 - `worldPrompt` is non-empty, AND
 - `characterTypes` has at least one entry, AND
 - `completionCriteria` is non-null and has at least one entry in `successConditions`.
+
+(`name` added 2026-08-31 — a story must have a title to be generated, not just narrative content.)
 
 Every `PATCH`/message write re-evaluates and reports this as `readyToGenerate`, but generation itself never happens as a side effect of that write — it is a separate, administrator-triggered action (revised 2026-08-31, #33: auto-generating on whichever write happened to complete the draft caused the wizard to redirect away mid-edit, on an ordinary field blur, with no warning).
 

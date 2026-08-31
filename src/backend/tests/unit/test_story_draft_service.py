@@ -44,6 +44,7 @@ def _complete_draft(draft_id="draft-1"):
     return StoryDraft(
         id=draft_id,
         createdBy=CREATED_BY,
+        name="The Lighthouse at Gullwing Cove",
         worldPrompt="A lighthouse...",
         characterTypes=[CharacterType(name="Curious Cousin", description="Visiting for the summer.")],
         completionCriteria=CompletionCriteria(successConditions=["Find the keeper"]),
@@ -53,10 +54,10 @@ def _complete_draft(draft_id="draft-1"):
 # --- Field writes never auto-generate (#33) ---
 
 
-def test_patch_never_generates_even_when_all_three_conditions_are_now_met():
+def test_patch_never_generates_even_when_all_four_conditions_are_now_met():
     service, cosmos, llm, stories = _service()
     container = cosmos.get_container.return_value
-    draft = StoryDraft(id="draft-1", createdBy=CREATED_BY, worldPrompt="A lighthouse...")
+    draft = StoryDraft(id="draft-1", createdBy=CREATED_BY, name="The Lighthouse", worldPrompt="A lighthouse...")
     container.read_item.side_effect = None
     container.read_item.return_value = draft.to_dict()
 
@@ -71,12 +72,13 @@ def test_patch_never_generates_even_when_all_three_conditions_are_now_met():
     container.delete_item.assert_not_called()
 
 
-def test_message_never_generates_even_when_all_three_conditions_are_now_met():
+def test_message_never_generates_even_when_all_four_conditions_are_now_met():
     service, cosmos, llm, stories = _service()
     container = cosmos.get_container.return_value
     draft = StoryDraft(
         id="draft-1",
         createdBy=CREATED_BY,
+        name="The Lighthouse",
         worldPrompt="A lighthouse...",
         characterTypes=[],
         completionCriteria=None,
@@ -102,6 +104,25 @@ def test_generate_story_rejects_incomplete_draft():
     service, cosmos, llm, stories = _service()
     container = cosmos.get_container.return_value
     draft = StoryDraft(id="draft-1", createdBy=CREATED_BY, worldPrompt="A lighthouse...")
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+
+    with pytest.raises(DraftIncompleteError):
+        service.generate_story("draft-1")
+
+    llm.generate_story_config.assert_not_called()
+
+
+def test_generate_story_rejects_draft_missing_only_a_name():
+    service, cosmos, llm, stories = _service()
+    container = cosmos.get_container.return_value
+    draft = StoryDraft(
+        id="draft-1",
+        createdBy=CREATED_BY,
+        worldPrompt="A lighthouse...",
+        characterTypes=[CharacterType(name="Curious Cousin")],
+        completionCriteria=CompletionCriteria(successConditions=["Find the keeper"]),
+    )
     container.read_item.side_effect = None
     container.read_item.return_value = draft.to_dict()
 
