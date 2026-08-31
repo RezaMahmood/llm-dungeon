@@ -174,25 +174,27 @@ variable "storage_account_replication_type" {
 variable "ai_foundry_model_name" {
   description = "Model to deploy to Azure AI Foundry / Azure OpenAI"
   type        = string
-  default     = "gpt-4o-mini"
+  default     = "gpt-5-nano"
 }
 
 variable "ai_foundry_capacity" {
-  description = "Deployment capacity in Terraform capacity units (1 unit = 1,000 TPM)"
+  # 1,000 TPM was too tight even for a single story-creation exchange under
+  # light concurrent use, tripping openai.RateLimitError (429) — see #33.
+  description = "Deployment capacity in Terraform capacity units (1 unit = 1,000 TPM). 1000 = 1M TPM."
   type        = number
-  default     = 1
+  default     = 1000
 }
 
 variable "llm_input_token_price_usd" {
-  description = "USD price per input token for ai_foundry_model_name's deployed SKU, used to compute gen_ai.cost_usd on every LLM call span (004-story-creation, Constitution Principle VI). Default matches gpt-4o-mini's published per-token rate as of this writing ($0.15 / 1M input tokens) — reverify against the Azure OpenAI pricing page for the deployed region/SKU (DataZoneStandard) before relying on cost telemetry."
+  description = "USD price per input token for ai_foundry_model_name's deployed SKU, used to compute gen_ai.cost_usd on every LLM call span (004-story-creation, Constitution Principle VI). Default matches gpt-5-nano's published per-token rate as of this writing ($0.05 / 1M input tokens) — reverify against the Azure OpenAI pricing page for the deployed region/SKU (DataZoneStandard) before relying on cost telemetry."
   type        = number
-  default     = 0.00000015
+  default     = 0.00000005
 }
 
 variable "llm_output_token_price_usd" {
-  description = "USD price per output token for ai_foundry_model_name's deployed SKU (004-story-creation, Constitution Principle VI). Default matches gpt-4o-mini's published per-token rate as of this writing ($0.60 / 1M output tokens) — reverify against the Azure OpenAI pricing page for the deployed region/SKU (DataZoneStandard) before relying on cost telemetry."
+  description = "USD price per output token for ai_foundry_model_name's deployed SKU (004-story-creation, Constitution Principle VI). Default matches gpt-5-nano's published per-token rate as of this writing ($0.40 / 1M output tokens) — reverify against the Azure OpenAI pricing page for the deployed region/SKU (DataZoneStandard) before relying on cost telemetry."
   type        = number
-  default     = 0.0000006
+  default     = 0.0000004
 }
 
 # --- Observability & Cost ---

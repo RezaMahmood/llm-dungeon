@@ -13,6 +13,7 @@ from backend.api.utils import error_response, json_response
 from backend.services.story_draft_service import (
     DraftValidationError,
     GenerationFailedError,
+    LLMRateLimitedError,
     StoryDraftService,
 )
 from backend.services.story_service import StoryService
@@ -20,6 +21,7 @@ from backend.services.story_service import StoryService
 logger = logging.getLogger("admin.stories")
 
 GENERATION_FAILED_MESSAGE = "Story generation did not produce a usable configuration; please try again"
+RATE_LIMITED_MESSAGE = "The story-generation service is temporarily busy; please try again shortly"
 
 
 def _body(req: func.HttpRequest) -> dict:
@@ -45,7 +47,10 @@ def create_draft(
 
     idea = _body(req).get("idea")
     service = story_draft_service or StoryDraftService()
-    draft = service.create_draft(created_by=user_oid, idea=idea)
+    try:
+        draft = service.create_draft(created_by=user_oid, idea=idea)
+    except LLMRateLimitedError:
+        return error_response(429, "rate_limited", RATE_LIMITED_MESSAGE)
 
     logger.info("Story draft created", extra={"draft_id": draft.id, "user_oid": user_oid})
     return json_response({"status": "success", "draft": draft.to_dict()}, status_code=201)
@@ -84,6 +89,8 @@ def patch_draft(
         return error_response(422, "invalid_field", str(exc))
     except GenerationFailedError:
         return error_response(502, "generation_failed", GENERATION_FAILED_MESSAGE)
+    except LLMRateLimitedError:
+        return error_response(429, "rate_limited", RATE_LIMITED_MESSAGE)
 
     if draft is None:
         return error_response(404, "not_found", "Draft not found")
@@ -106,6 +113,8 @@ def post_message(
         draft, story = service.post_message(draft_id, message)
     except GenerationFailedError:
         return error_response(502, "generation_failed", GENERATION_FAILED_MESSAGE)
+    except LLMRateLimitedError:
+        return error_response(429, "rate_limited", RATE_LIMITED_MESSAGE)
 
     if draft is None:
         return error_response(404, "not_found", "Draft not found")

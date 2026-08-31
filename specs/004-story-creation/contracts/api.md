@@ -104,6 +104,11 @@ If `readyToGenerate` is `true`, the server has already attempted generation as p
 { "error": "generation_failed", "message": "Story generation did not produce a usable configuration; please try again" }
 ```
 
+**Response (429 Too Many Requests)** — the Foundry deployment rate-limited every retry attempt (`llm_service.py` retries transient 429s with backoff before giving up, #33); the draft (including this write) is left unchanged and intact for another attempt:
+```json
+{ "error": "rate_limited", "message": "The story-generation service is temporarily busy; please try again shortly" }
+```
+
 ---
 
 ## POST /api/manage/stories/drafts/{draftId}/messages
@@ -115,7 +120,7 @@ If `readyToGenerate` is `true`, the server has already attempted generation as p
 { "message": "Make it 1908, and nobody actually gets hurt in the story." }
 ```
 
-**Response (200 OK)**: Same three-shape family as `PATCH` above (`{"status":"success","draft":...,"readyToGenerate":false}`, or the `"generated"` shape, or a `502` on a failed generation attempt) — a message can itself be the write that completes the draft.
+**Response (200 OK)**: Same three-shape family as `PATCH` above (`{"status":"success","draft":...,"readyToGenerate":false}`, or the `"generated"` shape, a `502` on a failed generation attempt, or a `429` if the Foundry deployment is rate-limited) — a message can itself be the write that completes the draft.
 
 ---
 

@@ -14,7 +14,7 @@ from backend.config import config
 from backend.models.story import CharacterType, CompletionCriteria, Story
 from backend.models.story_draft import StoryCreationExchange, StoryDraft
 from backend.services.cosmos_service import CosmosService
-from backend.services.llm_service import LLMOutputError, LLMService
+from backend.services.llm_service import LLMOutputError, LLMRateLimitError, LLMService
 from backend.services.story_service import StoryService
 
 logger = logging.getLogger("story_draft_service")
@@ -43,6 +43,12 @@ class GenerationFailedError(RuntimeError):
     """The Completeness Rule was met but the Foundry generation call failed or returned
     invalid output — the caller maps this to 502 `generation_failed`; the draft is left
     unchanged and intact for another attempt (Edge Cases)."""
+
+
+class LLMRateLimitedError(RuntimeError):
+    """The Foundry deployment rate-limited an exchange or generation call after retries
+    were exhausted — the caller maps this to 429 `rate_limited`; the draft (including any
+    message just sent) is left unchanged and intact for another attempt (#33)."""
 
 
 class StoryDraftService:
@@ -101,7 +107,10 @@ class StoryDraftService:
 
     def _apply_exchange(self, draft: StoryDraft, message: str) -> None:
         draft.exchanges.append(StoryCreationExchange(role="administrator", message=message))
-        response = self._llm.generate_exchange_response(draft.to_dict(), message)
+        try:
+            response = self._llm.generate_exchange_response(draft.to_dict(), message)
+        except LLMRateLimitError as exc:
+            raise LLMRateLimitedError(str(exc)) from exc
         self._merge_field_updates(draft, response.get("fieldUpdates") or {})
         assistant_message = response.get("assistantMessage") or ""
         if assistant_message:
@@ -151,6 +160,10 @@ class StoryDraftService:
             narrative_guidance = generation["narrativeGuidance"]
             if not narrative_guidance:
                 raise LLMOutputError("narrativeGuidance was empty")
+        except LLMRateLimitError as exc:
+            logger.warning("Story generation rate-limited for draft %s: %s", draft.id, exc)
+            self._container().upsert_item(draft.to_dict())
+            raise LLMRateLimitedError(str(exc)) from exc
         except LLMOutputError as exc:
             logger.warning("Story generation failed for draft %s: %s", draft.id, exc)
             self._container().upsert_item(draft.to_dict())

@@ -170,14 +170,17 @@ resource "azurerm_cognitive_deployment" "model" {
   cognitive_account_id = azurerm_cognitive_account.openai.id
 
   model {
-    format  = "OpenAI"
-    name    = var.ai_foundry_model_name
-    version = "2024-07-18" # pinned to avoid drift against Azure's auto-resolved default
+    format = "OpenAI"
+    name   = var.ai_foundry_model_name
+    # gpt-4o-mini was retired by OpenAI/Azure; replaced with gpt-5-nano
+    # (2026-08-31, #33's rate-limit investigation surfaced the deprecation).
+    # Pinned to avoid drift against Azure's auto-resolved default.
+    version = "2025-08-07"
   }
 
   sku {
-    # Plain "Standard" no longer exists for gpt-4o-mini in westeurope — Azure
-    # only offers Global*/DataZone* SKUs for this model now. DataZoneStandard
+    # Plain "Standard" isn't offered for gpt-5-nano in westeurope — Azure
+    # only offers Global*/DataZone* SKUs for this model. DataZoneStandard
     # (not GlobalStandard) keeps inference traffic within the EU data zone,
     # preserving the EU-residency requirement (deployment-questionnaire.md §2)
     # that a region-pinned "Standard" deployment would have satisfied.

@@ -19,7 +19,7 @@ from backend.api.admin.stories import (
     patch_draft,
     post_message,
 )
-from backend.services.llm_service import LLMOutputError
+from backend.services.llm_service import LLMOutputError, LLMRateLimitError
 from backend.services.story_draft_service import StoryDraftService
 from backend.services.story_service import StoryService
 
@@ -287,3 +287,33 @@ def test_malformed_generation_output_returns_502_and_leaves_draft_intact(request
             story_draft_service=draft_service,
         )
     assert get_response.status_code == 200
+
+
+# --- 429 rate_limited leaves the draft intact (#33) ---
+
+
+def test_rate_limited_message_returns_429_and_leaves_draft_intact(request_factory):
+    draft_service, _stories, llm, cosmos = _services()
+    with _patched_authorize_admin():
+        create_response = create_draft(
+            _authorized(request_factory, method="POST", url="/api/manage/stories/drafts", body=json.dumps({}).encode()),
+            story_draft_service=draft_service,
+        )
+    draft_id = json.loads(create_response.get_body())["draft"]["id"]
+
+    llm.generate_exchange_response.side_effect = LLMRateLimitError("rate limited")
+    req = _authorized(
+        request_factory,
+        method="POST",
+        url=f"/api/manage/stories/drafts/{draft_id}/messages",
+        body=json.dumps({"message": "A half-abandoned lighthouse."}).encode(),
+        route_params={"draftId": draft_id},
+    )
+    with _patched_authorize_admin():
+        response = post_message(req, story_draft_service=draft_service)
+
+    assert response.status_code == 429
+    assert json.loads(response.get_body())["error"] == "rate_limited"
+
+    # No message or field update from the failed exchange was persisted.
+    assert cosmos.get_container("storyDrafts").items[draft_id]["exchanges"] == []
