@@ -122,7 +122,7 @@ If `idea` was supplied, the Foundry exchange call (research.md §4) has already 
 
 **Response (422 Unprocessable Entity)** — the Completeness Rule isn't met yet:
 ```json
-{ "error": "not_ready", "message": "worldPrompt, characterTypes, and completionCriteria are all required before generating" }
+{ "error": "not_ready", "message": "name, worldPrompt, characterTypes, and completionCriteria are all required before generating" }
 ```
 
 **Response (502 Bad Gateway)** — the Foundry generation call failed or returned output that failed validation (Edge Cases: malformed LLM output is never persisted); the draft is left unchanged and intact for another attempt:

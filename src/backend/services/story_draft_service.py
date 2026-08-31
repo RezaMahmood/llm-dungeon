@@ -127,7 +127,7 @@ class StoryDraftService:
             return None
 
         if not draft.is_complete():
-            raise DraftIncompleteError("worldPrompt, characterTypes, and completionCriteria are all required")
+            raise DraftIncompleteError("name, worldPrompt, characterTypes, and completionCriteria are all required")
 
         try:
             generation = self._llm.generate_story_config(draft.to_dict())

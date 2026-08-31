@@ -23,7 +23,7 @@ logger = logging.getLogger("admin.stories")
 
 GENERATION_FAILED_MESSAGE = "Story generation did not produce a usable configuration; please try again"
 RATE_LIMITED_MESSAGE = "The story-generation service is temporarily busy; please try again shortly"
-NOT_READY_MESSAGE = "worldPrompt, characterTypes, and completionCriteria are all required before generating"
+NOT_READY_MESSAGE = "name, worldPrompt, characterTypes, and completionCriteria are all required before generating"
 
 
 def _body(req: func.HttpRequest) -> dict:
