@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const loginPopup = vi.fn();
@@ -72,6 +72,28 @@ describe("LoginScreen", () => {
     for (const label of ["Stories", "New story", "People", "My stories"]) {
       expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
     }
+  });
+
+  it("renders the sessionExpired message when routed here with that reason (FR-008)", () => {
+    render(
+      <MemoryRouter initialEntries={[{ pathname: "/login", state: { reason: "session-expired" } }]}>
+        <Routes>
+          <Route path="/login" element={<LoginScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/your session ended/i);
+  });
+
+  it("shows no sessionExpired message for a plain, never-signed-in visit", () => {
+    render(
+      <MemoryRouter initialEntries={["/login"]}>
+        <LoginScreen />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("styles its controls from the shared design system, not ad hoc rules", () => {

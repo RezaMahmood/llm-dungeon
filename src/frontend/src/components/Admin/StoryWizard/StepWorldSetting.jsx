@@ -4,12 +4,21 @@ import CharacterTypeList from "./CharacterTypeList.jsx";
 import CompletionCriteriaFields from "./CompletionCriteriaFields.jsx";
 import ConversationPanel from "./ConversationPanel.jsx";
 
-export function StepWorldSetting({ draft, onSendMessage, onPatch }) {
+export function StepWorldSetting({ draft, onSendMessage, onPatch, onDirtyChange }) {
   const [worldPrompt, setWorldPrompt] = useState(draft.worldPrompt || "");
   const [rules, setRules] = useState(draft.rules || "");
 
   useEffect(() => setWorldPrompt(draft.worldPrompt || ""), [draft.worldPrompt]);
   useEffect(() => setRules(draft.rules || ""), [draft.rules]);
+
+  const dirty = worldPrompt !== (draft.worldPrompt || "") || rules !== (draft.rules || "");
+
+  // These two fields save on blur rather than an explicit Save button, so the
+  // window between typing and blur is exactly what FR-010 needs to cover.
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    return () => onDirtyChange?.(false);
+  }, [dirty, onDirtyChange]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>

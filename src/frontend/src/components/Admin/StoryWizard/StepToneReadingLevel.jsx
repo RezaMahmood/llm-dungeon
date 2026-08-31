@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export function StepToneReadingLevel({ draft, onPatch }) {
+export function StepToneReadingLevel({ draft, onPatch, onDirtyChange }) {
   const [tone, setTone] = useState(draft.tone || "");
   const [readingLevel, setReadingLevel] = useState(draft.readingLevel || "");
   const [saving, setSaving] = useState(false);
@@ -10,6 +10,11 @@ export function StepToneReadingLevel({ draft, onPatch }) {
   useEffect(() => setReadingLevel(draft.readingLevel || ""), [draft.readingLevel]);
 
   const dirty = tone !== (draft.tone || "") || readingLevel !== (draft.readingLevel || "");
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    return () => onDirtyChange?.(false);
+  }, [dirty, onDirtyChange]);
 
   const handleSave = async () => {
     setSaving(true);

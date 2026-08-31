@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export function StepSessionLength({ draft, onPatch }) {
+export function StepSessionLength({ draft, onPatch, onDirtyChange }) {
   const [sessionLengthMinutes, setSessionLengthMinutes] = useState(draft.sessionLengthMinutes ?? "");
   const [chapters, setChapters] = useState(draft.chapters ?? "");
   const [saving, setSaving] = useState(false);
@@ -11,6 +11,11 @@ export function StepSessionLength({ draft, onPatch }) {
 
   const dirty =
     sessionLengthMinutes !== (draft.sessionLengthMinutes ?? "") || chapters !== (draft.chapters ?? "");
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    return () => onDirtyChange?.(false);
+  }, [dirty, onDirtyChange]);
 
   const handleSave = async () => {
     setSaving(true);

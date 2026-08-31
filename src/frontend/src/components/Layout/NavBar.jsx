@@ -1,7 +1,9 @@
 import { useMsal } from "@azure/msal-react";
 import { Link, useLocation } from "react-router-dom";
 
+import { useRefreshContext } from "../../context/RefreshContext.jsx";
 import { useCapabilities } from "../../hooks/useCapabilities.js";
+import RefreshButton from "../Common/RefreshButton.jsx";
 
 const LINK_STYLE = { padding: "var(--space-2) var(--space-3)" };
 
@@ -29,6 +31,7 @@ export function NavBar() {
   const { instance, accounts } = useMsal();
   const { pathname } = useLocation();
   const { hasPlayer, hasAdministrator } = useCapabilities();
+  const published = useRefreshContext();
 
   const account = accounts[0];
   const userName = account?.name ?? account?.username ?? "";
@@ -114,10 +117,9 @@ export function NavBar() {
         )
       )}
 
-      {/* Trailing cluster: an ordinary flex row with an explicit mount point so
-          019-spa-refresh-button's RefreshButton can be inserted here later
-          without restructuring (product owner decision 2026-08-31 — see
-          plan.md Constitution Check, Principle XI). */}
+      {/* Trailing cluster: an explicit mount point for the page-published
+          refresh control (019-spa-refresh-button — RefreshContext), plus
+          sign-out and identity. */}
       <span
         data-nav-slot="trailing-actions"
         style={{
@@ -128,6 +130,7 @@ export function NavBar() {
           minWidth: 0,
         }}
       >
+        {published && <RefreshButton onClick={published.refresh} loading={published.loading} />}
         <a href="/login" style={LINK_STYLE} onClick={handleSignOut}>
           Sign out
         </a>

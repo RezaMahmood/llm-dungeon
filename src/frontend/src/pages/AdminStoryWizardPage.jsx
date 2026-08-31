@@ -1,10 +1,12 @@
 import { useMsal } from "@azure/msal-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import StepNameCover from "../components/Admin/StoryWizard/StepNameCover.jsx";
 import StepSessionLength from "../components/Admin/StoryWizard/StepSessionLength.jsx";
 import StepToneReadingLevel from "../components/Admin/StoryWizard/StepToneReadingLevel.jsx";
 import StepWorldSetting from "../components/Admin/StoryWizard/StepWorldSetting.jsx";
+import { usePublishRefresh } from "../context/RefreshContext.jsx";
+import { useUnsavedChangesWarning } from "../hooks/useUnsavedChangesWarning.js";
 import { loginRequest } from "../services/msalConfig.js";
 import { createDraft, getDraft, patchDraft, postMessage } from "../services/storyDraftService.js";
 
@@ -81,6 +83,12 @@ export function AdminStoryWizardPage() {
   const [draft, setDraft] = useState(null);
   const [story, setStory] = useState(null);
   const [activeStep, setActiveStep] = useState(STEPS[0].key);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const refreshingRef = useRef(false);
+
+  useUnsavedChangesWarning(isDirty);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,6 +154,28 @@ export function AdminStoryWizardPage() {
     [token, draft, applyWriteResult],
   );
 
+  // Re-fetches the draft currently being edited without touching activeStep
+  // or restarting the resume/create-new-draft flow above (FR-003).
+  const refreshDraft = useCallback(async () => {
+    if (!token || !draft?.id || refreshingRef.current) return;
+    refreshingRef.current = true;
+    setRefreshing(true);
+    setRefreshError(null);
+    try {
+      const existing = await getDraft(token, draft.id);
+      if (existing?.draft) {
+        setDraft(existing.draft);
+      }
+    } catch (err) {
+      setRefreshError(err);
+    } finally {
+      refreshingRef.current = false;
+      setRefreshing(false);
+    }
+  }, [token, draft?.id]);
+
+  usePublishRefresh({ refresh: refreshDraft, loading: refreshing });
+
   if (story) {
     return (
       <div style={{ padding: "var(--space-6)" }}>
@@ -174,6 +204,11 @@ export function AdminStoryWizardPage() {
   return (
     <div style={{ maxWidth: "1080px", padding: "var(--space-6) var(--space-4) 64px" }}>
       <h1>New story</h1>
+      {refreshError && (
+        <p role="alert" className="text-muted">
+          Couldn&rsquo;t refresh the draft. Showing the last loaded version.
+        </p>
+      )}
       <hr className="hr" />
 
       <div
@@ -231,7 +266,12 @@ export function AdminStoryWizardPage() {
         {activeStepConfig.description}
       </p>
 
-      <ActiveStep draft={draft} onPatch={handlePatch} onSendMessage={handleSendMessage} />
+      <ActiveStep
+        draft={draft}
+        onPatch={handlePatch}
+        onSendMessage={handleSendMessage}
+        onDirtyChange={setIsDirty}
+      />
     </div>
   );
 }
