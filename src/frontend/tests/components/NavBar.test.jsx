@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -16,6 +17,7 @@ vi.mock("../../src/hooks/useCapabilities.js", () => ({
   useCapabilities: () => mockUseCapabilities(),
 }));
 
+import { RefreshProvider, usePublishRefresh } from "../../src/context/RefreshContext.jsx";
 import NavBar from "../../src/components/Layout/NavBar.jsx";
 
 const capabilities = (hasPlayer, hasAdministrator) => ({
@@ -112,6 +114,63 @@ describe("NavBar capability-driven visibility (FR-002, FR-003, FR-008, SC-004)",
     expect(within(slot).getByRole("link", { name: "Sign out" })).toBeInTheDocument();
     // This feature deliberately ships no Refresh control (019's scope).
     expect(screen.queryByRole("button", { name: /refresh/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("NavBar RefreshContext consumption (019-spa-refresh-button, contracts/refresh-control.md)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseCapabilities.mockReturnValue(capabilities(true, false));
+  });
+
+  function Publisher({ refresh, loading }) {
+    usePublishRefresh({ refresh, loading });
+    return null;
+  }
+
+  const renderWithProvider = (path, { refresh, loading } = {}) =>
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <RefreshProvider>
+          {refresh && <Publisher refresh={refresh} loading={loading} />}
+          <NavBar />
+        </RefreshProvider>
+      </MemoryRouter>,
+    );
+
+  it("renders RefreshButton in trailing-actions only when RefreshContext has a published value", () => {
+    const { container } = renderWithProvider("/menu");
+
+    expect(screen.queryByRole("button", { name: /refresh/i })).not.toBeInTheDocument();
+
+    const slot = container.querySelector('[data-nav-slot="trailing-actions"]');
+    expect(slot).not.toBeNull();
+  });
+
+  it("renders the published RefreshButton and wires it to the publisher's refresh/loading", async () => {
+    const refresh = vi.fn();
+    const { container, rerender } = renderWithProvider("/menu", { refresh, loading: false });
+
+    const slot = container.querySelector('[data-nav-slot="trailing-actions"]');
+    const button = within(slot).getByRole("button", { name: /refresh/i });
+    expect(button).not.toBeDisabled();
+
+    await userEvent.click(button);
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <MemoryRouter initialEntries={["/menu"]}>
+        <RefreshProvider>
+          <Publisher refresh={refresh} loading />
+          <NavBar />
+        </RefreshProvider>
+      </MemoryRouter>,
+    );
+    // aria-label stays the static "Refresh"; the "Refreshing…" swap is in the
+    // visible text content, not the accessible name.
+    const refreshedButton = screen.getByRole("button", { name: /^refresh$/i });
+    expect(refreshedButton).toBeDisabled();
+    expect(refreshedButton).toHaveTextContent("Refreshing…");
   });
 });
 

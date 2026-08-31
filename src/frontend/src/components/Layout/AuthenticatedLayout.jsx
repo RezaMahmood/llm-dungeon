@@ -1,5 +1,6 @@
 import { useLocation } from "react-router-dom";
 
+import { RefreshProvider } from "../../context/RefreshContext.jsx";
 import NavBar from "./NavBar.jsx";
 import TitleBar from "./TitleBar.jsx";
 
@@ -20,10 +21,12 @@ export function AuthenticatedLayout({ children }) {
   const isStoryPlay = pathname === STORY_PLAY_PATH;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", minWidth: 0 }}>
-      {isStoryPlay ? <TitleBar /> : <NavBar />}
-      <div style={{ flex: 1, minHeight: 0, minWidth: 0 }}>{children}</div>
-    </div>
+    <RefreshProvider>
+      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", minWidth: 0 }}>
+        {isStoryPlay ? <TitleBar /> : <NavBar />}
+        <div style={{ flex: 1, minHeight: 0, minWidth: 0 }}>{children}</div>
+      </div>
+    </RefreshProvider>
   );
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export function StepNameCover({ draft, onPatch }) {
+export function StepNameCover({ draft, onPatch, onDirtyChange }) {
   const [name, setName] = useState(draft.name || "");
   const [coverImageUrl, setCoverImageUrl] = useState(draft.coverImageUrl || "");
   const [saving, setSaving] = useState(false);
@@ -10,6 +10,12 @@ export function StepNameCover({ draft, onPatch }) {
   useEffect(() => setCoverImageUrl(draft.coverImageUrl || ""), [draft.coverImageUrl]);
 
   const dirty = name !== (draft.name || "") || coverImageUrl !== (draft.coverImageUrl || "");
+
+  // Reports unsaved input up to the wizard page for FR-010's beforeunload warning.
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    return () => onDirtyChange?.(false);
+  }, [dirty, onDirtyChange]);
 
   const handleSave = async () => {
     setSaving(true);

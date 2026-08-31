@@ -1,6 +1,6 @@
 import { useMsal } from "@azure/msal-react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { loginRequest } from "../../services/msalConfig.js";
 import "./LoginScreen.css";
@@ -8,13 +8,16 @@ import "./LoginScreen.css";
 const MESSAGES = {
   cancelled: "Sign in was cancelled. Please try again.",
   failed: "Sign in failed. Please check your connection and try again.",
+  sessionExpired: "Your session ended — please sign in again.",
 };
 
 export function LoginScreen() {
   const { instance } = useMsal();
   const navigate = useNavigate();
-  const [status, setStatus] = useState("idle"); // idle | loading | cancelled | failed
-  const [message, setMessage] = useState("");
+  const location = useLocation();
+  const sessionExpired = location.state?.reason === "session-expired";
+  const [status, setStatus] = useState(sessionExpired ? "sessionExpired" : "idle"); // idle | loading | cancelled | failed | sessionExpired
+  const [message, setMessage] = useState(sessionExpired ? MESSAGES.sessionExpired : "");
 
   const handleSignIn = async () => {
     setStatus("loading");
@@ -46,7 +49,7 @@ export function LoginScreen() {
       >
         {status === "loading" ? "Redirecting to Microsoft…" : "Sign in with Microsoft"}
       </button>
-      {(status === "cancelled" || status === "failed") && (
+      {(status === "cancelled" || status === "failed" || status === "sessionExpired") && (
         <div role="alert" className="login-error">
           {message}
         </div>

@@ -1,5 +1,6 @@
 import { useMsal } from "@azure/msal-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { getMe } from "../services/authService.js";
 import { loginRequest } from "../services/msalConfig.js";
@@ -18,6 +19,7 @@ const REDIRECT_ATTEMPTED_KEY = "llmdungeon.capabilities.redirectAttempted";
  */
 export function useCapabilities() {
   const { instance, accounts } = useMsal();
+  const navigate = useNavigate();
   const account = accounts[0];
   // Depend on a stable primitive rather than the `accounts` array/object
   // reference, which some MSAL context updates (and test mocks) can recreate
@@ -31,8 +33,14 @@ export function useCapabilities() {
     error: null,
     denied: false,
   });
+  // MainMenu publishes `refetch` straight into RefreshContext as its shared
+  // nav refresh control (rather than wrapping it in useRefreshable), so this
+  // hook needs its own in-flight guard to satisfy FR-004 on that path too.
+  const loadingRef = useRef(false);
 
   const fetchCapabilities = useCallback(async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setState((prev) => ({ ...prev, loading: true, error: null }));
     try {
       const tokenResponse = await instance.acquireTokenSilent({
@@ -62,7 +70,11 @@ export function useCapabilities() {
           return;
         }
         sessionStorage.setItem(REDIRECT_ATTEMPTED_KEY, "1");
-        await instance.loginRedirect(loginRequest);
+        // Route to our own /login with an explanation before any automatic
+        // re-authentication attempt (contracts/reload-resilience.md Guarantee 3,
+        // FR-008) — rather than bouncing straight to Microsoft's hosted sign-in.
+        navigate("/login", { state: { reason: "session-expired" } });
+        setState((prev) => ({ ...prev, loading: false }));
         return;
       }
       if (status === 403) {
@@ -76,10 +88,12 @@ export function useCapabilities() {
         return;
       }
       setState((prev) => ({ ...prev, loading: false, error: err }));
+    } finally {
+      loadingRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `account` is intentionally
     // excluded: only `accountKey` (a stable primitive) should re-create this callback.
-  }, [instance, accountKey]);
+  }, [instance, accountKey, navigate]);
 
   useEffect(() => {
     fetchCapabilities();
