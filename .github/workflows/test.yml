@@ -60,6 +60,9 @@ jobs:
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
     defaults:
       run:
         working-directory: src/frontend
@@ -79,6 +82,41 @@ jobs:
       - name: Install dependencies
         if: steps.check.outputs.exists == 'true'
         run: npm install
+
+      - name: Run dependency vulnerability audit
+        id: audit
+        if: steps.check.outputs.exists == 'true'
+        continue-on-error: true
+        run: npm run audit:frontend
+
+      - name: Print full dependency audit report
+        if: always() && steps.check.outputs.exists == 'true'
+        run: npm audit || true
+
+      - name: Open high-priority issue for Critical findings
+        if: always() && steps.check.outputs.exists == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          npm audit --json > audit-report.json || true
+          jq -r '.vulnerabilities | to_entries[] | select(.value.severity=="critical") | .key' \
+            audit-report.json | while read -r pkg; do
+            title="[dependency-audit] Critical: ${pkg}"
+            existing=$(gh issue list --state open --search "\"${title}\" in:title" --json number --jq '.[0].number')
+            if [ -z "$existing" ]; then
+              fixed=$(jq -r --arg p "$pkg" '.vulnerabilities[$p].fixAvailable.version // "none"' audit-report.json)
+              range=$(jq -r --arg p "$pkg" '.vulnerabilities[$p].range' audit-report.json)
+              body=$(printf 'Package: %s\nInstalled/affected range: %s\nSeverity: critical\nFixed version: %s\n\nDetected by the frontend dependency audit CI step. See `npm audit` output on this run for full detail.' "$pkg" "$range" "$fixed")
+              gh issue create --title "$title" --label "priority: high" --label "bug" --body "$body"
+            fi
+          done
+
+      - name: Fail job if High/Critical vulnerabilities were found
+        if: steps.check.outputs.exists == 'true' && steps.audit.outcome == 'failure'
+        run: |
+          echo "npm audit reported a High or Critical severity vulnerability - see 'Print full dependency audit report' step above."
+          exit 1
 
       - name: Run test suite
         if: steps.check.outputs.exists == 'true'
