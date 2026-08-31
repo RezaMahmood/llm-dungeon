@@ -12,11 +12,12 @@ def make_request(
     token: str | None = None,
     body: bytes = b"",
     route_params: dict | None = None,
+    headers: dict | None = None,
 ) -> func.HttpRequest:
-    headers = {}
+    all_headers = dict(headers or {})
     if token is not None:
-        headers["Authorization"] = f"Bearer {token}"
-    return func.HttpRequest(method=method, url=url, headers=headers, params={}, route_params=route_params or {}, body=body)
+        all_headers["Authorization"] = f"Bearer {token}"
+    return func.HttpRequest(method=method, url=url, headers=all_headers, params={}, route_params=route_params or {}, body=body)
 
 
 @pytest.fixture

@@ -8,12 +8,13 @@ from azure.monitor.opentelemetry import configure_azure_monitor
 
 from backend.api.admin.accounts import add_account, list_accounts, remove_account
 from backend.api.admin.stories import (
-    create_draft,
-    get_draft,
+    create_story,
+    delete_story,
     get_story,
     list_stories,
-    patch_draft,
-    post_message,
+    suggest_outline,
+    update_story,
+    upload_cover_image,
 )
 from backend.api.auth.login import login
 from backend.api.auth.logout import logout
@@ -68,24 +69,9 @@ def auth_logout(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(logout)(req)
 
 
-@app.route(route="manage/stories/drafts", methods=["POST"])
-def admin_story_drafts_create(req: func.HttpRequest) -> func.HttpResponse:
-    return _guarded(create_draft)(req)
-
-
-@app.route(route="manage/stories/drafts/{draftId}", methods=["GET"])
-def admin_story_drafts_get(req: func.HttpRequest) -> func.HttpResponse:
-    return _guarded(get_draft)(req)
-
-
-@app.route(route="manage/stories/drafts/{draftId}", methods=["PATCH"])
-def admin_story_drafts_patch(req: func.HttpRequest) -> func.HttpResponse:
-    return _guarded(patch_draft)(req)
-
-
-@app.route(route="manage/stories/drafts/{draftId}/messages", methods=["POST"])
-def admin_story_drafts_post_message(req: func.HttpRequest) -> func.HttpResponse:
-    return _guarded(post_message)(req)
+@app.route(route="manage/stories", methods=["POST"])
+def admin_stories_create(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(create_story)(req)
 
 
 @app.route(route="manage/stories", methods=["GET"])
@@ -93,9 +79,29 @@ def admin_stories_list(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(list_stories)(req)
 
 
+@app.route(route="manage/stories/suggest-outline", methods=["POST"])
+def admin_stories_suggest_outline(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(suggest_outline)(req)
+
+
 @app.route(route="manage/stories/{storyId}", methods=["GET"])
 def admin_stories_get(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(get_story)(req)
+
+
+@app.route(route="manage/stories/{storyId}", methods=["PATCH"])
+def admin_stories_update(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(update_story)(req)
+
+
+@app.route(route="manage/stories/{storyId}", methods=["DELETE"])
+def admin_stories_delete(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(delete_story)(req)
+
+
+@app.route(route="manage/stories/{storyId}/cover-image", methods=["POST"])
+def admin_stories_upload_cover_image(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(upload_cover_image)(req)
 
 
 @app.route(route="game/start", methods=["POST"])

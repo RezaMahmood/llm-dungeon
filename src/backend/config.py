@@ -21,7 +21,6 @@ class Config:
 
     COSMOS_DATABASE_NAME = os.environ.get("COSMOS_DATABASE_NAME") or os.environ.get("COSMOS_DATABASE") or "llmdungeon"
     PROVISIONED_ACCOUNTS_CONTAINER = "provisionedAccountEntries"
-    STORY_DRAFTS_CONTAINER = "storyDrafts"
     STORIES_CONTAINER = "stories"
     SEED_ADMIN_EMAIL = os.environ.get("SEED_ADMIN_EMAIL", "")
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
@@ -30,6 +29,16 @@ class Config:
     AZURE_AI_FOUNDRY_DEPLOYMENT_NAME = os.environ.get("AZURE_AI_FOUNDRY_DEPLOYMENT_NAME", "")
     LLM_INPUT_TOKEN_PRICE_USD = float(os.environ.get("LLM_INPUT_TOKEN_PRICE_USD", "0") or "0")
     LLM_OUTPUT_TOKEN_PRICE_USD = float(os.environ.get("LLM_OUTPUT_TOKEN_PRICE_USD", "0") or "0")
+
+    # Blob storage for Story cover images (FR-009). The account + `assets` container are
+    # already provisioned by 007-azure-infrastructure-provisioning for general
+    # application assets; STORY_COVER_IMAGES_CONTAINER defaults to that same container
+    # (objects are namespaced under a `story-covers/` prefix, see blob_service.py) but is
+    # kept as its own setting so a dedicated container can be swapped in later without a
+    # code change. Access is via Managed Identity (Constitution Principle VII), matching
+    # STORAGE_ACCOUNT_URL's existing use for Static Web App asset uploads.
+    STORAGE_ACCOUNT_URL = os.environ.get("STORAGE_ACCOUNT_URL", "")
+    STORY_COVER_IMAGES_CONTAINER = os.environ.get("STORY_COVER_IMAGES_CONTAINER") or os.environ.get("STORAGE_CONTAINER") or "assets"
 
     JWKS_CACHE_SECONDS = 24 * 60 * 60
 

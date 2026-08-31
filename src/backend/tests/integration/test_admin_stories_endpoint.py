@@ -1,8 +1,7 @@
-"""Integration tests for the story-creation draft/story endpoints (contracts/api.md,
-FR-007). Cosmos is faked in-memory (matching this repo's other "integration" tests, which
-mock Cosmos rather than requiring a live instance); TTL expiry (research.md §3) is
-simulated by directly evicting the faked item, since a mocked container can't enforce a
-real Cosmos TTL."""
+"""Integration tests for the story create/update/delete/cover-image/suggest-outline
+endpoints (Session 2026-08-30 redesign, FR-007). Cosmos is faked in-memory (matching this
+repo's other "integration" tests, which mock Cosmos rather than requiring a live
+instance)."""
 
 from __future__ import annotations
 
@@ -12,19 +11,20 @@ from unittest.mock import MagicMock, patch
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 from backend.api.admin.stories import (
-    create_draft,
-    get_draft,
+    create_story,
+    delete_story,
     get_story,
     list_stories,
-    patch_draft,
-    post_message,
+    suggest_outline,
+    update_story,
+    upload_cover_image,
 )
 from backend.services.llm_service import LLMOutputError
-from backend.services.story_draft_service import StoryDraftService
 from backend.services.story_service import StoryService
 
 ADMIN_OID = "550e8400-e29b-41d4-a716-446655440000"
 ADMIN_EMAIL = "admin@example.com"
+OTHER_ADMIN_EMAIL = "editor@example.com"
 
 
 class FakeContainer:
@@ -41,13 +41,9 @@ class FakeContainer:
         return body
 
     def delete_item(self, item, partition_key):  # noqa: ARG002
+        if item not in self.items:
+            raise CosmosResourceNotFoundError
         self.items.pop(item, None)
-
-    def expire(self, item_id: str) -> None:
-        """Simulates Cosmos's native TTL eviction of an abandoned draft (research.md §3) —
-        a mocked container can't enforce a real per-item TTL, so tests trigger the same
-        end state (the item is simply gone) directly."""
-        self.items.pop(item_id, None)
 
 
 class FakeCosmosService:
@@ -68,18 +64,17 @@ class FakeCosmosService:
 
 def _services():
     cosmos = FakeCosmosService()
-    llm = MagicMock()
-    story_service = StoryService(cosmos_service=cosmos)
-    draft_service = StoryDraftService(cosmos_service=cosmos, llm_service=llm, story_service=story_service)
-    return draft_service, story_service, llm, cosmos
+    blob = MagicMock()
+    blob.upload_cover_image.return_value = "https://example.blob.core.windows.net/assets/story-covers/story-1/cover.png"
+    story_service = StoryService(cosmos_service=cosmos, blob_service=blob)
+    return story_service, blob, cosmos
 
 
-def _authorized(request_factory, method="GET", url="/api/manage/stories", body=b"", route_params=None):
-    return request_factory(method=method, url=url, token="valid-token", body=body, route_params=route_params)
-
-
-def _patched_authorize_admin():
-    return patch("backend.api.admin.stories.authorize_admin", return_value=(True, ADMIN_OID, None))
+def _patched_auth(email: str = ADMIN_EMAIL):
+    return (
+        patch("backend.api.admin.stories.authorize_admin", return_value=(True, ADMIN_OID, None)),
+        patch("backend.api.admin.stories.authenticate_with_email", return_value=(True, ADMIN_OID, email, None)),
+    )
 
 
 def _character_types():
@@ -90,200 +85,229 @@ def _completion_criteria():
     return {"maxDurationMinutes": None, "successConditions": ["Find the keeper"], "failureConditions": [], "rule": None}
 
 
-# --- Eliciting setting/plot via POST .../messages ---
+# --- Save (create) creates a Story record with audit fields (FR-004, FR-012) ---
 
 
-def test_message_elicits_setting_plot_and_merges_field_updates(request_factory):
-    draft_service, _stories, llm, _cosmos = _services()
-    with _patched_authorize_admin():
-        create_response = create_draft(_authorized(request_factory, method="POST", url="/api/manage/stories/drafts"), story_draft_service=draft_service)
-    draft_id = json.loads(create_response.get_body())["draft"]["id"]
+def test_create_story_persists_with_only_a_name_and_audit_fields(request_factory):
+    story_service, _blob, _cosmos = _services()
+    auth_patch, email_patch = _patched_auth()
 
-    llm.generate_exchange_response.return_value = {
-        "assistantMessage": "Who is the player, and what draws them there?",
-        "fieldUpdates": {"worldPrompt": "A half-abandoned lighthouse on a cold northern cove."},
-    }
-    req = _authorized(
-        request_factory,
-        method="POST",
-        url=f"/api/manage/stories/drafts/{draft_id}/messages",
-        body=json.dumps({"message": "A half-abandoned lighthouse on a cold northern cove."}).encode(),
-        route_params={"draftId": draft_id},
-    )
-    with _patched_authorize_admin():
-        response = post_message(req, story_draft_service=draft_service)
+    req = request_factory(method="POST", url="/api/manage/stories", token="valid-token", body=json.dumps({"name": "A New Story"}).encode())
+    with auth_patch, email_patch:
+        response = create_story(req, story_service=story_service)
 
-    assert response.status_code == 200
+    assert response.status_code == 201
     body = json.loads(response.get_body())
     assert body["status"] == "success"
-    assert body["draft"]["worldPrompt"] == "A half-abandoned lighthouse on a cold northern cove."
-    assert body["draft"]["exchanges"][-1]["message"] == "Who is the player, and what draws them there?"
-    assert body["readyToGenerate"] is False
-
-
-# --- Eliciting character types and completion criteria via PATCH ---
-
-
-def test_patch_elicits_character_types_and_completion_criteria(request_factory):
-    draft_service, _stories, _llm, _cosmos = _services()
-    with _patched_authorize_admin():
-        create_response = create_draft(_authorized(request_factory, method="POST", url="/api/manage/stories/drafts"), story_draft_service=draft_service)
-    draft_id = json.loads(create_response.get_body())["draft"]["id"]
-
-    req = _authorized(
-        request_factory,
-        method="PATCH",
-        url=f"/api/manage/stories/drafts/{draft_id}",
-        body=json.dumps({"characterTypes": _character_types(), "completionCriteria": _completion_criteria()}).encode(),
-        route_params={"draftId": draft_id},
-    )
-    with _patched_authorize_admin():
-        response = patch_draft(req, story_draft_service=draft_service)
-
-    assert response.status_code == 200
-    body = json.loads(response.get_body())
-    assert body["draft"]["characterTypes"] == _character_types()
-    assert body["draft"]["completionCriteria"] == _completion_criteria()
-
-
-# --- Automatic generation + persistence on completeness (SC-001, SC-003) ---
-
-
-def test_completing_the_draft_generates_and_persists_a_story_automatically(request_factory):
-    draft_service, story_service, llm, _cosmos = _services()
-    llm.generate_exchange_response.return_value = {"assistantMessage": "Noted.", "fieldUpdates": {"worldPrompt": "A half-abandoned lighthouse."}}
-    with _patched_authorize_admin():
-        create_response = create_draft(
-            _authorized(
-                request_factory,
-                method="POST",
-                url="/api/manage/stories/drafts",
-                body=json.dumps({"idea": "A half-abandoned lighthouse on a cold northern cove."}).encode(),
-            ),
-            story_draft_service=draft_service,
-        )
-    draft_id = json.loads(create_response.get_body())["draft"]["id"]
-
-    llm.generate_story_config.return_value = {"narrativeGuidance": "Keep it eerie but never actually dangerous."}
-    req = _authorized(
-        request_factory,
-        method="PATCH",
-        url=f"/api/manage/stories/drafts/{draft_id}",
-        body=json.dumps({"characterTypes": _character_types(), "completionCriteria": _completion_criteria()}).encode(),
-        route_params={"draftId": draft_id},
-    )
-    with _patched_authorize_admin():
-        response = patch_draft(req, story_draft_service=draft_service)
-
-    assert response.status_code == 200
-    body = json.loads(response.get_body())
-    assert body["status"] == "generated"
-    story_id = body["storyId"]
+    assert body["story"]["name"] == "A New Story"
     assert body["story"]["published"] is False
-    assert body["story"]["characterTypes"] == _character_types()
-    assert body["story"]["completionCriteria"]["successConditions"] == ["Find the keeper"]
-    assert body["story"]["narrativeGuidance"] == "Keep it eerie but never actually dangerous."
+    assert body["story"]["createdBy"] == ADMIN_EMAIL
+    assert body["story"]["updatedBy"] == ADMIN_EMAIL
 
-    # The draft is gone, and the persisted story is independently fetchable.
-    with _patched_authorize_admin():
-        get_response = get_draft(
-            _authorized(request_factory, url=f"/api/manage/stories/drafts/{draft_id}", route_params={"draftId": draft_id}),
-            story_draft_service=draft_service,
-        )
-    assert get_response.status_code == 404
 
-    with _patched_authorize_admin():
-        story_response = get_story(
-            _authorized(request_factory, url=f"/api/manage/stories/{story_id}", route_params={"storyId": story_id}),
+def test_create_story_without_a_name_is_rejected(request_factory):
+    story_service, _blob, _cosmos = _services()
+    auth_patch, email_patch = _patched_auth()
+
+    req = request_factory(method="POST", url="/api/manage/stories", token="valid-token", body=json.dumps({}).encode())
+    with auth_patch, email_patch:
+        response = create_story(req, story_service=story_service)
+
+    assert response.status_code == 422
+    assert json.loads(response.get_body())["error"] == "invalid_field"
+
+
+# --- Save (update) updates the existing record in place (FR-004) ---
+
+
+def test_update_story_by_a_different_admin_stamps_the_new_updated_by(request_factory):
+    story_service, _blob, _cosmos = _services()
+    auth_patch, email_patch = _patched_auth()
+    with auth_patch, email_patch:
+        create_response = create_story(
+            request_factory(method="POST", url="/api/manage/stories", token="valid-token", body=json.dumps({"name": "A Title"}).encode()),
             story_service=story_service,
         )
-    assert story_response.status_code == 200
+    story_id = json.loads(create_response.get_body())["story"]["id"]
+
+    req = request_factory(
+        method="PATCH",
+        url=f"/api/manage/stories/{story_id}",
+        token="valid-token",
+        body=json.dumps({"outline": "Updated outline", "characterTypes": _character_types(), "completionCriteria": _completion_criteria()}).encode(),
+        route_params={"storyId": story_id},
+    )
+    auth_patch2, email_patch2 = _patched_auth(OTHER_ADMIN_EMAIL)
+    with auth_patch2, email_patch2:
+        response = update_story(req, story_service=story_service)
+
+    assert response.status_code == 200
+    body = json.loads(response.get_body())["story"]
+    assert body["outline"] == "Updated outline"
+    assert body["characterTypes"] == _character_types()
+    assert body["updatedBy"] == OTHER_ADMIN_EMAIL
+    assert body["createdBy"] == ADMIN_EMAIL
 
 
-# --- Abandonment leaves nothing persisted once the draft's TTL expires (SC-002) ---
+def test_update_story_returns_404_when_never_saved(request_factory):
+    story_service, _blob, _cosmos = _services()
+    auth_patch, email_patch = _patched_auth()
+
+    req = request_factory(
+        method="PATCH", url="/api/manage/stories/missing", token="valid-token", body=json.dumps({"outline": "x"}).encode(), route_params={"storyId": "missing"}
+    )
+    with auth_patch, email_patch:
+        response = update_story(req, story_service=story_service)
+
+    assert response.status_code == 404
 
 
-def test_abandoned_draft_is_gone_after_ttl_expiry_and_never_listed(request_factory):
-    draft_service, story_service, _llm, cosmos = _services()
-    with _patched_authorize_admin():
-        create_response = create_draft(
-            _authorized(request_factory, method="POST", url="/api/manage/stories/drafts", body=json.dumps({}).encode()),
-            story_draft_service=draft_service,
+# --- Abandon deletes the persisted record, or no-ops if never saved (FR-013/014) ---
+
+
+def test_abandon_deletes_a_previously_saved_story(request_factory):
+    story_service, _blob, _cosmos = _services()
+    auth_patch, email_patch = _patched_auth()
+    with auth_patch, email_patch:
+        create_response = create_story(
+            request_factory(method="POST", url="/api/manage/stories", token="valid-token", body=json.dumps({"name": "A Title"}).encode()),
+            story_service=story_service,
         )
-    draft_id = json.loads(create_response.get_body())["draft"]["id"]
+    story_id = json.loads(create_response.get_body())["story"]["id"]
 
-    with _patched_authorize_admin():
-        list_response = list_stories(_authorized(request_factory), story_service=story_service)
-    assert json.loads(list_response.get_body())["stories"] == []
+    req = request_factory(method="DELETE", url=f"/api/manage/stories/{story_id}", token="valid-token", route_params={"storyId": story_id})
+    with auth_patch, email_patch:
+        response = delete_story(req, story_service=story_service)
+    assert response.status_code == 200
 
-    cosmos.get_container("storyDrafts").expire(draft_id)
-
-    with _patched_authorize_admin():
-        get_response = get_draft(
-            _authorized(request_factory, url=f"/api/manage/stories/drafts/{draft_id}", route_params={"draftId": draft_id}),
-            story_draft_service=draft_service,
+    with auth_patch, email_patch:
+        get_response = get_story(
+            request_factory(method="GET", url=f"/api/manage/stories/{story_id}", token="valid-token", route_params={"storyId": story_id}),
+            story_service=story_service,
         )
     assert get_response.status_code == 404
-    assert json.loads(get_response.get_body())["error"] == "not_found"
 
 
-# --- A fresh session does not resume an abandoned one ---
+def test_abandon_is_a_no_op_when_the_story_was_never_saved(request_factory):
+    story_service, _blob, _cosmos = _services()
+    auth_patch, email_patch = _patched_auth()
+
+    req = request_factory(method="DELETE", url="/api/manage/stories/never-saved", token="valid-token", route_params={"storyId": "never-saved"})
+    with auth_patch, email_patch:
+        response = delete_story(req, story_service=story_service)
+
+    assert response.status_code == 200
+    assert json.loads(response.get_body())["status"] == "success"
 
 
-def test_starting_a_new_draft_does_not_resume_an_earlier_unfinished_one(request_factory):
-    draft_service, _stories, llm, _cosmos = _services()
-    llm.generate_exchange_response.return_value = {"assistantMessage": "Tell me more.", "fieldUpdates": {"worldPrompt": "Idea one."}}
-    with _patched_authorize_admin():
-        first = create_draft(
-            _authorized(request_factory, method="POST", url="/api/manage/stories/drafts", body=json.dumps({"idea": "Idea one."}).encode()),
-            story_draft_service=draft_service,
+# --- Cover image upload (FR-009) ---
+
+
+def test_upload_cover_image_stores_blob_reference_on_the_story(request_factory):
+    story_service, blob, _cosmos = _services()
+    auth_patch, email_patch = _patched_auth()
+    with auth_patch, email_patch:
+        create_response = create_story(
+            request_factory(method="POST", url="/api/manage/stories", token="valid-token", body=json.dumps({"name": "A Title"}).encode()),
+            story_service=story_service,
         )
-    with _patched_authorize_admin():
-        second = create_draft(
-            _authorized(request_factory, method="POST", url="/api/manage/stories/drafts", body=json.dumps({}).encode()),
-            story_draft_service=draft_service,
-        )
+    story_id = json.loads(create_response.get_body())["story"]["id"]
 
-    first_draft = json.loads(first.get_body())["draft"]
-    second_draft = json.loads(second.get_body())["draft"]
-    assert first_draft["id"] != second_draft["id"]
-    assert second_draft["worldPrompt"] is None
-    assert second_draft["exchanges"] == []
-
-
-# --- 502 generation_failed leaves the draft intact ---
-
-
-def test_malformed_generation_output_returns_502_and_leaves_draft_intact(request_factory):
-    draft_service, _stories, llm, cosmos = _services()
-    with _patched_authorize_admin():
-        create_response = create_draft(
-            _authorized(request_factory, method="POST", url="/api/manage/stories/drafts", body=json.dumps({}).encode()),
-            story_draft_service=draft_service,
-        )
-    draft_id = json.loads(create_response.get_body())["draft"]["id"]
-
-    llm.generate_story_config.side_effect = LLMOutputError("model returned malformed JSON")
-    req = _authorized(
-        request_factory,
-        method="PATCH",
-        url=f"/api/manage/stories/drafts/{draft_id}",
-        body=json.dumps(
-            {"worldPrompt": "A half-abandoned lighthouse.", "characterTypes": _character_types(), "completionCriteria": _completion_criteria()}
-        ).encode(),
-        route_params={"draftId": draft_id},
+    req = request_factory(
+        method="POST",
+        url=f"/api/manage/stories/{story_id}/cover-image",
+        token="valid-token",
+        body=b"fake-image-bytes",
+        route_params={"storyId": story_id},
+        headers={"Content-Type": "image/png", "X-File-Name": "cover.png"},
     )
-    with _patched_authorize_admin():
-        response = patch_draft(req, story_draft_service=draft_service)
+    with auth_patch, email_patch:
+        response = upload_cover_image(req, story_service=story_service)
+
+    assert response.status_code == 200
+    body = json.loads(response.get_body())["story"]
+    assert body["coverImageUrl"] == "https://example.blob.core.windows.net/assets/story-covers/story-1/cover.png"
+    blob.upload_cover_image.assert_called_once_with(story_id, "cover.png", b"fake-image-bytes", "image/png")
+
+
+def test_upload_cover_image_returns_404_for_a_story_that_was_never_saved(request_factory):
+    story_service, _blob, _cosmos = _services()
+    auth_patch, email_patch = _patched_auth()
+
+    req = request_factory(
+        method="POST",
+        url="/api/manage/stories/missing/cover-image",
+        token="valid-token",
+        body=b"fake-image-bytes",
+        route_params={"storyId": "missing"},
+        headers={"Content-Type": "image/png"},
+    )
+    with auth_patch, email_patch:
+        response = upload_cover_image(req, story_service=story_service)
+
+    assert response.status_code == 404
+
+
+# --- Tab 02 one-shot outline suggestion (FR-003) ---
+
+
+def test_suggest_outline_returns_a_generated_outline(request_factory):
+    llm = MagicMock()
+    llm.suggest_outline.return_value = "A half-abandoned lighthouse on a cold northern cove."
+    auth_patch, email_patch = _patched_auth()
+
+    req = request_factory(method="POST", url="/api/manage/stories/suggest-outline", token="valid-token", body=json.dumps({"idea": "a lighthouse mystery"}).encode())
+    with auth_patch, email_patch:
+        response = suggest_outline(req, llm_service=llm)
+
+    assert response.status_code == 200
+    body = json.loads(response.get_body())
+    assert body["outline"] == "A half-abandoned lighthouse on a cold northern cove."
+    llm.suggest_outline.assert_called_once_with("a lighthouse mystery")
+
+
+def test_suggest_outline_surfaces_generation_failure_without_touching_anything(request_factory):
+    llm = MagicMock()
+    llm.suggest_outline.side_effect = LLMOutputError("model returned malformed JSON")
+    auth_patch, email_patch = _patched_auth()
+
+    req = request_factory(method="POST", url="/api/manage/stories/suggest-outline", token="valid-token", body=json.dumps({"idea": "a lighthouse mystery"}).encode())
+    with auth_patch, email_patch:
+        response = suggest_outline(req, llm_service=llm)
 
     assert response.status_code == 502
     assert json.loads(response.get_body())["error"] == "generation_failed"
 
-    # The draft is left intact — GET still returns it, unchanged.
-    assert cosmos.get_container("storyDrafts").items[draft_id]["worldPrompt"] == "A half-abandoned lighthouse."
-    with _patched_authorize_admin():
-        get_response = get_draft(
-            _authorized(request_factory, url=f"/api/manage/stories/drafts/{draft_id}", route_params={"draftId": draft_id}),
-            story_draft_service=draft_service,
+
+def test_suggest_outline_requires_an_idea(request_factory):
+    auth_patch, email_patch = _patched_auth()
+
+    req = request_factory(method="POST", url="/api/manage/stories/suggest-outline", token="valid-token", body=json.dumps({}).encode())
+    with auth_patch, email_patch:
+        response = suggest_outline(req, llm_service=MagicMock())
+
+    assert response.status_code == 422
+
+
+# --- Listing ---
+
+
+def test_list_stories_reflects_saved_stories_only(request_factory):
+    story_service, _blob, _cosmos = _services()
+    auth_patch, email_patch = _patched_auth()
+
+    with auth_patch, email_patch:
+        list_response = list_stories(request_factory(method="GET", url="/api/manage/stories", token="valid-token"), story_service=story_service)
+    assert json.loads(list_response.get_body())["stories"] == []
+
+    with auth_patch, email_patch:
+        create_story(
+            request_factory(method="POST", url="/api/manage/stories", token="valid-token", body=json.dumps({"name": "A Title"}).encode()),
+            story_service=story_service,
         )
-    assert get_response.status_code == 200
+
+    with auth_patch, email_patch:
+        list_response = list_stories(request_factory(method="GET", url="/api/manage/stories", token="valid-token"), story_service=story_service)
+    stories = json.loads(list_response.get_body())["stories"]
+    assert len(stories) == 1
+    assert stories[0]["name"] == "A Title"

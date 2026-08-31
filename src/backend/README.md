@@ -9,10 +9,10 @@ provisioning, and guided story creation (features `002-login-and-access-control`
 ```
 src/backend/
 ├── api/            # HTTP route handlers (auth, admin, game)
-├── models/         # ProvisionedAccountEntry, Story, StoryDraft, CharacterType,
-│                   # CompletionCriteria, StoryCreationExchange
-├── services/       # Cosmos DB, token validation, account provisioning,
-│                   # LLM client (Azure AI Foundry), story draft/story persistence
+├── models/         # ProvisionedAccountEntry, Story, CharacterType, CompletionCriteria
+├── services/       # Cosmos DB, blob storage, token validation, account provisioning,
+│                   # LLM client (Azure OpenAI — Tab 02's one-shot outline suggestion),
+│                   # story persistence (explicit Save/Abandon)
 ├── db/             # Seed data script
 ├── config.py       # Environment-driven configuration
 └── function_app.py # Azure Functions entry point (route registration)
@@ -60,6 +60,8 @@ func start
 | `AZURE_AI_FOUNDRY_DEPLOYMENT_NAME` | Deployed model name on that resource (e.g. `gpt-4o-mini`) — passed as `OpenAIChatCompletionClient`'s `model` |
 | `LLM_INPUT_TOKEN_PRICE_USD` | USD price per input token, used to compute `gen_ai.cost_usd` on every LLM call span (Constitution Principle VI) |
 | `LLM_OUTPUT_TOKEN_PRICE_USD` | USD price per output token, same purpose |
+| `STORAGE_ACCOUNT_URL` | Blob storage account endpoint (Managed Identity auth, no keys) — provisioned by `007-azure-infrastructure-provisioning` for general application assets; `004-story-creation`'s `blob_service.py` is its first backend caller, storing Story cover images |
+| `STORY_COVER_IMAGES_CONTAINER` | Blob container cover images are written to (defaults to the shared `assets` container, under a `story-covers/{storyId}/` prefix — see `blob_service.py`) |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Application Insights connection string; when set, `configure_azure_monitor()` exports OpenTelemetry spans (incl. `gen_ai.*` LLM call spans) on startup — unset locally, this step is skipped |
 
 ## Deployment
@@ -82,12 +84,13 @@ request/response contracts.
 | `/api/auth/logout` | POST | Valid bearer token |
 | `/api/manage/accounts` | POST | Administrator role |
 | `/api/manage/accounts` | GET | Administrator role |
-| `/api/manage/stories/drafts` | POST | Administrator role |
-| `/api/manage/stories/drafts/{draftId}` | GET | Administrator role |
-| `/api/manage/stories/drafts/{draftId}` | PATCH | Administrator role |
-| `/api/manage/stories/drafts/{draftId}/messages` | POST | Administrator role |
-| `/api/manage/stories` | GET | Administrator role |
+| `/api/manage/stories` | POST | Administrator role — Save (create); `name` required, all other fields optional |
+| `/api/manage/stories` | GET | Administrator role — list story summaries |
+| `/api/manage/stories/suggest-outline` | POST | Administrator role — Tab 02's one-shot LLM outline suggestion (FR-003) |
 | `/api/manage/stories/{storyId}` | GET | Administrator role |
+| `/api/manage/stories/{storyId}` | PATCH | Administrator role — Save (update) |
+| `/api/manage/stories/{storyId}` | DELETE | Administrator role — Abandon; deletes the record, or no-ops if it was never saved |
+| `/api/manage/stories/{storyId}/cover-image` | POST | Administrator role — uploads the request body (raw file bytes, `Content-Type`/`X-File-Name` headers) to blob storage and stores the reference on the story |
 | `/api/game/start` | POST | Player role |
 
 `manage/*`, not `admin/*`: Azure Functions reserves any function route starting

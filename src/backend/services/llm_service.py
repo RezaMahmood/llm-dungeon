@@ -1,11 +1,17 @@
-"""Azure OpenAI LLM client — the guiding-question exchange and final story-generation
-calls, each wrapped in an OpenTelemetry span carrying full prompt/response, token counts,
-computed cost, and latency (Constitution Principle VI; research.md §1, §2, §4).
+"""Azure OpenAI LLM client — Tab 02's one-shot outline "Suggest" call (FR-003), wrapped in
+an OpenTelemetry span carrying full prompt/response, token counts, computed cost, and
+latency (Constitution Principle VI; research.md §1, §2, §4).
 
 Built on the Microsoft Agent Framework's `OpenAIChatCompletionClient` (`agent-framework-openai`)
 rather than `azure-ai-inference`, which Microsoft retired on 2026-08-26 — see research.md §1
 amendment. Only the plain chat-completion client is used here; no agent/tool/workflow
-orchestration from the framework is pulled in (YAGNI)."""
+orchestration from the framework is pulled in (YAGNI).
+
+This service previously also drove a multi-turn guiding-question exchange
+(`generate_exchange_response`) that fed the old auto-generation design. That flow was
+removed by the Session 2026-08-30 redesign (FR-003: Tab 02's Suggest action is a single,
+one-shot generation, not an ongoing chat) — `suggest_outline()` is the only LLM call this
+feature makes now."""
 
 from __future__ import annotations
 
@@ -13,7 +19,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any, Optional
+from typing import Optional
 
 from agent_framework import Message
 from agent_framework.openai import OpenAIChatCompletionClient
@@ -26,47 +32,28 @@ from backend.config import config
 logger = logging.getLogger("llm_service")
 tracer = trace.get_tracer("backend.services.llm_service")
 
-EXCHANGE_SYSTEM_PROMPT = """You are helping an administrator create a new story for a \
-text-adventure game aimed at young players, through a guided conversation. Read the \
-current draft state and the administrator's latest message (if any), then respond with a \
-single JSON object of exactly this shape:
+SUGGEST_OUTLINE_SYSTEM_PROMPT = """You are helping an administrator draft the setting/plot \
+outline for a new story in a text-adventure game aimed at young players. Given the \
+administrator's idea or guiding question, respond with a single JSON object of exactly \
+this shape:
 
-{"assistantMessage": "<your next guiding question or acknowledgment>", \
-"fieldUpdates": {"worldPrompt": "<string or omit>", "rules": "<string or omit>", \
-"name": "<string or omit>", "coverImageUrl": "<string or omit>", "tone": "<string or omit>", \
-"readingLevel": "<string or omit>", "sessionLengthMinutes": <integer or omit>, \
-"chapters": <integer or omit>}}
+{"outline": "<a suggested story outline — setting, premise, and plot arc, written in \
+plain prose the administrator can edit>"}
 
-Only include a field in fieldUpdates when the conversation actually established or changed \
-its value; omit fields you have no new information for. Focus your guiding questions on \
-setting/plot detail not yet captured in worldPrompt. Never invent characterTypes or \
-completionCriteria — those are collected through dedicated form fields, not this \
-conversation. Respond with JSON only, no surrounding prose."""
-
-GENERATION_SYSTEM_PROMPT = """You are generating the final narrative-consistency guidance \
-for a complete story configuration in a text-adventure game for young players. Read the \
-complete draft below and respond with a single JSON object of exactly this shape:
-
-{"narrativeGuidance": "<prose guidance the game's narrator will follow to keep every \
-session consistent with this story's setting, characters, and rules>"}
-
-The guidance must be specific to the supplied worldPrompt, rules, characterTypes, and \
-completionCriteria — never generic. Respond with JSON only, no surrounding prose."""
+This is a single, one-shot suggestion — do not ask a follow-up question, do not address \
+the administrator directly, and never invent character types or completion criteria \
+(those are collected through dedicated form fields elsewhere). Respond with JSON only, no \
+surrounding prose."""
 
 
 class LLMOutputError(ValueError):
     """Raised when the model's response is not valid JSON, or is missing a required key
-    (research.md §4). Callers treat this identically to a failed generation call — the
-    triggering write is never partially applied."""
+    (research.md §4). The caller surfaces this to the administrator without touching the
+    existing outline text box contents (Edge Cases)."""
 
 
-class _ExchangeResponse(BaseModel):
-    assistantMessage: str
-    fieldUpdates: dict[str, Any] = {}
-
-
-class _GenerationResponse(BaseModel):
-    narrativeGuidance: str
+class _OutlineResponse(BaseModel):
+    outline: str
 
 
 class LLMService:
@@ -74,7 +61,7 @@ class LLMService:
     via Managed Identity (Constitution Principle VII), matching CosmosService's lazy-client
     construction pattern. `get_response()` is async in the underlying library; each public
     method here runs its single call via `asyncio.run()` so the rest of the service layer
-    (`story_draft_service.py`, the HTTP handlers) stays synchronous, unchanged."""
+    stays synchronous."""
 
     def __init__(self, client: Optional[OpenAIChatCompletionClient] = None, endpoint: Optional[str] = None) -> None:
         self._endpoint = endpoint or config.AZURE_AI_FOUNDRY_ENDPOINT
@@ -90,19 +77,16 @@ class LLMService:
             )
         return self._client
 
-    def generate_exchange_response(self, draft: dict[str, Any], message: Optional[str]) -> dict[str, Any]:
-        """One turn of the guiding-question conversation. Returns
-        `{"assistantMessage": str, "fieldUpdates": dict}` (research.md §4)."""
-        prompt = self._build_exchange_prompt(draft, message)
-        result = self._call("gen_ai.story_creation.exchange", EXCHANGE_SYSTEM_PROMPT, prompt, _ExchangeResponse)
-        return result.model_dump()
-
-    def generate_story_config(self, draft: dict[str, Any]) -> dict[str, Any]:
-        """Final generation call once the Completeness Rule is met. Returns
-        `{"narrativeGuidance": str}` (research.md §4)."""
-        prompt = self._build_generation_prompt(draft)
-        result = self._call("gen_ai.story_creation.generate", GENERATION_SYSTEM_PROMPT, prompt, _GenerationResponse)
-        return result.model_dump()
+    def suggest_outline(self, idea: str) -> str:
+        """Tab 02's one-shot "Suggest" action (FR-003). Given an administrator's idea or
+        guiding question, returns a suggested outline string to inject into the editable
+        outline text box. Raises `LLMOutputError` on a malformed/empty model response."""
+        prompt = f"Administrator's idea or guiding question:\n{idea}"
+        result = self._call("gen_ai.story_creation.suggest_outline", SUGGEST_OUTLINE_SYSTEM_PROMPT, prompt, _OutlineResponse)
+        outline = result.outline
+        if not outline:
+            raise LLMOutputError("Model returned an empty outline")
+        return outline
 
     def _call(
         self,
@@ -148,12 +132,3 @@ class LLMService:
                 return response.value
             except (ValidationError, ValueError, json.JSONDecodeError) as exc:
                 raise LLMOutputError(f"Model response did not match the expected schema: {exc}") from exc
-
-    def _build_exchange_prompt(self, draft: dict[str, Any], message: Optional[str]) -> str:
-        lines = ["Current draft state:", json.dumps(draft, indent=2)]
-        if message:
-            lines.append(f"\nAdministrator's latest message: {message}")
-        return "\n".join(lines)
-
-    def _build_generation_prompt(self, draft: dict[str, Any]) -> str:
-        return "Complete draft:\n" + json.dumps(draft, indent=2)

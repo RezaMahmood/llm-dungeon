@@ -1,6 +1,7 @@
 azure-functions
 azure-cosmos
 azure-identity
+azure-storage-blob
 agent-framework-openai>=1.14.1
 azure-monitor-opentelemetry
 PyJWT[crypto]

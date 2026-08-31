@@ -10,12 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from agent_framework import ChatResponse, Message, UsageDetails
 
-from backend.services.llm_service import (
-    LLMOutputError,
-    LLMService,
-    _ExchangeResponse,
-    _GenerationResponse,
-)
+from backend.services.llm_service import LLMOutputError, LLMService, _OutlineResponse
 
 
 def _mock_response(payload_json: str, response_format, prompt_tokens: int = 42, completion_tokens: int = 17):
@@ -32,48 +27,44 @@ def _service_with_response(response: ChatResponse) -> LLMService:
     return LLMService(client=client)
 
 
-def test_generate_exchange_response_parses_valid_json():
-    response = _mock_response(
-        json.dumps({"assistantMessage": "Who is the player?", "fieldUpdates": {"worldPrompt": "A lighthouse..."}}),
-        _ExchangeResponse,
-    )
+def test_suggest_outline_parses_valid_json():
+    response = _mock_response(json.dumps({"outline": "A half-abandoned lighthouse..."}), _OutlineResponse)
     service = _service_with_response(response)
 
-    result = service.generate_exchange_response({"worldPrompt": None}, "A half-abandoned lighthouse...")
+    result = service.suggest_outline("A lighthouse mystery in 1908")
 
-    assert result == {"assistantMessage": "Who is the player?", "fieldUpdates": {"worldPrompt": "A lighthouse..."}}
+    assert result == "A half-abandoned lighthouse..."
     service.client.get_response.assert_called_once()
 
 
-def test_generate_story_config_parses_valid_json():
-    response = _mock_response(json.dumps({"narrativeGuidance": "Keep it eerie but safe."}), _GenerationResponse)
-    service = _service_with_response(response)
-
-    result = service.generate_story_config({"worldPrompt": "A lighthouse..."})
-
-    assert result == {"narrativeGuidance": "Keep it eerie but safe."}
-
-
-def test_generate_exchange_response_rejects_malformed_json():
-    response = _mock_response("not valid json{", _ExchangeResponse)
+def test_suggest_outline_rejects_malformed_json():
+    response = _mock_response("not valid json{", _OutlineResponse)
     service = _service_with_response(response)
 
     with pytest.raises(LLMOutputError):
-        service.generate_exchange_response({}, "hello")
+        service.suggest_outline("hello")
 
 
-def test_generate_story_config_rejects_missing_required_key():
-    response = _mock_response(json.dumps({"somethingElse": "oops"}), _GenerationResponse)
+def test_suggest_outline_rejects_missing_required_key():
+    response = _mock_response(json.dumps({"somethingElse": "oops"}), _OutlineResponse)
     service = _service_with_response(response)
 
     with pytest.raises(LLMOutputError):
-        service.generate_story_config({})
+        service.suggest_outline("hello")
+
+
+def test_suggest_outline_rejects_empty_outline():
+    response = _mock_response(json.dumps({"outline": ""}), _OutlineResponse)
+    service = _service_with_response(response)
+
+    with pytest.raises(LLMOutputError):
+        service.suggest_outline("hello")
 
 
 def test_call_populates_span_attributes_from_usage():
     response = _mock_response(
-        json.dumps({"assistantMessage": "hi", "fieldUpdates": {}}),
-        _ExchangeResponse,
+        json.dumps({"outline": "A half-abandoned lighthouse..."}),
+        _OutlineResponse,
         prompt_tokens=100,
         completion_tokens=50,
     )
@@ -84,9 +75,9 @@ def test_call_populates_span_attributes_from_usage():
     tracer.start_as_current_span.return_value.__enter__.return_value = span
 
     with patch("backend.services.llm_service.tracer", tracer):
-        service.generate_exchange_response({}, "hello")
+        service.suggest_outline("hello")
 
-    tracer.start_as_current_span.assert_called_once_with("gen_ai.story_creation.exchange")
+    tracer.start_as_current_span.assert_called_once_with("gen_ai.story_creation.suggest_outline")
     attribute_keys = {call.args[0] for call in span.set_attribute.call_args_list}
     assert attribute_keys == {
         "gen_ai.prompt",

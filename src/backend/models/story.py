@@ -1,6 +1,10 @@
-"""Story, CharacterType, and CompletionCriteria — the persisted, published-by-default story
-configuration a StoryDraft (models/story_draft.py) generates into (data-model.md Story /
-Shared Structures)."""
+"""Story, CharacterType, and CompletionCriteria — the persisted story configuration an
+administrator builds through the 4-tab wizard and commits via explicit Save (FR-004;
+data-model.md Story / Shared Structures).
+
+Unlike the earlier auto-generated design, a Story is never required to be "complete" to
+exist: only `name` is mandatory (FR-004, FR-009). Every other field is optional until an
+administrator fills it in and Saves again."""
 
 from __future__ import annotations
 
@@ -68,29 +72,26 @@ class CompletionCriteria:
 @dataclass
 class Story:
     id: str
-    worldPrompt: str
-    characterTypes: list[CharacterType]
-    completionCriteria: CompletionCriteria
-    narrativeGuidance: str
+    name: str
     createdBy: str
     createdAt: str
-    name: Optional[str] = None
+    updatedBy: str
+    updatedAt: str
     coverImageUrl: Optional[str] = None
     tone: Optional[str] = None
     readingLevel: Optional[str] = None
     sessionLengthMinutes: Optional[int] = None
     chapters: Optional[int] = None
+    outline: Optional[str] = None
     rules: Optional[str] = None
+    characterTypes: list[CharacterType] = field(default_factory=list)
+    completionCriteria: Optional[CompletionCriteria] = None
     published: bool = False
     entityType: str = field(default="Story")
 
     def __post_init__(self) -> None:
-        if not self.worldPrompt:
-            raise ValueError("worldPrompt is required")
-        if not self.characterTypes:
-            raise ValueError("characterTypes must have at least one entry")
-        if not self.narrativeGuidance:
-            raise ValueError("narrativeGuidance is required")
+        if not self.name:
+            raise ValueError("name is required")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -101,33 +102,36 @@ class Story:
             "readingLevel": self.readingLevel,
             "sessionLengthMinutes": self.sessionLengthMinutes,
             "chapters": self.chapters,
-            "worldPrompt": self.worldPrompt,
+            "outline": self.outline,
             "rules": self.rules,
             "characterTypes": [ct.to_dict() for ct in self.characterTypes],
-            "completionCriteria": self.completionCriteria.to_dict(),
-            "narrativeGuidance": self.narrativeGuidance,
+            "completionCriteria": self.completionCriteria.to_dict() if self.completionCriteria else None,
             "published": self.published,
             "createdBy": self.createdBy,
             "createdAt": self.createdAt,
+            "updatedBy": self.updatedBy,
+            "updatedAt": self.updatedAt,
             "entityType": self.entityType,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Story":
+        completion_criteria = data.get("completionCriteria")
         return cls(
             id=data["id"],
-            name=data.get("name"),
+            name=data["name"],
             coverImageUrl=data.get("coverImageUrl"),
             tone=data.get("tone"),
             readingLevel=data.get("readingLevel"),
             sessionLengthMinutes=data.get("sessionLengthMinutes"),
             chapters=data.get("chapters"),
-            worldPrompt=data["worldPrompt"],
+            outline=data.get("outline"),
             rules=data.get("rules"),
             characterTypes=[CharacterType.from_dict(ct) for ct in data.get("characterTypes", [])],
-            completionCriteria=CompletionCriteria.from_dict(data["completionCriteria"]),
-            narrativeGuidance=data["narrativeGuidance"],
+            completionCriteria=CompletionCriteria.from_dict(completion_criteria) if completion_criteria else None,
             published=data.get("published", False),
             createdBy=data["createdBy"],
             createdAt=data["createdAt"],
+            updatedBy=data.get("updatedBy", data["createdBy"]),
+            updatedAt=data.get("updatedAt", data["createdAt"]),
         )
