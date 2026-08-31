@@ -163,8 +163,11 @@ def test_story_round_trips_through_dict():
 # --- StoryDraft ---
 
 
-def test_story_draft_completeness_rule_requires_all_three_conditions():
+def test_story_draft_completeness_rule_requires_all_four_conditions():
     draft = StoryDraft(id="draft-1", createdBy="oid-1")
+    assert draft.is_complete() is False
+
+    draft.name = "The Lighthouse at Gullwing Cove"
     assert draft.is_complete() is False
 
     draft.worldPrompt = "A half-abandoned lighthouse..."

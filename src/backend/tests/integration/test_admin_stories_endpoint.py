@@ -173,7 +173,9 @@ def test_completing_the_draft_via_patch_does_not_generate_or_redirect(request_fa
         request_factory,
         method="PATCH",
         url=f"/api/manage/stories/drafts/{draft_id}",
-        body=json.dumps({"characterTypes": _character_types(), "completionCriteria": _completion_criteria()}).encode(),
+        body=json.dumps(
+            {"name": "The Lighthouse at Gullwing Cove", "characterTypes": _character_types(), "completionCriteria": _completion_criteria()}
+        ).encode(),
         route_params={"draftId": draft_id},
     )
     with _patched_authorize_admin():
@@ -218,7 +220,13 @@ def test_generate_action_persists_a_story_only_when_explicitly_called(request_fa
                 request_factory,
                 method="PATCH",
                 url=f"/api/manage/stories/drafts/{draft_id}",
-                body=json.dumps({"characterTypes": _character_types(), "completionCriteria": _completion_criteria()}).encode(),
+                body=json.dumps(
+                    {
+                        "name": "The Lighthouse at Gullwing Cove",
+                        "characterTypes": _character_types(),
+                        "completionCriteria": _completion_criteria(),
+                    }
+                ).encode(),
                 route_params={"draftId": draft_id},
             ),
             story_draft_service=draft_service,
@@ -356,6 +364,7 @@ def test_malformed_generation_output_returns_502_and_leaves_draft_intact(request
                 url=f"/api/manage/stories/drafts/{draft_id}",
                 body=json.dumps(
                     {
+                        "name": "The Lighthouse at Gullwing Cove",
                         "worldPrompt": "A half-abandoned lighthouse.",
                         "characterTypes": _character_types(),
                         "completionCriteria": _completion_criteria(),
