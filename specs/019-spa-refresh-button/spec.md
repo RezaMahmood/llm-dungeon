@@ -87,7 +87,7 @@ As a user filling out a form or a multi-step flow, I want to be warned before a 
 
 - **SC-001**: 100% of authenticated screens that display data have a working, visible refresh control.
 - **SC-002**: Using a screen's refresh control updates that screen's data without ever navigating the user away from the screen they were on.
-- **SC-003**: Reloading the browser at any authenticated screen, including nested/deep screens, returns the user to that same screen with no error page shown, in at least 99% of attempts under normal network and session conditions.
+- **SC-003**: Reloading the browser at any authenticated screen, including nested/deep screens, returns the user to that same screen with no error page shown, under normal network and session conditions. This is a deterministic routing guarantee (the SPA's navigation-fallback configuration resolves any authenticated path to the app shell), not a sampled or monitored rate — verified by exercising the reload scenarios in quickstart.md, not by measuring an attempt-success percentage.
 - **SC-004**: Users who reload the browser while their session is still valid are never required to sign in again as a result of that reload.
 - **SC-005**: Reports of the application becoming unusable, showing a blank/error screen, or unexpectedly signing users out after a browser refresh drop to zero after release.
 
