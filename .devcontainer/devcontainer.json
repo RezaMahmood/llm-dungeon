@@ -19,6 +19,12 @@
 	// CLI, with retries: their downloads were observed to fail
 	// intermittently right after this container's image finished building.
 	"postCreateCommand": "bash .devcontainer/post-create.sh",
+	// Runs on every container start (create AND resume), unlike
+	// postCreateCommand above which only fires once at creation -- needed
+	// because the ~/.claude.json single-file bind mount below can go stale
+	// mid-session, and bin/wt resumes (rather than recreates) a stopped
+	// container on every later run. See restore-claude-config.sh.
+	"postStartCommand": "bash .devcontainer/restore-claude-config.sh",
 	// One container is created per git worktree (see bin/wt and
 	// docs/WORKTREE_CONTAINER_WORKFLOW.md), all from this same image/config --
 	// so these mounts are shared *across every worktree's container*:
