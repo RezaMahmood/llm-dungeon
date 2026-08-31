@@ -15,7 +15,40 @@
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "curl -LsSf https://astral.sh/uv/install.sh | sh"
+	// See .devcontainer/post-create.sh -- installs uv and the Claude Code
+	// CLI, with retries: their downloads were observed to fail
+	// intermittently right after this container's image finished building.
+	"postCreateCommand": "bash .devcontainer/post-create.sh",
+	// One container is created per git worktree (see bin/wt and
+	// docs/WORKTREE_CONTAINER_WORKFLOW.md), all from this same image/config --
+	// so these mounts are shared *across every worktree's container*:
+	//  - ~/.claude: carries Claude Code auth/config in from the host so you
+	//    don't have to `claude login` inside every container. NOT read-only:
+	//    the `claude` installer itself needs to write its download cache to
+	//    ~/.claude/downloads (confirmed while building this config -- a
+	//    read-only mount here makes the installer fail with a misleading
+	//    "client returned ERROR on write" from curl, not an obvious
+	//    permissions error). This is a personal dev container running
+	//    trusted code, so read-write here (same tradeoff as the very common
+	//    ~/.ssh or ~/.gitconfig dev-container mount) is an accepted risk,
+	//    not an oversight.
+	//    NOTE: if your host stores the Claude Code credential in the macOS
+	//    keychain rather than a file under ~/.claude, this mount alone won't
+	//    carry it over -- verify after first use, and fall back to
+	//    `claude login` (or an API key via ANTHROPIC_API_KEY) inside the
+	//    container if needed.
+	//  - the uv and Terraform plugin-cache volumes are download caches, safe
+	//    to share across worktrees/branches, and cut postCreateCommand /
+	//    `terraform init` time on every container after the first.
+	"mounts": [
+		"source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind",
+		"source=llmdungeon-uv-cache,target=/home/vscode/.cache/uv,type=volume",
+		"source=llmdungeon-tf-plugin-cache,target=/home/vscode/.terraform.d/plugin-cache,type=volume"
+	],
+	"remoteEnv": {
+		"UV_CACHE_DIR": "/home/vscode/.cache/uv",
+		"TF_PLUGIN_CACHE_DIR": "/home/vscode/.terraform.d/plugin-cache"
+	}
 	// Configure tool-specific properties.
 	// "customizations": {},
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.

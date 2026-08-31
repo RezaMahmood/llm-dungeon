@@ -30,4 +30,18 @@ if [[ "$CURRENT_BRANCH" != "$EXPECTED_BRANCH" ]]; then
   exit 2
 fi
 
+# Belt-and-braces check for the per-worktree isolated-devcontainer workflow
+# (see docs/WORKTREE_CONTAINER_WORKFLOW.md). bin/wt bakes WORKTREE_CONTAINER
+# into the container's environment as the branch it was started for. If
+# this session is running inside such a container, confirm that env var
+# still matches the branch feature.json expects -- catches a session left
+# running against a stale/wrong container, which the branch check above
+# can't see (the container's git branch and feature.json are correct; only
+# the container identity would be wrong).
+if [[ -n "${WORKTREE_CONTAINER:-}" && "$WORKTREE_CONTAINER" != "$EXPECTED_BRANCH" ]]; then
+  echo "BLOCKED: this container was started for worktree '$WORKTREE_CONTAINER' (WORKTREE_CONTAINER) but its .specify/feature.json expects feature branch '$EXPECTED_BRANCH'." >&2
+  echo "This looks like the wrong container for this worktree — exit and run 'bin/wt $EXPECTED_BRANCH' instead." >&2
+  exit 2
+fi
+
 exit 0
