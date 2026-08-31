@@ -12,7 +12,7 @@ export function isAdminSection(pathname) {
 
 /**
  * The persistent top navigation bar shown on every authenticated screen except
- * the active story-play screen (022-persistent-nav-redesign FR-001–FR-004,
+ * the active story-play screen (022-persistent-nav-redesign-done FR-001–FR-004,
  * FR-007–FR-009).
  *
  * Per `specs/designs/README.md` the bar has two variants — Player and Admin —

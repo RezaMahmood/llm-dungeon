@@ -11,7 +11,7 @@ description: "Task list for In-App Screen Refresh & Reload Resilience (019-spa-r
 
 **Tests**: Explicitly required — the constitution's Principle I (Meaningful, Automated Testing, NON-NEGOTIABLE) mandates an automated test for every distinct outcome; FR-001 through FR-011 each map to one. Test tasks are included throughout.
 
-**Organization**: Tasks are grouped by user story (spec.md: US1 = P1 in-app refresh control, US2 = P1 browser reload resilience, US3 = P3 unsaved-changes warning). **Updated 2026-08-31** (`/speckit-analyze` remediation): `022-persistent-nav-redesign` has since merged to `main` (`1b79aa8`, `5a4dce6`), so US1's mounting tasks are no longer externally blocked — `NavBar.jsx`/`TitleBar.jsx` exist with a reserved mount point. This surfaced a smaller wiring gap (a page can't hand props to the sibling-rendered nav bar), closed with a new `RefreshContext` (T008a). **Read "Dependencies & Execution Order" before starting** for the current build order.
+**Organization**: Tasks are grouped by user story (spec.md: US1 = P1 in-app refresh control, US2 = P1 browser reload resilience, US3 = P3 unsaved-changes warning). **Updated 2026-08-31** (`/speckit-analyze` remediation): `022-persistent-nav-redesign-done` has since merged to `main` (`1b79aa8`, `5a4dce6`), so US1's mounting tasks are no longer externally blocked — `NavBar.jsx`/`TitleBar.jsx` exist with a reserved mount point. This surfaced a smaller wiring gap (a page can't hand props to the sibling-rendered nav bar), closed with a new `RefreshContext` (T008a). **Read "Dependencies & Execution Order" before starting** for the current build order.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -28,7 +28,7 @@ Frontend-only feature within the existing web-application layout: `src/frontend/
 
 **Purpose**: Record the Constitution Principle XI design sign-off this feature's visible UI element requires, before any implementation begins.
 
-- [ ] T001 **UI design agreement/sign-off** (Constitution Principle XI, NON-NEGOTIABLE): the requesting user or product owner confirms the refresh control design already merged onto the `022-persistent-nav-redesign` branch (PR #79, commit `4a43123`) — a `.btn.btn-ghost` button with an inlined Lucide `refresh-cw` icon and "Refresh" label, shown in the persistent nav bar on `specs/designs/02-story-select.html`, `04-admin-wizard.html`, `05-admin-users.html`, and in the title bar on `03-play.html`, documented in `specs/designs/README.md`'s "## Refresh" section — as the design to implement per `contracts/refresh-control.md`. This task is not complete until that confirmation is given; the merged mockup existing is not sufficient on its own. **Gates T008 and every US1 mounting task below (T009–T011).** Does not gate US2/US3 (no novel visual element — T018's login copy is a one-line text addition to an existing screen, not a new UI element requiring separate mockup agreement).
+- [ ] T001 **UI design agreement/sign-off** (Constitution Principle XI, NON-NEGOTIABLE): the requesting user or product owner confirms the refresh control design already merged onto the `022-persistent-nav-redesign-done` branch (PR #79, commit `4a43123`) — a `.btn.btn-ghost` button with an inlined Lucide `refresh-cw` icon and "Refresh" label, shown in the persistent nav bar on `specs/designs/02-story-select.html`, `04-admin-wizard.html`, `05-admin-users.html`, and in the title bar on `03-play.html`, documented in `specs/designs/README.md`'s "## Refresh" section — as the design to implement per `contracts/refresh-control.md`. This task is not complete until that confirmation is given; the merged mockup existing is not sufficient on its own. **Gates T008 and every US1 mounting task below (T009–T011).** Does not gate US2/US3 (no novel visual element — T018's login copy is a one-line text addition to an existing screen, not a new UI element requiring separate mockup agreement).
 
 **Checkpoint**: Design confirmed — UI-visible implementation work may begin.
 
@@ -62,7 +62,7 @@ Frontend-only feature within the existing web-application layout: `src/frontend/
 ### Implementation for User Story 1
 
 - [ ] T007 [P] [US1] Create `src/frontend/src/hooks/useRefreshable.js` implementing the contract in `contracts/refresh-control.md` / data-model.md's Refreshable Data State: `{ data, loading, error, refresh }`, in-flight guard, no propagation of a rejected fetch to a caller `ErrorBoundary`
-- [ ] T007a [P] [US1] Create `src/frontend/src/context/RefreshContext.jsx` (added 2026-08-31, `/speckit-analyze` remediation) per `contracts/refresh-control.md`'s `RefreshContext` section: `RefreshProvider`, `usePublishRefresh({ refresh, loading })`, `useRefreshContext()`. Solves the wiring gap left by `022-persistent-nav-redesign` — `NavBar`/`TitleBar` render as siblings of page content under `AuthenticatedLayout.jsx`, not parents, so a page needs this to hand its refresh state up to them
+- [ ] T007a [P] [US1] Create `src/frontend/src/context/RefreshContext.jsx` (added 2026-08-31, `/speckit-analyze` remediation) per `contracts/refresh-control.md`'s `RefreshContext` section: `RefreshProvider`, `usePublishRefresh({ refresh, loading })`, `useRefreshContext()`. Solves the wiring gap left by `022-persistent-nav-redesign-done` — `NavBar`/`TitleBar` render as siblings of page content under `AuthenticatedLayout.jsx`, not parents, so a page needs this to hand its refresh state up to them
 - [ ] T007b [US1] Wrap `AuthenticatedLayout.jsx`'s children in `<RefreshProvider>` (single mount point near the app root, above where `NavBar`/`TitleBar` and page content both render) — depends on T007a
 - [ ] T008 [US1] Create `src/frontend/src/components/Common/RefreshButton.jsx` using the exact markup agreed in `contracts/refresh-control.md` (`.btn.btn-ghost`, inlined Lucide `refresh-cw` SVG copied from `specs/designs/02-story-select.html`, "Refresh"/"Refreshing…" label, `disabled` while loading) — **depends on T001**
 - [ ] T008b [US1] Modify `src/frontend/src/components/Layout/NavBar.jsx` (added 2026-08-31, post-022-merge): consume `useRefreshContext()`; when non-null, render `RefreshButton` (T008) inside the existing `data-nav-slot="trailing-actions"` span — depends on T007a, T007b, T008
@@ -80,7 +80,7 @@ Frontend-only feature within the existing web-application layout: `src/frontend/
 
 **Independent Test**: Navigate to a nested route (e.g., `/admin/stories/new`), reload the browser natively, and confirm the same screen loads with no error and no re-authentication prompt; then invalidate the session and reload again, confirming a clear explanation appears on the sign-in screen instead of a generic error.
 
-**No dependency on `022-persistent-nav-redesign`** — every file this story touches (`ProtectedRoute.jsx`, `staticwebapp.config.json`, `useCapabilities.js`, `LoginScreen.jsx`) is untouched by 022's scope. This story can be implemented immediately.
+**No dependency on `022-persistent-nav-redesign-done`** — every file this story touches (`ProtectedRoute.jsx`, `staticwebapp.config.json`, `useCapabilities.js`, `LoginScreen.jsx`) is untouched by 022's scope. This story can be implemented immediately.
 
 ### Tests for User Story 2
 
@@ -105,7 +105,7 @@ Frontend-only feature within the existing web-application layout: `src/frontend/
 
 **Independent Test**: Start typing in a wizard step without saving, attempt to reload or close the tab, and confirm the browser's native confirmation prompt appears; confirm no prompt appears when there is no unsaved input.
 
-**No dependency on `022-persistent-nav-redesign`** — this story changes `AdminStoryWizardPage.jsx`'s internal dirty-tracking, not its header/layout, and 022's own Assumptions state wizard save behavior is unchanged by that feature.
+**No dependency on `022-persistent-nav-redesign-done`** — this story changes `AdminStoryWizardPage.jsx`'s internal dirty-tracking, not its header/layout, and 022's own Assumptions state wizard save behavior is unchanged by that feature.
 
 ### Tests for User Story 3
 
@@ -132,9 +132,9 @@ Frontend-only feature within the existing web-application layout: `src/frontend/
 
 ## Dependencies & Execution Order
 
-### Cross-feature sequencing: 022-persistent-nav-redesign (resolved 2026-08-31)
+### Cross-feature sequencing: 022-persistent-nav-redesign-done (resolved 2026-08-31)
 
-`022-persistent-nav-redesign` has merged to `main` (`1b79aa8`, `5a4dce6`; PRs #103/#104). `src/frontend/src/components/Layout/NavBar.jsx` and `TitleBar.jsx` exist, restyling of `MainMenu.jsx`/`AdminAccountsPage.jsx`/`AdminStoryWizardPage.jsx` from 022's own scope is already done, and `NavBar.jsx` reserves a `data-nav-slot="trailing-actions"` mount point specifically for this feature's `RefreshButton`. **US1's mounting tasks (T009–T011) are no longer blocked.**
+`022-persistent-nav-redesign-done` has merged to `main` (`1b79aa8`, `5a4dce6`; PRs #103/#104). `src/frontend/src/components/Layout/NavBar.jsx` and `TitleBar.jsx` exist, restyling of `MainMenu.jsx`/`AdminAccountsPage.jsx`/`AdminStoryWizardPage.jsx` from 022's own scope is already done, and `NavBar.jsx` reserves a `data-nav-slot="trailing-actions"` mount point specifically for this feature's `RefreshButton`. **US1's mounting tasks (T009–T011) are no longer blocked.**
 
 Reviewing the merged code surfaced one remaining gap, not related to 022: `AuthenticatedLayout.jsx` renders `NavBar`/`TitleBar` as a **sibling** of the active page's content, not a parent, so a page has no prop-based way to reach the nav bar's `trailing-actions` slot. T007a/T007b/T008b (`RefreshContext`) close this gap — see `contracts/refresh-control.md`'s `RefreshContext` section for why a context was chosen over lifting `NavBar` into each page (it would undo 022's centralization).
 
@@ -188,7 +188,7 @@ Task: "Modify LoginScreen.jsx to render the sessionExpired message"
 
 ### Recommended First Increment
 
-With `022-persistent-nav-redesign` merged, no story is externally blocked, so the build order can follow spec.md's own priority listing:
+With `022-persistent-nav-redesign-done` merged, no story is externally blocked, so the build order can follow spec.md's own priority listing:
 
 1. Complete Phase 1: T001 (sign-off)
 2. Complete Phase 3: User Story 1 (T002–T011, including the new T007a/T007b/T008b `RefreshContext` wiring)
