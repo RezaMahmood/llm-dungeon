@@ -202,7 +202,7 @@ current dependency set is clean (US2), and future drift is monitored automatical
 
 **Purpose**: Final validation and the constitution's mandatory human acceptance gate.
 
-- [ ] T018 [P] Run `specs/021-npm-dependency-audit/quickstart.md` sections 1-5 end-to-end
+- [X] T018 [P] Run `specs/021-npm-dependency-audit/quickstart.md` sections 1-5 end-to-end
   (on-demand audit, PR-blocking demonstration, remediation validation, Critical-finding
   issue creation + dedupe, Dependabot visibility) and note results
 - [ ] T019 User-verified acceptance (Constitution Principle IX, NON-NEGOTIABLE): the
