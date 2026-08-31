@@ -8,7 +8,7 @@ import StepWorldSetting from "../components/Admin/StoryWizard/StepWorldSetting.j
 import { usePublishRefresh } from "../context/RefreshContext.jsx";
 import { useUnsavedChangesWarning } from "../hooks/useUnsavedChangesWarning.js";
 import { loginRequest } from "../services/msalConfig.js";
-import { createDraft, getDraft, patchDraft, postMessage } from "../services/storyDraftService.js";
+import { createDraft, generateStory, getDraft, patchDraft, postMessage } from "../services/storyDraftService.js";
 
 // Which draft this browser session is currently building. Without this, leaving
 // the wizard via the nav bar and coming back would start a brand-new blank
@@ -35,6 +35,50 @@ function writeActiveDraftId(draftId) {
   }
 }
 
+// A failed PATCH is reported next to the field that caused it, in the field's own words —
+// not a generic "could not save" banner disconnected from what actually went wrong. Every
+// PATCH from a Step component writes exactly one semantic field at a time, so the first key
+// in `updates` identifies which field owns the error. `story_draft_service.py`'s
+// DraftValidationError messages are "<field>: <reason>" (e.g. "completionCriteria: rule is
+// required when more than one condition is defined") — the "<field>: " prefix is stripped
+// since the message is already shown right next to that field.
+function fieldErrorMessage(err, fieldKey) {
+  const backendMessage = err?.response?.data?.message;
+  if (!backendMessage) return "Could not save this — please try again.";
+  const prefix = `${fieldKey}: `;
+  const reason = backendMessage.startsWith(prefix) ? backendMessage.slice(prefix.length) : backendMessage;
+  return reason.charAt(0).toUpperCase() + reason.slice(1);
+}
+
+// World & Setting's own fields (worldPrompt, characterTypes, completionCriteria) — used
+// for that step tab's own "Done" status, separate from the overall generate gate below,
+// which also requires a story name from the Name & cover step.
+function isWorldSettingComplete(draft) {
+  return (
+    Boolean(draft.worldPrompt) &&
+    (draft.characterTypes?.length ?? 0) > 0 &&
+    (draft.completionCriteria?.successConditions?.length ?? 0) > 0
+  );
+}
+
+// The Completeness Rule (data-model.md) — mirrors StoryDraft.is_complete() on the
+// backend, so the wizard can tell the administrator generation is possible without
+// waiting on a round trip. Filling this in never generates or navigates by itself
+// (#33) — only the explicit "Generate story" action does. A story name is required
+// (revised 2026-08-31) — narrative content alone isn't enough to generate a story.
+function missingRequirements(draft) {
+  const missing = [];
+  if (!draft.name) missing.push("a story name (Name & cover)");
+  if (!draft.worldPrompt) missing.push("a world prompt");
+  if (!(draft.characterTypes?.length > 0)) missing.push("at least one character type");
+  if (!(draft.completionCriteria?.successConditions?.length > 0)) missing.push("at least one success condition");
+  return missing;
+}
+
+function isReadyToGenerate(draft) {
+  return missingRequirements(draft).length === 0;
+}
+
 const STEPS = [
   {
     key: "name-cover",
@@ -51,10 +95,7 @@ const STEPS = [
     description:
       "The engine improvises everything from this. Write it like you are telling a colleague about the place.",
     Component: StepWorldSetting,
-    isDone: (draft) =>
-      Boolean(draft.worldPrompt) &&
-      (draft.characterTypes?.length ?? 0) > 0 &&
-      (draft.completionCriteria?.successConditions?.length ?? 0) > 0,
+    isDone: isWorldSettingComplete,
   },
   {
     key: "tone-reading-level",
@@ -87,6 +128,8 @@ export function AdminStoryWizardPage() {
   const [refreshError, setRefreshError] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
   const refreshingRef = useRef(false);
+  const [generateStatus, setGenerateStatus] = useState("idle"); // idle | generating | error
+  const [fieldErrors, setFieldErrors] = useState({}); // { [fieldKey]: message }
 
   useUnsavedChangesWarning(isDirty);
 
@@ -138,10 +181,26 @@ export function AdminStoryWizardPage() {
     }
   }, []);
 
+  // Caught here, not by callers — StepWorldSetting/CharacterTypeList/CompletionCriteriaFields
+  // all fire onPatch from a blur/change handler without awaiting it, so a rejection here
+  // would otherwise become a silent unhandled promise rejection with no visible feedback
+  // (e.g. a completionCriteria write missing `rule` used to fail this way with no on-screen
+  // sign anything went wrong — #33 follow-up).
   const handlePatch = useCallback(
     async (updates) => {
-      const data = await patchDraft(token, draft.id, updates);
-      applyWriteResult(data);
+      const fieldKey = Object.keys(updates)[0];
+      try {
+        const data = await patchDraft(token, draft.id, updates);
+        setFieldErrors((current) => {
+          if (!(fieldKey in current)) return current;
+          const rest = { ...current };
+          delete rest[fieldKey];
+          return rest;
+        });
+        applyWriteResult(data);
+      } catch (err) {
+        setFieldErrors((current) => ({ ...current, [fieldKey]: fieldErrorMessage(err, fieldKey) }));
+      }
     },
     [token, draft, applyWriteResult],
   );
@@ -176,6 +235,19 @@ export function AdminStoryWizardPage() {
 
   usePublishRefresh({ refresh: refreshDraft, loading: refreshing });
 
+  // The administrator's explicit "finish" action — the only thing that generates and
+  // navigates away from the wizard (#33). Never triggered by a field save.
+  const handleGenerate = useCallback(async () => {
+    setGenerateStatus("generating");
+    try {
+      const data = await generateStory(token, draft.id);
+      applyWriteResult(data);
+      setGenerateStatus("idle");
+    } catch {
+      setGenerateStatus("error");
+    }
+  }, [token, draft, applyWriteResult]);
+
   if (story) {
     return (
       <div style={{ padding: "var(--space-6)" }}>
@@ -183,7 +255,7 @@ export function AdminStoryWizardPage() {
           Story generated
         </div>
         <h1>{story.name || "Untitled story"}</h1>
-        <p className="text-muted">Saved automatically, unpublished. Publishing is handled elsewhere.</p>
+        <p className="text-muted">Generated and saved, unpublished. Publishing is handled elsewhere.</p>
         <h3>Narrative guidance</h3>
         <p>{story.narrativeGuidance}</p>
       </div>
@@ -271,7 +343,30 @@ export function AdminStoryWizardPage() {
         onPatch={handlePatch}
         onSendMessage={handleSendMessage}
         onDirtyChange={setIsDirty}
+        fieldErrors={fieldErrors}
       />
+
+      <hr className="hr" style={{ margin: "32px 0 20px" }} />
+      <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={!isReadyToGenerate(draft) || generateStatus === "generating"}
+          onClick={handleGenerate}
+        >
+          {generateStatus === "generating" ? "Generating…" : "Generate story"}
+        </button>
+        <span className="text-muted" style={{ fontSize: "13px" }}>
+          {isReadyToGenerate(draft)
+            ? "Ready — this saves the story and leaves the wizard."
+            : `Still needs ${missingRequirements(draft).join(", ")}.`}
+        </span>
+      </div>
+      {generateStatus === "error" && (
+        <div role="alert" className="text-muted" style={{ marginTop: "8px" }}>
+          Could not generate the story. Please try again.
+        </div>
+      )}
     </div>
   );
 }

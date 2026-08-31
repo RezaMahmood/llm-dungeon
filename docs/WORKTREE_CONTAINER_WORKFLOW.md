@@ -262,6 +262,23 @@ This host (verified 2026-08-31) stores its credential as
 in with no extra step — still verify on yours with the command above
 before assuming it'll "just work".
 
+### Recovering from "Claude configuration file not found"
+
+The `~/.claude.json` mount above is a *single-file* bind mount, unlike the
+directory mounts (`~/.claude`, `~/.config/gh`). Claude Code saves that file
+atomically (backup + temp file + `rename()` over the real path), and Docker
+Desktop's virtiofs/osxfs bind mounts can lose track of a single file across
+a rename like that -- so a container can occasionally come back saying the
+config file is missing even though a backup exists right next to it
+(`~/.claude/backups/.claude.json.backup.<timestamp>`).
+
+`.devcontainer/restore-claude-config.sh` runs on every container start
+(`postStartCommand`, which fires on resume too, not just first creation)
+and restores the newest backup automatically if the live file is missing --
+you shouldn't need to run the `cp` command from the warning by hand. If you
+ever do see it fail to restore, the backups directory still has everything
+needed to fix it manually.
+
 ## `gh` CLI auth inside the container
 
 Same problem, same fix, one more tool: the `github-cli` devcontainer

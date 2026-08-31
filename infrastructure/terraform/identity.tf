@@ -28,9 +28,15 @@ resource "azurerm_cosmosdb_sql_role_assignment" "functions_cosmos_data_contribut
   scope               = azurerm_cosmosdb_account.cosmos.id
 }
 
-resource "azurerm_role_assignment" "functions_cognitive_services_user" {
-  scope                = azurerm_cognitive_account.openai.id
-  role_definition_name = "Cognitive Services User"
+resource "azurerm_role_assignment" "functions_cognitive_services_openai_user" {
+  scope = azurerm_cognitive_account.openai.id
+  # "Cognitive Services User" (the role this previously granted) only covers
+  # read/listKeys control-plane actions — it does not include the
+  # Microsoft.CognitiveServices/accounts/OpenAI/* data actions llm_service.py's
+  # DefaultAzureCredential-authenticated inference calls need, which surfaced
+  # as a 403 AuthorizationFailed on every Suggest call during T033 manual
+  # acceptance (2026-08-31).
+  role_definition_name = "Cognitive Services OpenAI User"
   principal_id         = azurerm_function_app_flex_consumption.functions.identity[0].principal_id
 }
 

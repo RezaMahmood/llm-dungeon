@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Repeatable add/remove rows for character types (FR-008). Edits to name/description
@@ -6,11 +6,25 @@ import { useEffect, useState } from "react";
  * newly added row is local-only until its name is filled in and blurred, so it never
  * round-trips an empty (invalid) name to the draft.
  */
-export function CharacterTypeList({ characterTypes = [], onChange }) {
+export function CharacterTypeList({ characterTypes = [], onChange, error }) {
   const [rows, setRows] = useState(characterTypes);
+  const lastSyncedRef = useRef(characterTypes);
 
   useEffect(() => {
-    setRows(characterTypes);
+    // Resync only when the server's characterTypes actually changed content, not merely
+    // whenever the parent draft object is replaced (e.g. by an unrelated field's write, or
+    // the guiding-question exchange's response, resolving) — every such write hands down a
+    // freshly deserialized array, a new reference even when nothing about character types
+    // changed. Resetting on reference alone wiped a just-added, not-yet-committed blank row
+    // out from under the administrator the instant any concurrent write landed — reported as
+    // "the fields appear then disappear" on the first click, before any write was in flight
+    // on a later click. Comparing against the *previous prop* (not against `rows`, which may
+    // hold that uncommitted row) tells genuine remote changes apart from reference churn.
+    const changed = JSON.stringify(characterTypes) !== JSON.stringify(lastSyncedRef.current);
+    lastSyncedRef.current = characterTypes;
+    if (changed) {
+      setRows(characterTypes);
+    }
   }, [characterTypes]);
 
   const updateRow = (index, field, value) => {
@@ -62,6 +76,11 @@ export function CharacterTypeList({ characterTypes = [], onChange }) {
       <button type="button" className="btn btn-secondary" onClick={addRow}>
         Add character type
       </button>
+      {error && (
+        <div role="alert" className="text-muted">
+          {error}
+        </div>
+      )}
     </div>
   );
 }

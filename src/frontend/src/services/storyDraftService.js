@@ -28,6 +28,11 @@ export async function postMessage(token, draftId, message) {
   return response.data;
 }
 
+export async function generateStory(token, draftId) {
+  const response = await client.post(`/manage/stories/drafts/${draftId}/generate`, {}, authHeaders(token));
+  return response.data;
+}
+
 export async function listStories(token) {
   const response = await client.get("/manage/stories", authHeaders(token));
   return response.data;
@@ -38,4 +43,4 @@ export async function getStory(token, storyId) {
   return response.data;
 }
 
-export default { createDraft, getDraft, patchDraft, postMessage, listStories, getStory };
+export default { createDraft, getDraft, patchDraft, postMessage, generateStory, listStories, getStory };

@@ -20,7 +20,7 @@ This document defines the entities this feature introduces: an ephemeral `StoryD
 |----------|------|----------|-------|-----------|
 | `id` | string (UUID) | Yes | Draft identifier; also the partition key | One document per session |
 | `createdBy` | string | Yes | Administrator's Microsoft object id (`oid`) | Scopes the draft to its owner |
-| `name` | string or null | No | Story title (wizard step "Name & cover") | Optional until generation |
+| `name` | string or null | No | Story title (wizard step "Name & cover") | Required (non-empty) before generation can trigger (revised 2026-08-31) |
 | `coverImageUrl` | string or null | No | Cover image reference (wizard step "Name & cover") | Optional; not required for completeness. **Open question (flagged 2026-08-30, see spec.md § Open Questions)**: what this string is meant to contain — an externally-hosted image link, an uploaded/managed asset reference, or something else — is not yet specified. |
 | `tone` | string or null | No | Narrative tone (wizard step "Tone & reading level") | Optional until generation |
 | `readingLevel` | string or null | No | Target reading level (wizard step "Tone & reading level") | Optional until generation |
@@ -36,19 +36,25 @@ This document defines the entities this feature introduces: an ephemeral `StoryD
 | `ttl` | integer (seconds) | Yes | Cosmos TTL, reset to 86400 on every update | Auto-expires an abandoned draft (FR-005) — see research.md §3 |
 | `entityType` | string | Yes | Always `"StoryDraft"` | Container discriminator, matches existing model convention |
 
-### Completeness Rule (triggers generation — FR-003/FR-004)
+### Completeness Rule (unlocks generation — FR-003/FR-004)
 
-A draft is complete, and generation triggers automatically on the write that makes it true, when all of:
+A draft is complete — meaning the explicit `POST .../generate` action (contracts/api.md) is available — when all of:
+- `name` is non-empty, AND
 - `worldPrompt` is non-empty, AND
 - `characterTypes` has at least one entry, AND
 - `completionCriteria` is non-null and has at least one entry in `successConditions`.
+
+(`name` added 2026-08-31 — a story must have a title to be generated, not just narrative content.)
+
+Every `PATCH`/message write re-evaluates and reports this as `readyToGenerate`, but generation itself never happens as a side effect of that write — it is a separate, administrator-triggered action (revised 2026-08-31, #33: auto-generating on whichever write happened to complete the draft caused the wizard to redirect away mid-edit, on an ordinary field blur, with no warning).
 
 ### State Transitions
 
 ```
 Created (empty fields, entityType="StoryDraft")
   → updated repeatedly via PATCH / conversational exchange (any order, any number of times)
-  → [Completeness Rule met] → Story generated and persisted → draft document deleted
+  → [Completeness Rule met] → readyToGenerate: true reported, draft otherwise unchanged
+  → [administrator explicitly calls POST .../generate] → Story generated and persisted → draft document deleted
   → [administrator stops interacting] → ttl expires → draft document deleted (never became a Story)
 ```
 

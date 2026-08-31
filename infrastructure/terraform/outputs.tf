@@ -119,7 +119,7 @@ output "azure_openai_endpoint" {
 
 output "azure_openai_deployment_name" {
   value       = azurerm_cognitive_deployment.model.name
-  description = "Model deployment name (e.g., 'gpt-4o-mini')"
+  description = "Model deployment name (e.g., 'gpt-5-nano')"
 }
 
 output "application_insights_id" {

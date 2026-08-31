@@ -37,8 +37,8 @@ cosmos_max_throughput            = 40000
 cosmos_backup_type               = "Periodic"
 storage_account_replication_type = "LRS"
 
-ai_foundry_model_name = "gpt-4o-mini"
-ai_foundry_capacity   = 1
+ai_foundry_model_name = "gpt-5-nano"
+ai_foundry_capacity   = 1000 # 1M TPM (#33)
 
 log_analytics_retention_days = 30
 budget_amount_usd            = 50

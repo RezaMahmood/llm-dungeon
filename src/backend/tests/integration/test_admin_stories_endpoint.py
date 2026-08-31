@@ -13,13 +13,14 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 from backend.api.admin.stories import (
     create_draft,
+    generate_story_from_draft,
     get_draft,
     get_story,
     list_stories,
     patch_draft,
     post_message,
 )
-from backend.services.llm_service import LLMOutputError
+from backend.services.llm_service import LLMOutputError, LLMRateLimitError
 from backend.services.story_draft_service import StoryDraftService
 from backend.services.story_service import StoryService
 
@@ -146,10 +147,59 @@ def test_patch_elicits_character_types_and_completion_criteria(request_factory):
     assert body["draft"]["completionCriteria"] == _completion_criteria()
 
 
-# --- Automatic generation + persistence on completeness (SC-001, SC-003) ---
+# --- Completing a draft never auto-generates or auto-navigates (#33) ---
 
 
-def test_completing_the_draft_generates_and_persists_a_story_automatically(request_factory):
+def test_completing_the_draft_via_patch_does_not_generate_or_redirect(request_factory):
+    """Filling in the last required field (e.g. blurring a completion-criteria box) must
+    only report readyToGenerate — it must never itself produce a "generated" response,
+    since that's what previously caused the wizard to redirect away without the
+    administrator explicitly finishing (#33)."""
+    draft_service, _stories, llm, _cosmos = _services()
+    llm.generate_exchange_response.return_value = {"assistantMessage": "Noted.", "fieldUpdates": {"worldPrompt": "A half-abandoned lighthouse."}}
+    with _patched_authorize_admin():
+        create_response = create_draft(
+            _authorized(
+                request_factory,
+                method="POST",
+                url="/api/manage/stories/drafts",
+                body=json.dumps({"idea": "A half-abandoned lighthouse on a cold northern cove."}).encode(),
+            ),
+            story_draft_service=draft_service,
+        )
+    draft_id = json.loads(create_response.get_body())["draft"]["id"]
+
+    req = _authorized(
+        request_factory,
+        method="PATCH",
+        url=f"/api/manage/stories/drafts/{draft_id}",
+        body=json.dumps(
+            {"name": "The Lighthouse at Gullwing Cove", "characterTypes": _character_types(), "completionCriteria": _completion_criteria()}
+        ).encode(),
+        route_params={"draftId": draft_id},
+    )
+    with _patched_authorize_admin():
+        response = patch_draft(req, story_draft_service=draft_service)
+
+    assert response.status_code == 200
+    body = json.loads(response.get_body())
+    assert body["status"] == "success"
+    assert body["readyToGenerate"] is True
+    llm.generate_story_config.assert_not_called()
+
+    # Still resumable — the draft was persisted, not deleted/converted into a story.
+    with _patched_authorize_admin():
+        get_response = get_draft(
+            _authorized(request_factory, url=f"/api/manage/stories/drafts/{draft_id}", route_params={"draftId": draft_id}),
+            story_draft_service=draft_service,
+        )
+    assert get_response.status_code == 200
+
+
+# --- Explicit "generate" action (#33) ---
+
+
+def test_generate_action_persists_a_story_only_when_explicitly_called(request_factory):
     draft_service, story_service, llm, _cosmos = _services()
     llm.generate_exchange_response.return_value = {"assistantMessage": "Noted.", "fieldUpdates": {"worldPrompt": "A half-abandoned lighthouse."}}
     with _patched_authorize_admin():
@@ -164,16 +214,35 @@ def test_completing_the_draft_generates_and_persists_a_story_automatically(reque
         )
     draft_id = json.loads(create_response.get_body())["draft"]["id"]
 
-    llm.generate_story_config.return_value = {"narrativeGuidance": "Keep it eerie but never actually dangerous."}
-    req = _authorized(
-        request_factory,
-        method="PATCH",
-        url=f"/api/manage/stories/drafts/{draft_id}",
-        body=json.dumps({"characterTypes": _character_types(), "completionCriteria": _completion_criteria()}).encode(),
-        route_params={"draftId": draft_id},
-    )
     with _patched_authorize_admin():
-        response = patch_draft(req, story_draft_service=draft_service)
+        patch_draft(
+            _authorized(
+                request_factory,
+                method="PATCH",
+                url=f"/api/manage/stories/drafts/{draft_id}",
+                body=json.dumps(
+                    {
+                        "name": "The Lighthouse at Gullwing Cove",
+                        "characterTypes": _character_types(),
+                        "completionCriteria": _completion_criteria(),
+                    }
+                ).encode(),
+                route_params={"draftId": draft_id},
+            ),
+            story_draft_service=draft_service,
+        )
+
+    llm.generate_story_config.return_value = {"narrativeGuidance": "Keep it eerie but never actually dangerous."}
+    with _patched_authorize_admin():
+        response = generate_story_from_draft(
+            _authorized(
+                request_factory,
+                method="POST",
+                url=f"/api/manage/stories/drafts/{draft_id}/generate",
+                route_params={"draftId": draft_id},
+            ),
+            story_draft_service=draft_service,
+        )
 
     assert response.status_code == 200
     body = json.loads(response.get_body())
@@ -198,6 +267,30 @@ def test_completing_the_draft_generates_and_persists_a_story_automatically(reque
             story_service=story_service,
         )
     assert story_response.status_code == 200
+
+
+def test_generate_action_rejects_incomplete_draft(request_factory):
+    draft_service, _stories, _llm, _cosmos = _services()
+    with _patched_authorize_admin():
+        create_response = create_draft(
+            _authorized(request_factory, method="POST", url="/api/manage/stories/drafts", body=json.dumps({}).encode()),
+            story_draft_service=draft_service,
+        )
+    draft_id = json.loads(create_response.get_body())["draft"]["id"]
+
+    with _patched_authorize_admin():
+        response = generate_story_from_draft(
+            _authorized(
+                request_factory,
+                method="POST",
+                url=f"/api/manage/stories/drafts/{draft_id}/generate",
+                route_params={"draftId": draft_id},
+            ),
+            story_draft_service=draft_service,
+        )
+
+    assert response.status_code == 422
+    assert json.loads(response.get_body())["error"] == "not_ready"
 
 
 # --- Abandonment leaves nothing persisted once the draft's TTL expires (SC-002) ---
@@ -263,18 +356,36 @@ def test_malformed_generation_output_returns_502_and_leaves_draft_intact(request
         )
     draft_id = json.loads(create_response.get_body())["draft"]["id"]
 
-    llm.generate_story_config.side_effect = LLMOutputError("model returned malformed JSON")
-    req = _authorized(
-        request_factory,
-        method="PATCH",
-        url=f"/api/manage/stories/drafts/{draft_id}",
-        body=json.dumps(
-            {"worldPrompt": "A half-abandoned lighthouse.", "characterTypes": _character_types(), "completionCriteria": _completion_criteria()}
-        ).encode(),
-        route_params={"draftId": draft_id},
-    )
     with _patched_authorize_admin():
-        response = patch_draft(req, story_draft_service=draft_service)
+        patch_draft(
+            _authorized(
+                request_factory,
+                method="PATCH",
+                url=f"/api/manage/stories/drafts/{draft_id}",
+                body=json.dumps(
+                    {
+                        "name": "The Lighthouse at Gullwing Cove",
+                        "worldPrompt": "A half-abandoned lighthouse.",
+                        "characterTypes": _character_types(),
+                        "completionCriteria": _completion_criteria(),
+                    }
+                ).encode(),
+                route_params={"draftId": draft_id},
+            ),
+            story_draft_service=draft_service,
+        )
+
+    llm.generate_story_config.side_effect = LLMOutputError("model returned malformed JSON")
+    with _patched_authorize_admin():
+        response = generate_story_from_draft(
+            _authorized(
+                request_factory,
+                method="POST",
+                url=f"/api/manage/stories/drafts/{draft_id}/generate",
+                route_params={"draftId": draft_id},
+            ),
+            story_draft_service=draft_service,
+        )
 
     assert response.status_code == 502
     assert json.loads(response.get_body())["error"] == "generation_failed"
@@ -287,3 +398,33 @@ def test_malformed_generation_output_returns_502_and_leaves_draft_intact(request
             story_draft_service=draft_service,
         )
     assert get_response.status_code == 200
+
+
+# --- 429 rate_limited leaves the draft intact (#33) ---
+
+
+def test_rate_limited_message_returns_429_and_leaves_draft_intact(request_factory):
+    draft_service, _stories, llm, cosmos = _services()
+    with _patched_authorize_admin():
+        create_response = create_draft(
+            _authorized(request_factory, method="POST", url="/api/manage/stories/drafts", body=json.dumps({}).encode()),
+            story_draft_service=draft_service,
+        )
+    draft_id = json.loads(create_response.get_body())["draft"]["id"]
+
+    llm.generate_exchange_response.side_effect = LLMRateLimitError("rate limited")
+    req = _authorized(
+        request_factory,
+        method="POST",
+        url=f"/api/manage/stories/drafts/{draft_id}/messages",
+        body=json.dumps({"message": "A half-abandoned lighthouse."}).encode(),
+        route_params={"draftId": draft_id},
+    )
+    with _patched_authorize_admin():
+        response = post_message(req, story_draft_service=draft_service)
+
+    assert response.status_code == 429
+    assert json.loads(response.get_body())["error"] == "rate_limited"
+
+    # No message or field update from the failed exchange was persisted.
+    assert cosmos.get_container("storyDrafts").items[draft_id]["exchanges"] == []

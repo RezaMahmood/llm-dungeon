@@ -15,6 +15,7 @@ import logging
 import time
 from typing import Any, Optional
 
+import openai
 from agent_framework import Message
 from agent_framework.openai import OpenAIChatCompletionClient
 from azure.identity import DefaultAzureCredential
@@ -25,6 +26,12 @@ from backend.config import config
 
 logger = logging.getLogger("llm_service")
 tracer = trace.get_tracer("backend.services.llm_service")
+
+# The Foundry deployment enforces a requests-per-minute quota; a burst of admin activity
+# (e.g. several drafts being worked in parallel) can trip it. Retry with backoff a few
+# times before giving up, rather than surfacing the first 429 as an unhandled 500 (#33).
+MAX_RATE_LIMIT_ATTEMPTS = 3
+INITIAL_RETRY_DELAY_SECONDS = 2.0
 
 EXCHANGE_SYSTEM_PROMPT = """You are helping an administrator create a new story for a \
 text-adventure game aimed at young players, through a guided conversation. Read the \
@@ -60,9 +67,32 @@ class LLMOutputError(ValueError):
     triggering write is never partially applied."""
 
 
+class LLMRateLimitError(RuntimeError):
+    """Raised when the Foundry deployment keeps returning HTTP 429 after
+    `MAX_RATE_LIMIT_ATTEMPTS` attempts with backoff. Callers treat this like
+    `LLMOutputError` — the triggering write is never partially applied — but the caller
+    maps it to a distinct, retry-friendly response rather than a generic failure (#33)."""
+
+
+class _FieldUpdates(BaseModel):
+    """Mirrors the fields listed in `EXCHANGE_SYSTEM_PROMPT`. Declared explicitly (rather
+    than `dict[str, Any]`) because Azure OpenAI's structured-output mode requires every
+    object in the response schema to have `additionalProperties: false`, which can't be
+    inferred for a free-form dict."""
+
+    worldPrompt: Optional[str] = None
+    rules: Optional[str] = None
+    name: Optional[str] = None
+    coverImageUrl: Optional[str] = None
+    tone: Optional[str] = None
+    readingLevel: Optional[str] = None
+    sessionLengthMinutes: Optional[int] = None
+    chapters: Optional[int] = None
+
+
 class _ExchangeResponse(BaseModel):
     assistantMessage: str
-    fieldUpdates: dict[str, Any] = {}
+    fieldUpdates: _FieldUpdates = _FieldUpdates()
 
 
 class _GenerationResponse(BaseModel):
@@ -95,7 +125,7 @@ class LLMService:
         `{"assistantMessage": str, "fieldUpdates": dict}` (research.md §4)."""
         prompt = self._build_exchange_prompt(draft, message)
         result = self._call("gen_ai.story_creation.exchange", EXCHANGE_SYSTEM_PROMPT, prompt, _ExchangeResponse)
-        return result.model_dump()
+        return result.model_dump(exclude_none=True)
 
     def generate_story_config(self, draft: dict[str, Any]) -> dict[str, Any]:
         """Final generation call once the Completeness Rule is met. Returns
@@ -114,15 +144,7 @@ class LLMService:
         with tracer.start_as_current_span(span_name) as span:
             span.set_attribute("gen_ai.prompt", user_prompt)
             start = time.monotonic()
-            response = asyncio.run(
-                self.client.get_response(
-                    [
-                        Message(role="system", contents=[system_prompt]),
-                        Message(role="user", contents=[user_prompt]),
-                    ],
-                    options={"response_format": response_model},
-                )
-            )
+            response = self._get_response_with_retry(span_name, system_prompt, user_prompt, response_model)
             latency_ms = (time.monotonic() - start) * 1000
 
             usage = response.usage_details
@@ -148,6 +170,67 @@ class LLMService:
                 return response.value
             except (ValidationError, ValueError, json.JSONDecodeError) as exc:
                 raise LLMOutputError(f"Model response did not match the expected schema: {exc}") from exc
+
+    def _get_response_with_retry(
+        self,
+        span_name: str,
+        system_prompt: str,
+        user_prompt: str,
+        response_model: type[BaseModel],
+    ) -> Any:
+        messages = [
+            Message(role="system", contents=[system_prompt]),
+            Message(role="user", contents=[user_prompt]),
+        ]
+        delay = INITIAL_RETRY_DELAY_SECONDS
+        for attempt in range(1, MAX_RATE_LIMIT_ATTEMPTS + 1):
+            try:
+                return asyncio.run(
+                    self.client.get_response(messages, options={"response_format": response_model})
+                )
+            except Exception as exc:  # noqa: BLE001 - re-raised untouched unless it's a 429
+                rate_limit_error = self._as_rate_limit_error(exc)
+                if rate_limit_error is None:
+                    raise
+                if attempt == MAX_RATE_LIMIT_ATTEMPTS:
+                    raise LLMRateLimitError(
+                        f"{span_name} was rate-limited on all {MAX_RATE_LIMIT_ATTEMPTS} attempts"
+                    ) from exc
+                wait_seconds = self._retry_after_seconds(rate_limit_error, fallback=delay)
+                logger.warning(
+                    "%s rate-limited (attempt %d/%d); retrying in %.1fs",
+                    span_name,
+                    attempt,
+                    MAX_RATE_LIMIT_ATTEMPTS,
+                    wait_seconds,
+                )
+                time.sleep(wait_seconds)
+                delay *= 2
+        raise AssertionError("unreachable: loop always returns or raises")
+
+    @staticmethod
+    def _as_rate_limit_error(exc: Exception) -> Optional[openai.RateLimitError]:
+        """Unwraps `agent_framework`'s `ChatClientException` (or any other wrapper) to find
+        the underlying `openai.RateLimitError`, if the failure was in fact a 429."""
+        seen: set[int] = set()
+        current: Optional[BaseException] = exc
+        while current is not None and id(current) not in seen:
+            if isinstance(current, openai.RateLimitError):
+                return current
+            seen.add(id(current))
+            current = current.__cause__
+        return None
+
+    @staticmethod
+    def _retry_after_seconds(exc: openai.RateLimitError, fallback: float) -> float:
+        response = getattr(exc, "response", None)
+        header = response.headers.get("retry-after") if response is not None else None
+        if header:
+            try:
+                return max(float(header), 0.0)
+            except ValueError:
+                pass
+        return fallback
 
     def _build_exchange_prompt(self, draft: dict[str, Any], message: Optional[str]) -> str:
         lines = ["Current draft state:", json.dumps(draft, indent=2)]
