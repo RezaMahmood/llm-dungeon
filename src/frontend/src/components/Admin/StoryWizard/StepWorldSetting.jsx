@@ -4,7 +4,7 @@ import CharacterTypeList from "./CharacterTypeList.jsx";
 import CompletionCriteriaFields from "./CompletionCriteriaFields.jsx";
 import ConversationPanel from "./ConversationPanel.jsx";
 
-export function StepWorldSetting({ draft, onSendMessage, onPatch }) {
+export function StepWorldSetting({ draft, onSendMessage, onPatch, fieldErrors = {} }) {
   const [worldPrompt, setWorldPrompt] = useState(draft.worldPrompt || "");
   const [rules, setRules] = useState(draft.rules || "");
 
@@ -26,6 +26,11 @@ export function StepWorldSetting({ draft, onSendMessage, onPatch }) {
             if (worldPrompt !== (draft.worldPrompt || "")) onPatch({ worldPrompt });
           }}
         />
+        {fieldErrors.worldPrompt && (
+          <div role="alert" className="text-muted">
+            {fieldErrors.worldPrompt}
+          </div>
+        )}
       </div>
 
       <div className="field">
@@ -39,12 +44,22 @@ export function StepWorldSetting({ draft, onSendMessage, onPatch }) {
             if (rules !== (draft.rules || "")) onPatch({ rules });
           }}
         />
+        {fieldErrors.rules && (
+          <div role="alert" className="text-muted">
+            {fieldErrors.rules}
+          </div>
+        )}
       </div>
 
-      <CharacterTypeList characterTypes={draft.characterTypes || []} onChange={(characterTypes) => onPatch({ characterTypes })} />
+      <CharacterTypeList
+        characterTypes={draft.characterTypes || []}
+        onChange={(characterTypes) => onPatch({ characterTypes })}
+        error={fieldErrors.characterTypes}
+      />
       <CompletionCriteriaFields
         completionCriteria={draft.completionCriteria}
         onChange={(completionCriteria) => onPatch({ completionCriteria })}
+        error={fieldErrors.completionCriteria}
       />
     </div>
   );

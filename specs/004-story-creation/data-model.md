@@ -36,19 +36,22 @@ This document defines the entities this feature introduces: an ephemeral `StoryD
 | `ttl` | integer (seconds) | Yes | Cosmos TTL, reset to 86400 on every update | Auto-expires an abandoned draft (FR-005) — see research.md §3 |
 | `entityType` | string | Yes | Always `"StoryDraft"` | Container discriminator, matches existing model convention |
 
-### Completeness Rule (triggers generation — FR-003/FR-004)
+### Completeness Rule (unlocks generation — FR-003/FR-004)
 
-A draft is complete, and generation triggers automatically on the write that makes it true, when all of:
+A draft is complete — meaning the explicit `POST .../generate` action (contracts/api.md) is available — when all of:
 - `worldPrompt` is non-empty, AND
 - `characterTypes` has at least one entry, AND
 - `completionCriteria` is non-null and has at least one entry in `successConditions`.
+
+Every `PATCH`/message write re-evaluates and reports this as `readyToGenerate`, but generation itself never happens as a side effect of that write — it is a separate, administrator-triggered action (revised 2026-08-31, #33: auto-generating on whichever write happened to complete the draft caused the wizard to redirect away mid-edit, on an ordinary field blur, with no warning).
 
 ### State Transitions
 
 ```
 Created (empty fields, entityType="StoryDraft")
   → updated repeatedly via PATCH / conversational exchange (any order, any number of times)
-  → [Completeness Rule met] → Story generated and persisted → draft document deleted
+  → [Completeness Rule met] → readyToGenerate: true reported, draft otherwise unchanged
+  → [administrator explicitly calls POST .../generate] → Story generated and persisted → draft document deleted
   → [administrator stops interacting] → ttl expires → draft document deleted (never became a Story)
 ```
 

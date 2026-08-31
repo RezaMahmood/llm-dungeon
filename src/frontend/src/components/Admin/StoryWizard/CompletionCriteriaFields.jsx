@@ -11,7 +11,7 @@ function emptyCriteria() {
  * last success condition clears the whole structure back to `null` rather than sending an
  * invalid empty-successConditions object (the shared structure requires at least one).
  */
-export function CompletionCriteriaFields({ completionCriteria, onChange }) {
+export function CompletionCriteriaFields({ completionCriteria, onChange, error }) {
   const [criteria, setCriteria] = useState(completionCriteria || emptyCriteria());
 
   useEffect(() => {
@@ -21,8 +21,17 @@ export function CompletionCriteriaFields({ completionCriteria, onChange }) {
   const totalConditions = criteria.successConditions.length + criteria.failureConditions.length;
 
   const commit = (next) => {
-    setCriteria(next);
-    onChange(next.successConditions.length > 0 ? next : null);
+    // The shared structure requires `rule` once more than one condition is defined
+    // (data-model.md Completion Criteria). Default to "any" so committing a second
+    // condition (e.g. blurring it right after typing) is always valid — the admin can
+    // still switch to "All" via the selector below, which just re-commits. Without this,
+    // adding a failure/success condition past the first one round-tripped an invalid
+    // payload and the write was rejected with a 422 the admin never saw (no error was
+    // surfaced on this component) — see #33 follow-up.
+    const total = next.successConditions.length + next.failureConditions.length;
+    const withRule = total > 1 && !next.rule ? { ...next, rule: "any" } : next;
+    setCriteria(withRule);
+    onChange(withRule.successConditions.length > 0 ? withRule : null);
   };
 
   const updateConditionList = (key, index, value) => {
@@ -124,6 +133,11 @@ export function CompletionCriteriaFields({ completionCriteria, onChange }) {
               <span>All</span>
             </label>
           </div>
+        </div>
+      )}
+      {error && (
+        <div role="alert" className="text-muted">
+          {error}
         </div>
       )}
     </div>

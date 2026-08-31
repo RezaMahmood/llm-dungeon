@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
  * newly added row is local-only until its name is filled in and blurred, so it never
  * round-trips an empty (invalid) name to the draft.
  */
-export function CharacterTypeList({ characterTypes = [], onChange }) {
+export function CharacterTypeList({ characterTypes = [], onChange, error }) {
   const [rows, setRows] = useState(characterTypes);
 
   useEffect(() => {
@@ -62,6 +62,11 @@ export function CharacterTypeList({ characterTypes = [], onChange }) {
       <button type="button" className="btn btn-secondary" onClick={addRow}>
         Add character type
       </button>
+      {error && (
+        <div role="alert" className="text-muted">
+          {error}
+        </div>
+      )}
     </div>
   );
 }

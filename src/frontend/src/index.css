@@ -15,7 +15,11 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-body);
-  overflow: hidden;
+  /* No blanket overflow: hidden here — it silently clipped/broke scrolling on any page
+     whose content can grow past the viewport (e.g. the story wizard's World & setting
+     tab as character types/completion criteria rows are added). Individual screens that
+     want a fixed, non-scrolling viewport (e.g. .login-screen) set their own height/layout
+     instead of relying on a page-wide rule. */
 }
 
 :focus-visible {

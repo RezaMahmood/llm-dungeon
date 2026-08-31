@@ -11,6 +11,7 @@ import azure.functions as func
 from backend.api.admin.middleware import authorize_admin
 from backend.api.utils import error_response, json_response
 from backend.services.story_draft_service import (
+    DraftIncompleteError,
     DraftValidationError,
     GenerationFailedError,
     LLMRateLimitedError,
@@ -22,6 +23,7 @@ logger = logging.getLogger("admin.stories")
 
 GENERATION_FAILED_MESSAGE = "Story generation did not produce a usable configuration; please try again"
 RATE_LIMITED_MESSAGE = "The story-generation service is temporarily busy; please try again shortly"
+NOT_READY_MESSAGE = "worldPrompt, characterTypes, and completionCriteria are all required before generating"
 
 
 def _body(req: func.HttpRequest) -> dict:
@@ -31,10 +33,10 @@ def _body(req: func.HttpRequest) -> dict:
         return {}
 
 
-def _draft_write_response(draft, story) -> func.HttpResponse:
-    if story is not None:
-        return json_response({"status": "generated", "storyId": story.id, "story": story.to_dict()}, status_code=200)
-    return json_response({"status": "success", "draft": draft.to_dict(), "readyToGenerate": False}, status_code=200)
+def _draft_write_response(draft) -> func.HttpResponse:
+    return json_response(
+        {"status": "success", "draft": draft.to_dict(), "readyToGenerate": draft.is_complete()}, status_code=200
+    )
 
 
 def create_draft(
@@ -84,18 +86,14 @@ def patch_draft(
     draft_id = req.route_params.get("draftId")
     service = story_draft_service or StoryDraftService()
     try:
-        draft, story = service.patch_draft(draft_id, _body(req))
+        draft = service.patch_draft(draft_id, _body(req))
     except DraftValidationError as exc:
         return error_response(422, "invalid_field", str(exc))
-    except GenerationFailedError:
-        return error_response(502, "generation_failed", GENERATION_FAILED_MESSAGE)
-    except LLMRateLimitedError:
-        return error_response(429, "rate_limited", RATE_LIMITED_MESSAGE)
 
     if draft is None:
         return error_response(404, "not_found", "Draft not found")
 
-    return _draft_write_response(draft, story)
+    return _draft_write_response(draft)
 
 
 def post_message(
@@ -110,16 +108,41 @@ def post_message(
     message = _body(req).get("message", "")
     service = story_draft_service or StoryDraftService()
     try:
-        draft, story = service.post_message(draft_id, message)
-    except GenerationFailedError:
-        return error_response(502, "generation_failed", GENERATION_FAILED_MESSAGE)
+        draft = service.post_message(draft_id, message)
     except LLMRateLimitedError:
         return error_response(429, "rate_limited", RATE_LIMITED_MESSAGE)
 
     if draft is None:
         return error_response(404, "not_found", "Draft not found")
 
-    return _draft_write_response(draft, story)
+    return _draft_write_response(draft)
+
+
+def generate_story_from_draft(
+    req: func.HttpRequest,
+    story_draft_service: StoryDraftService | None = None,
+) -> func.HttpResponse:
+    """The administrator's explicit "finish" action — never triggered automatically by a
+    field write (#33)."""
+    is_authorized, _user_oid, error = authorize_admin(req)
+    if not is_authorized:
+        return error
+
+    draft_id = req.route_params.get("draftId")
+    service = story_draft_service or StoryDraftService()
+    try:
+        story = service.generate_story(draft_id)
+    except DraftIncompleteError:
+        return error_response(422, "not_ready", NOT_READY_MESSAGE)
+    except GenerationFailedError:
+        return error_response(502, "generation_failed", GENERATION_FAILED_MESSAGE)
+    except LLMRateLimitedError:
+        return error_response(429, "rate_limited", RATE_LIMITED_MESSAGE)
+
+    if story is None:
+        return error_response(404, "not_found", "Draft not found")
+
+    return json_response({"status": "generated", "storyId": story.id, "story": story.to_dict()}, status_code=200)
 
 
 def list_stories(
