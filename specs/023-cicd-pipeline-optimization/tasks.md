@@ -166,7 +166,7 @@ Repository root paths, per plan.md's Project Structure — this feature touches 
 
 **Purpose**: Documentation, closing the loop on SC-001's before/after measurement, end-to-end operational validation, and the constitution-mandated human acceptance gate.
 
-- [ ] T030 Update `.github/workflows/README.md` to describe the new job graphs (`test → release → build → deploy`), concurrency groups, path-diff-based version gating, tag/version-file naming conventions, and the PR-title requirement, per `contracts/workflow-interfaces.md` — file: `.github/workflows/README.md`. Depends on all of Phase 3–7 being complete.
+- [X] T030 Update `.github/workflows/README.md` to describe the new job graphs (`test → release → build → deploy`), concurrency groups, path-diff-based version gating, tag/version-file naming conventions, and the PR-title requirement, per `contracts/workflow-interfaces.md` — file: `.github/workflows/README.md`. Depends on all of Phase 3–7 being complete.
 - [ ] T031 Run through `quickstart.md` Scenarios 1–5 end-to-end against real PRs, merges, and Actions runs, including Scenario 3's vertical-slice step; record any deviations and fix before sign-off. Depends on T030.
 - [ ] T032 Record post-implementation `backend-deploy.yml`/`frontend-deploy.yml` run durations and compare them against `baseline-metrics.md` (T003), recording the result against SC-001. Depends on T031.
 - [ ] T033 Final acceptance (Constitution Principle IX, NON-NEGOTIABLE): the requesting user or product owner confirms Scenarios 1–5 behave as specified against the real deployed environment and real GitHub state — not merely that workflow YAML is syntactically valid or that automated tests pass. This task is not complete until that confirmation is given. Depends on T031, T032.
