@@ -13,7 +13,7 @@ on:
 # automatic per FR-010/SC-006. Only terraform-apply.yml targets the
 # `production-infra` environment, which does require approval.
 #
-# Job graph (specs/023-cicd-pipeline-optimization): test -> build -> deploy.
+# Job graph (specs/023-cicd-pipeline-optimization): test -> release -> build -> deploy.
 # `deploy` always consumes the exact artifact `build` produced in this same
 # run via actions/upload-artifact/download-artifact — it never reinstalls
 # dependencies or triggers Azure's Oryx remote build. See
@@ -57,8 +57,66 @@ jobs:
       - name: Run tests
         run: pytest src/backend/tests/ -v
 
-  build:
+  release:
     needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # contents: write is required for @semantic-release/github to create a
+    # git tag + GitHub Release. semantic-release is deliberately configured
+    # WITHOUT @semantic-release/git (research.md decision #3) so this
+    # permission is never used to push a commit back to main — only to
+    # create tags/releases, which are non-branch-history writes.
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.compute-version.outputs.version }}
+    defaults:
+      run:
+        working-directory: src/backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # semantic-release needs full tag history
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: src/backend/package-lock.json
+
+      - name: Install release tooling
+        run: npm ci
+
+      - name: Require a seed version tag
+        # semantic-release computes 1.0.0 for a component's first-ever
+        # release when no prior tag exists. spec.md's Clarifications commit
+        # to a 0.1.0 baseline instead, so a maintainer must seed
+        # backend-v0.1.0 once (at rollout) pointing at a real commit
+        # reachable from main — see .github/workflows/README.md.
+        run: |
+          if ! git tag --list 'backend-v*' | grep -q .; then
+            echo "::error::No backend-v* tag found. Seed the 0.1.0 baseline once with: git tag backend-v0.1.0 <commit-on-main> && git push origin backend-v0.1.0 — see .github/workflows/README.md." >&2
+            exit 1
+          fi
+
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
+
+      - name: Compute this run's version output
+        id: compute-version
+        # The version to stamp into this run's artifact: whatever
+        # semantic-release just released, or — if this run's commits
+        # weren't releasable for backend (FR-013) — the existing latest
+        # backend-v* tag, unchanged.
+        run: |
+          LATEST_TAG=$(git tag --list 'backend-v*' --sort=-v:refname | head -n1)
+          echo "version=${LATEST_TAG#backend-v}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: release
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -83,9 +141,7 @@ jobs:
             --target=src/.python_packages/lib/site-packages
 
       - name: Stamp version into the artifact
-        # Placeholder until 023-cicd-pipeline-optimization's User Story 3
-        # (semantic-release) replaces this with the real computed version.
-        run: echo "${GITHUB_SHA:0:7}" > src/VERSION
+        run: echo "${{ needs.release.outputs.version }}" > src/VERSION
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
