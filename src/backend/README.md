@@ -1,8 +1,9 @@
 # Backend — LLM Dungeon Adventure
 
 Python Azure Functions backend implementing authentication, account
-provisioning, and guided story creation (features `002-login-and-access-control`,
-`003-account-provisioning-done`, `004-story-creation`).
+provisioning, guided story creation, and adventure/character setup (features
+`002-login-and-access-control`, `003-account-provisioning-done`,
+`004-story-creation`, `006-adventure-and-character-setup`).
 
 ## Structure
 
