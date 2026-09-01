@@ -86,6 +86,25 @@ describe("useCapabilities", () => {
     expect(loginRedirect).not.toHaveBeenCalled();
   });
 
+  it("navigates to /login with a session-expired reason when MSAL fails to silently renew the token (FR-008)", async () => {
+    // acquireTokenSilent can fail purely client-side (expired refresh token,
+    // consent/MFA step-up required) without ever reaching the backend — found
+    // via the user's own T024 walkthrough: a hard reload showed "Access not
+    // granted" with zero /api/auth/me requests in the network panel.
+    acquireTokenSilent.mockRejectedValueOnce(new Error("InteractionRequiredAuthError"));
+
+    renderHook(() => useCapabilities(), { wrapper });
+
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith("/login", {
+        state: { reason: "session-expired" },
+      }),
+    );
+    expect(getMe).not.toHaveBeenCalled();
+
+    acquireTokenSilent.mockResolvedValue({ accessToken: "test-token" });
+  });
+
   it("does not loop into a second navigation if /api/auth/me 401s again in the same session", async () => {
     // Simulates the redirect loop found live: sign-in completes, MSAL comes
     // back with a fresh token, but /api/auth/me still 401s (a structural
