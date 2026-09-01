@@ -1,0 +1,15 @@
+{
+  "name": "llmdungeon-ci-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Automated tests for the CI/CD pipeline itself (specs/023-cicd-pipeline-optimization). Not part of the application.",
+  "scripts": {
+    "test:workflow-structure": "node test-workflow-structure.js",
+    "test:release-fixtures": "node test-release-fixtures.js",
+    "test:pr-title": "node test-pr-title.js"
+  },
+  "devDependencies": {
+    "js-yaml": "^4.1.0",
+    "@semantic-release/commit-analyzer": "^13.0.0"
+  }
+}

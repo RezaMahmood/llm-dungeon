@@ -58,7 +58,7 @@ Repository root paths, per plan.md's Project Structure — this feature touches 
 
 > Write this test FIRST; it MUST FAIL until T008/T009 restructure the workflows.
 
-- [ ] T006 [P] [US1] Write a workflow-structure assertion test (research.md decision #8; `/speckit-analyze` finding G1) — a YAML-parsing script (e.g. `scripts/test-workflow-structure.sh`) asserting: `backend-deploy.yml`'s `deploy` job contains no `pip install` (or equivalent install) step and `Azure/functions-action`'s `remote-build` input is `false`; `frontend-deploy.yml`'s `deploy` job contains no `npm install`/`npm run build` step and `Azure/static-web-apps-deploy`'s `skip_app_build` input is `true`; and both workflows' `build` job output is connected to `deploy` via matching `actions/upload-artifact`/`actions/download-artifact` names — file: new test script under `scripts/`.
+- [X] T006 [P] [US1] Write a workflow-structure assertion test (research.md decision #8; `/speckit-analyze` finding G1) — a YAML-parsing script (e.g. `scripts/test-workflow-structure.sh`) asserting: `backend-deploy.yml`'s `deploy` job contains no `pip install` (or equivalent install) step and `Azure/functions-action`'s `remote-build` input is `false`; `frontend-deploy.yml`'s `deploy` job contains no `npm install`/`npm run build` step and `Azure/static-web-apps-deploy`'s `skip_app_build` input is `true`; and both workflows' `build` job output is connected to `deploy` via matching `actions/upload-artifact`/`actions/download-artifact` names — file: new test script under `scripts/`.
 
 ### Implementation for User Story 1
 
@@ -80,7 +80,7 @@ Repository root paths, per plan.md's Project Structure — this feature touches 
 
 > Write this test FIRST; it MUST FAIL until T011/T012 add the concurrency blocks.
 
-- [ ] T010 [P] [US2] Write a workflow-structure assertion test (research.md decision #8; finding G1) asserting `backend-deploy.yml` and `frontend-deploy.yml` each declare a top-level `concurrency.group` of `deploy-backend`/`deploy-frontend` (literal, not templated on `github.ref`) with `cancel-in-progress: true` — file: new test script under `scripts/` (may extend T006's script).
+- [X] T010 [P] [US2] Write a workflow-structure assertion test (research.md decision #8; finding G1) asserting `backend-deploy.yml` and `frontend-deploy.yml` each declare a top-level `concurrency.group` of `deploy-backend`/`deploy-frontend` (literal, not templated on `github.ref`) with `cancel-in-progress: true` — file: new test script under `scripts/` (may extend T006's script).
 
 ### Implementation for User Story 2
 
@@ -150,7 +150,7 @@ Repository root paths, per plan.md's Project Structure — this feature touches 
 
 > Write this test FIRST; it MUST FAIL until T027/T028 wire the plan artifact through.
 
-- [ ] T026 [P] [US5] Write a workflow-structure assertion test (research.md decision #8; finding G1) asserting `terraform-apply.yml`'s `apply` job's `terraform apply` command references the downloaded `tfplan` file and contains neither `-auto-approve` nor `-var-file=terraform.tfvars` — file: new test script under `scripts/` (may extend T006's script).
+- [X] T026 [P] [US5] Write a workflow-structure assertion test (research.md decision #8; finding G1) asserting `terraform-apply.yml`'s `apply` job's `terraform apply` command references the downloaded `tfplan` file and contains neither `-auto-approve` nor `-var-file=terraform.tfvars` — file: new test script under `scripts/` (may extend T006's script).
 
 ### Implementation for User Story 5
 
