@@ -29,9 +29,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+            src/backend/requirements.txt
+            src/backend/requirements-dev.txt
+            infrastructure/tests/requirements.txt
 
       - name: Install dependencies
         run: |
@@ -78,6 +85,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: src/frontend/package-lock.json
 
       - name: Install dependencies
         if: steps.check.outputs.exists == 'true'

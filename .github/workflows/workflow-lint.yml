@@ -1,0 +1,28 @@
+name: Workflow Lint
+
+# Required check per specs/023-cicd-pipeline-optimization/research.md decision #8
+# (constitution Principle I — every PR that touches workflow YAML gets an
+# automated, non-manual check, not just human review). This only catches
+# syntax/schema/expression errors; behavioral/structural correctness per
+# user story is covered by scripts/test-workflow-structure.sh and
+# scripts/test-release-fixtures.sh (see /speckit-analyze finding G1).
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run actionlint
+        uses: docker://rhysd/actionlint:latest
+        with:
+          args: -color
