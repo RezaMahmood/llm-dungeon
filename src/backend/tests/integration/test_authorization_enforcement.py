@@ -46,7 +46,7 @@ def test_game_403_without_player_role(request_factory):
     account_provisioning_service = MagicMock()
     account_provisioning_service.authorize_sign_in.return_value = (True, entry)
 
-    with patch("backend.api.game.start.authenticate_with_email", return_value=(True, USER_OID, EMAIL, None)):
+    with patch("backend.api.game.middleware.authenticate_with_email", return_value=(True, USER_OID, EMAIL, None)):
         response = start(req, account_provisioning_service=account_provisioning_service)
 
     assert response.status_code == 403

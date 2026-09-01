@@ -66,3 +66,13 @@ class StoryService:
             config.STORIES_CONTAINER,
             "SELECT c.id, c.name, c.published, c.createdAt FROM c WHERE c.entityType = 'Story'",
         )
+
+    def list_published_summaries(self) -> list[dict[str, Any]]:
+        """Player-facing `AdventureSummary` shape (006-adventure-and-character-setup
+        data-model.md) — published stories only; never exposes admin-only fields like
+        `published`/`createdAt` (FR-001, FR-006)."""
+        return self._cosmos.query(
+            config.STORIES_CONTAINER,
+            "SELECT c.id, c.name, c.tone, c.sessionLengthMinutes, c.readingLevel "
+            "FROM c WHERE c.entityType = 'Story' AND c.published = true",
+        )
