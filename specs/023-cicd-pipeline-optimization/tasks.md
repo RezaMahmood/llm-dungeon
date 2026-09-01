@@ -154,9 +154,9 @@ Repository root paths, per plan.md's Project Structure — this feature touches 
 
 ### Implementation for User Story 5
 
-- [ ] T027 [US5] In `.github/workflows/terraform-apply.yml`'s `validate` job, keep the existing `-out=tfplan` flag on `terraform plan` and add an `actions/upload-artifact` step uploading `infrastructure/terraform/tfplan` — file: `.github/workflows/terraform-apply.yml`.
-- [ ] T028 [US5] In the same file's `apply` job, add an `actions/download-artifact` step for the `tfplan` artifact, then change the apply step to `terraform apply -input=false tfplan` (removing `-auto-approve` and `-var-file=terraform.tfvars`, which only apply to generating a new plan) — file: `.github/workflows/terraform-apply.yml`. Depends on T027.
-- [ ] T029 [US5] Wire T026's structure test to run against the real apply-job configuration as a required PR check on changes to `terraform-apply.yml`; confirm it now passes. Depends on T026, T027, T028.
+- [X] T027 [US5] In `.github/workflows/terraform-apply.yml`'s `validate` job, keep the existing `-out=tfplan` flag on `terraform plan` and add an `actions/upload-artifact` step uploading `infrastructure/terraform/tfplan` — file: `.github/workflows/terraform-apply.yml`.
+- [X] T028 [US5] In the same file's `apply` job, add an `actions/download-artifact` step for the `tfplan` artifact, then change the apply step to `terraform apply -input=false tfplan` (removing `-auto-approve` and `-var-file=terraform.tfvars`, which only apply to generating a new plan) — file: `.github/workflows/terraform-apply.yml`. Depends on T027.
+- [X] T029 [US5] Wire T026's structure test to run against the real apply-job configuration as a required PR check on changes to `terraform-apply.yml`; confirm it now passes. Depends on T026, T027, T028.
 
 **Checkpoint**: Infrastructure apply now runs the exact reviewed plan; a stale plan fails outright (Terraform's native behavior) rather than silently re-planning (FR-015, FR-016), protected by an automated structure test.
 
