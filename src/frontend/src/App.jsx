@@ -7,6 +7,7 @@ import ProtectedRoute from "./components/Auth/ProtectedRoute.jsx";
 import ErrorBoundary from "./components/Common/ErrorBoundary.jsx";
 import LoginScreen from "./components/Login/LoginScreen.jsx";
 import MainMenu from "./components/Menu/MainMenu.jsx";
+import { CapabilitiesProvider } from "./context/CapabilitiesContext.jsx";
 
 // Lazy-loaded: each page becomes its own chunk, fetched on navigation instead of
 // bundled into the initial (login/menu) payload — keeps the always-loaded bundle
@@ -29,64 +30,66 @@ export function App() {
     <ErrorBoundary>
       <AuthProvider>
         <Router>
-          <Suspense fallback={<PageFallback />}>
-            <Routes>
-              <Route
-                path="/login"
-                element={
-                  <>
-                    <UnauthenticatedTemplate>
-                      <LoginScreen />
-                    </UnauthenticatedTemplate>
-                    <AuthenticatedTemplate>
-                      <Navigate to="/menu" replace />
-                    </AuthenticatedTemplate>
-                  </>
-                }
-              />
-              <Route
-                path="/menu"
-                element={
-                  <ProtectedRoute>
-                    <MainMenu />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/game"
-                element={
-                  <ProtectedRoute capability="Player">
-                    <GamePage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedRoute capability="Administrator">
-                    <AdminPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/accounts"
-                element={
-                  <ProtectedRoute capability="Administrator">
-                    <AdminAccountsPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/stories/new"
-                element={
-                  <ProtectedRoute capability="Administrator">
-                    <AdminStoryWizardPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="*" element={<Navigate to="/login" replace />} />
-            </Routes>
-          </Suspense>
+          <CapabilitiesProvider>
+            <Suspense fallback={<PageFallback />}>
+              <Routes>
+                <Route
+                  path="/login"
+                  element={
+                    <>
+                      <UnauthenticatedTemplate>
+                        <LoginScreen />
+                      </UnauthenticatedTemplate>
+                      <AuthenticatedTemplate>
+                        <Navigate to="/menu" replace />
+                      </AuthenticatedTemplate>
+                    </>
+                  }
+                />
+                <Route
+                  path="/menu"
+                  element={
+                    <ProtectedRoute>
+                      <MainMenu />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/game"
+                  element={
+                    <ProtectedRoute capability="Player">
+                      <GamePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedRoute capability="Administrator">
+                      <AdminPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/accounts"
+                  element={
+                    <ProtectedRoute capability="Administrator">
+                      <AdminAccountsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/stories/new"
+                  element={
+                    <ProtectedRoute capability="Administrator">
+                      <AdminStoryWizardPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="*" element={<Navigate to="/login" replace />} />
+              </Routes>
+            </Suspense>
+          </CapabilitiesProvider>
         </Router>
       </AuthProvider>
     </ErrorBoundary>
