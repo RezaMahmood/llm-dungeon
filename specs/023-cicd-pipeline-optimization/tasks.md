@@ -27,8 +27,8 @@ Repository root paths, per plan.md's Project Structure — this feature touches 
 
 **Purpose**: Prerequisites that unlock reproducible builds and versioning tooling, with no story-specific behavior yet.
 
-- [ ] T001 Remove `package-lock.json` from `.gitignore`, run `npm install` in `src/frontend/` to generate a lockfile matching the current `package.json`, and commit it — files: `.gitignore`, `src/frontend/package-lock.json`. Verify `npm ci` succeeds from the committed lockfile before moving on (research.md decision #5).
-- [ ] T002 [P] Create a tooling-only `package.json` in `src/backend/` (`{"name": "llmdungeon-backend", "version": "0.1.0", "private": true}`) for `semantic-release` to run against — file: `src/backend/package.json`. Do not add a `main`/build/publish config; this manifest is never published (research.md decision #3).
+- [X] T001 Remove `package-lock.json` from `.gitignore`, run `npm install` in `src/frontend/` to generate a lockfile matching the current `package.json`, and commit it — files: `.gitignore`, `src/frontend/package-lock.json`. Verify `npm ci` succeeds from the committed lockfile before moving on (research.md decision #5).
+- [X] T002 [P] Create a tooling-only `package.json` in `src/backend/` (`{"name": "llmdungeon-backend", "version": "0.1.0", "private": true}`) for `semantic-release` to run against — file: `src/backend/package.json`. Do not add a `main`/build/publish config; this manifest is never published (research.md decision #3).
 
 **Checkpoint**: Frontend builds are reproducible via `npm ci`; backend has a version-tracking manifest for later stories.
 
