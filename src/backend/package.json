@@ -2,5 +2,12 @@
   "name": "llmdungeon-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "Tooling-only manifest for semantic-release version tracking. This is a Python/Azure Functions backend; this file is never published and its version field is never bumped by automation — see specs/023-cicd-pipeline-optimization/research.md decision #3."
+  "description": "Tooling-only manifest for semantic-release version tracking. This is a Python/Azure Functions backend; this file is never published and its version field is never bumped by automation — see specs/023-cicd-pipeline-optimization/research.md decision #3.",
+  "devDependencies": {
+    "semantic-release": "^25.0.9",
+    "semantic-release-monorepo": "^8.0.2",
+    "@semantic-release/commit-analyzer": "^13.0.0",
+    "@semantic-release/release-notes-generator": "^14.0.0",
+    "@semantic-release/github": "^11.0.0"
+  }
 }
