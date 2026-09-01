@@ -2,7 +2,7 @@
 
 A private, LLM-driven text adventure game. Backend: Python on Azure
 Functions. Frontend: ReactJS. Access is restricted to an explicit,
-admin-provisioned list of Microsoft accounts (see
+admin-provisioned allow-list of Microsoft accounts (see
 [Constitution](.specify/memory/constitution.md)).
 
 ## Features
