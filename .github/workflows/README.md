@@ -12,9 +12,9 @@ This directory contains the automated workflows and CI/CD pipelines for the **LL
 | [`backend-deploy.yml`](backend-deploy.yml) | **Backend Deploy** | `push` to `main` (paths: `src/backend/**`, `src/function_app.py`, `src/requirements.txt`) | `test` → `release` → `build` → `deploy`. Packages and deploys the Azure Functions backend from the exact artifact `build` produced — `deploy` never reinstalls dependencies or triggers Azure's Oryx remote build. |
 | [`frontend-deploy.yml`](frontend-deploy.yml) | **Frontend Deploy** | `push` to `main` (paths: `src/frontend/**`) | `test` → `release` → `build` → `deploy`. Builds once and deploys the exact `dist/` artifact `build` produced to Azure Static Web Apps — `deploy` never re-runs `npm install`/`npm run build`. |
 | [`pr-title-check.yml`](pr-title-check.yml) | **PR Title Check** | `pull_request_target` (opened, edited, synchronize, reopened) | Required check. Validates the PR title follows `type(scope): description` (Conventional Commits) — this repo merges by squash, so the PR title is the sole commit message that reaches `main` and the one `semantic-release` reads. |
-| [`workflow-lint.yml`](workflow-lint.yml) | **Workflow Lint** | `pull_request` (paths: `.github/workflows/**`) | Required check. Runs `actionlint` against changed workflow files — syntax/schema only. |
-| [`workflow-structure-test.yml`](workflow-structure-test.yml) | **Workflow Structure Test** | `pull_request` (paths: deploy/terraform-apply workflows, `scripts/test-workflow-structure.js`) | Required check. Asserts the job/step *shape* `actionlint` can't check: no rebuild in `deploy` (US1), the `concurrency` block (US2), and `terraform-apply.yml` applying the saved plan (US5). |
-| [`release-fixtures-test.yml`](release-fixtures-test.yml) | **Release Fixtures Test** | `pull_request` (paths: `.releaserc.json` files, deploy workflows, `scripts/test-release-fixtures.js`) | Required check. Exercises `semantic-release-monorepo`'s path-diff commit filtering combined with `@semantic-release/commit-analyzer`'s bump-type logic against synthetic commits, including the vertical-slice case — the regression guard for a cross-component version-bump bug found during this feature's `/speckit-analyze` review. |
+| [`workflow-lint.yml`](workflow-lint.yml) | **Workflow Lint** | `pull_request` (every PR — see note below) | Required check. Runs `actionlint` against all workflow files — syntax/schema only. |
+| [`workflow-structure-test.yml`](workflow-structure-test.yml) | **Workflow Structure Test** | `pull_request` (every PR — see note below) | Required check. Asserts the job/step *shape* `actionlint` can't check: no rebuild in `deploy` (US1), the `concurrency` block (US2), and `terraform-apply.yml` applying the saved plan (US5). |
+| [`release-fixtures-test.yml`](release-fixtures-test.yml) | **Release Fixtures Test** | `pull_request` (every PR — see note below) | Required check. Exercises `semantic-release-monorepo`'s path-diff commit filtering combined with `@semantic-release/commit-analyzer`'s bump-type logic against synthetic commits, including the vertical-slice case — the regression guard for a cross-component version-bump bug found during this feature's `/speckit-analyze` review. |
 | [`infrastructure-tests.yml`](infrastructure-tests.yml) | **Infrastructure Tests** | `pull_request` (paths: `infrastructure/**`) | Validates Terraform configuration and executes infrastructure unit tests. |
 | [`terraform-validate.yml`](terraform-validate.yml) | **Terraform Validate** | `pull_request` (paths: `infrastructure/**`) | Runs `terraform validate` and format checks. |
 | [`terraform-apply.yml`](terraform-apply.yml) | **Terraform Apply** | `push` to `main` (paths: `infrastructure/**`) | `validate` → `test` → `apply`. `apply` applies the exact plan `validate` generated and gated, rather than re-planning immediately before applying. |
@@ -44,14 +44,18 @@ git push origin backend-v0.1.0 frontend-v0.1.0
 
 (`<commit-sha-on-main>` — any commit on `main`, typically its current HEAD at rollout time.)
 
-### One-time rollout step: require the new checks
+### Required checks (done — kept here for reference)
 
-Add these job names to `main`'s required-status-checks branch protection list (they won't block merges until they exist as real check runs, and won't exist until this feature's PR — including this workflow-lint/-structure-test/-release-fixtures-test infrastructure — has merged and run at least once):
+`main` is protected by a repository ruleset (not classic branch protection — see `repos/RezaMahmood/llm-dungeon/rulesets/21767050`), whose `required_status_checks` list includes, in addition to the pre-existing `test`:
 
-- `PR Title Check / check-title`
-- `Workflow Lint / actionlint`
-- `Workflow Structure Test / structure-test`
-- `Release Fixtures Test / release-fixtures-test`
+- `check-title` (from `pr-title-check.yml`)
+- `actionlint` (from `workflow-lint.yml`)
+- `structure-test` (from `workflow-structure-test.yml`)
+- `release-fixtures-test` (from `release-fixtures-test.yml`)
+
+**Required-check context names are the job id, not `Workflow Name / job-id`** — GitHub's required-status-check rules match on the check run's own name (its job id), which is what appears in `gh pr checks`.
+
+**Why `workflow-lint.yml`, `workflow-structure-test.yml`, and `release-fixtures-test.yml` have no `paths:` filter on their `pull_request` trigger**, even though they only care about specific files: a required check's workflow must run on *every* PR it's required for. A `paths:`-filtered trigger doesn't create a check run at all for a PR outside those paths — which is different from (and NOT satisfied by) a job-level `if:` that reports "skipped" — so GitHub's ruleset enforcement blocks that PR from merging forever, waiting for a check that will never appear. (This is exactly what happened the first time these were added as required checks — see the validation PRs for issue #143.) All three are fast enough (~10s) to run unconditionally, and none of them actually depend on the PR's diff content — they validate the *current* state of the workflow/fixture files, not what changed.
 
 ---
 
