@@ -19,6 +19,7 @@ from backend.api.admin.stories import (
 from backend.api.auth.login import login
 from backend.api.auth.logout import logout
 from backend.api.auth.me import me
+from backend.api.game.adventures import get_adventure, list_adventures
 from backend.api.game.start import start
 from backend.api.utils import server_error
 from backend.config import config
@@ -107,6 +108,16 @@ def admin_stories_get(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="game/start", methods=["POST"])
 def game_start(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(start)(req)
+
+
+@app.route(route="game/adventures", methods=["GET"])
+def game_adventures_list(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(list_adventures)(req)
+
+
+@app.route(route="game/adventures/{adventureId}", methods=["GET"])
+def game_adventures_get(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(get_adventure)(req)
 
 
 @app.route(route="manage/accounts", methods=["POST"])

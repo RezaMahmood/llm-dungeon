@@ -9,6 +9,7 @@ Use these as the acceptance reference in the spec-kit spec.
     03-play.html           story pane + status panel + pause screen
     04-admin-wizard.html   six steps, world prompt step active
     05-admin-users.html    add player/administrator; per-row remove with confirm
+    06-game-setup.html     start-new-game: adventure → character name → character type
 
 ## Copying into the repo
 
@@ -36,6 +37,13 @@ One `.nav` bar, same markup on every signed-in surface.
   inspected without a framework. Real implementation owns this state.
 - **Hidden blocks** marked `hidden` are alternate states kept in place for reference: the
   spelling-forgiveness hint on 03, and step 05 (test play) on 04.
+- **Game setup (06):** extends 02's "Start something new" card grid with two more steps
+  (character name, character type), using the same oversized-numeral step-bar pattern as
+  04's wizard. Steps 2–3 only become available once an adventure is chosen (006-adventure-
+  and-character-setup FR-003a); changing the adventure clears any chosen character type but
+  keeps the name (FR-004a). A single character type is still shown as an explicit radio
+  choice, never auto-selected. Introduced by `006-adventure-and-character-setup` — see that
+  spec's Constitution Principle XI sign-off task before treating this as final.
 - **People (05):** roles are Player and/or Administrator — an account may hold both, so the
   role field is checkboxes, not a segmented control, and at least one must be selected. Accounts are Microsoft identities —
   no password field anywhere. Removal is one account at a time, always behind the confirm

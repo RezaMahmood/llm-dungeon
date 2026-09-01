@@ -65,3 +65,36 @@ def test_get_story_returns_none_when_not_found():
     service = StoryService(cosmos_service=cosmos)
 
     assert service.get_story("missing") is None
+
+
+def test_list_published_summaries_returns_adventure_summary_shape():
+    """006-adventure-and-character-setup FR-001/FR-006: only published==true rows, in the
+    AdventureSummary shape (data-model.md), never the admin `published`/`createdAt` fields."""
+    cosmos = MagicMock()
+    cosmos.query.return_value = [
+        {
+            "id": "story-1",
+            "name": "Nine Doors of Mudlark Hall",
+            "tone": "Mystery",
+            "sessionLengthMinutes": 20,
+            "readingLevel": "Year 5",
+        }
+    ]
+    service = StoryService(cosmos_service=cosmos)
+
+    summaries = service.list_published_summaries()
+
+    assert summaries == [
+        {
+            "id": "story-1",
+            "name": "Nine Doors of Mudlark Hall",
+            "tone": "Mystery",
+            "sessionLengthMinutes": 20,
+            "readingLevel": "Year 5",
+        }
+    ]
+    query_args = cosmos.query.call_args[0]
+    assert "c.published = true" in query_args[1]
+    assert "c.name" in query_args[1] and "c.tone" in query_args[1]
+    assert "c.published" not in query_args[1].split("WHERE")[0]
+    assert "c.createdAt" not in query_args[1]
