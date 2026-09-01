@@ -57,10 +57,39 @@ export function CapabilitiesProvider({ children }) {
     loadingRef.current = true;
     setState((prev) => ({ ...prev, loading: true, error: null }));
     try {
-      const tokenResponse = await instance.acquireTokenSilent({
-        ...loginRequest,
-        account,
-      });
+      let tokenResponse;
+      try {
+        tokenResponse = await instance.acquireTokenSilent({
+          ...loginRequest,
+          account,
+        });
+      } catch (err) {
+        // MSAL couldn't silently renew the cached session client-side (e.g. an
+        // expired/invalid refresh token after time away, or a consent/MFA
+        // step-up now required) — this fails before ever reaching the backend,
+        // so it never shows up as a 401 from /api/auth/me below. Found via the
+        // user's own T024 walkthrough (2026-09-01): a hard reload showed
+        // "Access not granted" with zero /api/auth/me requests in the network
+        // panel — this exact path, previously falling through to the generic
+        // error branch and leaving hasAdministrator at its false default.
+        // Needs the same "explain before re-auth" handling as a backend 401
+        // (contracts/reload-resilience.md Guarantee 3, FR-008).
+        if (sessionStorage.getItem(REDIRECT_ATTEMPTED_KEY)) {
+          setState({
+            hasPlayer: false,
+            hasAdministrator: false,
+            loading: false,
+            error: err,
+            denied: false,
+          });
+          return;
+        }
+        sessionStorage.setItem(REDIRECT_ATTEMPTED_KEY, "1");
+        navigate("/login", { state: { reason: "session-expired" } });
+        setState((prev) => ({ ...prev, loading: false }));
+        return;
+      }
+
       const data = await getMe(tokenResponse.accessToken);
       sessionStorage.removeItem(REDIRECT_ATTEMPTED_KEY);
       setState({
