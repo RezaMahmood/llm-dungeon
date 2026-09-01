@@ -9,10 +9,12 @@
 // Exits non-zero on any failure, printing every assertion's pass/fail so
 // a human or CI log can see exactly which story's guarantee broke.
 
-const fs = require("fs");
-const path = require("path");
-const yaml = require("js-yaml");
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import yaml from "js-yaml";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
 const WORKFLOWS_DIR = path.join(REPO_ROOT, ".github", "workflows");
 

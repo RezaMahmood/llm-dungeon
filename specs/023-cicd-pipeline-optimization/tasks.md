@@ -102,7 +102,7 @@ Repository root paths, per plan.md's Project Structure — this feature touches 
 
 > Write this test FIRST; it MUST FAIL until T017/T018's path-diff filtering exists.
 
-- [ ] T014 [P] [US3] Write a version-computation fixture test (research.md decision #8): a script (e.g. `scripts/test-release-fixtures.sh`, invoked from a new PR-triggered job) that exercises the configured commit-analyzer/`semantic-release --dry-run` against synthetic commits — a same-component `fix`, a same-component `feat`, a non-releasable `chore`, and a **vertical-slice commit touching both components' paths with a single declared scope** — and asserts each produces the expected per-component bump (or correctly no-bumps). This is the automated guard against the exact bug `/speckit-analyze` found in the original design.
+- [X] T014 [P] [US3] Write a version-computation fixture test (research.md decision #8): a script (e.g. `scripts/test-release-fixtures.sh`, invoked from a new PR-triggered job) that exercises the configured commit-analyzer/`semantic-release --dry-run` against synthetic commits — a same-component `fix`, a same-component `feat`, a non-releasable `chore`, and a **vertical-slice commit touching both components' paths with a single declared scope** — and asserts each produces the expected per-component bump (or correctly no-bumps). This is the automated guard against the exact bug `/speckit-analyze` found in the original design.
 
 ### Implementation for User Story 3
 
