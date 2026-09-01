@@ -18,6 +18,7 @@ vi.mock("../../src/services/authService.js", () => ({
 
 import AuthenticatedLayout from "../../src/components/Layout/AuthenticatedLayout.jsx";
 import MainMenu from "../../src/components/Menu/MainMenu.jsx";
+import { CapabilitiesProvider } from "../../src/hooks/useCapabilities.js";
 
 describe("Main Menu reflects permissions revoked between load and refresh (FR-011)", () => {
   beforeEach(() => {
@@ -25,27 +26,29 @@ describe("Main Menu reflects permissions revoked between load and refresh (FR-01
     sessionStorage.clear();
   });
 
-  it("drops the admin-only menu item after a refresh returns reduced capabilities", async () => {
-    // NavBar mounts its own independent useCapabilities() call (022's own concern,
-    // separate from MainMenu's), so the initial mount fires more than one /api/auth/me
-    // call. Default every call to dual-capability, then arm exactly the next call
-    // after clicking refresh — that's the one MainMenu's own refetch consumes.
-    getMe.mockResolvedValue({ capabilities: { hasPlayer: true, hasAdministrator: true } });
+  it("drops the admin-only menu item (and NavBar's Admin link) after a refresh returns reduced capabilities", async () => {
+    getMe.mockResolvedValueOnce({ capabilities: { hasPlayer: true, hasAdministrator: true } });
 
     render(
       <MemoryRouter initialEntries={["/menu"]}>
-        <AuthenticatedLayout>
-          <MainMenu />
-        </AuthenticatedLayout>
+        <CapabilitiesProvider>
+          <AuthenticatedLayout>
+            <MainMenu />
+          </AuthenticatedLayout>
+        </CapabilitiesProvider>
       </MemoryRouter>,
     );
 
     expect(await screen.findByRole("button", { name: /^administration$/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Admin" })).toBeInTheDocument();
+    expect(getMe).toHaveBeenCalledTimes(1);
 
     getMe.mockResolvedValueOnce({ capabilities: { hasPlayer: true, hasAdministrator: false } });
     await userEvent.click(screen.getByRole("button", { name: /^refresh$/i }));
 
     await screen.findByRole("heading", { name: /my stories/i });
     expect(screen.queryByRole("button", { name: /^administration$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
+    expect(getMe).toHaveBeenCalledTimes(2);
   });
 });

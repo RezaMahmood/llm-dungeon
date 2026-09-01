@@ -18,6 +18,7 @@ vi.mock("../../src/services/authService.js", () => ({
 
 import AuthenticatedLayout from "../../src/components/Layout/AuthenticatedLayout.jsx";
 import MainMenu from "../../src/components/Menu/MainMenu.jsx";
+import { CapabilitiesProvider } from "../../src/hooks/useCapabilities.js";
 
 describe("Main Menu refresh (FR-001, FR-002, contracts/refresh-control.md)", () => {
   beforeEach(() => {
@@ -25,29 +26,32 @@ describe("Main Menu refresh (FR-001, FR-002, contracts/refresh-control.md)", () 
     sessionStorage.clear();
   });
 
-  it("selecting the shared nav refresh control re-fetches capabilities and updates the menu without navigating away", async () => {
-    // NavBar mounts its own independent useCapabilities() call (022's own concern,
-    // unrelated to this screen's refresh), so the initial mount fires more than one
-    // /api/auth/me call. Default every call to Player-only, then arm exactly the next
-    // call after we click the shared refresh control — that's the one this test cares about.
-    getMe.mockResolvedValue({ capabilities: { hasPlayer: true, hasAdministrator: false } });
+  it("selecting the shared nav refresh control re-fetches capabilities and updates both the menu and the nav bar without navigating away", async () => {
+    getMe.mockResolvedValueOnce({ capabilities: { hasPlayer: true, hasAdministrator: false } });
 
     render(
       <MemoryRouter initialEntries={["/menu"]}>
-        <AuthenticatedLayout>
-          <MainMenu />
-        </AuthenticatedLayout>
+        <CapabilitiesProvider>
+          <AuthenticatedLayout>
+            <MainMenu />
+          </AuthenticatedLayout>
+        </CapabilitiesProvider>
       </MemoryRouter>,
     );
 
     expect(await screen.findByRole("heading", { name: /my stories/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^administration$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
+    expect(getMe).toHaveBeenCalledTimes(1);
 
     getMe.mockResolvedValueOnce({ capabilities: { hasPlayer: true, hasAdministrator: true } });
     await userEvent.click(screen.getByRole("button", { name: /^refresh$/i }));
 
+    // One shared fetch updates both MainMenu's own content and NavBar's cross-link.
     expect(await screen.findByRole("button", { name: /^administration$/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Admin" })).toBeInTheDocument();
     // Still on the same screen — no navigation occurred.
     expect(screen.getByRole("heading", { name: /my stories/i })).toBeInTheDocument();
+    expect(getMe).toHaveBeenCalledTimes(2);
   });
 });
