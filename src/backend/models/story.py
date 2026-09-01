@@ -82,6 +82,9 @@ class Story:
     chapters: Optional[int] = None
     rules: Optional[str] = None
     published: bool = False
+    lastPublishedAt: Optional[str] = None
+    contentUpdatedAt: Optional[str] = None
+    lastTestPlayedAt: Optional[str] = None
     entityType: str = field(default="Story")
 
     def __post_init__(self) -> None:
@@ -107,6 +110,9 @@ class Story:
             "completionCriteria": self.completionCriteria.to_dict(),
             "narrativeGuidance": self.narrativeGuidance,
             "published": self.published,
+            "lastPublishedAt": self.lastPublishedAt,
+            "contentUpdatedAt": self.contentUpdatedAt,
+            "lastTestPlayedAt": self.lastTestPlayedAt,
             "createdBy": self.createdBy,
             "createdAt": self.createdAt,
             "entityType": self.entityType,
@@ -128,6 +134,9 @@ class Story:
             completionCriteria=CompletionCriteria.from_dict(data["completionCriteria"]),
             narrativeGuidance=data["narrativeGuidance"],
             published=data.get("published", False),
+            lastPublishedAt=data.get("lastPublishedAt"),
+            contentUpdatedAt=data.get("contentUpdatedAt"),
+            lastTestPlayedAt=data.get("lastTestPlayedAt"),
             createdBy=data["createdBy"],
             createdAt=data["createdAt"],
         )

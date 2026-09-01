@@ -43,4 +43,24 @@ export async function getStory(token, storyId) {
   return response.data;
 }
 
-export default { createDraft, getDraft, patchDraft, postMessage, generateStory, listStories, getStory };
+export async function publishStory(token, storyId) {
+  const response = await client.post(`/manage/stories/${storyId}/publish`, {}, authHeaders(token));
+  return response.data;
+}
+
+export async function unpublishStory(token, storyId) {
+  const response = await client.post(`/manage/stories/${storyId}/unpublish`, {}, authHeaders(token));
+  return response.data;
+}
+
+export default {
+  createDraft,
+  getDraft,
+  patchDraft,
+  postMessage,
+  generateStory,
+  listStories,
+  getStory,
+  publishStory,
+  unpublishStory,
+};

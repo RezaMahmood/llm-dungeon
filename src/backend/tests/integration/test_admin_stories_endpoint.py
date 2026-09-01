@@ -19,6 +19,8 @@ from backend.api.admin.stories import (
     list_stories,
     patch_draft,
     post_message,
+    publish_story,
+    unpublish_story,
 )
 from backend.services.llm_service import LLMOutputError, LLMRateLimitError
 from backend.services.story_draft_service import StoryDraftService
@@ -428,3 +430,147 @@ def test_rate_limited_message_returns_429_and_leaves_draft_intact(request_factor
 
     # No message or field update from the failed exchange was persisted.
     assert cosmos.get_container("storyDrafts").items[draft_id]["exchanges"] == []
+
+
+# --- Publish / unpublish (005-story-publishing, FR-007) ---
+
+
+def _publish_req(request_factory, story_id):
+    return _authorized(
+        request_factory,
+        method="POST",
+        url=f"/api/manage/stories/{story_id}/publish",
+        route_params={"storyId": story_id},
+    )
+
+
+def _unpublish_req(request_factory, story_id):
+    return _authorized(
+        request_factory,
+        method="POST",
+        url=f"/api/manage/stories/{story_id}/unpublish",
+        route_params={"storyId": story_id},
+    )
+
+
+def _create_story(story_service):
+    from backend.models.story import CharacterType, CompletionCriteria
+    from backend.models.story_draft import StoryDraft
+
+    draft = StoryDraft(
+        id="draft-1",
+        createdBy="oid-1",
+        name="The Lighthouse at Gullwing Cove",
+        worldPrompt="A half-abandoned lighthouse...",
+        characterTypes=[CharacterType(name="Curious Cousin")],
+        completionCriteria=CompletionCriteria(successConditions=["Find the keeper"]),
+    )
+    return story_service.create_story(draft, "Keep it eerie but safe.")
+
+
+def test_publish_is_blocked_with_explanation_when_never_test_played(request_factory):
+    _draft_service, story_service, _llm, _cosmos = _services()
+    story = _create_story(story_service)
+
+    with _patched_authorize_admin():
+        response = publish_story(_publish_req(request_factory, story.id), story_service=story_service)
+
+    assert response.status_code == 409
+    body = json.loads(response.get_body())
+    assert body["error"] == "test_play_required"
+    assert body["message"]
+
+
+def test_publish_succeeds_once_gate_satisfied(request_factory):
+    _draft_service, story_service, _llm, cosmos = _services()
+    story = _create_story(story_service)
+    stored = cosmos.get_container("stories").items[story.id]
+    stored["lastTestPlayedAt"] = "2099-01-01T00:00:00Z"
+
+    with _patched_authorize_admin():
+        response = publish_story(_publish_req(request_factory, story.id), story_service=story_service)
+
+    assert response.status_code == 200
+    body = json.loads(response.get_body())
+    assert body["status"] == "success"
+    assert body["story"]["published"] is True
+    assert body["story"]["lastPublishedAt"]
+
+
+def test_publish_returns_not_found_for_unknown_story(request_factory):
+    _draft_service, story_service, _llm, _cosmos = _services()
+
+    with _patched_authorize_admin():
+        response = publish_story(_publish_req(request_factory, "missing"), story_service=story_service)
+
+    assert response.status_code == 404
+    assert json.loads(response.get_body())["error"] == "not_found"
+
+
+def test_redundant_publish_succeeds_and_restamps_last_published_at(request_factory):
+    _draft_service, story_service, _llm, cosmos = _services()
+    story = _create_story(story_service)
+    stored = cosmos.get_container("stories").items[story.id]
+    stored["lastTestPlayedAt"] = "2099-01-01T00:00:00Z"
+
+    with _patched_authorize_admin():
+        first = publish_story(_publish_req(request_factory, story.id), story_service=story_service)
+        second = publish_story(_publish_req(request_factory, story.id), story_service=story_service)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert json.loads(second.get_body())["story"]["published"] is True
+
+
+def test_unpublish_succeeds_and_retains_last_published_at(request_factory):
+    _draft_service, story_service, _llm, cosmos = _services()
+    story = _create_story(story_service)
+    stored = cosmos.get_container("stories").items[story.id]
+    stored["lastTestPlayedAt"] = "2099-01-01T00:00:00Z"
+    with _patched_authorize_admin():
+        publish_story(_publish_req(request_factory, story.id), story_service=story_service)
+
+    with _patched_authorize_admin():
+        response = unpublish_story(_unpublish_req(request_factory, story.id), story_service=story_service)
+
+    assert response.status_code == 200
+    body = json.loads(response.get_body())
+    assert body["story"]["published"] is False
+    assert body["story"]["lastPublishedAt"]  # retained, FR-012
+
+
+def test_redundant_unpublish_succeeds(request_factory):
+    _draft_service, story_service, _llm, _cosmos = _services()
+    story = _create_story(story_service)
+
+    with _patched_authorize_admin():
+        first = unpublish_story(_unpublish_req(request_factory, story.id), story_service=story_service)
+        second = unpublish_story(_unpublish_req(request_factory, story.id), story_service=story_service)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+
+def test_unpublish_returns_not_found_for_unknown_story(request_factory):
+    _draft_service, story_service, _llm, _cosmos = _services()
+
+    with _patched_authorize_admin():
+        response = unpublish_story(_unpublish_req(request_factory, "missing"), story_service=story_service)
+
+    assert response.status_code == 404
+    assert json.loads(response.get_body())["error"] == "not_found"
+
+
+def test_publish_rejects_unauthenticated_request(request_factory):
+    _draft_service, story_service, _llm, _cosmos = _services()
+    story = _create_story(story_service)
+    req = request_factory(
+        method="POST",
+        url=f"/api/manage/stories/{story.id}/publish",
+        token=None,
+        route_params={"storyId": story.id},
+    )
+
+    response = publish_story(req, story_service=story_service)
+
+    assert response.status_code == 401

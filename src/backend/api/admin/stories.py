@@ -24,6 +24,7 @@ logger = logging.getLogger("admin.stories")
 GENERATION_FAILED_MESSAGE = "Story generation did not produce a usable configuration; please try again"
 RATE_LIMITED_MESSAGE = "The story-generation service is temporarily busy; please try again shortly"
 NOT_READY_MESSAGE = "name, worldPrompt, characterTypes, and completionCriteria are all required before generating"
+TEST_PLAY_REQUIRED_MESSAGE = "This story must be test-played since its last content change before it can be published."
 
 
 def _body(req: func.HttpRequest) -> dict:
@@ -168,6 +169,42 @@ def get_story(
     story_id = req.route_params.get("storyId")
     service = story_service or StoryService()
     story = service.get_story(story_id)
+    if story is None:
+        return error_response(404, "not_found", "Story not found")
+
+    return json_response({"status": "success", "story": story.to_dict()}, status_code=200)
+
+
+def publish_story(
+    req: func.HttpRequest,
+    story_service: StoryService | None = None,
+) -> func.HttpResponse:
+    is_authorized, _user_oid, error = authorize_admin(req)
+    if not is_authorized:
+        return error
+
+    story_id = req.route_params.get("storyId")
+    service = story_service or StoryService()
+    story, gate_satisfied = service.publish(story_id)
+    if story is None:
+        return error_response(404, "not_found", "Story not found")
+    if not gate_satisfied:
+        return error_response(409, "test_play_required", TEST_PLAY_REQUIRED_MESSAGE)
+
+    return json_response({"status": "success", "story": story.to_dict()}, status_code=200)
+
+
+def unpublish_story(
+    req: func.HttpRequest,
+    story_service: StoryService | None = None,
+) -> func.HttpResponse:
+    is_authorized, _user_oid, error = authorize_admin(req)
+    if not is_authorized:
+        return error
+
+    story_id = req.route_params.get("storyId")
+    service = story_service or StoryService()
+    story = service.unpublish(story_id)
     if story is None:
         return error_response(404, "not_found", "Story not found")
 
