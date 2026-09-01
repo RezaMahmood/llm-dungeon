@@ -84,9 +84,9 @@ Repository root paths, per plan.md's Project Structure — this feature touches 
 
 ### Implementation for User Story 2
 
-- [ ] T011 [P] [US2] Add a top-level `concurrency: { group: deploy-backend, cancel-in-progress: true }` block to `.github/workflows/backend-deploy.yml` (FR-005, FR-006; research.md decision #2 — literal group name, not templated on ref) — file: `.github/workflows/backend-deploy.yml`.
-- [ ] T012 [P] [US2] Add a top-level `concurrency: { group: deploy-frontend, cancel-in-progress: true }` block to `.github/workflows/frontend-deploy.yml` — file: `.github/workflows/frontend-deploy.yml`.
-- [ ] T013 [US2] Wire T010's structure test to run against the real concurrency configuration as a required PR check; confirm it now passes. Depends on T010, T011, T012.
+- [X] T011 [P] [US2] Add a top-level `concurrency: { group: deploy-backend, cancel-in-progress: true }` block to `.github/workflows/backend-deploy.yml` (FR-005, FR-006; research.md decision #2 — literal group name, not templated on ref) — file: `.github/workflows/backend-deploy.yml`.
+- [X] T012 [P] [US2] Add a top-level `concurrency: { group: deploy-frontend, cancel-in-progress: true }` block to `.github/workflows/frontend-deploy.yml` — file: `.github/workflows/frontend-deploy.yml`.
+- [X] T013 [US2] Wire T010's structure test to run against the real concurrency configuration as a required PR check; confirm it now passes. Depends on T010, T011, T012.
 
 **Checkpoint**: Both components now independently guarantee commit-order-safe deploys, on top of (but not dependent on) User Story 1's job restructuring, protected by an automated structure test.
 

@@ -15,6 +15,16 @@ on:
 # this same run — it never re-runs `npm install`/`npm run build`. See
 # contracts/workflow-interfaces.md for the job-graph and artifact-naming
 # contract this file implements.
+#
+# concurrency: a newer push to main cancels an in-flight older run for this
+# component before it deploys (FR-005/FR-006) — the "abort on conflict/
+# newer version" guarantee, achieved via GitHub's native concurrency-group
+# cancellation rather than a custom SHA-comparison step. Literal group name,
+# not templated on github.ref (research.md decision #2).
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: read
