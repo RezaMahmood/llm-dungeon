@@ -67,8 +67,15 @@ function testUserStory1() {
     const functionsAction = findStepUsing(steps, "Azure/functions-action");
     check("backend 'deploy' job calls Azure/functions-action", !!functionsAction);
     check(
-      "backend 'deploy' job's functions-action sets remote-build: false",
-      !!functionsAction && functionsAction.with && functionsAction.with["remote-build"] === false
+      // remote-build MUST be true, not false: this Function App's Flex
+      // Consumption plan does not support a pre-built/vendored-dependency
+      // Python package — confirmed empirically 2026-09-01 (PR #149) when
+      // remote-build: false deployed "successfully" but loaded zero
+      // functions. Deploy still doesn't reinstall deps or re-run tests
+      // itself (checked above/below); the remote Oryx build is a real,
+      // unavoidable platform constraint for this plan type.
+      "backend 'deploy' job's functions-action sets remote-build: true (Flex Consumption requires it)",
+      !!functionsAction && functionsAction.with && functionsAction.with["remote-build"] === true
     );
     check(
       "backend 'deploy' job downloads a build artifact",
