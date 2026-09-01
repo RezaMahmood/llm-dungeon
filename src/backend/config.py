@@ -1,4 +1,6 @@
-"""Application configuration, sourced from environment variables / Function App settings."""
+"""Application configuration, sourced from environment variables — Function App
+settings in production, a local `.env` file in development.
+"""
 
 import os
 
