@@ -1,0 +1,53 @@
+name: Release Fixtures Test
+
+# Required check per specs/023-cicd-pipeline-optimization/research.md
+# decision #8 (constitution Principle I / /speckit-analyze findings F1
+# and G1). Exercises semantic-release-monorepo's path-diff filtering
+# combined with @semantic-release/commit-analyzer's bump-type logic
+# against synthetic commits in a real (temporary, local) git repo — no
+# network calls, no GitHub token. This is the automated guard against
+# the cross-component version-bump bug /speckit-analyze found in the
+# original PR-title-scope-gated design. See
+# scripts/test-release-fixtures.js.
+
+on:
+  pull_request:
+    paths:
+      - "src/backend/.releaserc.json"
+      - "src/frontend/.releaserc.json"
+      - ".github/workflows/backend-deploy.yml"
+      - ".github/workflows/frontend-deploy.yml"
+      - "scripts/test-release-fixtures.js"
+      - "scripts/package.json"
+      - "scripts/package-lock.json"
+
+permissions:
+  contents: read
+
+jobs:
+  release-fixtures-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: scripts
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: scripts/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure git identity for fixture commits
+        run: |
+          git config --global user.email "ci-fixture@example.invalid"
+          git config --global user.name "CI Fixture"
+
+      - name: Run version-computation fixture tests
+        run: npm run test:release-fixtures

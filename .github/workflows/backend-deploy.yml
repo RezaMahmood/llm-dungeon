@@ -12,15 +12,31 @@ on:
 # Targets `production` (no approval gate) — application deploys stay fully
 # automatic per FR-010/SC-006. Only terraform-apply.yml targets the
 # `production-infra` environment, which does require approval.
+#
+# Job graph (specs/023-cicd-pipeline-optimization): test -> release -> build -> deploy.
+# `deploy` always consumes the exact artifact `build` produced in this same
+# run via actions/upload-artifact/download-artifact — it never reinstalls
+# dependencies or triggers Azure's Oryx remote build. See
+# contracts/workflow-interfaces.md for the job-graph and artifact-naming
+# contract this file implements.
+#
+# concurrency: a newer push to main cancels an in-flight older run for this
+# component before it deploys (FR-005/FR-006) — the "abort on conflict/
+# newer version" guarantee, achieved via GitHub's native concurrency-group
+# cancellation rather than a custom SHA-comparison step. Literal group name,
+# not templated on github.ref (research.md decision #2).
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: true
+
 permissions:
   contents: read
   id-token: write
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    environment: production
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -28,6 +44,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: |
+            src/backend/requirements.txt
+            src/backend/requirements-dev.txt
 
       - name: Install dependencies
         run: |
@@ -36,6 +56,111 @@ jobs:
 
       - name: Run tests
         run: pytest src/backend/tests/ -v
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # contents: write is required for @semantic-release/github to create a
+    # git tag + GitHub Release. semantic-release is deliberately configured
+    # WITHOUT @semantic-release/git (research.md decision #3) so this
+    # permission is never used to push a commit back to main — only to
+    # create tags/releases, which are non-branch-history writes.
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.compute-version.outputs.version }}
+    defaults:
+      run:
+        working-directory: src/backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # semantic-release needs full tag history
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: src/backend/package-lock.json
+
+      - name: Install release tooling
+        run: npm ci
+
+      - name: Require a seed version tag
+        # semantic-release computes 1.0.0 for a component's first-ever
+        # release when no prior tag exists. spec.md's Clarifications commit
+        # to a 0.1.0 baseline instead, so a maintainer must seed
+        # backend-v0.1.0 once (at rollout) pointing at a real commit
+        # reachable from main — see .github/workflows/README.md.
+        run: |
+          if ! git tag --list 'backend-v*' | grep -q .; then
+            echo "::error::No backend-v* tag found. Seed the 0.1.0 baseline once with: git tag backend-v0.1.0 <commit-on-main> && git push origin backend-v0.1.0 — see .github/workflows/README.md." >&2
+            exit 1
+          fi
+
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
+
+      - name: Compute this run's version output
+        id: compute-version
+        # The version to stamp into this run's artifact: whatever
+        # semantic-release just released, or — if this run's commits
+        # weren't releasable for backend (FR-013) — the existing latest
+        # backend-v* tag, unchanged.
+        run: |
+          LATEST_TAG=$(git tag --list 'backend-v*' --sort=-v:refname | head -n1)
+          echo "version=${LATEST_TAG#backend-v}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: src/requirements.txt
+
+      - name: Vendor runtime dependencies into the deploy package
+        # Azure Functions' Python model expects dependencies pre-installed
+        # under .python_packages/lib/site-packages when remote-build is
+        # disabled (no Oryx build happens on Azure's side) — this replaces
+        # the redundant Oryx remote build the old single-job workflow
+        # triggered on every deploy. src/requirements.txt (`-r
+        # backend/requirements.txt`) is the same file Oryx used to consume.
+        run: |
+          pip install -r src/requirements.txt \
+            --target=src/.python_packages/lib/site-packages
+
+      - name: Stamp version into the artifact
+        run: echo "${{ needs.release.outputs.version }}" > src/VERSION
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-build-${{ github.run_id }}
+          path: src
+          retention-days: 5
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-build-${{ github.run_id }}
+          path: src
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
@@ -77,10 +202,12 @@ jobs:
           # import y` (used throughout src/backend/**) resolves the same way
           # it does under pytest.ini's `pythonpath = src`. src/function_app.py
           # is a thin shim satisfying Python v2's requirement that
-          # function_app.py sit at the deploy root; src/requirements.txt
-          # includes backend/requirements.txt for Oryx's remote build.
+          # function_app.py sit at the deploy root. Dependencies are already
+          # vendored into src/.python_packages by the `build` job above, so
+          # remote-build is disabled — deploy ships exactly what `build`
+          # produced, matching what `test` already validated.
           package: "src"
-          remote-build: true
+          remote-build: false
 
       - name: Smoke test
         run: |

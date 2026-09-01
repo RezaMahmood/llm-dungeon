@@ -50,7 +50,9 @@ node_modules/
 npm-debug.log
 yarn-error.log
 yarn-debug.log
-package-lock.json
+# package-lock.json is intentionally tracked for src/frontend/ and scripts/
+# (npm ci reproducibility — see specs/023-cicd-pipeline-optimization); still
+# ignored anywhere else a lockfile might get generated ad hoc.
 yarn.lock
 dist/
 build/

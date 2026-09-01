@@ -1,0 +1,58 @@
+name: PR Title Check
+
+# Required check per specs/023-cicd-pipeline-optimization FR-011/FR-012
+# (User Story 4). This repo merges exclusively by squash, so the PR title
+# — not any individual commit message — becomes the sole commit on `main`
+# and is what versioning.yml's semantic-release actually reads (see
+# research.md decision #4). A PR-title checker validates the string that
+# matters directly; a commit-message linter (commitlint) would validate
+# content squash-merge discards.
+#
+# `types` and `scopes` below MUST be kept in sync with
+# scripts/pr-title-config.js (TYPES/SCOPES) — scripts/test-pr-title.js
+# unit-tests that same pattern. The declared scope is descriptive only
+# (research.md decision #3) — it satisfies this format check and drives
+# changelog content, but does not gate which component(s) receive a
+# version bump; that's determined by path-diff filtering (FR-013).
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  check-title:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            chore
+            docs
+            refactor
+            perf
+            test
+            build
+            ci
+            style
+            revert
+          scopes: |
+            frontend
+            backend
+            infra
+            ci
+            specs
+            deps
+            deps-dev
+            docs
+          requireScope: true
+          subjectPattern: ^(?!\s*$).+$
+          subjectPatternError: |
+            The PR title's description (after "type(scope): ") must not be empty.

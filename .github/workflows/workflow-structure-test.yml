@@ -1,0 +1,45 @@
+name: Workflow Structure Test
+
+# Required checks per specs/023-cicd-pipeline-optimization/research.md
+# decision #8 (constitution Principle I / /speckit-analyze finding G1).
+# actionlint (workflow-lint.yml) only catches YAML syntax/schema errors —
+# this asserts the actual job/step *shape* each user story depends on:
+# US1 (no rebuild in `deploy`), US2 (concurrency block present), US5
+# (terraform apply references the saved plan). See
+# scripts/test-workflow-structure.js and contracts/workflow-interfaces.md.
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/backend-deploy.yml"
+      - ".github/workflows/frontend-deploy.yml"
+      - ".github/workflows/terraform-apply.yml"
+      - "scripts/test-workflow-structure.js"
+      - "scripts/package.json"
+      - "scripts/package-lock.json"
+
+permissions:
+  contents: read
+
+jobs:
+  structure-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: scripts
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: scripts/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run workflow-structure assertion tests
+        run: npm run test:workflow-structure

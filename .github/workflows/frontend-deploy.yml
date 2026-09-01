@@ -9,16 +9,31 @@ on:
 
 # Targets `production` (no approval gate) — application deploys stay fully
 # automatic per FR-010/SC-006.
+#
+# Job graph (specs/023-cicd-pipeline-optimization): test -> release -> build -> deploy.
+# `deploy` always consumes the exact `dist/` artifact `build` produced in
+# this same run — it never re-runs `npm install`/`npm run build`. See
+# contracts/workflow-interfaces.md for the job-graph and artifact-naming
+# contract this file implements.
+#
+# concurrency: a newer push to main cancels an in-flight older run for this
+# component before it deploys (FR-005/FR-006) — the "abort on conflict/
+# newer version" guarantee, achieved via GitHub's native concurrency-group
+# cancellation rather than a custom SHA-comparison step. Literal group name,
+# not templated on github.ref (research.md decision #2).
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: read
   id-token: write
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    environment: production
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: src/frontend
@@ -29,14 +44,92 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "24"
+          cache: "npm"
+          cache-dependency-path: src/frontend/package-lock.json
 
       - name: Install dependencies
-        # npm ci requires a committed package-lock.json — .gitignore
-        # deliberately excludes it (matches test.yml's frontend-test job).
-        run: npm install
+        run: npm ci
 
       - name: Run tests
         run: npm test
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # contents: write is required for @semantic-release/github to create a
+    # git tag + GitHub Release. semantic-release is deliberately configured
+    # WITHOUT @semantic-release/git (research.md decision #3) so this
+    # permission is never used to push a commit back to main — only to
+    # create tags/releases, which are non-branch-history writes.
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.compute-version.outputs.version }}
+    defaults:
+      run:
+        working-directory: src/frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # semantic-release needs full tag history
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install release tooling
+        run: npm ci
+
+      - name: Require a seed version tag
+        # semantic-release computes 1.0.0 for a component's first-ever
+        # release when no prior tag exists. spec.md's Clarifications commit
+        # to a 0.1.0 baseline instead, so a maintainer must seed
+        # frontend-v0.1.0 once (at rollout) pointing at a real commit
+        # reachable from main — see .github/workflows/README.md.
+        run: |
+          if ! git tag --list 'frontend-v*' | grep -q .; then
+            echo "::error::No frontend-v* tag found. Seed the 0.1.0 baseline once with: git tag frontend-v0.1.0 <commit-on-main> && git push origin frontend-v0.1.0 — see .github/workflows/README.md." >&2
+            exit 1
+          fi
+
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
+
+      - name: Compute this run's version output
+        id: compute-version
+        # The version to stamp into this run's artifact: whatever
+        # semantic-release just released, or — if this run's commits
+        # weren't releasable for frontend (FR-013) — the existing latest
+        # frontend-v* tag, unchanged.
+        run: |
+          LATEST_TAG=$(git tag --list 'frontend-v*' --sort=-v:refname | head -n1)
+          echo "version=${LATEST_TAG#frontend-v}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: src/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build static site
         env:
@@ -58,13 +151,36 @@ jobs:
           fi
           npm run build
 
+      - name: Stamp version into the artifact
+        run: |
+          printf '{"version": "%s"}' "${{ needs.release.outputs.version }}" > dist/version.json
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build-${{ github.run_id }}
+          path: src/frontend/dist
+          retention-days: 5
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build-${{ github.run_id }}
+          path: dist
+
       - name: Deploy to Static Web App
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "src/frontend/dist"
+          app_location: "dist"
           api_location: ""
           output_location: ""
           skip_app_build: true
