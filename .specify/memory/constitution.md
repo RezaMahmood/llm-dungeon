@@ -1,32 +1,21 @@
 <!--
 Sync Impact Report
-Version change: 1.9.0 → 1.10.0
-Modified principles:
-  - I. Meaningful, Automated Testing (NON-NEGOTIABLE) — expanded to require automated
-    integration tests run locally against stubbed/emulated external cloud dependencies
-    (e.g., a CosmosDB emulator) rather than the live environment, and to state that as
-    much automated testing as practical runs locally for speed.
-  - II. Secure-by-Default Access (NON-NEGOTIABLE) — added one narrow, explicitly guarded
-    exception: a local-only automation identity may bypass interactive Entra ID sign-in
-    for automated test runs, provided it is structurally unreachable from the live
-    environment (guardrails detailed in Security & Access Control Requirements).
-Added principles: none — this amendment clarifies/extends Principles I and II rather
-  than introducing a new one.
-Added sections: none — extended existing sections instead.
+Version change: 1.10.0 → 1.10.1
+Modified principles: none
+Added principles: none
+Added sections: none
 Modified sections:
-  - Security & Access Control Requirements — added guardrail bullets for the local
-    automation-identity auth bypass (build/deploy-time gating only, no runtime
-    flag/header toggle, no real-account credentials, explicit reviewer check).
-  - Environments & Deployment Pipeline — added a bullet requiring automated integration
-    tests to run against local stubs/emulators of external cloud dependencies, with a
-    documented fallback for any dependency lacking a viable local stub.
+  - Development Workflow & Quality Gates — added a bullet codifying the repo's existing,
+    already-enforced `check-title` required status check: PR titles MUST follow
+    Conventional Commits `type(scope): description` format (source of truth:
+    `scripts/pr-title-config.js`, mirrored in `.github/workflows/pr-title-check.yml`),
+    since this repo merges by squash and the PR title becomes the sole commit on `main`
+    that semantic-release reads.
 Removed sections: none
-Source: direct user instruction (2026-09-02) — clarify that, because this project
-  deliberately has only two environments (local and live, per Principle XII and
-  Environments & Deployment Pipeline), automated integration tests must stub cloud
-  services like Cosmos DB locally, and the UI/auth path must be structured so production
-  always requires Entra ID sign-in while a local automation account can run tests
-  quickly without it, without weakening production authentication.
+Source: direct user instruction (2026-09-02) — PR #158 failed the repo's required
+  `check-title` check because its title lacked a scope; codify the existing PR-title
+  format rule in the constitution so future PRs (including AI-authored ones) get it
+  right the first time instead of failing CI and needing a title edit.
 Templates requiring follow-up: none — dependent templates read this file at runtime and
   are not modified by this command.
 Deferred/TODO placeholders: none.
@@ -357,6 +346,14 @@ than requested.
 
 - All changes MUST go through a pull request on GitHub; direct pushes to the main branch
   are not permitted.
+- This repository merges exclusively by squash, so the PR title — not any individual
+  commit message — becomes the sole commit on `main` and is what semantic-release reads
+  to compute the next version. Every PR title MUST therefore follow Conventional
+  Commits format, `type(scope): description`, and MUST pass the repository's required
+  `check-title` status check before merge. The allowed `type` and `scope` values are the
+  single source of truth in `scripts/pr-title-config.js` (mirrored into
+  `.github/workflows/pr-title-check.yml`); scope is required on every PR title, even for
+  a scope (e.g., `docs`, `chore`) that never gates a version bump.
 - Every pull request MUST include automated tests for the functionality and edge cases
   it introduces or changes, per Principle I.
 - CI MUST run the full automated test suite on every pull request, per Principle V; a
@@ -566,4 +563,4 @@ with the design-token, visual-rules, interaction-state, or layout/scroll require
 above as a blocking finding. No feature may ship a screen that is not traceable to a
 screen contract above or to a documented amendment extending it.
 
-**Version**: 1.10.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-02
+**Version**: 1.10.1 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-02
