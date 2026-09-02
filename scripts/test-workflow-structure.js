@@ -245,6 +245,22 @@ function testUserStory3() {
     );
   }
 
+  // Regression guard (found live during real quickstart.md Scenario 3
+  // validation, 2026-09-02): frontend/backend's build-on-demand job calls
+  // a reusable workflow that needs contents: write to create a release.
+  // A called reusable workflow cannot request more permissions than its
+  // caller grants — if the caller only grants contents: read, the entire
+  // run fails at startup (zero jobs created), but only once build-on-demand
+  // actually has to build (a cache-miss latest deploy), which is why this
+  // went undetected by static structure tests until a real run hit it.
+  for (const name of ["frontend-deploy.yml", "backend-deploy.yml"]) {
+    const wf = loadWorkflow(name);
+    check(
+      `${name}'s top-level permissions grant contents: write (build-on-demand's reusable workflow needs it to create a release)`,
+      !!wf.permissions && wf.permissions.contents === "write"
+    );
+  }
+
   // Regression guard (production incident, PR #149/#155): this Function
   // App runs on Azure Flex Consumption, which does not support a
   // pre-built/vendored Python package — remote-build: false deployed
