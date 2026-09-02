@@ -65,13 +65,16 @@ jobs:
               echo "::error::No such version: infrastructure-v${INPUT_VERSION} does not exist and cannot be built — it does not correspond to any tested state that ever merged to main. Deploy refused rather than substituting a different version." >&2
               exit 1
             fi
-            echo "version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
-            echo "must_build=false" >> "$GITHUB_OUTPUT"
             if gh release view "infrastructure-v${INPUT_VERSION}" --repo "${{ github.repository }}" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx 'infrastructure-plan.zip'; then
-              echo "cache_hit=true" >> "$GITHUB_OUTPUT"
+              CACHE_HIT=true
             else
-              echo "cache_hit=false" >> "$GITHUB_OUTPUT"
+              CACHE_HIT=false
             fi
+            {
+              echo "version=$INPUT_VERSION"
+              echo "must_build=false"
+              echo "cache_hit=$CACHE_HIT"
+            } >> "$GITHUB_OUTPUT"
           else
             # Unspecified: resolve to latest-at-execution-time (FR-013), not
             # whatever was latest when this run was triggered. "latest" may
@@ -79,9 +82,11 @@ jobs:
             # built before) — always route through build-on-demand, whose
             # own internal idempotency check (research.md Decision 4/5)
             # makes this cheap when nothing has actually changed.
-            echo "version=" >> "$GITHUB_OUTPUT"
-            echo "must_build=true" >> "$GITHUB_OUTPUT"
-            echo "cache_hit=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "version="
+              echo "must_build=true"
+              echo "cache_hit=false"
+            } >> "$GITHUB_OUTPUT"
           fi
 
   build-on-demand:
