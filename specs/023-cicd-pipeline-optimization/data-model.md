@@ -34,7 +34,7 @@ This feature has no application data model (no database, no user-facing entities
 
 **Realized as**: A file (or small set of files) attached to a component's GitHub Release as release assets:
 - Frontend: the built `dist/` directory, zipped, plus `dist/version.json`.
-- Backend: a zip of the `src` deploy root with dependencies vendored into `.python_packages`, plus a `VERSION` file.
+- Backend: a zip of the `src` deploy root (dependencies are not vendored — Azure Flex Consumption requires its own Oryx remote build at deploy time, so `deploy` triggers that build; see research.md's amendment to Decision 3), plus a `VERSION` file.
 - Infrastructure: the saved Terraform plan (`tfplan` binary + a human-readable plan text rendering), plus a `VERSION` file — "usable as-is" here means "the exact plan that was validated is what gets applied," not a re-plan (Decision 3, research.md).
 
 **Invariants**:

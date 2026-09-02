@@ -86,25 +86,14 @@ jobs:
             echo "artifact_exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Setup Python
-        if: steps.check-artifact.outputs.artifact_exists != 'true'
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-          cache-dependency-path: src/requirements.txt
-
-      - name: Vendor runtime dependencies into the deploy package
-        # Azure Functions' Python model expects dependencies pre-installed
-        # under .python_packages/lib/site-packages when remote-build is
-        # disabled (no Oryx build happens on Azure's side) — deploy ships
-        # exactly what this step produces, never re-installing.
-        if: steps.check-artifact.outputs.artifact_exists != 'true'
-        run: |
-          pip install -r src/requirements.txt \
-            --target=src/.python_packages/lib/site-packages
-
       - name: Stamp version into the artifact
+        # No dependency-vendoring step here: this Function App runs on Azure
+        # Flex Consumption, which does not support a pre-built/vendored
+        # Python package the way classic Consumption/Premium plans do —
+        # confirmed empirically in production (see research.md's amendment
+        # to Decision 3, and backend-deploy.yml's `remote-build: true`).
+        # Vendoring dependencies here would be pointless: Azure's own Oryx
+        # remote build reinstalls them from src/requirements.txt regardless.
         if: steps.check-artifact.outputs.artifact_exists != 'true'
         run: echo "${{ steps.compute-version.outputs.version }}" > src/VERSION
 

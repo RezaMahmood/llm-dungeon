@@ -225,6 +225,27 @@ function testUserStory3() {
       !!deployJob && deployJob.environment !== "production-infra"
     );
   }
+
+  // Regression guard (production incident, PR #149/#155): this Function
+  // App runs on Azure Flex Consumption, which does not support a
+  // pre-built/vendored Python package — remote-build: false deployed
+  // "successfully" but loaded zero functions (404 on every route). Must
+  // stay remote-build: true even though this restructuring otherwise makes
+  // deploy install/build-free everywhere else.
+  const backendFunctionsAction = findStepUsing(
+    stepsOf(loadWorkflow("backend-deploy.yml").jobs.deploy),
+    "Azure/functions-action"
+  );
+  check(
+    "backend-deploy.yml's deploy job calls Azure/functions-action",
+    !!backendFunctionsAction
+  );
+  check(
+    "backend-deploy.yml's functions-action sets remote-build: true (Flex Consumption requires it — see research.md's amendment to Decision 3)",
+    !!backendFunctionsAction &&
+      backendFunctionsAction.with &&
+      backendFunctionsAction.with["remote-build"] === true
+  );
 }
 
 // ---------------------------------------------------------------------

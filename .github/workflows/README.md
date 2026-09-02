@@ -20,7 +20,7 @@ Merging to `main` never deploys anything by itself.
 | [`infrastructure-build.yml`](infrastructure-build.yml) | **Infrastructure Build** | `push` to `main` (paths: `infrastructure/**`) | CI. Validates and plans Terraform, computes the next version, attaches the saved plan as an `infrastructure-v<version>` GitHub Release asset. No apply job. |
 | [`_build-frontend.yml`](_build-frontend.yml), [`_build-backend.yml`](_build-backend.yml), [`_build-infrastructure.yml`](_build-infrastructure.yml) | **Build (reusable)** | `workflow_call` only | The single implementation each `*-build.yml` above calls, and that each `*-deploy.yml` below calls on a cache-miss-on-latest. Never triggered directly. Idempotent: skips its own build/package steps if the target version's artifact is already cached. |
 | [`frontend-deploy.yml`](frontend-deploy.yml) | **Frontend Deploy** | `workflow_dispatch` only (`version` input) | CD. Resolves the requested (or latest-at-execution-time) version, deploys its cached artifact as-is — building it first only if it isn't cached yet. No approval gate. |
-| [`backend-deploy.yml`](backend-deploy.yml) | **Backend Deploy** | `workflow_dispatch` only (`version` input) | CD. Same pattern as frontend, for the Azure Functions backend. No approval gate. |
+| [`backend-deploy.yml`](backend-deploy.yml) | **Backend Deploy** | `workflow_dispatch` only (`version` input) | CD. Same pattern as frontend, for the Azure Functions backend. No approval gate. Deploy uses `remote-build: true` — Azure Flex Consumption doesn't support a pre-built/vendored Python package (confirmed empirically in production: `remote-build: false` deployed "successfully" but loaded zero functions). The exact tested-and-versioned source tree is still what's deployed; only the "no build step at deploy time" part yields to this platform constraint. |
 | [`infrastructure-deploy.yml`](infrastructure-deploy.yml) | **Infrastructure Deploy** | `workflow_dispatch` only (`version` input) | CD. Same pattern, but the `apply` job targets the `production-infra` environment, which requires human approval before it applies (see below). |
 | [`pr-title-check.yml`](pr-title-check.yml) | **PR Title Check** | `pull_request_target` (opened, edited, synchronize, reopened) | Required check. Validates the PR title follows `type(scope): description` (Conventional Commits) — this repo merges by squash, so the PR title is the sole commit message that reaches `main` and the one `semantic-release` reads. |
 | [`workflow-lint.yml`](workflow-lint.yml) | **Workflow Lint** | `pull_request` (paths: `.github/workflows/**`) | Required check. Runs `actionlint` against changed workflow files — syntax/schema only. |
@@ -47,11 +47,13 @@ matching `_build-*.yml` reusable workflow:
    release (idempotency: a second build request for an already-cached
    version reuses it rather than re-building).
 3. If not cached: builds the artifact (frontend: zipped `dist/`; backend:
-   zipped `src` deploy root with dependencies vendored into
-   `.python_packages`; infrastructure: the saved Terraform plan + a
-   human-readable rendering), stamps it with the version, and attaches it
-   to the release as a single file — the durable, immutable, indefinitely
-   retained cache (not `actions/upload-artifact`, which expires).
+   zipped `src` deploy root, dependencies not vendored — Azure Flex
+   Consumption requires its own Oryx remote build, which `deploy` triggers
+   instead (see the Backend Deploy row below); infrastructure: the saved
+   Terraform plan + a human-readable rendering), stamps it with the
+   version, and attaches it to the release as a single file — the durable,
+   immutable, indefinitely retained cache (not `actions/upload-artifact`,
+   which expires).
 
 None of `frontend-build.yml`/`backend-build.yml`/`infrastructure-build.yml`
 contains a deploy or apply job — CI's job ends at a cached, ready-to-ship

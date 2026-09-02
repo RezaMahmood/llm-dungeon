@@ -167,13 +167,26 @@ jobs:
           # "src" (not "src/backend"): the deploy root must contain the
           # `backend` package as a real subdirectory so `from backend.x
           # import y` resolves the same way it does under pytest.ini's
-          # `pythonpath = src`. Dependencies are already vendored into
-          # src/.python_packages by the build workflow, so remote-build is
-          # disabled — deploy ships exactly what was built, matching what
-          # was already tested.
+          # `pythonpath = src`.
+          #
+          # remote-build: true — NOT false. This Function App runs on Azure
+          # Flex Consumption, which does not support a pre-built/vendored
+          # Python package the way classic Consumption/Premium plans do —
+          # confirmed empirically in production (remote-build: false
+          # reported "successfully deployed" but the app then loaded zero
+          # functions, 404 on every route). This means backend deploys still
+          # pay a real build cost inside this step — the one piece of
+          # FR-009's "no build step at deploy time" a genuine platform
+          # constraint prevents for backend specifically. The build workflow
+          # still produces, and this step still deploys, the exact
+          # tested-and-versioned source tree — no separate checkout/rebuild
+          # happens anywhere else in this job — so FR-009/SC-002's actual
+          # guarantee (deploy ships what was tested, not a divergent copy)
+          # still holds; only "no remote build at all" does not, for
+          # backend. See research.md's amendment to Decision 3.
           app-name: ${{ vars.FUNCTIONS_APP_NAME }}
           package: "src"
-          remote-build: false
+          remote-build: true
 
       - name: Smoke test
         run: |
