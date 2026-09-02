@@ -1,37 +1,35 @@
 #!/usr/bin/env bash
 # postStartCommand for .devcontainer/devcontainer.json.
 #
-# ~/.claude.json is bind-mounted into every worktree container as a single
-# file (not a directory), so Claude Code's atomic save (write a backup,
-# write a temp file, rename() over the real path) can leave this
-# container's view of the mount stale or missing -- Docker Desktop's
-# virtiofs/osxfs bind mounts track single files by identity at mount time
-# and can't always follow a rename across it. Directory mounts (like
-# ~/.claude, which is where the backups below live) don't have this
-# problem. See docs/WORKTREE_CONTAINER_WORKFLOW.md.
+# ~/.claude.json carries Claude Code's oauth account/onboarding state and
+# used to be bind-mounted read-write directly at that path. Its atomic save
+# (write a backup, write a temp file, rename() over the real path) doesn't
+# survive a single-file bind mount under Docker Desktop's virtiofs -- a
+# save from *any* side (host, or any one of several concurrently-running
+# worktree containers, since the file was shared read-write across all of
+# them) could truncate the host's real ~/.claude.json to 0 bytes instead of
+# atomically replacing it, corrupting the live config for every other
+# session sharing it.
 #
-# This runs on every container start (not just creation, unlike
-# postCreateCommand) and self-heals by restoring the newest backup if the
-# live file is missing.
+# Fix: devcontainer.json now mounts the host file read-only at
+# ~/.claude.json.host, and this script (which runs on every container
+# start, not just creation, unlike postCreateCommand) copies it into the
+# container's own real ~/.claude.json -- an ordinary in-container file, not
+# a mount -- every time. The container can no longer write back through to
+# the host file at all, so it can't corrupt it. See docs/WORKTREE_CONTAINER_WORKFLOW.md.
 set -euo pipefail
 
+HOST_SOURCE="/home/vscode/.claude.json.host"
 CONFIG="/home/vscode/.claude.json"
-BACKUP_DIR="/home/vscode/.claude/backups"
 
-if [[ -f "$CONFIG" ]]; then
+if [[ ! -f "$HOST_SOURCE" ]]; then
+  echo "restore-claude-config: $HOST_SOURCE not mounted -- nothing to sync." >&2
   exit 0
 fi
 
-if [[ ! -d "$BACKUP_DIR" ]]; then
-  echo "restore-claude-config: $CONFIG missing and no backup directory found at $BACKUP_DIR -- nothing to restore." >&2
+if [[ ! -s "$HOST_SOURCE" ]]; then
+  echo "restore-claude-config: $HOST_SOURCE is empty on the host -- leaving this container's $CONFIG untouched." >&2
   exit 0
 fi
 
-LATEST_BACKUP="$(ls -t "$BACKUP_DIR"/.claude.json.backup.* 2>/dev/null | head -1 || true)"
-if [[ -z "$LATEST_BACKUP" ]]; then
-  echo "restore-claude-config: $CONFIG missing and no backups found in $BACKUP_DIR -- nothing to restore." >&2
-  exit 0
-fi
-
-echo "restore-claude-config: $CONFIG missing -- restoring from $LATEST_BACKUP"
-cp "$LATEST_BACKUP" "$CONFIG"
+cp "$HOST_SOURCE" "$CONFIG"

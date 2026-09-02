@@ -3,29 +3,21 @@ name: Workflow Structure Test
 # Required checks per specs/023-cicd-pipeline-optimization/research.md
 # decision #8 (constitution Principle I / /speckit-analyze finding G1).
 # actionlint (workflow-lint.yml) only catches YAML syntax/schema errors —
-# this asserts the actual job/step *shape* each user story depends on:
-# US1 (no rebuild in `deploy`), US2 (concurrency block present), US5
-# (terraform apply references the saved plan). See
+# this asserts the actual job/step *shape* each user story depends on: US1
+# (test-on-push, non-testable-change skip), US2 (build/version/cache, no
+# deploy/apply job in CI), US3 (deploy is workflow_dispatch-only, no rebuild
+# in deploy/apply, infra's approval-gate asymmetry), US4 (resolve-version
+# before ensure-artifact), US5 (build-on-demand fallback). See
 # scripts/test-workflow-structure.js and contracts/workflow-interfaces.md.
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/backend-build.yml"
-      - ".github/workflows/frontend-build.yml"
-      - ".github/workflows/infrastructure-build.yml"
-      - ".github/workflows/_build-backend.yml"
-      - ".github/workflows/_build-frontend.yml"
-      - ".github/workflows/_build-infrastructure.yml"
-      - ".github/workflows/backend-deploy.yml"
-      - ".github/workflows/frontend-deploy.yml"
-      - ".github/workflows/infrastructure-deploy.yml"
-      - ".github/workflows/test.yml"
-      - ".github/actions/detect-non-testable-changes/action.yml"
-      - "scripts/test-workflow-structure.js"
-      - "scripts/test-non-testable-detection.js"
-      - "scripts/package.json"
-      - "scripts/package-lock.json"
+  pull_request: {}
+  # No `paths:` filter: this check is required in main's ruleset
+  # (repos/RezaMahmood/llm-dungeon/rulesets/21767050), and GitHub's required-
+  # status-check enforcement blocks merge forever if a required check's
+  # workflow never triggers at all for a given PR. This test validates the
+  # *current* state of the deploy/build workflows (not the PR's diff), so
+  # it's meaningful and fast (~10s) to run unconditionally.
 
 permissions:
   contents: read

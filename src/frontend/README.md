@@ -1,8 +1,8 @@
 # Frontend — LLM Dungeon Adventure
 
 ReactJS single-page application implementing sign-in (via MSAL / Microsoft
-Entra ID) and the capability-based main menu (feature
-`002-login-and-access-control`).
+Entra ID), the capability-based main menu, and adventure/character setup
+(features `002-login-and-access-control`, `006-adventure-and-character-setup`).
 
 ## Structure
 

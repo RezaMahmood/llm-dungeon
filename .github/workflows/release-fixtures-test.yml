@@ -11,18 +11,13 @@ name: Release Fixtures Test
 # scripts/test-release-fixtures.js.
 
 on:
-  pull_request:
-    paths:
-      - "src/backend/.releaserc.json"
-      - "src/frontend/.releaserc.json"
-      - "infrastructure/.releaserc.json"
-      - "infrastructure/package.json"
-      - ".github/workflows/_build-backend.yml"
-      - ".github/workflows/_build-frontend.yml"
-      - ".github/workflows/_build-infrastructure.yml"
-      - "scripts/test-release-fixtures.js"
-      - "scripts/package.json"
-      - "scripts/package-lock.json"
+  pull_request: {}
+  # No `paths:` filter: this check is required in main's ruleset
+  # (repos/RezaMahmood/llm-dungeon/rulesets/21767050), and GitHub's required-
+  # status-check enforcement blocks merge forever if a required check's
+  # workflow never triggers at all for a given PR. This test exercises
+  # fixture data, not the PR's diff, so it's meaningful and fast (~10s) to
+  # run unconditionally.
 
 permissions:
   contents: read

@@ -1,18 +1,21 @@
 <!--
 Sync Impact Report
-Version change: 1.7.0 → 1.8.0
-Modified principles: none renamed or removed
-Added principles: none — this is a process/tooling rule, not a new product principle
-Added sections:
-  - Development Workflow & Quality Gates: added a bullet requiring feature work to happen
-    inside that feature's own git worktree, running inside that worktree's own isolated
-    devcontainer (`bin/wt <branch>`), never directly in the primary checkout, and never
-    sharing a container between worktrees — so concurrent specs cannot cross-contaminate.
-Modified sections: none
+Version change: 1.10.0 → 1.10.1
+Modified principles: none
+Added principles: none
+Added sections: none
+Modified sections:
+  - Development Workflow & Quality Gates — added a bullet codifying the repo's existing,
+    already-enforced `check-title` required status check: PR titles MUST follow
+    Conventional Commits `type(scope): description` format (source of truth:
+    `scripts/pr-title-config.js`, mirrored in `.github/workflows/pr-title-check.yml`),
+    since this repo merges by squash and the PR title becomes the sole commit on `main`
+    that semantic-release reads.
 Removed sections: none
-Source: direct user instruction (2026-08-31) — codify the newly implemented per-worktree
-  isolated-devcontainer workflow (bin/wt, docs/WORKTREE_CONTAINER_WORKFLOW.md) as an
-  enforced constitution rule rather than an informal convention.
+Source: direct user instruction (2026-09-02) — PR #158 failed the repo's required
+  `check-title` check because its title lacked a scope; codify the existing PR-title
+  format rule in the constitution so future PRs (including AI-authored ones) get it
+  right the first time instead of failing CI and needing a title edit.
 Templates requiring follow-up: none — dependent templates read this file at runtime and
   are not modified by this command.
 Deferred/TODO placeholders: none.
@@ -29,10 +32,20 @@ and boundary/edge conditions — tests written merely to inflate a coverage numb
 prohibited. There is NO 100% code coverage requirement or goal; coverage is a signal, not
 a target. All tests MUST be fully automatable (no manual steps) and MUST run as part of
 every pull request; a pull request MUST NOT be merged while any required test is failing.
+Automated integration tests MUST run locally against stubbed/emulated external cloud
+dependencies (e.g., a CosmosDB emulator or an equivalent local stub, per Dependency &
+Supply Chain Security Requirements) rather than requiring the live Azure environment,
+since this project maintains only the two environments defined in Environments &
+Deployment Pipeline — local and live — with no dedicated test-only cloud environment to
+run against. As much automated testing as practical MUST run locally for speed and
+tight feedback; the live environment is not a substitute for local automated testing.
 
 Rationale: The team explicitly wants confidence from tests that verify real behavior,
 not a coverage metric. Automating tests in the PR pipeline is the only way to enforce
 this consistently as the game's dungeon logic, LLM interactions, and API surface grow.
+Because Principle XII deliberately rules out a dedicated test/staging cloud environment,
+local stubs of cloud dependencies are the only way to keep integration tests both fast
+and fully automated.
 
 ### II. Secure-by-Default Access (NON-NEGOTIABLE)
 The application MUST require sign-in via Microsoft Entra ID for every user-facing page
@@ -41,20 +54,38 @@ system, including status/health endpoints that reveal application details. Acces
 be restricted to an explicit allow-list of specific Microsoft accounts; there is no
 open sign-up or tenant-wide access by default. Authorization checks MUST be enforced
 server-side in the Azure Functions backend; a client-side (ReactJS) check alone is never
-sufficient, since it can be bypassed.
+sufficient, since it can be bypassed. The one narrow exception is local automated
+testing: a dedicated automation identity MAY bypass interactive Entra ID sign-in when
+running locally, strictly under the guardrails in Security & Access Control
+Requirements below — this exception MUST NOT be reachable, configurable, or present as
+live code/config in the deployed live environment.
 
 Rationale: The project is explicitly scoped as a private application for a specific,
 named set of Microsoft accounts, not a public product. Server-side enforcement is
-required because client-side gating is trivially bypassable.
+required because client-side gating is trivially bypassable. Requiring an interactive
+Entra ID sign-in for every local automated test run would make the fast, frequent local
+testing this project relies on (Principle I) impractical, so a strictly local-only,
+non-deployable bypass is permitted instead of weakening production auth.
 
 ### III. Defined Technology Stack
 The backend MUST be implemented in Python and deployed as Azure Functions. The frontend
 MUST be implemented in ReactJS and run in a standard web browser. Any deviation from
 this stack (a different language, framework, or hosting model) requires a documented
-justification and an amendment to this constitution before adoption.
+justification and an amendment to this constitution before adoption. New code MUST
+target the latest long-term-support (LTS) major version of each runtime in the stack
+(Node.js for frontend tooling, Python for the backend) and the latest stable major
+version of each core framework (e.g., React) at the time the code is written; the
+project MUST NOT knowingly adopt or remain pinned to a runtime/framework major version
+that is approaching end-of-support when a current LTS/stable major is available. Detailed
+rules are in the Dependency & Supply Chain Security Requirements section below.
 
 Rationale: A fixed, agreed stack keeps the small initial build focused and avoids
 architectural churn while the game's core mechanics are still being established.
+Deliberately starting on the current LTS/stable major of each runtime and framework —
+rather than an older one — avoids accumulating a forced, disruptive major-version
+migration later; the project explicitly wants to avoid regularly refactoring for newer
+majors (e.g., a React major upgrade) that a more current starting point would have
+avoided.
 
 ### IV. Simplicity Over Premature Scale (YAGNI)
 The project currently has no defined scale, performance, or throughput requirements.
@@ -183,6 +214,29 @@ that a five-minute mockup review would have caught. Making this an explicit task
 rather than an informal expectation — ensures it is actually enforced the same way Principle
 IX's acceptance gate is: as a checklist item someone can verify was done, not skipped.
 
+### XII. Right-Sized Scope — Not Enterprise-Grade (NON-NEGOTIABLE)
+This project is a small application for a specific, named set of users, not an
+enterprise product, and MUST NOT be designed or specified as if it were one. A spec,
+plan, or task MUST NOT introduce an enterprise-grade pattern — including, but not
+limited to, single sign-on or federated identity beyond the already-mandated Entra ID
+allow-list (Principle II), multi-tenant architecture, additional non-production
+environments beyond local development and the single live environment (see
+Environments & Deployment Pipeline below), elaborate role/permission hierarchies beyond
+the allow-list's roles, or dedicated scaling/high-availability infrastructure — unless a
+concrete, stated requirement calls for it. Whenever work on a spec, plan, or task starts
+trending toward an enterprise-grade pattern, the author (human or AI) MUST stop and
+explicitly ask the requesting user whether it is actually needed, rather than assuming
+it is or silently including it. For example, SSO beyond the mandated Entra ID sign-in is
+out of scope by default and MUST be confirmed with the user before being specified.
+
+Rationale: "Enterprise-grade" defaults (extra environments, broader identity
+federation, elaborate RBAC, scale-out infrastructure) are easy to reach for out of habit
+and quietly inflate scope, cost, and complexity for a project that has neither the user
+base nor the stated requirements to justify them. This principle extends Principle IV's
+general YAGNI stance into an explicit, enforced process check specifically for
+enterprise-shaped patterns, since those are the ones most likely to be assumed rather
+than requested.
+
 ## Security & Access Control Requirements
 
 - Authentication MUST use Microsoft Entra ID; the frontend MUST use a supported
@@ -204,6 +258,50 @@ IX's acceptance gate is: as a checklist item someone can verify was done, not sk
 - Backend Azure resources MUST be connected via Private Endpoints for inter-resource
   traffic, with public network access disabled on those resources, unless a specific,
   documented exception applies.
+- Application code and design MUST follow OWASP Top 10 practices appropriate to the
+  stack in use (e.g., input validation and output encoding, parameterized data access,
+  proper authentication/session handling, access-control checks on every server-side
+  entry point, secure default configuration, and safe handling of dependencies known to
+  carry vulnerabilities). This is a baseline practice expectation proportionate to this
+  project's size, not a request for enterprise-grade security tooling or process
+  (Principle XII).
+- A local-only automation identity/bypass for automated integration tests (Principle I,
+  Principle II) MUST be gated by a build-time or deploy-time condition that is
+  structurally absent from the live environment's build/deploy configuration (e.g., a
+  code path compiled or wired in only for local test runs) — never a runtime
+  environment-variable or request-header check alone, since either could be
+  misconfigured or spoofed against the live deployment. The live environment's Entra ID
+  sign-in and server-side authorization checks (this section, above) MUST have no
+  disable path, flag, or override of any kind.
+- The automation identity used for local bypass MUST carry no real user's credentials
+  and MUST NOT correspond to a real Microsoft account on the production allow-list; it
+  exists only to let local automated tests exercise authorized-user code paths without
+  an interactive sign-in.
+- Any change that touches the local automation bypass or the Entra ID sign-in/
+  authorization path MUST be reviewed with this section in mind (Development Workflow &
+  Quality Gates) — the reviewer explicitly confirms the bypass remains unreachable from
+  the live environment.
+
+## Dependency & Supply Chain Security Requirements
+
+- Dependencies (Python packages, npm packages, GitHub Actions, container base images)
+  MUST be pulled only from official, public package registries/marketplaces; MUST use a
+  committed lockfile (e.g., `requirements.txt`/`poetry.lock`, `package-lock.json`) so
+  builds are reproducible; and MUST NOT pin to a package version already flagged with a
+  known, unpatched critical or high-severity vulnerability when an updated version
+  exists.
+- Automated dependency vulnerability scanning (e.g., GitHub Dependabot alerts or
+  equivalent) MUST be enabled on the repository, and a critical or high-severity
+  advisory affecting a dependency in use MUST be remediated (upgrade, patch, or
+  documented accepted-risk exception) rather than silently ignored.
+- New code MUST target the latest LTS major version of each runtime (Node.js, Python)
+  and the latest stable major version of each core framework (e.g., React) at the time
+  it is written, per Principle III — this keeps the project off soon-to-be-outdated
+  majors and avoids a disruptive forced migration later.
+- This is a proportionate, best-practices baseline for a small application's supply
+  chain — not an enterprise-grade software-supply-chain program (e.g., no SBOM
+  generation, no third-party vendor security review process) unless a concrete,
+  stated requirement calls for it (Principle XII).
 
 ## PII & Data Protection Requirements
 
@@ -248,6 +346,14 @@ IX's acceptance gate is: as a checklist item someone can verify was done, not sk
 
 - All changes MUST go through a pull request on GitHub; direct pushes to the main branch
   are not permitted.
+- This repository merges exclusively by squash, so the PR title — not any individual
+  commit message — becomes the sole commit on `main` and is what semantic-release reads
+  to compute the next version. Every PR title MUST therefore follow Conventional
+  Commits format, `type(scope): description`, and MUST pass the repository's required
+  `check-title` status check before merge. The allowed `type` and `scope` values are the
+  single source of truth in `scripts/pr-title-config.js` (mirrored into
+  `.github/workflows/pr-title-check.yml`); scope is required on every PR title, even for
+  a scope (e.g., `docs`, `chore`) that never gates a version bump.
 - Every pull request MUST include automated tests for the functionality and edge cases
   it introduces or changes, per Principle I.
 - CI MUST run the full automated test suite on every pull request, per Principle V; a
@@ -272,6 +378,30 @@ IX's acceptance gate is: as a checklist item someone can verify was done, not sk
   worktree. This keeps concurrent specs from cross-contaminating: a session for one spec
   has no filesystem access to any other spec's worktree. See
   `docs/WORKTREE_CONTAINER_WORKFLOW.md` for the full workflow.
+
+## Environments & Deployment Pipeline
+
+- There are exactly two places code is built and tested: a contributor's local machine
+  (including a worktree's isolated devcontainer, per Development Workflow above) and the
+  single live/production environment in Azure. The project MUST NOT stand up an
+  additional persistent environment (e.g., a separate staging, UAT, or QA deployment)
+  without a documented requirement and a constitution amendment — this is a deliberate,
+  non-enterprise-grade choice (Principle XII).
+- The only path from a merged change to the live environment is through GitHub Actions
+  workflows; there is no manual/portal deployment path for application code.
+- Credentials and configuration needed by deployment workflows MUST be stored as GitHub
+  Actions secrets (or GitHub environment secrets/variables), never committed to the
+  repository, consistent with the Security & Access Control Requirements above.
+- CI (build/test, per Principle V) and CD (deploy to the live environment) both run as
+  GitHub Actions workflows; a deployment workflow run MUST NOT deploy a change that has
+  not passed the required CI checks.
+- Because no dedicated cloud test environment exists, automated integration tests MUST
+  run against a local stub or emulator of each external cloud dependency they exercise
+  (e.g., the Azure Cosmos DB emulator, or an equivalent local/in-memory stub) instead of
+  a live Azure resource, per Principle I. A dependency without a viable local stub or
+  emulator MUST be called out explicitly in that feature's plan, with a documented
+  fallback (e.g., a narrowly-scoped contract test against the real live-environment
+  resource, run only where unavoidable).
 
 ## UI Design System Requirements
 
@@ -433,4 +563,4 @@ with the design-token, visual-rules, interaction-state, or layout/scroll require
 above as a blocking finding. No feature may ship a screen that is not traceable to a
 screen contract above or to a documented amendment extending it.
 
-**Version**: 1.8.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-08-31
+**Version**: 1.10.1 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-02

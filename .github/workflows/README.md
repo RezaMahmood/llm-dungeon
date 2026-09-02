@@ -162,14 +162,32 @@ approving its own run (FR-011a).
 
 ### One-time rollout step: require the new checks
 
-Add these job names to `main`'s required-status-checks branch protection
-list (they won't block merges until they exist as real check runs, and
-won't exist until this feature's PR has merged and run at least once):
+`main` is protected by a repository ruleset (not classic branch protection
+— see `repos/RezaMahmood/llm-dungeon/rulesets/21767050`). Add these job
+names to its `required_status_checks` list (they won't block merges until
+they exist as real check runs, and won't exist until this feature's PR has
+merged and run at least once):
 
-- `PR Title Check / check-title`
-- `Workflow Lint / actionlint`
-- `Workflow Structure Test / structure-test`
-- `Release Fixtures Test / release-fixtures-test`
+- `check-title` (from `pr-title-check.yml`)
+- `actionlint` (from `workflow-lint.yml`)
+- `structure-test` (from `workflow-structure-test.yml`)
+- `release-fixtures-test` (from `release-fixtures-test.yml`)
+
+**Required-check context names are the job id, not `Workflow Name /
+job-id`** — GitHub's required-status-check rules match on the check run's
+own name (its job id), which is what appears in `gh pr checks`.
+
+**Why `workflow-lint.yml`, `workflow-structure-test.yml`, and
+`release-fixtures-test.yml` have no `paths:` filter on their `pull_request`
+trigger**, even though they only care about specific files: a required
+check's workflow must run on *every* PR it's required for. A
+`paths:`-filtered trigger doesn't create a check run at all for a PR
+outside those paths — which is different from (and NOT satisfied by) a
+job-level `if:` that reports "skipped" — so GitHub's ruleset enforcement
+blocks that PR from merging forever, waiting for a check that will never
+appear. All three are fast enough (~10s) to run unconditionally, and none
+of them actually depend on the PR's diff content — they validate the
+*current* state of the workflow/fixture files, not what changed.
 
 ---
 

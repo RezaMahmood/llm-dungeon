@@ -8,9 +8,15 @@ name: Workflow Lint
 # scripts/test-release-fixtures.js (see /speckit-analyze finding G1).
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/**"
+  pull_request: {}
+  # No `paths:` filter: this check is required in main's ruleset
+  # (repos/RezaMahmood/llm-dungeon/rulesets/21767050), and GitHub's required-
+  # status-check enforcement blocks merge forever if a required check's
+  # workflow never triggers at all for a given PR (a path filter on the
+  # *workflow trigger* prevents the check run from being created, which is
+  # different from — and NOT satisfied by — a job-level `if:` reporting
+  # "skipped"). This lint is fast (a few seconds) and cheap enough to run
+  # on every PR regardless of what it touches.
 
 permissions:
   contents: read
