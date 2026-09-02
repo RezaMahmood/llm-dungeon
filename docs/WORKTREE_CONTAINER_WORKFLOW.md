@@ -224,15 +224,18 @@ recreates it from scratch (`.devcontainer/devcontainer.json`):
 - `~/.claude` → `/home/vscode/.claude` — holds
   `~/.claude/.credentials.json` when the host stores its credential as a
   file.
-- `~/.claude.json` → `/home/vscode/.claude.json` — a *sibling* file (not
-  inside the `~/.claude` directory), holding the oauth account/onboarding
-  state (`oauthAccount`, `hasCompletedOnboarding`, ...). Mounting only
-  `~/.claude` and not this file was the original bug: each new container
-  got its own empty `~/.claude.json`, so it looked authenticated
-  (credentials present) but wasn't, and any container recreation forced a
-  fresh login. Both mounts together are what actually fixes it — verified
-  2026-08-31 by force-recreating a container and running
-  `claude -p "..."` non-interactively with no login prompt.
+- `~/.claude.json` → `/home/vscode/.claude.json.host` (**read-only**) — a
+  *sibling* file (not inside the `~/.claude` directory), holding the oauth
+  account/onboarding state (`oauthAccount`, `hasCompletedOnboarding`, ...).
+  Mounting only `~/.claude` and not this file was the original bug: each
+  new container got its own empty `~/.claude.json`, so it looked
+  authenticated (credentials present) but wasn't, and any container
+  recreation forced a fresh login. Both mounts together are what actually
+  fixes it — verified 2026-08-31 by force-recreating a container and
+  running `claude -p "..."` non-interactively with no login prompt. It's
+  mounted read-only, and at `.host` rather than its real path, because of
+  the corruption issue below — `restore-claude-config.sh` copies it into
+  the container's real `~/.claude.json` on every start.
 
 Both mounts only carry auth in if the host's credential is stored as a
 **file** in the first place. On Linux/Windows that's always true. On
@@ -262,22 +265,43 @@ This host (verified 2026-08-31) stores its credential as
 in with no extra step — still verify on yours with the command above
 before assuming it'll "just work".
 
-### Recovering from "Claude configuration file not found"
+### Recovering from a corrupted or missing `~/.claude.json`
 
-The `~/.claude.json` mount above is a *single-file* bind mount, unlike the
-directory mounts (`~/.claude`, `~/.config/gh`). Claude Code saves that file
-atomically (backup + temp file + `rename()` over the real path), and Docker
-Desktop's virtiofs/osxfs bind mounts can lose track of a single file across
-a rename like that -- so a container can occasionally come back saying the
-config file is missing even though a backup exists right next to it
-(`~/.claude/backups/.claude.json.backup.<timestamp>`).
+`~/.claude.json` used to be bind-mounted read-write directly at its real
+path — a *single-file* bind mount, unlike the directory mounts (`~/.claude`,
+`~/.config/gh`). Claude Code saves that file atomically (backup + temp file
++ `rename()` over the real path), and Docker Desktop's virtiofs/osxfs
+bind mounts don't reliably carry a `rename()` across a single-file mount
+like that. In practice this went beyond the file occasionally looking
+*missing* inside a container: because the file was shared read-write
+across the host **and every concurrently-running worktree container**, a
+save from any one of them could truncate the host's real `~/.claude.json`
+to 0 bytes instead of atomically replacing it — corrupting the live config
+for every other session sharing it, including the host itself (observed
+twice in one evening, 2026-09-02, each time surfacing on the *host* as
+`claude` refusing to start with "JSON Parse error: Unexpected EOF").
 
-`.devcontainer/restore-claude-config.sh` runs on every container start
-(`postStartCommand`, which fires on resume too, not just first creation)
-and restores the newest backup automatically if the live file is missing --
-you shouldn't need to run the `cp` command from the warning by hand. If you
-ever do see it fail to restore, the backups directory still has everything
-needed to fix it manually.
+Fixed by mounting the host file **read-only** at `~/.claude.json.host`
+instead of at its real path (`.devcontainer/devcontainer.json`) and having
+`.devcontainer/restore-claude-config.sh` copy it into the container's own
+real `~/.claude.json` — an ordinary in-container file, not a mount — on
+every start (`postStartCommand`, which fires on resume too, not just first
+creation). A container can therefore no longer write back through to the
+host file at all, so it can't corrupt it. The trade-off: auth/onboarding
+state changed *inside* a container (e.g. re-running `claude login` there)
+stays local to that container and is overwritten by the host's copy on the
+next start — that's fine since the actual OAuth token lives in the
+still-read-write, still-shared `~/.claude/.credentials.json`.
+
+If the *host's* `~/.claude.json` itself ever gets corrupted (0 bytes, or a
+JSON parse error on `claude` startup), restore it from the newest backup
+under `~/.claude/backups/.claude.json.backup.<timestamp>` — that directory
+lives inside the `~/.claude` directory mount, so it's visible on the host
+too:
+
+```bash
+cp "$(ls -t ~/.claude/backups/.claude.json.backup.* | head -1)" ~/.claude.json
+```
 
 ## `gh` CLI auth inside the container
 
