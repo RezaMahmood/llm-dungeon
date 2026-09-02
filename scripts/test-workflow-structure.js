@@ -103,6 +103,14 @@ function testUserStory1() {
     "'frontend-test' job is conditioned on all-non-testable != 'true'",
     !!frontendTestJob && typeof frontendTestJob.if === "string" && frontendTestJob.if.includes("all-non-testable")
   );
+  check(
+    "'frontend-test' job is also conditioned on frontend-changed == 'true' (skips for backend/infra-only pushes)",
+    !!frontendTestJob && typeof frontendTestJob.if === "string" && frontendTestJob.if.includes("frontend-changed")
+  );
+  check(
+    "'changes' job exposes a 'frontend-changed' output",
+    !!changesJob && !!changesJob.outputs && !!changesJob.outputs["frontend-changed"]
+  );
 }
 
 // ---------------------------------------------------------------------
@@ -112,7 +120,7 @@ function testUserStory1() {
 function testUserStory2() {
   console.log("\nUser Story 2 — build/version/cache-on-merge, no deploy, idempotent:");
 
-  for (const name of ["frontend-build.yml", "backend-build.yml", "infrastructure-build.yml"]) {
+  for (const name of ["frontend-build.yml", "backend-build.yml"]) {
     const wf = loadWorkflow(name);
     const jobNames = Object.keys(wf.jobs || {});
     check(
@@ -127,7 +135,7 @@ function testUserStory2() {
     );
   }
 
-  for (const name of ["_build-frontend.yml", "_build-backend.yml", "_build-infrastructure.yml"]) {
+  for (const name of ["_build-frontend.yml", "_build-backend.yml"]) {
     const wf = loadWorkflow(name);
     const triggers = triggersOf(wf);
     const triggerKeys = Object.keys(triggers);
@@ -185,10 +193,8 @@ function testUserStory3() {
       !Object.prototype.hasOwnProperty.call(triggers, "pull_request")
     );
     check(
-      `${name} declares a 'workflow_dispatch' trigger with a 'version' input`,
-      !!triggers.workflow_dispatch &&
-        !!triggers.workflow_dispatch.inputs &&
-        !!triggers.workflow_dispatch.inputs.version
+      `${name} declares a 'workflow_dispatch' trigger`,
+      !!triggers.workflow_dispatch
     );
 
     const finalJob = (wf.jobs && (wf.jobs.deploy || wf.jobs.apply)) || null;
@@ -210,6 +216,19 @@ function testUserStory3() {
         !!findStepUsing(steps, "actions/download-artifact")
       );
     }
+  }
+
+  // Only frontend/backend accept a `version` input — they participate in
+  // the versioned build/cache/latest-resolution pattern. Infrastructure
+  // does not (see testInfrastructureDeploy below).
+  for (const name of ["frontend-deploy.yml", "backend-deploy.yml"]) {
+    const triggers = triggersOf(loadWorkflow(name));
+    check(
+      `${name}'s 'workflow_dispatch' trigger declares a 'version' input`,
+      !!triggers.workflow_dispatch &&
+        !!triggers.workflow_dispatch.inputs &&
+        !!triggers.workflow_dispatch.inputs.version
+    );
   }
 
   const infraApply = loadWorkflow("infrastructure-deploy.yml").jobs.apply;
@@ -253,9 +272,9 @@ function testUserStory3() {
 // artifact, explicit not-found version fails with no fallback
 // ---------------------------------------------------------------------
 function testUserStory4() {
-  console.log("\nUser Story 4 — resolve-version and not-found failure path:");
+  console.log("\nUser Story 4 — resolve-version and not-found failure path (frontend/backend only):");
 
-  for (const name of ["frontend-deploy.yml", "backend-deploy.yml", "infrastructure-deploy.yml"]) {
+  for (const name of ["frontend-deploy.yml", "backend-deploy.yml"]) {
     const wf = loadWorkflow(name);
     const resolveJob = wf.jobs && wf.jobs["resolve-version"];
     check(`${name} has a 'resolve-version' job`, !!resolveJob);
@@ -289,12 +308,11 @@ function testUserStory4() {
 // not-found explicit-version failure path
 // ---------------------------------------------------------------------
 function testUserStory5() {
-  console.log("\nUser Story 5 — build-on-demand for latest, distinct from not-found failure:");
+  console.log("\nUser Story 5 — build-on-demand for latest, distinct from not-found failure (frontend/backend only):");
 
   const buildTargets = {
     "frontend-deploy.yml": "./.github/workflows/_build-frontend.yml",
     "backend-deploy.yml": "./.github/workflows/_build-backend.yml",
-    "infrastructure-deploy.yml": "./.github/workflows/_build-infrastructure.yml",
   };
 
   for (const [name, target] of Object.entries(buildTargets)) {
@@ -323,12 +341,86 @@ function testUserStory5() {
   }
 }
 
+// ---------------------------------------------------------------------
+// Infrastructure deploy: no versioning — validate-and-test -> plan ->
+// apply, no `version` input, plan artifact is same-run only (never a
+// persistent release), apply never re-plans.
+// ---------------------------------------------------------------------
+function testInfrastructureDeploy() {
+  console.log("\nInfrastructure Deploy — validate-and-test -> plan -> apply, no versioning:");
+
+  const wf = loadWorkflow("infrastructure-deploy.yml");
+  const triggers = triggersOf(wf);
+  check(
+    "infrastructure-deploy.yml's 'workflow_dispatch' trigger has no inputs (no versioning)",
+    !!triggers.workflow_dispatch &&
+      (triggers.workflow_dispatch === true ||
+        !triggers.workflow_dispatch.inputs ||
+        Object.keys(triggers.workflow_dispatch.inputs).length === 0)
+  );
+
+  const jobNames = Object.keys(wf.jobs || {});
+  check(
+    "infrastructure-deploy.yml has validate-and-test, plan, and apply jobs, in that order",
+    jobNames.indexOf("validate-and-test") !== -1 &&
+      jobNames.indexOf("plan") !== -1 &&
+      jobNames.indexOf("apply") !== -1 &&
+      jobNames.indexOf("validate-and-test") < jobNames.indexOf("plan") &&
+      jobNames.indexOf("plan") < jobNames.indexOf("apply")
+  );
+
+  const planJob = wf.jobs && wf.jobs.plan;
+  check(
+    "infrastructure-deploy.yml's 'plan' job depends on 'validate-and-test'",
+    !!planJob &&
+      (planJob.needs === "validate-and-test" ||
+        (Array.isArray(planJob.needs) && planJob.needs.includes("validate-and-test")))
+  );
+  check(
+    "infrastructure-deploy.yml's 'plan' job runs terraform plan",
+    !!planJob && stepRunContains(stepsOf(planJob), "terraform plan")
+  );
+  check(
+    "infrastructure-deploy.yml's 'plan' job uploads the plan as a same-run artifact",
+    !!planJob && !!findStepUsing(stepsOf(planJob), "actions/upload-artifact")
+  );
+
+  const applyJob = wf.jobs && wf.jobs.apply;
+  check(
+    "infrastructure-deploy.yml's 'apply' job depends on 'plan'",
+    !!applyJob &&
+      (applyJob.needs === "plan" || (Array.isArray(applyJob.needs) && applyJob.needs.includes("plan")))
+  );
+  check(
+    "infrastructure-deploy.yml's 'apply' job never re-plans (no 'terraform plan' step)",
+    !!applyJob && !stepRunContains(stepsOf(applyJob), "terraform plan")
+  );
+  check(
+    "infrastructure-deploy.yml's 'apply' job applies the downloaded plan file directly (terraform apply tfplan)",
+    !!applyJob && stepRunContains(stepsOf(applyJob), "terraform apply")
+  );
+
+  // No persistent versioned artifact for infrastructure: no GitHub Release
+  // upload/download anywhere in this workflow (gh release ...), unlike
+  // frontend-deploy.yml/backend-deploy.yml.
+  const allSteps = [
+    ...stepsOf(wf.jobs && wf.jobs["validate-and-test"]),
+    ...stepsOf(planJob),
+    ...stepsOf(applyJob),
+  ];
+  check(
+    "infrastructure-deploy.yml never references a GitHub Release (gh release) — no persistent versioned artifact",
+    !allSteps.some((s) => typeof s.run === "string" && s.run.includes("gh release"))
+  );
+}
+
 console.log("=== Workflow structure assertion tests ===\n");
 testUserStory1();
 testUserStory2();
 testUserStory3();
 testUserStory4();
 testUserStory5();
+testInfrastructureDeploy();
 
 console.log(`\n${passes} passed, ${failures} failed`);
 process.exit(failures > 0 ? 1 : 0);

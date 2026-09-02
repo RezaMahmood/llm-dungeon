@@ -18,6 +18,10 @@
 - Q: If someone bypasses the normal merge gate (e.g., an admin force-pushes to `main` or overrides a required check), should the build/version/cache step independently re-verify a passing test result before building, or is preventing bypass entirely a repository-permissions concern outside this feature's scope? → A: Rely on the merge gate (FR-002/FR-003) plus standard branch-protection settings as the sole enforcement mechanism — no separate in-pipeline re-verification step. An admin bypassing branch protection is an out-of-scope governance/permissions issue, not something this feature's build pipeline is required to independently detect or refuse.
 - Q: Should non-testable artifacts (documentation, specs, markdown) be excluded from triggering test/build/version by content type wherever they live, or only when they live outside all component directories? → A: By content type, but only when the *entire* change set is non-testable content — exclude a push/PR from triggering any component's test/build/version/cache pipeline only if every changed file is a non-testable artifact (docs, specs, markdown, comments-only), regardless of directory. The moment even one changed file in that same push/PR is a testable/buildable artifact, the full test/build pipeline for the affected component(s) MUST run as normal — including for the non-testable files bundled in that same change.
 
+### Amendment (post-merge follow-up, 2026-09-02)
+
+After this feature's first version merged and was deployed against the real repository, the requesting user reversed one part of the shipped design: **infrastructure no longer participates in the versioned build/cache/latest-resolution pattern.** Frontend and backend keep the full pattern described above (independent SemVer, build-once-deploy-that-artifact, cache-or-build-on-demand). Infrastructure's deploy instead always validates, tests, and plans fresh against the current state of `main` at the moment it is triggered, applying only the plan produced in that same run — no persisted, versioned artifact, and no `version` input. Infrastructure's deploy remains explicitly-triggered-only and keeps its mandatory human-approval gate (FR-011a) unchanged. This amendment supersedes every prior statement in this spec that described infrastructure as versioned/cached — see FR-004/FR-005/FR-006/FR-007/FR-008/FR-012 and the new FR-021/FR-022 below.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - No untested code reaches main (Priority: P1)
@@ -69,9 +73,9 @@ For each of frontend, backend, and infrastructure, deploying to an environment i
 
 ---
 
-### User Story 4 - Deploy targets a specific version, defaulting to latest (Priority: P2)
+### User Story 4 - Deploy targets a specific version, defaulting to latest (Priority: P2, frontend & backend only)
 
-When triggering a deploy, the person (or AI agent) provides which version of the component to deploy. If no version is given, the system deploys whichever version is the most recently built one for that component at the moment the deploy actually runs — even if a newer version landed after the deploy was requested but before it executed.
+When triggering a frontend or backend deploy, the person (or AI agent) provides which version of the component to deploy. If no version is given, the system deploys whichever version is the most recently built one for that component at the moment the deploy actually runs — even if a newer version landed after the deploy was requested but before it executed. Infrastructure has no version to target — its deploy always operates on the current state of `main` (see the post-merge Amendment in Clarifications).
 
 **Why this priority**: This makes deploys precise and predictable rather than ambiguous, while still supporting the common "just ship whatever is newest" case without forcing every deploy trigger to look up a version number by hand.
 
@@ -85,9 +89,9 @@ When triggering a deploy, the person (or AI agent) provides which version of the
 
 ---
 
-### User Story 5 - An AI agent can resolve and deploy "latest" on request (Priority: P2)
+### User Story 5 - An AI agent can resolve and deploy "latest" on request (Priority: P2, frontend & backend only)
 
-A user asks an AI agent (e.g., Claude) to deploy the latest version of a component. The agent determines whether a cached artifact already exists for that version; if it does, the agent deploys it as-is. If no cached artifact exists yet for that version, the agent causes it to be built first, then deploys the resulting artifact — without the user having to manually look up version numbers or trigger a separate build step.
+A user asks an AI agent (e.g., Claude) to deploy the latest version of frontend or backend. The agent determines whether a cached artifact already exists for that version; if it does, the agent deploys it as-is. If no cached artifact exists yet for that version, the agent causes it to be built first, then deploys the resulting artifact — without the user having to manually look up version numbers or trigger a separate build step. For infrastructure, the agent's role is simpler: it dispatches the deploy, which validates/tests/plans on its own, and then waits for the requesting human's approval — there is no "latest version" concept to resolve.
 
 **Why this priority**: This is the concrete, user-facing payoff of Stories 1-4 working together, and it's the specific workflow the request calls out by name. It depends on the version/cache/manual-deploy mechanics already existing, so it is ordered after them.
 
@@ -120,44 +124,46 @@ A user asks an AI agent (e.g., Claude) to deploy the latest version of a compone
 - **FR-001**: The system MUST automatically run the standard automated test suite for a component whenever a change affecting that component's paths is pushed, on any branch.
 - **FR-002**: The system MUST block a change from being merged into `main` while its required tests have not passed.
 - **FR-003**: The system MUST NOT provide any path by which untested code can be merged into `main`.
-- **FR-004**: Upon a change merging into `main`, the system MUST build a deployable artifact for each component whose paths were affected by that change, and MUST NOT rebuild components whose paths were unaffected.
-- **FR-005**: The system MUST assign each built artifact a unique version, distinct per component, so that frontend, backend, and infrastructure each have their own independent version history.
-- **FR-006**: The system MUST store each built artifact in a cache keyed by component and version, so it can be retrieved later without rebuilding.
-- **FR-007**: Built artifacts MUST be immutable — once a version's artifact has been built and cached, its contents MUST NOT be altered.
-- **FR-008**: Building MUST be idempotent — requesting a build for a version that already has a cached artifact MUST reuse that cached artifact rather than producing a new one.
-- **FR-009**: A built, cached artifact MUST be usable as-is for deployment, with no further build, install, or modification step required at deploy time.
+- **FR-004**: Upon a change merging into `main`, the system MUST build a deployable artifact for each of frontend and backend whose paths were affected by that change, and MUST NOT rebuild a component whose paths were unaffected. (Infrastructure does not build a persisted artifact on merge — see FR-021.)
+- **FR-005**: The system MUST assign each built artifact a unique version, distinct per component, so that frontend and backend each have their own independent version history. (Infrastructure has no version history — see FR-022.)
+- **FR-006**: For frontend and backend, the system MUST store each built artifact in a cache keyed by component and version, so it can be retrieved later without rebuilding.
+- **FR-007**: Frontend and backend build artifacts MUST be immutable — once a version's artifact has been built and cached, its contents MUST NOT be altered.
+- **FR-008**: For frontend and backend, building MUST be idempotent — requesting a build for a version that already has a cached artifact MUST reuse that cached artifact rather than producing a new one.
+- **FR-009**: A frontend or backend built, cached artifact MUST be usable as-is for deployment, with no further build, install, or modification step required at deploy time. (Infrastructure's deploy validates and plans fresh each run instead — see FR-021.)
 - **FR-010**: Deployment for each of frontend, backend, and infrastructure MUST be a distinct action that requires an explicit trigger (by a person, or by an AI agent acting on a person's instruction); none of them may be initiated automatically as a result of a push or a merge to `main`.
-- **FR-011**: All three components' deploy actions MUST follow the same operational pattern — explicitly triggered, accepts a version, deploys that version's cached artifact as-is — differing only in that infrastructure inserts a mandatory human-approval step (FR-011a) between trigger and apply.
+- **FR-011**: All three components' deploy actions MUST be explicitly triggered only, never a side effect of a push or merge. Frontend and backend additionally accept a version and deploy that version's cached artifact as-is (FR-012). Infrastructure instead always validates, tests, and plans fresh, applying only what it just planned (FR-021), and inserts a mandatory human-approval step (FR-011a) between trigger and apply that frontend/backend do not have (FR-011b).
 - **FR-011a**: Infrastructure's deploy action MUST require a human to review and approve the validated change before it is applied; an AI agent MAY trigger validation and prepare the change, but MUST NOT be able to supply that approval itself. All validation and testing for the change MUST be complete before this approval step — the approval is the final step in the sequence, not interleaved with earlier checks.
 - **FR-011b**: Frontend and backend deploy actions MUST execute directly once explicitly triggered, with no additional approval step required between trigger and deploy.
-- **FR-012**: A deploy action MUST accept a version identifying which artifact of that component to deploy.
-- **FR-013**: When a deploy is triggered without a version specified, the system MUST deploy the most recently built version available for that component at the time the deploy actually executes.
-- **FR-014**: When a deploy is triggered for a version that has a cached artifact, the system MUST deploy that cached artifact without rebuilding it.
-- **FR-015**: When a deploy is triggered for a version that has no cached artifact (including "latest" resolving to a version that hasn't been built yet), the system MUST build that exact version's artifact first, then deploy it.
-- **FR-016**: When a deploy is triggered for an explicit version that does not exist and cannot be built (e.g., it does not correspond to any tested state that ever merged to `main`), the system MUST fail the deploy with a clear error rather than deploying a different version.
-- **FR-017**: The system MUST make it possible to determine, for each component, which version was most recently built, so that "latest" can be resolved by a person or an AI agent without inspecting build logs.
-- **FR-018**: The system MUST support an AI agent initiating a deploy on a user's behalf, including resolving an unspecified or "latest" version request to a concrete version and determining whether that version already has a cached artifact before deciding whether to build.
+- **FR-012**: A frontend or backend deploy action MUST accept a version identifying which artifact of that component to deploy. (Infrastructure's deploy action accepts no version — see FR-022.)
+- **FR-013**: For frontend and backend, when a deploy is triggered without a version specified, the system MUST deploy the most recently built version available for that component at the time the deploy actually executes.
+- **FR-014**: For frontend and backend, when a deploy is triggered for a version that has a cached artifact, the system MUST deploy that cached artifact without rebuilding it.
+- **FR-015**: For frontend and backend, when a deploy is triggered for a version that has no cached artifact (including "latest" resolving to a version that hasn't been built yet), the system MUST build that exact version's artifact first, then deploy it.
+- **FR-016**: For frontend and backend, when a deploy is triggered for an explicit version that does not exist and cannot be built (e.g., it does not correspond to any tested state that ever merged to `main`), the system MUST fail the deploy with a clear error rather than deploying a different version.
+- **FR-017**: For frontend and backend, the system MUST make it possible to determine which version was most recently built, so that "latest" can be resolved by a person or an AI agent without inspecting build logs.
+- **FR-018**: The system MUST support an AI agent initiating a deploy on a user's behalf for any of the three components. For frontend/backend this includes resolving an unspecified or "latest" version request to a concrete version and determining whether that version already has a cached artifact before deciding whether to build; for infrastructure it means dispatching the deploy and letting validation/planning run, with only the requesting human able to supply the final approval (FR-011a).
 - **FR-019**: If every file changed in a push or pull request is a non-testable artifact (documentation, specs, markdown, comments-only content), the system MUST NOT trigger any component's test, build, version, or cache pipeline for that change, regardless of which directory the files live in.
-- **FR-020**: If a push or pull request changes at least one testable/buildable file, the system MUST run the full test (and, on merge, build/version/cache) pipeline for every component whose paths were affected — including for any non-testable files bundled in that same change — exactly as it would if no non-testable files were present.
+- **FR-020**: If a push or pull request changes at least one testable/buildable file, the system MUST run the full test (and, for frontend/backend on merge, build/version/cache) pipeline for every component whose paths were affected — including for any non-testable files bundled in that same change — exactly as it would if no non-testable files were present.
+- **FR-021**: Infrastructure's deploy action MUST, every time it is explicitly triggered, validate and test the current state of `main`, then produce a Terraform plan, then apply only that same-run plan — never a previously generated or cached one, and never re-planning immediately before applying.
+- **FR-022**: Infrastructure's deploy action MUST NOT accept or require a version input; there is no persisted version history for infrastructure to select from.
 
 ### Key Entities
 
-- **Component**: One of Frontend, Backend, or Infrastructure — an independently tested, built, versioned, and deployed unit of the system.
-- **Build Artifact**: The immutable, versioned output of a successful build for one component; complete and usable as-is for deployment.
-- **Version**: A unique identifier assigned to a build artifact, scoped to its component, used to reference exactly which tested change the artifact was built from.
-- **Cache**: The store of build artifacts, keyed by component and version, consulted before any new build and used to serve deploys without rebuilding.
-- **Deploy Action**: A manually triggered operation, one per component, that takes an optional version (defaulting to latest-at-execution-time) and results in that version's cached artifact being deployed.
+- **Component**: One of Frontend, Backend, or Infrastructure — an independently tested and deployed unit of the system. Frontend and backend are also independently built, versioned, and cached; infrastructure is not (see the Amendment above).
+- **Build Artifact**: The immutable, versioned output of a successful frontend or backend build; complete and usable as-is for deployment. Infrastructure has no equivalent persisted artifact — its Terraform plan exists only for the duration of a single deploy run.
+- **Version**: A unique identifier assigned to a frontend or backend build artifact, scoped to its component, used to reference exactly which tested change the artifact was built from. Infrastructure has no version.
+- **Cache**: The store of frontend/backend build artifacts, keyed by component and version, consulted before any new build and used to serve deploys without rebuilding. Infrastructure has no cache.
+- **Deploy Action**: A manually triggered operation, one per component. Frontend/backend's takes an optional version (defaulting to latest-at-execution-time) and results in that version's cached artifact being deployed. Infrastructure's takes no version and always validates/tests/plans fresh before applying.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
 - **SC-001**: 100% of changes merged into `main` have their tests pass beforehand — there is no recorded instance of untested code merging.
-- **SC-002**: Every deploy delivers the exact same artifact that was built and cached at merge time — zero rebuilds occur between build and deploy for a given version.
-- **SC-003**: A maintainer or AI agent can deploy any previously built, still-cached version of a component in a single manual action, without waiting for a new build.
-- **SC-004**: Requesting a deploy of "latest" when no cached artifact yet exists for that version results in a completed deploy from a single trigger, with the build happening automatically as part of that same request.
+- **SC-002**: For frontend and backend, every deploy delivers the exact same artifact that was built and cached at merge time — zero rebuilds occur between build and deploy for a given version. For infrastructure, every deploy applies exactly the plan produced in that same run — zero re-plans occur between plan and apply.
+- **SC-003**: A maintainer or AI agent can deploy any previously built, still-cached version of frontend or backend in a single manual action, without waiting for a new build.
+- **SC-004**: For frontend and backend, requesting a deploy of "latest" when no cached artifact yet exists for that version results in a completed deploy from a single trigger, with the build happening automatically as part of that same request.
 - **SC-005**: Across frontend, backend, and infrastructure, zero deploys occur as an automatic consequence of a merge to `main`; every deploy has a corresponding explicit trigger, and every infrastructure deploy additionally has a recorded human approval before it applied.
-- **SC-006**: Re-requesting a build for an already-cached version returns the identical artifact rather than producing a new one, in 100% of observed cases.
+- **SC-006**: For frontend and backend, re-requesting a build for an already-cached version returns the identical artifact rather than producing a new one, in 100% of observed cases.
 - **SC-007**: The pipeline introduces no unnecessary serial delay: independent components' tests and builds proceed in parallel rather than waiting on each other, and no deploy or build step rebuilds an artifact that a cache lookup could have served instead. (Directional — no fixed numeric time budget is set by this feature.)
 
 ## Assumptions
@@ -169,5 +175,5 @@ A user asks an AI agent (e.g., Claude) to deploy the latest version of a compone
 - Manually triggering a deploy (by a person or by an AI agent acting for them) requires the same repository permissions already in place for this project; this feature does not introduce a new authorization model.
 - The artifact cache has no expiry policy driven by this feature — artifacts remain retrievable indefinitely, consistent with the immutability requirement. Only a genuinely lost/evicted artifact would need to be rebuilt, which FR-015's build-on-demand behavior already covers.
 - Deploying an explicitly specified older version is a supported way to redeploy a previous release (functions as a rollback) because the identical, previously tested artifact is simply reused — no separate "rollback" mechanism is required.
-- Infrastructure participates in the same test-on-push, build/version/cache-on-merge, explicitly-triggered-deploy pattern as frontend and backend; its "build artifact" is whatever validated, deployable output infrastructure changes produce (e.g., a validated plan) rather than a compiled application bundle. It differs from frontend/backend only in requiring a human-approval gate between trigger and apply (FR-011a).
+- Infrastructure participates in the same test-on-push, explicitly-triggered-deploy pattern as frontend and backend, and keeps the same mandatory human-approval gate (FR-011a). It does NOT participate in the build/version/cache-on-merge pattern (superseded by the post-merge Amendment above): its deploy action always validates, tests, and plans fresh against the current state of `main`, applying only that same-run plan — no persisted artifact, no version history, no `version` input.
 - "No code can enter `main` unless it's been tested" is enforced by the merge gate and this project's existing branch-protection settings (FR-002/FR-003); the build pipeline does not perform its own independent re-verification of test results. A bypass of branch protection (e.g., an admin override) is a repository-permissions/governance matter outside this feature's scope.

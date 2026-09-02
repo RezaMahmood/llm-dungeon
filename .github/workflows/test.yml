@@ -18,10 +18,22 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       all-non-testable: ${{ steps.detect.outputs.all-non-testable }}
+      frontend-changed: ${{ steps.frontend-filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/detect-non-testable-changes
         id: detect
+      - name: Detect frontend path changes
+        # frontend-test's real work is skipped when this is false — the
+        # job itself still always runs (registers a check run) so it can
+        # remain a viable required check candidate without the "check
+        # never runs at all" problem a paths:-filtered trigger would cause.
+        id: frontend-filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            frontend:
+              - 'src/frontend/**'
 
   test:
     needs: changes
@@ -67,7 +79,7 @@ jobs:
 
   frontend-test:
     needs: changes
-    if: needs.changes.outputs.all-non-testable != 'true'
+    if: needs.changes.outputs.all-non-testable != 'true' && needs.changes.outputs.frontend-changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
