@@ -4,8 +4,8 @@ name: Workflow Lint
 # (constitution Principle I — every PR that touches workflow YAML gets an
 # automated, non-manual check, not just human review). This only catches
 # syntax/schema/expression errors; behavioral/structural correctness per
-# user story is covered by scripts/test-workflow-structure.sh and
-# scripts/test-release-fixtures.sh (see /speckit-analyze finding G1).
+# user story is covered by scripts/test-workflow-structure.js and
+# scripts/test-release-fixtures.js (see /speckit-analyze finding G1).
 
 on:
   pull_request:

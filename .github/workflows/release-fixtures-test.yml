@@ -15,8 +15,11 @@ on:
     paths:
       - "src/backend/.releaserc.json"
       - "src/frontend/.releaserc.json"
-      - ".github/workflows/backend-deploy.yml"
-      - ".github/workflows/frontend-deploy.yml"
+      - "infrastructure/.releaserc.json"
+      - "infrastructure/package.json"
+      - ".github/workflows/_build-backend.yml"
+      - ".github/workflows/_build-frontend.yml"
+      - ".github/workflows/_build-infrastructure.yml"
       - "scripts/test-release-fixtures.js"
       - "scripts/package.json"
       - "scripts/package-lock.json"

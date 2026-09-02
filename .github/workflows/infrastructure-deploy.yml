@@ -1,0 +1,199 @@
+name: Infrastructure Deploy
+
+# CD: workflow_dispatch only, version input, required-reviewer environment
+# (specs/023-cicd-pipeline-optimization, FR-010/FR-011/FR-011a). Deploy is
+# always a distinct, explicitly-triggered action — never a side effect of
+# a push or merge to `main`. Unlike frontend-deploy.yml/backend-deploy.yml,
+# the `apply` job below targets the `production-infra` GitHub Environment,
+# which MUST be configured (by the requesting human, not in this YAML —
+# see tasks.md T019) with a required-reviewer protection rule that has
+# "Prevent self-review" enabled, with that human as the sole required
+# reviewer. An AI agent can dispatch this workflow and complete validation,
+# but only that human can supply the approval — never the agent, and never
+# the identity that dispatched the run.
+#
+# Job graph: resolve-version -> build-on-demand (conditional) ->
+# ensure-artifact -> apply. build-on-demand is its own job (not a step of
+# ensure-artifact) because GitHub Actions requires a reusable-workflow
+# call (`uses: ./.github/workflows/_build-infrastructure.yml`) to be the
+# entire content of its job — see contracts/workflow-interfaces.md for the
+# conceptual 3-stage contract this graph implements.
+#
+# `apply` applies the exact plan `_build-infrastructure.yml` validated and
+# cached, rather than generating a new plan immediately before applying
+# (research.md Decision 3) — if state has drifted since that plan was
+# generated, `terraform apply <saved-plan>` fails outright with a native
+# stale-plan error instead of silently re-planning.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Exact infrastructure-v<version> to deploy. Leave blank to deploy the latest available version at execution time."
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  resolve-version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      must_build: ${{ steps.resolve.outputs.must_build }}
+      cache_hit: ${{ steps.resolve.outputs.cache_hit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version to deploy
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then
+            # Explicit version: FR-016 — a version with no matching tag
+            # anywhere in history fails clearly, with no fallback
+            # substitution and no unrequested build.
+            if ! git tag --list "infrastructure-v${INPUT_VERSION}" | grep -q .; then
+              echo "::error::No such version: infrastructure-v${INPUT_VERSION} does not exist and cannot be built — it does not correspond to any tested state that ever merged to main. Deploy refused rather than substituting a different version." >&2
+              exit 1
+            fi
+            echo "version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+            echo "must_build=false" >> "$GITHUB_OUTPUT"
+            if gh release view "infrastructure-v${INPUT_VERSION}" --repo "${{ github.repository }}" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx 'infrastructure-plan.zip'; then
+              echo "cache_hit=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "cache_hit=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            # Unspecified: resolve to latest-at-execution-time (FR-013), not
+            # whatever was latest when this run was triggered. "latest" may
+            # not have been built yet at all (Edge Cases: a component never
+            # built before) — always route through build-on-demand, whose
+            # own internal idempotency check (research.md Decision 4/5)
+            # makes this cheap when nothing has actually changed.
+            echo "version=" >> "$GITHUB_OUTPUT"
+            echo "must_build=true" >> "$GITHUB_OUTPUT"
+            echo "cache_hit=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-on-demand:
+    needs: resolve-version
+    if: needs.resolve-version.outputs.must_build == 'true' || needs.resolve-version.outputs.cache_hit != 'true'
+    # Cache-miss-on-latest build fallback (FR-015/User Story 5) — validates
+    # and plans, but does not apply. Also covers the abnormal case of an
+    # explicit version whose tag exists but whose release asset is missing.
+    uses: ./.github/workflows/_build-infrastructure.yml
+    secrets: inherit
+
+  ensure-artifact:
+    needs: [resolve-version, build-on-demand]
+    if: always() && needs.resolve-version.result == 'success' && (needs.build-on-demand.result == 'success' || needs.build-on-demand.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.pick-version.outputs.version }}
+    steps:
+      - name: Determine final version
+        id: pick-version
+        run: |
+          BUILD_VERSION="${{ needs.build-on-demand.outputs.version }}"
+          if [ -n "$BUILD_VERSION" ]; then
+            echo "version=$BUILD_VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ needs.resolve-version.outputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download the cached plan artifact
+        # The exact validated plan build-on-demand just produced (or that
+        # already existed) — applied as-is, no re-plan step here or in the
+        # apply job below (FR-009/SC-002, research.md Decision 3).
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "infrastructure-v${{ steps.pick-version.outputs.version }}" \
+            --repo "${{ github.repository }}" \
+            --pattern infrastructure-plan.zip \
+            --output infrastructure-plan.zip
+
+      - name: Upload artifact for the apply job
+        uses: actions/upload-artifact@v4
+        with:
+          name: infrastructure-plan-${{ github.run_id }}
+          path: infrastructure-plan.zip
+          retention-days: 1
+
+  apply:
+    needs: ensure-artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Required-reviewer protection rule with "Prevent self-review" enabled
+    # MUST be configured on this environment by the requesting human
+    # (tasks.md T019) — this YAML alone cannot enforce that; GitHub only
+    # pauses here for approval if the environment is actually so configured.
+    environment: production-infra
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Only for the Terraform module source (`main.tf` etc.) that the
+          # saved plan references — the plan file itself is downloaded and
+          # unpacked below, never regenerated. Checkout MUST run before that
+          # download/unpack step: actions/checkout cleans untracked files
+          # in the workspace by default, which would otherwise delete the
+          # just-unpacked tfplan.
+          sparse-checkout: |
+            infrastructure/terraform
+          sparse-checkout-cone-mode: false
+
+      - name: Download the resolved plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: infrastructure-plan-${{ github.run_id }}
+
+      - name: Unpack the plan artifact
+        run: unzip -o -q infrastructure-plan.zip -d infrastructure/terraform
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ vars.TERRAFORM_VERSION }}
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Init
+        working-directory: infrastructure/terraform
+        run: terraform init -backend-config=backend-prod.hcl -input=false
+
+      - name: Terraform Apply
+        # Applies the exact plan build-on-demand/ensure-artifact produced —
+        # no `-var-file` or `-auto-approve` (both only apply when generating
+        # a new plan; a saved plan file needs neither, and Terraform
+        # refuses to apply a stale one on its own).
+        working-directory: infrastructure/terraform
+        run: terraform apply -input=false tfplan
+
+      - name: Capture Terraform Outputs
+        working-directory: infrastructure/terraform
+        run: terraform output -json > outputs.json
+
+      - name: Upload outputs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs
+          path: infrastructure/terraform/outputs.json
+          retention-days: 5
+
+      - name: Record deployed version
+        run: echo "Applied infrastructure version ${{ needs.ensure-artifact.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"

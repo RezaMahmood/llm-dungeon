@@ -1,178 +1,137 @@
 name: Frontend Deploy
 
-on:
-  push:
-    branches: [main]
-    paths:
-      - "src/frontend/**"
-  workflow_dispatch: {}
+# CD: workflow_dispatch only, version input, no approval gate
+# (specs/023-cicd-pipeline-optimization, FR-010/FR-011/FR-011b). Deploy is
+# always a distinct, explicitly-triggered action — never a side effect of
+# a push or merge to `main`. Frontend deploys execute directly once
+# triggered, unlike infrastructure-deploy.yml's approval-gated apply.
+#
+# Job graph: resolve-version -> build-on-demand (conditional) ->
+# ensure-artifact -> deploy. build-on-demand is its own job (not a step of
+# ensure-artifact) because GitHub Actions requires a reusable-workflow
+# call (`uses: ./.github/workflows/_build-frontend.yml`) to be the entire
+# content of its job — see contracts/workflow-interfaces.md for the
+# conceptual 3-stage contract this graph implements.
 
-# Targets `production` (no approval gate) — application deploys stay fully
-# automatic per FR-010/SC-006.
-#
-# Job graph (specs/023-cicd-pipeline-optimization): test -> release -> build -> deploy.
-# `deploy` always consumes the exact `dist/` artifact `build` produced in
-# this same run — it never re-runs `npm install`/`npm run build`. See
-# contracts/workflow-interfaces.md for the job-graph and artifact-naming
-# contract this file implements.
-#
-# concurrency: a newer push to main cancels an in-flight older run for this
-# component before it deploys (FR-005/FR-006) — the "abort on conflict/
-# newer version" guarantee, achieved via GitHub's native concurrency-group
-# cancellation rather than a custom SHA-comparison step. Literal group name,
-# not templated on github.ref (research.md decision #2).
-concurrency:
-  group: deploy-frontend
-  cancel-in-progress: true
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Exact frontend-v<version> to deploy. Leave blank to deploy the latest available version at execution time."
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
-  pull-requests: read
   id-token: write
 
 jobs:
-  test:
+  resolve-version:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: src/frontend
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      must_build: ${{ steps.resolve.outputs.must_build }}
+      cache_hit: ${{ steps.resolve.outputs.cache_hit }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: "24"
-          cache: "npm"
-          cache-dependency-path: src/frontend/package-lock.json
+          fetch-depth: 0
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Resolve version to deploy
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then
+            # Explicit version: FR-016 — a version with no matching tag
+            # anywhere in history fails clearly, with no fallback
+            # substitution and no unrequested build.
+            if ! git tag --list "frontend-v${INPUT_VERSION}" | grep -q .; then
+              echo "::error::No such version: frontend-v${INPUT_VERSION} does not exist and cannot be built — it does not correspond to any tested state that ever merged to main. Deploy refused rather than substituting a different version." >&2
+              exit 1
+            fi
+            echo "version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+            echo "must_build=false" >> "$GITHUB_OUTPUT"
+            if gh release view "frontend-v${INPUT_VERSION}" --repo "${{ github.repository }}" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx 'frontend-dist.zip'; then
+              echo "cache_hit=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "cache_hit=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            # Unspecified: resolve to latest-at-execution-time (FR-013), not
+            # whatever was latest when this run was triggered. "latest" may
+            # not have been built yet at all (Edge Cases: a component never
+            # built before) — always route through build-on-demand, whose
+            # own internal idempotency check (research.md Decision 4/5)
+            # makes this cheap when nothing has actually changed.
+            echo "version=" >> "$GITHUB_OUTPUT"
+            echo "must_build=true" >> "$GITHUB_OUTPUT"
+            echo "cache_hit=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Run tests
-        run: npm test
+  build-on-demand:
+    needs: resolve-version
+    if: needs.resolve-version.outputs.must_build == 'true' || needs.resolve-version.outputs.cache_hit != 'true'
+    # Cache-miss-on-latest build fallback (FR-015/User Story 5). Also
+    # covers the abnormal case of an explicit version whose tag exists but
+    # whose release asset is missing — rebuilding that exact tested state
+    # is safe and distinct from FR-016's true not-found failure above.
+    uses: ./.github/workflows/_build-frontend.yml
+    secrets: inherit
 
-  release:
-    needs: test
+  ensure-artifact:
+    needs: [resolve-version, build-on-demand]
+    if: always() && needs.resolve-version.result == 'success' && (needs.build-on-demand.result == 'success' || needs.build-on-demand.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # contents: write is required for @semantic-release/github to create a
-    # git tag + GitHub Release. semantic-release is deliberately configured
-    # WITHOUT @semantic-release/git (research.md decision #3) so this
-    # permission is never used to push a commit back to main — only to
-    # create tags/releases, which are non-branch-history writes.
-    permissions:
-      contents: write
     outputs:
-      version: ${{ steps.compute-version.outputs.version }}
-    defaults:
-      run:
-        working-directory: src/frontend
+      version: ${{ steps.pick-version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # semantic-release needs full tag history
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: "npm"
-          cache-dependency-path: src/frontend/package-lock.json
-
-      - name: Install release tooling
-        run: npm ci
-
-      - name: Require a seed version tag
-        # semantic-release computes 1.0.0 for a component's first-ever
-        # release when no prior tag exists. spec.md's Clarifications commit
-        # to a 0.1.0 baseline instead, so a maintainer must seed
-        # frontend-v0.1.0 once (at rollout) pointing at a real commit
-        # reachable from main — see .github/workflows/README.md.
+      - name: Determine final version
+        id: pick-version
         run: |
-          if ! git tag --list 'frontend-v*' | grep -q .; then
-            echo "::error::No frontend-v* tag found. Seed the 0.1.0 baseline once with: git tag frontend-v0.1.0 <commit-on-main> && git push origin frontend-v0.1.0 — see .github/workflows/README.md." >&2
-            exit 1
+          BUILD_VERSION="${{ needs.build-on-demand.outputs.version }}"
+          if [ -n "$BUILD_VERSION" ]; then
+            echo "version=$BUILD_VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ needs.resolve-version.outputs.version }}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Run semantic-release
+      - name: Download the cached artifact
+        # The exact artifact build-on-demand just produced (or that already
+        # existed) — deployed as-is, no install/build/re-plan step here or
+        # in the deploy job below (FR-009/SC-002).
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
-
-      - name: Compute this run's version output
-        id: compute-version
-        # The version to stamp into this run's artifact: whatever
-        # semantic-release just released, or — if this run's commits
-        # weren't releasable for frontend (FR-013) — the existing latest
-        # frontend-v* tag, unchanged.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          LATEST_TAG=$(git tag --list 'frontend-v*' --sort=-v:refname | head -n1)
-          echo "version=${LATEST_TAG#frontend-v}" >> "$GITHUB_OUTPUT"
+          gh release download "frontend-v${{ steps.pick-version.outputs.version }}" \
+            --repo "${{ github.repository }}" \
+            --pattern frontend-dist.zip \
+            --output frontend-dist.zip
 
-  build:
-    needs: release
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: src/frontend
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: "npm"
-          cache-dependency-path: src/frontend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build static site
-        env:
-          # msalConfig.js reads these via import.meta.env at build time
-          # (Vite bakes them into the bundle) — see plan.md's 2026-08-29
-          # Amendment and research.md Decision 9 for why this step exists.
-          # VITE_AZURE_REDIRECT_URI is deliberately left unset: Azure Static
-          # Web Apps get a randomly generated hostname (e.g.
-          # calm-bay-063862603.7.azurestaticapps.net), not one derived from
-          # STATIC_WEB_APP_NAME, so hardcoding it here would be wrong.
-          # msalConfig.js falls back to `window.location.origin + "/"` at
-          # runtime, which is always correct regardless of hostname.
-          VITE_AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
-          VITE_AZURE_APP_ID: ${{ vars.AZURE_APP_ID }}
-        run: |
-          if [ -z "$VITE_AZURE_TENANT_ID" ] || [ -z "$VITE_AZURE_APP_ID" ]; then
-            echo "::error::VITE_AZURE_TENANT_ID / VITE_AZURE_APP_ID are not set — MSAL sign-in would silently break in production (FR-014). Set the AZURE_TENANT_ID and AZURE_APP_ID GitHub repository variables." >&2
-            exit 1
-          fi
-          npm run build
-
-      - name: Stamp version into the artifact
-        run: |
-          printf '{"version": "%s"}' "${{ needs.release.outputs.version }}" > dist/version.json
-
-      - name: Upload build artifact
+      - name: Upload artifact for the deploy job
         uses: actions/upload-artifact@v4
         with:
-          name: frontend-build-${{ github.run_id }}
-          path: src/frontend/dist
-          retention-days: 5
+          name: frontend-dist-${{ github.run_id }}
+          path: frontend-dist.zip
+          retention-days: 1
 
   deploy:
-    needs: build
+    needs: ensure-artifact
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
     steps:
-      - name: Download build artifact
+      - name: Download the resolved artifact
         uses: actions/download-artifact@v4
         with:
-          name: frontend-build-${{ github.run_id }}
-          path: dist
+          name: frontend-dist-${{ github.run_id }}
+
+      - name: Unpack the artifact
+        run: unzip -q frontend-dist.zip -d dist
 
       - name: Deploy to Static Web App
         uses: Azure/static-web-apps-deploy@v1
@@ -184,3 +143,6 @@ jobs:
           api_location: ""
           output_location: ""
           skip_app_build: true
+
+      - name: Record deployed version
+        run: echo "Deployed frontend version ${{ needs.ensure-artifact.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"

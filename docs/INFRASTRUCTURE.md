@@ -16,10 +16,13 @@ this page is a short map, not a restatement.
   `monitoring.tf` (Log Analytics, Application Insights, budget alert),
   `identity.tf` (Functions Managed Identity role assignments).
 - `.github/workflows/` — `terraform-validate.yml` (PR checks + drift-detecting
-  plan), `terraform-apply.yml` (targets the `production-infra` environment,
-  human-approval-gated), `backend-deploy.yml`/`frontend-deploy.yml` (target
-  `production`, fully automatic), `infrastructure-tests.yml` (nightly +
-  on-demand).
+  plan), `infrastructure-build.yml` (CI: automatic validate/plan/version/cache
+  on merge to `main`), `infrastructure-deploy.yml` (CD: manually triggered
+  only, targets the `production-infra` environment, human-approval-gated),
+  `backend-deploy.yml`/`frontend-deploy.yml` (CD: manually triggered only,
+  target `production`, no approval gate), `infrastructure-tests.yml`
+  (nightly + on-demand). See `.github/workflows/README.md` for the full
+  CI/CD split.
 - `infrastructure/tests/` — Terraform validation wrapper plus pytest suites
   for resource existence, private connectivity, and OIDC authentication.
 - `infrastructure/scripts/` — one-time `bootstrap.sh` (Terraform state storage + GitHub OIDC

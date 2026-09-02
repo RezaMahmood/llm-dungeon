@@ -1,69 +1,76 @@
 # Contracts: Workflow Interfaces
 
-This feature has no application API. Its "interfaces" are the conventions other tooling, branch protection rules, and maintainers rely on: required check names, artifact/version naming, and job graph shape. These are the contracts implementation must honor exactly, since GitHub branch protection and any future automation will reference these names literally.
+This feature has no application API. Its "interfaces" are the trigger/input contracts of the GitHub Actions workflows themselves — what other tooling, branch protection rules, human maintainers, and AI agents rely on to interact with CI and CD correctly. These are the contracts implementation and `/speckit-tasks` must honor exactly.
+
+## CI workflows (automatic — test-on-push, build/version/cache-on-merge)
+
+| Workflow | Trigger | Path scope | Contract |
+|---|---|---|---|
+| `test.yml` | `push` (any branch) **and** `pull_request` (opened, synchronize, reopened) | none (runs both suites; component-level skip handled by the `changes` job below) | MUST run the standard backend (pytest) and frontend (npm test) suites automatically on every push, per FR-001. MUST NOT run either suite if the "all changed files are non-testable" check (below) is true. |
+| `frontend-build.yml` | `push` to `main`, paths: `src/frontend/**` | `src/frontend/**` | On a qualifying merge: run `semantic-release` (path-scoped) to compute next version → build `dist/` → attach as release asset (FR-004/FR-005/FR-006/FR-007). MUST NOT include a `deploy` job. |
+| `backend-build.yml` | `push` to `main`, paths: `src/backend/**`, `src/function_app.py`, `src/requirements.txt` | as listed | Same contract as `frontend-build.yml`, for backend's artifact shape (zip + vendored deps). MUST NOT include a `deploy` job. |
+| `infrastructure-build.yml` | `push` to `main`, paths: `infrastructure/**` | `infrastructure/**` | Same contract, producing a saved Terraform plan + `VERSION` as the release asset (Decision 3/9, research.md). MUST NOT include an `apply`/`deploy` job. |
+
+### Non-testable-artifact skip contract (FR-019/FR-020)
+
+Every CI workflow above (via a shared `changes` job pattern) MUST expose a boolean output — e.g. `all-non-testable` — computed as: `true` if and only if every file in the push/PR's changed-file list matches the non-testable glob set (`**/*.md`, `specs/**`, `docs/**`, `LICENSE`, `CONTRIBUTING.md`, and equivalents); `false` otherwise (including when the change set is empty of any files, which cannot occur for a real push).
+
+- When `all-non-testable == true`: every downstream test/build job in that workflow run MUST be skipped (via `if: needs.changes.outputs.all-non-testable != 'true'` or equivalent) — no test suite runs, no build/version/cache pipeline runs, for any component.
+- When `all-non-testable == false`: the normal per-component path-scoped pipeline runs exactly as it does today, with no reduction — including for any non-testable files bundled in the same change.
+
+## CD workflows (manual — deploy)
+
+| Workflow | Trigger | Approval gate | Contract |
+|---|---|---|---|
+| `frontend-deploy.yml` | `workflow_dispatch` **only** | none | See shared CD contract below. Deploy job runs immediately once triggered (FR-011b). |
+| `backend-deploy.yml` | `workflow_dispatch` **only** | none | Same. |
+| `infrastructure-deploy.yml` | `workflow_dispatch` **only** | Target environment (e.g. `production-infra`) has a required-reviewer protection rule | See shared CD contract below, plus: the `apply` job MUST target that environment, and MUST NOT run until a human approves the pending deployment in the GitHub UI/API (FR-011a). An AI agent MAY trigger the workflow and MAY complete validation, but MUST NOT be the entity that supplies the approval. |
+
+**None of the three CD workflows may declare a `push` or `pull_request` trigger** (FR-010) — this is the single most important structural assertion `workflow-structure-test.yml` must enforce for this feature.
+
+### Shared `workflow_dispatch` input contract
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Exact <component>-v<version> to deploy. Leave blank to deploy the latest available version at execution time."
+        required: false
+        type: string
+        default: ""
+```
+
+### Shared CD job-graph contract
+
+1. **`resolve-version`**: if `version` input is non-blank, use it verbatim. If blank, query that component's release tags and select the highest SemVer (evaluated now, at run time — FR-013). Output: `resolved_version`.
+2. **`ensure-artifact`**: check whether a release/tag `<component>-v<resolved_version>` exists with the expected asset attached.
+   - **Cache hit**: download the asset unchanged. Proceed to deploy.
+   - **Cache miss, and `resolved_version` is the latest tag that would exist if built from current `main`** (the "latest, not yet built" case — User Story 5 / FR-015): invoke the shared `workflow_call` build workflow (research.md Decision 5) to produce and cache it, then proceed to deploy.
+   - **Cache miss, explicit version requested that doesn't correspond to any tagged/buildable state**: fail the run with a clear error (FR-016) — no fallback substitution, no unrequested build.
+3. **`deploy`**: deploy the artifact obtained in step 2 as-is — no install, build, or re-plan step (FR-009). For infrastructure, this job is the one gated by the required-reviewer environment.
+
+### AI-agent usage contract (informational — realized entirely through the CLI, not a new API)
+
+An AI agent (e.g., Claude) satisfies User Story 5 by using the standard GitHub CLI against the interfaces above — no bespoke endpoint is introduced:
+
+```bash
+# Check for a cached "latest" artifact before deciding whether a build is implied
+gh release list --repo <owner>/<repo> | grep '^frontend-v'
+
+# Trigger the deploy, explicit version or blank for latest
+gh workflow run frontend-deploy.yml -f version=1.4.0
+gh workflow run frontend-deploy.yml -f version=""
+```
+
+The `ensure-artifact` job (above) performs the authoritative cache-check/build-if-missing logic server-side regardless of what the agent checked beforehand — the agent's own `gh release list` check is an optimization/explanation step, not a trust boundary.
 
 ## Required status checks (branch protection surface)
 
-| Check name (job) | Workflow | Trigger | Contract |
-|---|---|---|---|
-| PR title format | `pr-title-check.yml` | `pull_request` (opened, edited, synchronize) | MUST fail if the PR title does not parse as `type(scope): description` with `scope` ∈ {`frontend`, `backend`, ...} and `type` ∈ the Conventional Commits set. MUST re-run on title edits, not just first open. The declared `scope` is descriptive only (research.md decision #3) — it is validated for format here, but does not gate versioning eligibility. |
-| `test` (backend) | `test.yml` | `pull_request` | Unchanged trigger/scope (FR-017); only caching added. |
-| `frontend-test` | `test.yml` | `pull_request` | Unchanged trigger/scope (FR-017); only caching added. |
-| Workflow lint (`actionlint`) | new, on changed `.github/workflows/**` | `pull_request` | Required per research.md decision #8 (Principle I compliance) — fails on YAML/schema/expression errors in changed workflow files. Syntax/schema only — does not assert job/step shape; see the structure-assertion checks below for that (`/speckit-analyze` finding G1). |
-| Workflow structure assertion (deploy) | new (tasks.md T006/T009) | `pull_request` touching either deploy workflow | Required — asserts `deploy` has no install/build step and the correct `remote-build`/`skip_app_build` value, and that `build`→`deploy` artifact names match. |
-| Workflow structure assertion (concurrency) | new (tasks.md T010/T013) | `pull_request` touching either deploy workflow | Required — asserts the literal `concurrency.group`/`cancel-in-progress: true` block is present in both workflows. |
-| Version-computation fixture test | new, alongside the versioning tooling | `pull_request` touching `src/backend/.releaserc.json`, `src/frontend/.releaserc.json`, or either deploy workflow's `release` job | Required per research.md decision #8 — asserts correct per-component bump behavior against fixture commits, including the vertical-slice case. |
-| Workflow structure assertion (terraform apply) | new (tasks.md T026/T029) | `pull_request` touching `terraform-apply.yml` | Required — asserts `apply` references the downloaded `tfplan` with no `-auto-approve`/`-var-file`. |
-
-**Contract**: these check names MUST be added to the repository's branch protection required-checks list for `main` as part of this feature's rollout task — a check that exists but isn't required doesn't block merge.
-
-## Per-component workflow job graph
-
-Both `backend-deploy.yml` and `frontend-deploy.yml` expose this job sequence as their contract with each other and with anyone reading run history:
-
-```
-test → release → build → deploy
-```
-
-- `test`: MUST run on every push to `main` touching this component's paths (existing `on.push.paths` filter, unchanged). Failure MUST stop the chain — `release`/`build`/`deploy` MUST NOT run.
-- `release`: MUST run only after `test` succeeds. MUST filter candidate commits since this component's last matching tag by **path-diff** (did the commit's changed files fall under this component's paths?), not by the PR title's scope word, before handing surviving commits to the commit-analyzer — see research.md decision #3. Outputs (job `outputs`) MUST expose at least `version` (the version this run's artifact should carry — either a newly cut Release version, or the current latest tag if no qualifying commit triggered a new Release) for `build` to consume.
-- `build`: MUST run only after `release` succeeds (or is a no-op success with no new version). MUST produce exactly one `actions/upload-artifact` named `{component}-build-{run_id}` containing the deployable output plus its version metadata file (`VERSION` or `version.json`).
-- `deploy`: MUST run only after `build` succeeds. MUST consume the artifact `build` produced via `actions/download-artifact` — MUST NOT invoke any install/build/remote-build step of its own.
-
-**Contract**: the artifact name pattern `{component}-build-{run_id}` is how `deploy` locates the correct artifact; it MUST be unique per run (GitHub Actions run artifacts are already run-scoped, so `{run_id}` is primarily for human-readability in the Actions UI, not uniqueness enforcement).
-
-## Concurrency contract
-
-Both workflows MUST declare:
-
-```yaml
-concurrency:
-  group: deploy-<component>   # deploy-backend / deploy-frontend, literal, not templated on ref
-  cancel-in-progress: true
-```
-
-**Contract**: the group name MUST be a literal per-component string, not interpolated with `github.ref` or similar — the whole point is that all runs of a given component's workflow share one group, so a newer run cancels an older one regardless of ref. (Both workflows only trigger on `push: branches: [main]` today, so there is currently only one relevant ref per component; the literal group name is still the correct contract in case that ever changes.)
-
-## Version/tag/release naming contract
-
-| Component | Tag format | Example |
+| Check name (job) | Workflow | Contract |
 |---|---|---|
-| backend | `backend-v{X.Y.Z}` | `backend-v0.2.0` |
-| frontend | `frontend-v{X.Y.Z}` | `frontend-v0.3.1` |
-
-**Contract**: this exact prefix format is what `semantic-release`'s `tagFormat` config in each component's `.releaserc.json` MUST use — it is also what any future tooling (dashboards, rollback scripts, incident runbooks) should match against to find a component's release history. Infrastructure MUST NOT receive tags in this format (FR-014) — no `infra-v*` tag is created by this feature.
-
-## Version-in-artifact contract
-
-| Component | File | Location | Format |
-|---|---|---|---|
-| backend | `VERSION` | artifact root (alongside `function_app.py`) | plain text, single line, e.g. `0.2.0` |
-| frontend | `version.json` | artifact root (alongside `dist/index.html` or within `dist/`) | `{"version": "0.3.1"}` |
-
-**Contract**: FR-010 requires the version be discoverable from the deployed artifact itself. Whatever mechanism `/speckit-tasks` implements MUST result in one of these two files existing, unmodified in the git-tracked source tree (see research.md decision #7 — no source-file mutation, no commit back to `main`).
-
-## Terraform plan-artifact contract
-
-| Artifact name | Producer job | Consumer job | Contract |
-|---|---|---|---|
-| `tfplan` | `validate` (in `terraform-apply.yml`) | `apply` (in `terraform-apply.yml`) | `apply` MUST run `terraform apply -input=false tfplan` (the downloaded file), with no `-var-file`/`-auto-approve` flags. If Terraform reports the plan is stale, the job MUST fail (native Terraform behavior — no custom handling required). |
+| PR title format | `pr-title-check.yml` | Unchanged from the existing implementation — MUST fail if the PR title doesn't parse as Conventional Commits `type(scope): description`. The `scope` word remains descriptive only; versioning eligibility is path-diff-based (per this repo's existing `semantic-release-monorepo` setup), not scope-gated. |
+| `test` / `frontend-test` | `test.yml` | MUST run on every push and PR (FR-001), except when `all-non-testable == true` (FR-019). |
+| Workflow lint (`actionlint`) | `workflow-lint.yml` | Unchanged — syntax/schema only. |
+| Workflow structure assertion | `workflow-structure-test.yml` (extended) | MUST assert: no CD workflow has a `push`/`pull_request` trigger; every CD workflow's `workflow_dispatch` declares a `version` input; infrastructure's deploy job targets the approval-gated environment and frontend/backend's do not; no CI workflow contains a `deploy`/`apply` job. |
+| Release fixture test | `release-fixtures-test.yml` (extended) | MUST cover infrastructure's new path scope alongside frontend/backend's existing fixtures, including the vertical-slice (multi-component) commit case. |

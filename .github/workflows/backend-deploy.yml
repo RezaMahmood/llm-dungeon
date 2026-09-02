@@ -1,166 +1,137 @@
 name: Backend Deploy
 
-on:
-  push:
-    branches: [main]
-    paths:
-      - "src/backend/**"
-      - "src/function_app.py"
-      - "src/requirements.txt"
-  workflow_dispatch: {}
+# CD: workflow_dispatch only, version input, no approval gate
+# (specs/023-cicd-pipeline-optimization, FR-010/FR-011/FR-011b). Deploy is
+# always a distinct, explicitly-triggered action — never a side effect of
+# a push or merge to `main`. Backend deploys execute directly once
+# triggered, unlike infrastructure-deploy.yml's approval-gated apply.
+#
+# Job graph: resolve-version -> build-on-demand (conditional) ->
+# ensure-artifact -> deploy. build-on-demand is its own job (not a step of
+# ensure-artifact) because GitHub Actions requires a reusable-workflow
+# call (`uses: ./.github/workflows/_build-backend.yml`) to be the entire
+# content of its job — see contracts/workflow-interfaces.md for the
+# conceptual 3-stage contract this graph implements.
 
-# Targets `production` (no approval gate) — application deploys stay fully
-# automatic per FR-010/SC-006. Only terraform-apply.yml targets the
-# `production-infra` environment, which does require approval.
-#
-# Job graph (specs/023-cicd-pipeline-optimization): test -> release -> build -> deploy.
-# `deploy` always consumes the exact artifact `build` produced in this same
-# run via actions/upload-artifact/download-artifact — it never reinstalls
-# dependencies or triggers Azure's Oryx remote build. See
-# contracts/workflow-interfaces.md for the job-graph and artifact-naming
-# contract this file implements.
-#
-# concurrency: a newer push to main cancels an in-flight older run for this
-# component before it deploys (FR-005/FR-006) — the "abort on conflict/
-# newer version" guarantee, achieved via GitHub's native concurrency-group
-# cancellation rather than a custom SHA-comparison step. Literal group name,
-# not templated on github.ref (research.md decision #2).
-concurrency:
-  group: deploy-backend
-  cancel-in-progress: true
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Exact backend-v<version> to deploy. Leave blank to deploy the latest available version at execution time."
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
   id-token: write
 
 jobs:
-  test:
+  resolve-version:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-          cache-dependency-path: |
-            src/backend/requirements.txt
-            src/backend/requirements-dev.txt
-
-      - name: Install dependencies
-        run: |
-          pip install -r src/backend/requirements.txt
-          pip install -r src/backend/requirements-dev.txt
-
-      - name: Run tests
-        run: pytest src/backend/tests/ -v
-
-  release:
-    needs: test
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    # contents: write is required for @semantic-release/github to create a
-    # git tag + GitHub Release. semantic-release is deliberately configured
-    # WITHOUT @semantic-release/git (research.md decision #3) so this
-    # permission is never used to push a commit back to main — only to
-    # create tags/releases, which are non-branch-history writes.
-    permissions:
-      contents: write
+    timeout-minutes: 5
     outputs:
-      version: ${{ steps.compute-version.outputs.version }}
-    defaults:
-      run:
-        working-directory: src/backend
+      version: ${{ steps.resolve.outputs.version }}
+      must_build: ${{ steps.resolve.outputs.must_build }}
+      cache_hit: ${{ steps.resolve.outputs.cache_hit }}
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # semantic-release needs full tag history
+          fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: "npm"
-          cache-dependency-path: src/backend/package-lock.json
-
-      - name: Install release tooling
-        run: npm ci
-
-      - name: Require a seed version tag
-        # semantic-release computes 1.0.0 for a component's first-ever
-        # release when no prior tag exists. spec.md's Clarifications commit
-        # to a 0.1.0 baseline instead, so a maintainer must seed
-        # backend-v0.1.0 once (at rollout) pointing at a real commit
-        # reachable from main — see .github/workflows/README.md.
+      - name: Resolve version to deploy
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          if ! git tag --list 'backend-v*' | grep -q .; then
-            echo "::error::No backend-v* tag found. Seed the 0.1.0 baseline once with: git tag backend-v0.1.0 <commit-on-main> && git push origin backend-v0.1.0 — see .github/workflows/README.md." >&2
-            exit 1
+          if [ -n "$INPUT_VERSION" ]; then
+            # Explicit version: FR-016 — a version with no matching tag
+            # anywhere in history fails clearly, with no fallback
+            # substitution and no unrequested build.
+            if ! git tag --list "backend-v${INPUT_VERSION}" | grep -q .; then
+              echo "::error::No such version: backend-v${INPUT_VERSION} does not exist and cannot be built — it does not correspond to any tested state that ever merged to main. Deploy refused rather than substituting a different version." >&2
+              exit 1
+            fi
+            echo "version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+            echo "must_build=false" >> "$GITHUB_OUTPUT"
+            if gh release view "backend-v${INPUT_VERSION}" --repo "${{ github.repository }}" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx 'backend-src.zip'; then
+              echo "cache_hit=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "cache_hit=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            # Unspecified: resolve to latest-at-execution-time (FR-013), not
+            # whatever was latest when this run was triggered. "latest" may
+            # not have been built yet at all (Edge Cases: a component never
+            # built before) — always route through build-on-demand, whose
+            # own internal idempotency check (research.md Decision 4/5)
+            # makes this cheap when nothing has actually changed.
+            echo "version=" >> "$GITHUB_OUTPUT"
+            echo "must_build=true" >> "$GITHUB_OUTPUT"
+            echo "cache_hit=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Run semantic-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+  build-on-demand:
+    needs: resolve-version
+    if: needs.resolve-version.outputs.must_build == 'true' || needs.resolve-version.outputs.cache_hit != 'true'
+    # Cache-miss-on-latest build fallback (FR-015/User Story 5). Also
+    # covers the abnormal case of an explicit version whose tag exists but
+    # whose release asset is missing — rebuilding that exact tested state
+    # is safe and distinct from FR-016's true not-found failure above.
+    uses: ./.github/workflows/_build-backend.yml
+    secrets: inherit
 
-      - name: Compute this run's version output
-        id: compute-version
-        # The version to stamp into this run's artifact: whatever
-        # semantic-release just released, or — if this run's commits
-        # weren't releasable for backend (FR-013) — the existing latest
-        # backend-v* tag, unchanged.
-        run: |
-          LATEST_TAG=$(git tag --list 'backend-v*' --sort=-v:refname | head -n1)
-          echo "version=${LATEST_TAG#backend-v}" >> "$GITHUB_OUTPUT"
-
-  build:
-    needs: release
+  ensure-artifact:
+    needs: [resolve-version, build-on-demand]
+    if: always() && needs.resolve-version.result == 'success' && (needs.build-on-demand.result == 'success' || needs.build-on-demand.result == 'skipped')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.pick-version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-          cache-dependency-path: src/requirements.txt
-
-      - name: Vendor runtime dependencies into the deploy package
-        # Azure Functions' Python model expects dependencies pre-installed
-        # under .python_packages/lib/site-packages when remote-build is
-        # disabled (no Oryx build happens on Azure's side) — this replaces
-        # the redundant Oryx remote build the old single-job workflow
-        # triggered on every deploy. src/requirements.txt (`-r
-        # backend/requirements.txt`) is the same file Oryx used to consume.
+      - name: Determine final version
+        id: pick-version
         run: |
-          pip install -r src/requirements.txt \
-            --target=src/.python_packages/lib/site-packages
+          BUILD_VERSION="${{ needs.build-on-demand.outputs.version }}"
+          if [ -n "$BUILD_VERSION" ]; then
+            echo "version=$BUILD_VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ needs.resolve-version.outputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Stamp version into the artifact
-        run: echo "${{ needs.release.outputs.version }}" > src/VERSION
+      - name: Download the cached artifact
+        # The exact artifact build-on-demand just produced (or that already
+        # existed) — deployed as-is, no install/build/re-plan step here or
+        # in the deploy job below (FR-009/SC-002).
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "backend-v${{ steps.pick-version.outputs.version }}" \
+            --repo "${{ github.repository }}" \
+            --pattern backend-src.zip \
+            --output backend-src.zip
 
-      - name: Upload build artifact
+      - name: Upload artifact for the deploy job
         uses: actions/upload-artifact@v4
         with:
-          name: backend-build-${{ github.run_id }}
-          path: src
-          retention-days: 5
+          name: backend-src-${{ github.run_id }}
+          path: backend-src.zip
+          retention-days: 1
 
   deploy:
-    needs: build
+    needs: ensure-artifact
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
     steps:
-      - name: Download build artifact
+      - name: Download the resolved artifact
         uses: actions/download-artifact@v4
         with:
-          name: backend-build-${{ github.run_id }}
-          path: src
+          name: backend-src-${{ github.run_id }}
+
+      - name: Unpack the artifact
+        run: unzip -q backend-src.zip -d src
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
@@ -170,15 +141,12 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Sync AzureWebJobsStorage key
-        # Flex Consumption's internal storage settings (AzureWebJobsStorage,
-        # DEPLOYMENT_STORAGE_CONNECTION_STRING) require a real account key
-        # even though storage_authentication_type = "SystemAssignedIdentity"
-        # covers the deployment container path — see main.tf's comment on
-        # shared_access_key_enabled. Terraform doesn't manage these two
-        # settings, so if the key drifts (rotation, a stale/blank value from
-        # first provisioning) the Function App silently fails to load any
-        # functions at all until this is re-synced. Doing it on every deploy
-        # makes that self-healing instead of a manual incident response.
+        # Flex Consumption's internal storage settings require a real
+        # account key even though storage_authentication_type =
+        # "SystemAssignedIdentity" covers the deployment container path.
+        # Terraform doesn't manage these two settings, so if the key drifts
+        # the Function App silently fails to load any functions until
+        # re-synced — doing it on every deploy makes that self-healing.
         run: |
           KEY=$(az storage account keys list \
             --account-name ${{ vars.STORAGE_ACCOUNT_NAME }} \
@@ -196,28 +164,23 @@ jobs:
       - name: Deploy to Azure Functions
         uses: Azure/functions-action@v1
         with:
-          app-name: ${{ vars.FUNCTIONS_APP_NAME }}
           # "src" (not "src/backend"): the deploy root must contain the
           # `backend` package as a real subdirectory so `from backend.x
-          # import y` (used throughout src/backend/**) resolves the same way
-          # it does under pytest.ini's `pythonpath = src`. src/function_app.py
-          # is a thin shim satisfying Python v2's requirement that
-          # function_app.py sit at the deploy root. Dependencies are already
-          # vendored into src/.python_packages by the `build` job above, so
-          # remote-build is disabled — deploy ships exactly what `build`
-          # produced, matching what `test` already validated.
+          # import y` resolves the same way it does under pytest.ini's
+          # `pythonpath = src`. Dependencies are already vendored into
+          # src/.python_packages by the build workflow, so remote-build is
+          # disabled — deploy ships exactly what was built, matching what
+          # was already tested.
+          app-name: ${{ vars.FUNCTIONS_APP_NAME }}
           package: "src"
           remote-build: false
 
       - name: Smoke test
         run: |
-          # Entra ID auth is configured outside this Terraform (see
-          # 002-login-and-access-control), so a bare curl won't get a 200.
-          # A 401 (no token provided) means the host loaded its functions
+          # Entra ID auth is configured outside this Terraform, so a bare
+          # curl won't get a 200. A 401 means the host loaded its functions
           # and routed the request correctly. A 404 means the host loaded
-          # zero functions (e.g. the AzureWebJobsStorage/module-loading
-          # failures this step and the one above guard against) — treat
-          # that as a deploy failure, not a benign "some response" pass.
+          # zero functions — treat that as a deploy failure.
           status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
             "https://${{ vars.FUNCTIONS_APP_NAME }}.azurewebsites.net/api/auth/me")
           echo "Response status: $status"
@@ -230,3 +193,6 @@ jobs:
             exit 1
           fi
           echo "✓ Functions app responded (status $status)"
+
+      - name: Record deployed version
+        run: echo "Deployed backend version ${{ needs.ensure-artifact.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"

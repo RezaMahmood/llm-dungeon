@@ -1,45 +1,76 @@
 # Quickstart: Validating CI/CD Pipeline Optimization
 
-Manual/operational validation scenarios for this feature — there is no application UI or API to exercise, so "running" this feature means observing real GitHub Actions runs and Azure deploys. Each scenario maps to a User Story in spec.md.
+This guide walks through validating the CI/CD separation end-to-end once implemented, following the acceptance scenarios in `spec.md`. It assumes repository admin access (to trigger `workflow_dispatch` runs and view Actions history) and the GitHub CLI (`gh`) authenticated against this repository. See `contracts/workflow-interfaces.md` for the exact trigger/input contracts referenced below, and `data-model.md` for what "cache", "version", and "artifact" concretely mean.
 
 ## Prerequisites
 
-- Repo admin access to add/require the new PR-title status check in branch protection.
-- A test change ready for each component (a trivial backend change under `src/backend/**`, a trivial frontend change under `src/frontend/**`).
-- Access to the GitHub Actions run view and the repo's Releases page.
+- This feature's PR has merged to `main` (so the new/renamed workflows exist there).
+- `gh auth status` shows an authenticated session with write access to this repository.
+- At least one prior version exists for each component (from normal development merges), or you're prepared to validate the "never built before" cold-start path explicitly (Scenario 5 below).
 
-## Scenario 1 — Build-once/deploy-that-artifact (User Story 1)
+## Scenario 1 — No untested code reaches `main` (User Story 1)
 
-1. Open a PR with a small backend-only change, titled e.g. `fix(backend): correct typo in error message`. Merge it (squash) once checks pass.
-2. Open the resulting `backend-deploy.yml` run. Confirm the job graph shows `test → release → build → deploy` and that `deploy`'s logs show it downloading an artifact (`actions/download-artifact`) rather than running `pip install`/any build/remote-build step.
-3. Repeat with a frontend-only change titled `fix(frontend): correct typo in button label`, confirming `frontend-deploy.yml`'s `deploy` job similarly only downloads and deploys, with no `npm install`/`npm run build` in that job's steps.
-4. **Expected**: both deploys succeed, and inspecting each run confirms zero install/build activity inside the `deploy` job itself (SC-002).
+1. Open a PR with a change that breaks an existing backend or frontend test.
+2. Confirm the `test` (or `frontend-test`) required check fails and the PR's merge button is blocked.
+3. Fix the change so tests pass; confirm the check goes green and merging is allowed.
 
-## Scenario 2 — Stale deploy cancellation (User Story 2)
+**Expected outcome**: no path exists to merge while the required test check is red.
 
-1. Push two backend-only commits to `main` in quick succession (e.g. two quick squash-merges), commit A then commit B.
-2. Open the Actions tab and watch both `backend-deploy.yml` runs.
-3. **Expected**: the run for commit A is shown as cancelled (not failed) before its `deploy` job starts, once commit B's run begins; commit B's run proceeds through to a successful deploy (SC-003). Repeat for frontend to confirm each component's concurrency group is independent (a backend race does not cancel a concurrent frontend run).
+## Scenario 2 — Merge produces one immutable, versioned, cached build (User Story 2)
 
-## Scenario 3 — Automated per-component SemVer (User Story 3)
+1. Merge a small, qualifying (`feat`/`fix`) change touching only `src/frontend/**`.
+2. In the Actions tab, confirm `frontend-build.yml` ran and only it — `backend-build.yml` and `infrastructure-build.yml` did not trigger.
+3. `gh release list | grep '^frontend-v'` — confirm a new `frontend-v<version>` release exists with the built artifact attached.
+4. `gh workflow run frontend-build.yml` is not itself a re-triggerable path for this — instead, confirm re-running the same completed build job (e.g., via "re-run jobs" in the Actions UI) does not create a second, different release for the same version (idempotency, FR-008).
 
-1. Merge a PR titled `fix(backend): ...`. After the run completes, check the repo's Releases page and tags: confirm a new `backend-v{X.Y.(Z+1)}` tag/release exists, and no new `frontend-v*` tag was created.
-2. Merge a PR titled `feat(frontend): ...`. Confirm a new `frontend-v{X.(Y+1).0}` tag/release exists, and no new `backend-v*` tag was created.
-3. Download the artifact (or check the deployed app) from either run and confirm the version file (`VERSION` / `version.json` per contracts/workflow-interfaces.md) matches the tag just created (SC-005).
-4. Merge a PR titled `chore(backend): update dev-only comment` (a non-releasable type). Confirm no new `backend-v*` tag/release is created.
-5. Merge a PR titled `fix(backend): ...` whose diff touches files under **both** `src/backend/**` and `src/frontend/**` (a vertical-slice change). Confirm **both** `backend-v*` and `frontend-v*` receive a new patch version — path-diff filtering (research.md decision #3), not the title's single declared scope, determines eligibility. This is the case the automated version-computation fixture test (research.md decision #8) also covers pre-merge; this step confirms it holds in a real run too.
+**Expected outcome**: exactly one artifact, one version, one cache entry, per affected component.
 
-## Scenario 4 — PR title format gate (User Story 4)
+## Scenario 3 — Deploy is always a separate, manual action (User Story 3)
 
-1. Open a PR titled `updated the login typo` (no type/scope). Confirm the PR-title required check fails with a message explaining the expected `type(scope): description` format, and that merge is blocked (SC-006).
-2. Edit the PR title to `fix(frontend): correct login typo`. Confirm the check re-runs and passes, unblocking merge.
+1. After Scenario 2's merge, check the Actions tab and Azure/Static Web App: confirm **no deploy occurred automatically** as a result of the merge.
+2. `gh workflow run frontend-deploy.yml -f version=""` — confirm this explicit trigger is what causes the deploy, and it completes without any approval prompt.
+3. `gh workflow run infrastructure-deploy.yml -f version=""` — confirm the run pauses awaiting a required-reviewer approval on the target environment (visible in the Actions UI's "Review deployments" prompt) before the `apply` step runs. Approve it as the reviewer and confirm apply then proceeds.
 
-## Scenario 5 — Terraform apply-the-reviewed-plan (User Story 5)
+**Expected outcome**: zero automatic deploys; frontend/backend deploy directly on trigger; infrastructure additionally waits for a human approval.
 
-1. Make a small, reviewable infrastructure change under `infrastructure/terraform/**` and let `terraform-apply.yml` run through `validate` → `test` → the `production-infra` approval gate.
-2. Approve the gate and confirm `apply`'s logs show `terraform apply -input=false tfplan` (or equivalent), referencing the downloaded plan artifact, not a freshly invoked `terraform plan` immediately before applying (SC-007).
-3. (Optional, harder to stage) If infrastructure state drifts between `validate` and `apply` (e.g. a manual out-of-band change), confirm `apply` fails with Terraform's stale-plan error rather than silently applying a different set of changes (FR-016).
+## Scenario 4 — Deploy targets a specific version, defaulting to latest (User Story 4)
 
-## Final acceptance (Constitution Principle IX)
+1. Ensure at least two versions of a component are cached (e.g., `frontend-v1.2.0` and `frontend-v1.3.0`).
+2. `gh workflow run frontend-deploy.yml -f version=1.2.0` — confirm the deployed artifact matches `frontend-v1.2.0` exactly (check the deployed `dist/version.json` or equivalent).
+3. `gh workflow run frontend-deploy.yml -f version=""` — confirm `1.3.0` (the latest) deploys instead.
+4. Trigger a deploy with no version specified, and — before it finishes resolving — merge a change that produces `frontend-v1.4.0`. Confirm the run deploys `1.4.0`, not `1.3.0` (execution-time resolution, FR-013). (This step is timing-sensitive; if the resolve step completes before the new merge lands, re-run with tighter timing or treat Scenario 2 + immediate re-check as sufficient evidence the resolution logic queries live tag state.)
 
-Per the constitution's non-negotiable user-verified acceptance gate, `tasks.md`'s final task MUST have the requesting user or product owner confirm Scenarios 1–5 above against real merged PRs and real Azure/GitHub state — not merely that the workflow YAML is syntactically valid or that a dry run succeeded.
+**Expected outcome**: explicit versions deploy exactly as requested; unspecified resolves to whatever is truly latest at execution time.
+
+## Scenario 5 — An AI agent resolves and deploys "latest" (User Story 5)
+
+Cache present:
+1. Ask an AI agent (e.g., Claude, in a session with `gh` access to this repo) to "deploy the latest backend version."
+2. Confirm the agent's trace shows it checking `gh release list` for `backend-v*` before dispatching, then running `gh workflow run backend-deploy.yml -f version=""` (or an explicit version it resolved itself) — and that no new build occurred (the existing cached artifact was deployed as-is).
+
+Cache absent (cold path):
+3. Pick a component that has never been built (or simulate by ensuring no release exists for its would-be next version — e.g., a fresh merge just landed and the build hasn't run yet, or has been deliberately skipped).
+4. Ask the agent to "deploy latest" for that component.
+5. Confirm `ensure-artifact` in the deploy run detects the cache miss, invokes the shared build workflow, and the resulting freshly-built artifact is what gets deployed — all within the one deploy request, per FR-015/SC-004.
+
+**Expected outcome**: cache hit deploys without rebuilding; cache miss on "latest" triggers exactly one build, then deploys it.
+
+## Scenario 6 — Non-testable-only changes trigger nothing (Edge Cases / FR-019/FR-020)
+
+1. Open a PR that only edits `specs/023-cicd-pipeline-optimization/spec.md` (or any `.md`/`specs/**`/`docs/**` content).
+2. Confirm `test.yml` and all `*-build.yml` workflows show no run (or a run that immediately reports "skipped" via the `changes` job's `all-non-testable` output) for this push.
+3. Add one code change (e.g., a one-line comment in `src/backend/`) to the same PR/branch and push again.
+4. Confirm the full pipeline (test, and on merge, build/version/cache) now runs normally, including for the bundled docs changes from step 1.
+
+**Expected outcome**: docs-only changes are pipeline-silent; the moment one testable file is present, nothing is skipped.
+
+## Scenario 7 — Requesting a version that was never built fails clearly (Edge Cases / FR-016)
+
+1. `gh workflow run frontend-deploy.yml -f version=99.99.99` (a version that has never existed).
+2. Confirm the run fails with a clear, explicit error identifying that no such version's artifact could be found or built — not a silent fallback to another version, and not an attempt to build an unrequested one.
+
+**Expected outcome**: a clear failure, no substitution.
+
+---
+
+Final acceptance (Constitution Principle IX): all seven scenarios above MUST be run against the real repository by the requesting user (or product owner) — not merely asserted by the automated `workflow-structure-test.yml`/`release-fixtures-test.yml` checks — before this feature is considered complete.

@@ -1,0 +1,41 @@
+name: "Detect non-testable changes"
+description: >-
+  Outputs whether every file changed in the triggering push/PR is a
+  non-testable artifact (documentation, specs, markdown, comments-only
+  content) — content-type based, regardless of which directory those files
+  live in. Implements the "Non-testable-artifact skip contract" in
+  specs/023-cicd-pipeline-optimization/contracts/workflow-interfaces.md
+  (FR-019/FR-020). A single testable file anywhere in the change set makes
+  this false, even if every other file in the same change is non-testable.
+
+outputs:
+  all-non-testable:
+    description: >-
+      "true" iff every changed file matches the non-testable glob set;
+      "false" if at least one changed file is testable/buildable.
+    value: ${{ steps.filter.outputs.non_testable }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Evaluate whether every changed file is non-testable content
+      id: filter
+      uses: dorny/paths-filter@v3
+      with:
+        # predicate-quantifier: every -> non_testable=true only when EVERY
+        # changed file matches one of the patterns below (all docs/specs/
+        # markdown). The moment one changed file falls outside this list
+        # (a "testable" file), non_testable becomes false for the whole
+        # push/PR — including any docs files bundled in the same change
+        # (FR-020). This is deliberately the inverse of a "does this touch
+        # code" filter: it asks "is there nothing BUT non-testable content
+        # here", not "is there any non-testable content here".
+        predicate-quantifier: every
+        filters: |
+          non_testable:
+            - '**/*.md'
+            - 'specs/**'
+            - 'docs/**'
+            - 'LICENSE'
+            - 'LICENSE.*'
+            - 'CONTRIBUTING.md'

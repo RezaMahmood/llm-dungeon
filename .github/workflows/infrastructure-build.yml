@@ -1,0 +1,35 @@
+name: Infrastructure Build
+
+# CI: validate+plan+version+cache on merge to main (specs/023-cicd-
+# pipeline-optimization, FR-004/FR-005/FR-006). Automatic — push to `main`
+# only, path-scoped to infrastructure. No `apply` job here: deploy/apply
+# is always a separate, explicitly-triggered action requiring human
+# approval (infrastructure-deploy.yml, FR-010/FR-011a). Skips entirely
+# when every changed file is non-testable content (FR-019/FR-020) via
+# .github/actions/detect-non-testable-changes.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infrastructure/**"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      all-non-testable: ${{ steps.detect.outputs.all-non-testable }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/detect-non-testable-changes
+        id: detect
+
+  build:
+    needs: changes
+    if: needs.changes.outputs.all-non-testable != 'true'
+    uses: ./.github/workflows/_build-infrastructure.yml
+    secrets: inherit

@@ -11,10 +11,19 @@ name: Workflow Structure Test
 on:
   pull_request:
     paths:
+      - ".github/workflows/backend-build.yml"
+      - ".github/workflows/frontend-build.yml"
+      - ".github/workflows/infrastructure-build.yml"
+      - ".github/workflows/_build-backend.yml"
+      - ".github/workflows/_build-frontend.yml"
+      - ".github/workflows/_build-infrastructure.yml"
       - ".github/workflows/backend-deploy.yml"
       - ".github/workflows/frontend-deploy.yml"
-      - ".github/workflows/terraform-apply.yml"
+      - ".github/workflows/infrastructure-deploy.yml"
+      - ".github/workflows/test.yml"
+      - ".github/actions/detect-non-testable-changes/action.yml"
       - "scripts/test-workflow-structure.js"
+      - "scripts/test-non-testable-detection.js"
       - "scripts/package.json"
       - "scripts/package-lock.json"
 
@@ -43,3 +52,6 @@ jobs:
 
       - name: Run workflow-structure assertion tests
         run: npm run test:workflow-structure
+
+      - name: Run non-testable-change detection fixture tests
+        run: npm run test:non-testable-detection
