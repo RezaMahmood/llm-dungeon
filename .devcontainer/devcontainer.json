@@ -22,35 +22,52 @@
 	"postCreateCommand": "bash .devcontainer/post-create.sh",
 	// Runs on every container start (create AND resume), unlike
 	// postCreateCommand above which only fires once at creation -- needed
-	// because the ~/.claude.json single-file bind mount below can go stale
-	// mid-session, and bin/wt resumes (rather than recreates) a stopped
-	// container on every later run. See restore-claude-config.sh.
+	// to refresh the container's local ~/.claude.json from the read-only
+	// ~/.claude.json.host mount below on every start, since bin/wt resumes
+	// (rather than recreates) a stopped container on every later run. See
+	// restore-claude-config.sh.
 	"postStartCommand": "bash .devcontainer/restore-claude-config.sh",
 	// One container is created per git worktree (see bin/wt and
 	// docs/WORKTREE_CONTAINER_WORKFLOW.md), all from this same image/config --
 	// so these mounts are shared *across every worktree's container*:
-	//  - ~/.claude and ~/.claude.json: carry Claude Code auth/config in from
-	//    the host so you don't have to `claude login` inside every
-	//    container. Both are needed -- ~/.claude/.credentials.json alone is
-	//    not enough, since the oauth account/onboarding state
-	//    (oauthAccount, hasCompletedOnboarding, ...) lives in the sibling
-	//    ~/.claude.json file, not inside the ~/.claude directory. Without
-	//    it mounted too, each container got its own empty ~/.claude.json,
-	//    so recreating a container (--rebuild, or after cleanup) forced a
-	//    fresh login even though credentials looked present. NOT read-only:
-	//    the `claude` installer itself needs to write its download cache to
-	//    ~/.claude/downloads (confirmed while building this config -- a
-	//    read-only mount here makes the installer fail with a misleading
-	//    "client returned ERROR on write" from curl, not an obvious
-	//    permissions error). This is a personal dev container running
-	//    trusted code, so read-write here (same tradeoff as the very common
-	//    ~/.ssh or ~/.gitconfig dev-container mount) is an accepted risk,
-	//    not an oversight.
+	//  - ~/.claude: carries Claude Code's credentials/config directory in
+	//    from the host so you don't have to `claude login` inside every
+	//    container. Read-write: the `claude` installer itself needs to
+	//    write its download cache to ~/.claude/downloads (confirmed while
+	//    building this config -- a read-only mount here makes the
+	//    installer fail with a misleading "client returned ERROR on write"
+	//    from curl, not an obvious permissions error). This is a personal
+	//    dev container running trusted code, so read-write here (same
+	//    tradeoff as the very common ~/.ssh or ~/.gitconfig dev-container
+	//    mount) is an accepted risk, not an oversight.
 	//    NOTE: if your host stores the Claude Code credential in the macOS
 	//    keychain rather than a file under ~/.claude, this mount alone won't
 	//    carry it over -- verify after first use, and fall back to
 	//    `claude login` (or an API key via ANTHROPIC_API_KEY) inside the
 	//    container if needed.
+	//  - ~/.claude.json (mounted read-only, at .host, NOT at its real
+	//    path): this file alone carries the oauth account/onboarding state
+	//    (oauthAccount, hasCompletedOnboarding, ...) that ~/.claude/
+	//    doesn't -- without it every container got its own empty
+	//    ~/.claude.json and forced a fresh login. It used to be bind-mounted
+	//    read-write directly at ~/.claude.json, but Claude Code's atomic
+	//    save (write temp, rename() over the real path) doesn't survive a
+	//    single-file bind mount under Docker Desktop's virtiofs: a save
+	//    from *any* side -- host or any one of several concurrently-running
+	//    worktree containers, since this file was shared read-write across
+	//    all of them -- could truncate the host's real ~/.claude.json to 0
+	//    bytes instead of atomically replacing it, corrupting the live
+	//    config for every other session sharing it (observed twice in one
+	//    evening). Mounting it read-only under a different path removes the
+	//    container's ability to ever write back through to the host file;
+	//    restore-claude-config.sh (postStartCommand below) copies it into
+	//    the container's own real ~/.claude.json -- an ordinary in-container
+	//    file, not a mount -- on every start. Trade-off: auth/onboarding
+	//    state changed *inside* a container (e.g. re-running `claude login`
+	//    there) stays local to that container and is overwritten by the
+	//    host's copy on the next start; that's fine since the actual OAuth
+	//    token lives in ~/.claude/.credentials.json above, which is still
+	//    read-write and shared normally.
 	//  - ~/.config/gh: same idea for the `gh` CLI (installed via the
 	//    github-cli feature above) -- it stores its login under
 	//    $HOME/.config/gh (hosts.yml with the oauth token), not the
@@ -77,7 +94,7 @@
 	//    `terraform init` time on every container after the first.
 	"mounts": [
 		"source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind",
-		"source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind",
+		"source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json.host,type=bind,readonly",
 		"source=${localEnv:HOME}/.config/gh,target=/home/vscode/.config/gh,type=bind",
 		"source=${localEnv:HOME}/.azure,target=/home/vscode/.azure,type=bind",
 		"source=llmdungeon-uv-cache,target=/home/vscode/.cache/uv,type=volume",

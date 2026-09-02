@@ -12,3 +12,10 @@ sessions running inside per-worktree devcontainers (see
 - Every PR created by Claude MUST be labelled `AI Generated` and `Claude`
   (e.g. `gh pr create --label "AI Generated" --label "Claude" ...`). Both
   labels already exist in this repo.
+- Claude MAY merge a PR it opened without asking for confirmation first,
+  once all required status checks report success
+  (`gh pr checks <pr> --required` or equivalent). Merge with
+  `gh pr merge --squash --delete-branch`. This authorization covers only
+  PRs Claude itself opened in the current session's line of work — still
+  ask before merging a PR opened by someone else, or one with failing/
+  pending required checks.
