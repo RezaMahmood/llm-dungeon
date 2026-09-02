@@ -42,7 +42,7 @@ jobs:
       must_build: ${{ steps.resolve.outputs.must_build }}
       cache_hit: ${{ steps.resolve.outputs.cache_hit }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -125,7 +125,7 @@ jobs:
             --output backend-src.zip
 
       - name: Upload artifact for the deploy job
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-src-${{ github.run_id }}
           path: backend-src.zip
@@ -138,7 +138,7 @@ jobs:
     environment: production
     steps:
       - name: Download the resolved artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: backend-src-${{ github.run_id }}
 
@@ -146,7 +146,7 @@ jobs:
         run: unzip -q backend-src.zip -d src
 
       - name: Azure Login (OIDC)
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
