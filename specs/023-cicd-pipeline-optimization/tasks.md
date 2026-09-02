@@ -13,6 +13,8 @@ description: "Task list for CI/CD Pipeline Optimization — Test-on-Push, Build-
 
 **Organization**: Tasks are grouped by user story (spec.md) to enable independent implementation and testing of each story. This restructures the existing `.github/workflows/` implementation (built for a now-superseded, auto-deploy-on-merge design) rather than building from scratch — see plan.md's Summary.
 
+**Post-merge amendment (2026-09-02)**: This task list (T001-T035) is kept as the historical record of the implementation that merged as PR #160. A follow-up change afterward removed infrastructure's versioning (T001, T010, T013, and the infrastructure-specific parts of T008/T011/T027-T030 no longer reflect the current `infrastructure-deploy.yml`, which is now `validate-and-test → plan → apply` with no version input) — see spec.md's Clarifications Amendment and research.md's amendment to Decision 9 for what changed and why. Frontend/backend tasks are unaffected.
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependency on an incomplete task)

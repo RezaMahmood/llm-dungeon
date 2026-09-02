@@ -19,7 +19,7 @@ This guide walks through validating the CI/CD separation end-to-end once impleme
 ## Scenario 2 — Merge produces one immutable, versioned, cached build (User Story 2)
 
 1. Merge a small, qualifying (`feat`/`fix`) change touching only `src/frontend/**`.
-2. In the Actions tab, confirm `frontend-build.yml` ran and only it — `backend-build.yml` and `infrastructure-build.yml` did not trigger.
+2. In the Actions tab, confirm `frontend-build.yml` ran and only it — `backend-build.yml` did not trigger. (Infrastructure has no build workflow to compare against — see the post-merge Amendment in spec.md's Clarifications.)
 3. `gh release list | grep '^frontend-v'` — confirm a new `frontend-v<version>` release exists with the built artifact attached.
 4. `gh workflow run frontend-build.yml` is not itself a re-triggerable path for this — instead, confirm re-running the same completed build job (e.g., via "re-run jobs" in the Actions UI) does not create a second, different release for the same version (idempotency, FR-008).
 
@@ -29,11 +29,11 @@ This guide walks through validating the CI/CD separation end-to-end once impleme
 
 1. After Scenario 2's merge, check the Actions tab and Azure/Static Web App: confirm **no deploy occurred automatically** as a result of the merge.
 2. `gh workflow run frontend-deploy.yml -f version=""` — confirm this explicit trigger is what causes the deploy, and it completes without any approval prompt.
-3. `gh workflow run infrastructure-deploy.yml -f version=""` — confirm the run pauses awaiting a required-reviewer approval on the target environment (visible in the Actions UI's "Review deployments" prompt) before the `apply` step runs. Approve it as the reviewer and confirm apply then proceeds.
+3. `gh workflow run infrastructure-deploy.yml` (no `-f` — it takes no inputs) — confirm `validate-and-test` and `plan` run automatically, then the run pauses awaiting a required-reviewer approval on the target environment (visible in the Actions UI's "Review deployments" prompt) before the `apply` step runs. Approve it as the reviewer and confirm apply then proceeds, applying the exact plan `plan` produced.
 
 **Expected outcome**: zero automatic deploys; frontend/backend deploy directly on trigger; infrastructure additionally waits for a human approval.
 
-## Scenario 4 — Deploy targets a specific version, defaulting to latest (User Story 4)
+## Scenario 4 — Deploy targets a specific version, defaulting to latest (User Story 4, frontend & backend only)
 
 1. Ensure at least two versions of a component are cached (e.g., `frontend-v1.2.0` and `frontend-v1.3.0`).
 2. `gh workflow run frontend-deploy.yml -f version=1.2.0` — confirm the deployed artifact matches `frontend-v1.2.0` exactly (check the deployed `dist/version.json` or equivalent).
@@ -42,7 +42,7 @@ This guide walks through validating the CI/CD separation end-to-end once impleme
 
 **Expected outcome**: explicit versions deploy exactly as requested; unspecified resolves to whatever is truly latest at execution time.
 
-## Scenario 5 — An AI agent resolves and deploys "latest" (User Story 5)
+## Scenario 5 — An AI agent resolves and deploys "latest" (User Story 5, frontend & backend only)
 
 Cache present:
 1. Ask an AI agent (e.g., Claude, in a session with `gh` access to this repo) to "deploy the latest backend version."
