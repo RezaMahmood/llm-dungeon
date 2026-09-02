@@ -26,9 +26,20 @@ Captured 2026-09-01 via `gh run list --workflow=<name>.yml --status=success --li
 
 **Average**: ~1m35s
 
-## Comparison (filled in by T032, post-implementation)
+## Comparison (post-implementation, captured 2026-09-01/02)
+
+Post-implementation runs, from real merges during issue #143's sign-off validation:
+
+| Workflow | Run ID | Started (UTC) | Finished (UTC) | Duration |
+|---|---|---|---|---|
+| `backend-deploy.yml` | 33561515773 | 2026-09-01T21:31:15Z | 2026-09-01T21:34:37Z | 3m22s |
+| `backend-deploy.yml` | 33560604798 | 2026-09-01T21:21:18Z | 2026-09-01T21:24:30Z | 3m12s |
+| `frontend-deploy.yml` | 33561515633 | 2026-09-01T21:31:15Z | 2026-09-01T21:34:04Z | 2m49s |
+| `frontend-deploy.yml` | 33561192762 | 2026-09-01T21:27:49Z | 2026-09-01T21:30:17Z | 2m28s |
 
 | Workflow | Baseline avg | Post-implementation avg | Result |
 |---|---|---|---|
-| `backend-deploy.yml` | ~2m35s | _pending_ | _pending_ |
-| `frontend-deploy.yml` | ~1m35s | _pending_ | _pending_ |
+| `backend-deploy.yml` | ~2m35s | ~3m17s | **+42s slower — SC-001 NOT MET** |
+| `frontend-deploy.yml` | ~1m35s | ~2m38s | **+63s slower — SC-001 NOT MET** |
+
+**Root cause**: splitting one job into `test → release → build → deploy` pays a fresh runner + checkout + toolchain-setup + cache-restore cost at every stage boundary, and `needs:`-chained jobs run strictly sequentially in GitHub Actions — the added overhead is paid 3-4 times per run instead of once, with no eliminated work to offset it (frontend's `test`/`release`/`build` each run their own `npm ci`; backend still pays the exact same unavoidable Azure Oryx remote build it always did — see `spec.md`'s Retrospective and `research.md` decision #1's amendment). This is the motivating finding for the follow-up spec.
