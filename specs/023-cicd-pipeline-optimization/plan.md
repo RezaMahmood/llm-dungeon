@@ -1,51 +1,57 @@
-# Implementation Plan: CI/CD Pipeline Optimization
+# Implementation Plan: CI/CD Pipeline Optimization — Test-on-Push, Build-on-Merge, Manual Deploy
 
-**Branch**: `023-cicd-pipeline-optimization` | **Date**: 2026-09-01 | **Spec**: [spec.md](./spec.md)
+**Branch**: `023-cicd-pipeline-optimization` | **Date**: 2026-09-02 | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `/specs/023-cicd-pipeline-optimization/spec.md`
 
+**Note**: This plan supersedes an earlier plan written against a materially different, now-replaced version of `spec.md` (auto-deploy-on-merge with concurrency cancellation). The current codebase's `.github/workflows/*` were built against that earlier spec and are the starting point this plan restructures, not a green-field build.
+
 ## Summary
 
-Restructure the backend and frontend GitHub Actions workflows so each separates into distinct test → release → build → deploy jobs, with the deploy job always consuming the exact artifact the build job produced in that same run — eliminating the backend's redundant Azure Oryx remote build and any hidden rebuild risk in the frontend path. Add dependency caching and a committed frontend lockfile for speed and reproducibility. Add a per-component `concurrency` group with `cancel-in-progress: true` so a newer push to `main` cancels an in-flight older deploy for that component, which is the mechanism satisfying "abort on conflict/newer version." Add independent, automated Semantic Versioning for frontend and backend via `semantic-release`, with each component's release eligibility gated by **path-diff filtering** (does a given commit's diff actually touch this component's paths?) rather than by the PR title's scope word — since specs here are typically vertical slices that can touch multiple components in one commit, path-diff filtering is what correctly attributes each bump, while the PR title (the sole commit message reaching `main`, since this repo merges by squash) supplies the change type and descriptive content. Versioning publishes only a git tag and GitHub Release per component, deliberately never pushing a version-bump commit back to `main` so the constitution's "no direct pushes to main" rule is never at risk. Add a required PR-title format check so malformed titles are blocked before merge. Separately, fix `terraform-apply.yml` so its `apply` job applies the exact plan file `validate` already produced and had gated, instead of implicitly re-planning immediately before applying. Infrastructure versioning remains explicitly out of scope.
+Separate CI from CD across all three components (frontend, backend, infrastructure): CI (test-on-push, build+version+cache-on-merge-to-`main`) stays fully automatic and identical in shape across components; CD (deploy) becomes a distinct, explicitly-triggered `workflow_dispatch` action per component that is never a side effect of a push or merge. Each deploy action accepts an optional `version` input (blank = latest-at-execution-time), deploys the matching cached, immutable artifact as-is if one exists, and builds that exact version on demand if it doesn't. Frontend and backend deploys execute directly once triggered; infrastructure's deploy additionally requires a human to approve the validated change before it applies. A push/PR whose changed files are *entirely* non-testable content (docs/specs/markdown) triggers no component's pipeline at all; the moment any testable file is included, the full pipeline runs as normal for the affected component(s), non-testable files included.
+
+This restructures (rather than replaces from scratch) the existing `.github/workflows/` implementation: `test.yml`, `backend-deploy.yml`, `frontend-deploy.yml`, and `terraform-apply.yml` currently conflate CI and CD into one push-triggered chain per component (`test → release → build → deploy`) with a `concurrency`-group cancellation guard. That auto-deploy-on-merge behavior is exactly what the current spec forbids (FR-010); the concurrency-cancellation mechanism it used is now moot once deploy is no longer triggered by push at all.
 
 ## Technical Context
 
-**Language/Version**: YAML (GitHub Actions workflow definitions); Node.js 24 (frontend runtime + versioning tooling); Python 3.11 (backend runtime); Terraform (version pinned via the `TERRAFORM_VERSION` repo variable) — no application-level language changes.
+**Language/Version**: GitHub Actions workflow YAML (orchestration layer); Python 3.11 (backend, unchanged), Node.js 24 (frontend build tooling, unchanged), HCL/Terraform (infrastructure, unchanged). This feature's own deliverable is pipeline configuration and small helper scripts (Node/Bash), not application code.
 
-**Primary Dependencies**: GitHub Actions (`actions/checkout`, `actions/setup-node`, `actions/setup-python`, `actions/upload-artifact`, `actions/download-artifact`, `azure/login`, `Azure/functions-action`, `Azure/static-web-apps-deploy`, `hashicorp/setup-terraform`); `semantic-release` plus a monorepo/path-scoping plugin, `@semantic-release/commit-analyzer`, `@semantic-release/release-notes-generator`, `@semantic-release/github` (no `@semantic-release/git` — see Research); a PR-title format-check GitHub Action.
+**Primary Dependencies**: GitHub Actions (`workflow_dispatch`, `workflow_call`, `environments`), `semantic-release` via `semantic-release-monorepo` (path-scoped independent versioning, already in use for frontend/backend — extended to infrastructure), GitHub CLI (`gh`) for both human and AI-agent-driven manual deploy triggering, GitHub Releases (tags + release assets) as the artifact cache, Terraform CLI, `actionlint`, existing custom Node test scripts (`scripts/test-workflow-structure.js`, `scripts/test-release-fixtures.js`).
 
-**Storage**: N/A — no application data store is touched by this feature. Versions are persisted as git tags and GitHub Releases; build artifacts are persisted as GitHub Actions run artifacts.
+**Storage**: GitHub Releases (git tag + release, one per component per version) as the immutable, versioned, indefinitely-retained build-artifact cache — reusing frontend/backend's existing `semantic-release`-driven tag/release mechanism and extending the same pattern to infrastructure. `actions/upload-artifact` alone is insufficient as the cache (default ~90-day retention does not satisfy the spec's immutable/indefinitely-retrievable requirement, FR-006/FR-007) and is used only for same-run job-to-job artifact passing, never as the durable cache.
 
-**Testing**: Existing `pytest` (backend) and `vitest` (frontend) suites keep gating merges unchanged (FR-017). This feature's own new logic gets a dedicated automated test per user story (research.md decision #8): workflow-structure assertion scripts for US1 (no rebuild/install step in `deploy`), US2 (`concurrency` block present and correctly configured), and US5 (`apply` references the saved plan, no re-planning flags); a `semantic-release --dry-run` fixture test for US3 (including the vertical-slice case); and a PR-title-pattern unit test for US4 — plus an `actionlint` check across all changed workflows. quickstart.md's scenarios are a separate, additional layer: the Principle IX human-acceptance validation against the real deployed environment, not a substitute for the automated tests above.
+**Testing**: pytest (backend), `npm test`/vitest (frontend), Terraform validate + existing infrastructure unit tests, `actionlint` (workflow syntax), and the existing custom structure/fixture test scripts under `scripts/` — extended to assert the new CI/CD separation (no `push`-triggered deploy job anywhere; every deploy workflow requires `workflow_dispatch` with a `version` input; infrastructure's deploy job targets an approval-gated environment; frontend/backend's does not; the changed-files-are-all-non-testable skip logic).
 
-**Target Platform**: GitHub Actions (`ubuntu-latest` runners) deploying to Azure Functions (backend) and Azure Static Web Apps (frontend); Azure via Terraform for infrastructure. No change to the deployed runtime platforms themselves.
+**Target Platform**: GitHub Actions runners (`ubuntu-latest`); deploy targets remain Azure Functions (backend), Azure Static Web Apps (frontend), and Azure resources managed by Terraform (infrastructure) — unchanged from the existing implementation.
 
-**Project Type**: CI/CD pipeline configuration (GitHub Actions workflows + minimal versioning-tooling manifests) — not an application feature; no new user-facing surface.
+**Project Type**: CI/CD pipeline configuration for an existing web application (frontend + backend + infrastructure-as-code), not a new application feature — no new runtime service or UI surface is introduced.
 
-**Performance Goals**: Backend and frontend deploy workflow wall-clock time decreases versus a pre-implementation baseline (directional per spec SC-001 — no fixed target, since the achievable reduction depends on unmeasured factors like Azure Oryx build time and current npm/pip install time).
+**Performance Goals**: Directional only, per spec SC-007 — independent components' test/build pipelines run in parallel rather than serially blocking each other, and no deploy or build step performs a rebuild a cache lookup could have served instead. No fixed numeric time budget is set by this feature.
 
-**Constraints**: Constitution's "no direct pushes to main" rule (Development Workflow & Quality Gates) must not be violated by the versioning mechanism; the repo's actual merge strategy is squash-merge (confirmed from history), so per-commit linting is the wrong tool and PR-title linting is used instead (see Clarifications in spec.md); existing `production`/`production-infra` GitHub environments, required secrets/vars, and approval gates must be preserved as-is; `test.yml`'s PR-time triggers and path scope must not change beyond adding caching (FR-017).
+**Constraints**: Deploy MUST NOT be triggered by `push` or `pull_request` events, only `workflow_dispatch` (FR-010). Every deploy workflow MUST accept a `version` input. Infrastructure's deploy job MUST target a GitHub Environment with required-reviewer protection (FR-011a); frontend/backend's MUST NOT have an equivalent approval step (FR-011b). A push/PR whose entire diff is non-testable content MUST trigger no pipeline (FR-019); one testable file in the same diff MUST trigger the full pipeline (FR-020). Artifacts MUST be immutable and idempotently re-servable from cache (FR-007/FR-008).
 
-**Scale/Scope**: Two independently versioned components (frontend, backend); one additional build-once/no-replan correctness fix for infrastructure apply (no versioning). Single environment tier (`production`) — no staging/multi-environment concerns introduced.
+**Scale/Scope**: Three components (frontend, backend, infrastructure), each with its own independent CI workflow(s) and its own independent CD (deploy) workflow, one Azure deploy target per component (no multi-environment/staging matrix introduced by this feature).
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- **I. Meaningful, Automated Testing** — PASS (revised post-`/speckit-analyze`, findings C1 and G1). Existing backend/frontend automated test suites keep gating every PR and every deploy workflow run unchanged (FR-017). This feature's *own* new logic is covered by a dedicated automated test per user story, not only `actionlint`'s syntax checking: workflow-structure assertion tests for US1 (no rebuild/install step in `deploy`), US2 (`concurrency` block present and correctly configured), and US5 (`apply` references the saved plan, no re-planning flags); a `semantic-release --dry-run` fixture test for US3 exercising same-component, non-releasable, and vertical-slice commit scenarios; and a PR-title-pattern unit test for US4 (research.md decision #8). quickstart.md's manual scenarios remain as the Principle IX human-acceptance layer on top of all of these, not a substitute for them — the original plan's reliance on manual validation alone was corrected during two rounds of `/speckit-analyze`.
-- **II. Secure-by-Default Access** — N/A. No user-facing page or API endpoint is added or changed.
-- **III. Defined Technology Stack** — PASS. Backend stays Python/Azure Functions, frontend stays ReactJS/browser; `semantic-release` and its plugins are CI-only tooling dependencies (declared in per-component `package.json` files used solely for version tracking), not a change to the deployed application stack.
-- **IV. Simplicity Over Premature Scale** — PASS. Design deliberately stays within each component's existing single workflow (multi-job, not multi-workflow), and explicitly excludes cross-workflow `workflow_run` orchestration and rollback/redeploy machinery per the spec's stated out-of-scope — no speculative infrastructure is added beyond what the five user stories require.
-- **V. Continuous Integration Gate** — PASS. The existing PR-gated test suite requirement is preserved; the new PR-title format check is an additional required check, not a replacement.
-- **VI. Observability & AI Cost Transparency** — N/A. No LLM interaction is touched by this feature.
-- **VII. Zero-Trust Azure Resource Communication** — PASS. No new shared keys, connection strings, or public network paths are introduced. The backend deploy's pre-existing `AzureWebJobsStorage` key-sync step (a documented, already-justified exception for Flex Consumption) is unaffected by moving from remote-build to a pre-built artifact deploy.
-- **VIII. UI Design System & Accessibility Compliance** — N/A. No UI is added or changed.
-- **IX. User-Verified Acceptance Before Completion** — APPLIES. `tasks.md` must include a final acceptance task where a maintainer merges a real PR for each component and confirms, against the actual GitHub Actions run and the real Azure deployment, that the artifact-reuse, concurrency-cancellation, versioning, PR-title check, and Terraform apply-the-plan behaviors all work as specified — not merely that a workflow YAML lints correctly.
-- **X. PII Protection by Design** — N/A. No PII is introduced, logged, or referenced by this feature.
-- **XI. UI Design Pre-Agreement Before Implementation** — N/A. No UI is added or changed.
-- **Development Workflow & Quality Gates — "no direct pushes to main"** — PASS BY DESIGN, flagged for visibility. The most likely way a semantic-versioning implementation could violate this rule is `semantic-release`'s common `@semantic-release/git` plugin, which pushes a version-bump/changelog commit directly to the release branch. This design deliberately excludes that plugin: `semantic-release` is configured to produce only a git tag and a GitHub Release (both non-branch-history writes) per component, and per-component `package.json` version fields are never bumped by automation — they exist solely so `semantic-release`'s tooling has a package manifest to run against. See Research decision on versioning tooling.
+- **I. Meaningful, Automated Testing (NON-NEGOTIABLE)** — Satisfied. FR-001/FR-002/FR-003 keep the existing PR-gated pytest/vitest suites as the merge-blocking requirement; this feature does not narrow test scope, only reorganizes when build/deploy happen relative to it.
+- **II. Secure-by-Default Access** — N/A. This feature does not touch application authentication/authorization surfaces.
+- **III. Defined Technology Stack** — Satisfied. Backend stays Python/Azure Functions, frontend stays ReactJS; this feature only reorganizes the GitHub Actions/Terraform delivery pipeline around that existing stack, introducing no new language or hosting model.
+- **IV. Simplicity Over Premature Scale (YAGNI)** — Satisfied. Reuses the existing `semantic-release-monorepo` + GitHub Releases mechanism already proven for frontend/backend rather than introducing a new artifact-storage system (e.g., a container registry or blob store) for infrastructure's artifact.
+- **V. Continuous Integration Gate** — Satisfied and strengthened. Every PR still runs the full required test suite and is blocked from merging while it fails; this feature does not change that gate's presence, only clarifies (FR-019/FR-020) that a docs-only PR isn't required to invoke a pipeline that has nothing to test.
+- **VI. Observability & AI Cost Transparency** — N/A. No LLM interaction is introduced by this feature.
+- **VII. Zero-Trust Azure Resource Communication (NON-NEGOTIABLE)** — Satisfied, unchanged. Deploy jobs continue to authenticate to Azure via OIDC/federated credentials (`permissions: id-token: write`, already present in the existing deploy workflows) rather than long-lived secrets; this feature does not alter that mechanism.
+- **VIII. UI Design System & Accessibility Compliance** — N/A. No user-facing UI is introduced or changed by this feature.
+- **IX. User-Verified Acceptance Before Completion (NON-NEGOTIABLE)** — Applies. `tasks.md` MUST end with an explicit user-verified acceptance task: a human triggers each of the three deploy workflows (including an AI-agent-driven "deploy latest" request) against the real repository/environment and confirms the behavior described in spec.md's user stories, not merely that automated workflow-structure tests pass.
+- **X. PII Protection by Design** — N/A. No PII is handled by this feature.
+- **XI. UI Design Pre-Agreement Before Implementation** — N/A. No UI surface.
+- **Development Workflow & Quality Gates** — Satisfied. Changes go through a PR on this feature's own branch/worktree; CI (Principle V) still gates merge; no direct push to `main`.
 
-No violations requiring justification. Complexity Tracking table is not needed.
+No violations requiring justification — Complexity Tracking is not needed.
+
+**Post-Design Re-check** (after Phase 1: research.md, data-model.md, contracts/, quickstart.md): No new violations introduced. Design decisions reinforce rather than strain the gates above — notably Decision 3/research.md (reusing GitHub Releases instead of adding a new Azure storage resource) and Decision 5 (a single shared build implementation instead of duplicated YAML) both directly serve Principle IV (YAGNI); Decision 6 reuses the existing `production-infra` environment/approval mechanism rather than inventing one. Constitution Check gates remain satisfied as stated above.
 
 ## Project Structure
 
@@ -55,55 +61,42 @@ No violations requiring justification. Complexity Tracking table is not needed.
 specs/023-cicd-pipeline-optimization/
 ├── plan.md              # This file (/speckit-plan command output)
 ├── research.md          # Phase 0 output (/speckit-plan command)
-├── data-model.md        # Phase 1 output (/speckit-plan command)
+├── data-model.md         # Phase 1 output (/speckit-plan command)
 ├── quickstart.md        # Phase 1 output (/speckit-plan command)
 ├── contracts/           # Phase 1 output (/speckit-plan command)
+│   └── workflow-interfaces.md
 └── tasks.md             # Phase 2 output (/speckit-tasks command - NOT created by /speckit-plan)
 ```
 
 ### Source Code (repository root)
 
-This feature touches CI/CD configuration and adds minimal, tooling-only manifests — it does not add an application module. Existing repository layout, annotated with what this feature adds/changes:
-
 ```text
 .github/workflows/
-├── backend-deploy.yml        # CHANGED: split into test/release/build/deploy jobs,
-│                              #   remote-build removed, concurrency group added
-├── frontend-deploy.yml       # CHANGED: split into test/release/build/deploy jobs,
-│                              #   deploy consumes build job's artifact, concurrency group added
-├── test.yml                  # CHANGED: caching added only; triggers/scope unchanged (FR-017)
-├── pr-title-check.yml         # NEW: required check validating PR title format
-│                              #   (paired with a unit test, e.g. pr-title-check.test.*)
-├── workflow-lint.yml          # NEW: required actionlint check on changed workflow files
-├── terraform-apply.yml       # CHANGED: apply job consumes validate job's saved plan artifact
-├── terraform-validate.yml    # UNCHANGED
-├── infrastructure-tests.yml  # UNCHANGED
-└── README.md                 # CHANGED: documents the new job graphs, concurrency groups,
-                               #   path-diff-based version gating, and PR-title requirement
+├── test.yml                      # CI: test-on-push (extended: push trigger + all-non-testable-files skip)
+├── frontend-build.yml            # CI: build+version+cache on merge to main (renamed from frontend-deploy.yml, deploy job removed)
+├── backend-build.yml             # CI: build+version+cache on merge to main (renamed from backend-deploy.yml, deploy job removed)
+├── infrastructure-build.yml      # CI: validate+plan+version+cache on merge to main (new; versioning extended to infra)
+├── frontend-deploy.yml           # CD: workflow_dispatch only, version input, no approval gate
+├── backend-deploy.yml            # CD: workflow_dispatch only, version input, no approval gate
+├── infrastructure-deploy.yml     # CD: workflow_dispatch only, version input, required-reviewer environment (renamed/split from terraform-apply.yml)
+├── pr-title-check.yml            # unchanged
+├── workflow-lint.yml             # unchanged
+├── workflow-structure-test.yml   # extended: asserts CI/CD separation, version inputs, approval-gate asymmetry, docs-skip logic
+├── release-fixtures-test.yml     # extended: infrastructure path scope added to release-fixture matrix
+├── infrastructure-tests.yml      # unchanged (PR-time Terraform validation)
+└── terraform-validate.yml        # unchanged (PR-time Terraform validation)
+
+src/backend/                      # unchanged application code; .releaserc.json path scope unchanged
+src/frontend/                     # unchanged application code; .releaserc.json path scope unchanged
+infrastructure/terraform/         # unchanged Terraform configuration; new infrastructure/.releaserc.json added
 
 scripts/
-├── test-workflow-structure.sh # NEW: asserts deploy/concurrency/terraform-apply job shape
-│                              #   (US1, US2, US5 — one script, per-story assertion functions)
-└── test-release-fixtures.sh   # NEW: asserts per-component version-bump behavior against
-                               #   synthetic commits, including the vertical-slice case (US3)
-
-src/backend/
-├── package.json              # NEW: tooling-only manifest (name + version) for semantic-release;
-│                              #   never published, never version-bumped by automation
-├── .releaserc.json           # NEW: semantic-release config scoped to src/backend/** paths
-└── ... (existing Python source, unchanged)
-
-src/frontend/
-├── package.json              # CHANGED: unchanged fields, now paired with a committed lockfile
-├── package-lock.json         # NEW: committed (currently gitignored) to unlock npm ci + caching
-├── .releaserc.json           # NEW: semantic-release config scoped to src/frontend/** paths
-└── ... (existing React source, unchanged)
-
-infrastructure/terraform/      # UNCHANGED (no source changes; only the apply workflow step changes)
+├── test-workflow-structure.js    # extended with new assertions (see above)
+└── test-release-fixtures.js      # extended with infrastructure path scope
 ```
 
-**Structure Decision**: This is a CI/CD-only feature — no `src/models`, `src/services`, or similar application-layer directories are introduced. The new files are workflow YAML, per-component `package.json`/`.releaserc.json` manifests that exist purely to give `semantic-release` a scoped, tooling-only home in each component's existing directory, and a small `scripts/` directory holding the automated tests this feature's own logic needs (research.md decision #8). Both `backend-deploy.yml` and `frontend-deploy.yml` are restructured in place (same file, new job graph) rather than split into separate CI/CD workflow files, consistent with the spec's Clarifications and the constitution's Simplicity principle.
+**Structure Decision**: Existing repository layout (`src/backend`, `src/frontend`, `infrastructure/terraform`, `.github/workflows`, `scripts`) is reused as-is — this feature restructures the workflow layer only. The core change is splitting each component's single push-triggered `test → release → build → deploy` workflow into two: a CI workflow (auto, ends at build+version+cache) and a CD workflow (manual `workflow_dispatch` only, starts from version resolution). Infrastructure gains a CI/CD split mirroring frontend/backend's, plus its own `semantic-release` path scope, where today it has only a single push-triggered `validate → test → apply` workflow.
 
 ## Complexity Tracking
 
-*No Constitution Check violations require justification — table intentionally omitted.*
+*No Constitution Check violations — this section is not needed.*

@@ -1,0 +1,140 @@
+name: Build Infrastructure (reusable)
+
+# Reusable build workflow (specs/023-cicd-pipeline-optimization, research.md
+# Decisions 3, 5, 9) — the single implementation of "validate, plan,
+# compute version, cache" for infrastructure, called both by
+# infrastructure-build.yml (the normal post-merge CI path) and by
+# infrastructure-deploy.yml's cache-miss-on-latest fallback (US5). Never
+# duplicate this logic in either caller.
+#
+# workflow_call only — this workflow is not directly triggerable, and
+# performs no apply of its own (FR-004/FR-005/FR-006/FR-007/FR-008).
+# "Usable as-is" for infrastructure means the exact validated plan this
+# workflow saves — infrastructure-deploy.yml applies THIS plan, it never
+# re-plans immediately before applying.
+
+on:
+  workflow_call:
+    outputs:
+      version:
+        description: "The infrastructure version that is now built and cached (pre-existing or newly created this run)."
+        value: ${{ jobs.build.outputs.version }}
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    outputs:
+      version: ${{ steps.compute-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # semantic-release needs full tag history
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: infrastructure/package-lock.json
+
+      - name: Install release tooling
+        working-directory: infrastructure
+        run: npm ci
+
+      - name: Require a seed version tag
+        # semantic-release computes 1.0.0 for a component's first-ever
+        # release when no prior tag exists. Consistent with frontend/
+        # backend's 0.1.0 baseline (research.md Decision 9), a maintainer
+        # must seed infrastructure-v0.1.0 once (at rollout) pointing at a
+        # real commit reachable from main — see .github/workflows/README.md.
+        run: |
+          if ! git tag --list 'infrastructure-v*' | grep -q .; then
+            echo "::error::No infrastructure-v* tag found. Seed the 0.1.0 baseline once with: git tag infrastructure-v0.1.0 <commit-on-main> && git push origin infrastructure-v0.1.0 — see .github/workflows/README.md." >&2
+            exit 1
+          fi
+
+      - name: Run semantic-release
+        working-directory: infrastructure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
+
+      - name: Compute this run's version output
+        id: compute-version
+        run: |
+          LATEST_TAG=$(git tag --list 'infrastructure-v*' --sort=-v:refname | head -n1)
+          echo "version=${LATEST_TAG#infrastructure-v}" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether this version's artifact is already cached
+        id: check-artifact
+        # Idempotency short-circuit (FR-008/SC-006): if
+        # infrastructure-v<version> already has the expected release asset
+        # attached, skip validate/plan below rather than re-planning.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="infrastructure-v${{ steps.compute-version.outputs.version }}"
+          if gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx 'infrastructure-plan.zip'; then
+            echo "artifact_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "artifact_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Terraform
+        if: steps.check-artifact.outputs.artifact_exists != 'true'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ vars.TERRAFORM_VERSION }}
+
+      - name: terraform fmt / validate
+        if: steps.check-artifact.outputs.artifact_exists != 'true'
+        run: ./infrastructure/tests/test_terraform_validate.sh
+
+      - name: Azure Login (OIDC)
+        if: steps.check-artifact.outputs.artifact_exists != 'true'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Init (with backend)
+        if: steps.check-artifact.outputs.artifact_exists != 'true'
+        working-directory: infrastructure/terraform
+        run: terraform init -backend-config=backend-prod.hcl -input=false
+
+      - name: Terraform Plan
+        if: steps.check-artifact.outputs.artifact_exists != 'true'
+        working-directory: infrastructure/terraform
+        env:
+          TF_VAR_azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_azure_tenant_id: ${{ vars.AZURE_TENANT_ID }}
+        run: terraform plan -input=false -out=tfplan -var-file=terraform.tfvars
+
+      - name: Render human-readable plan text
+        if: steps.check-artifact.outputs.artifact_exists != 'true'
+        working-directory: infrastructure/terraform
+        run: terraform show -no-color tfplan > tfplan.txt
+
+      - name: Stamp version and package the artifact
+        # A single file is what gets attached to the GitHub Release — the
+        # cache. "usable as-is" here means the exact validated plan, not a
+        # re-plan (research.md Decision 3): infrastructure-deploy.yml
+        # applies this same tfplan binary.
+        if: steps.check-artifact.outputs.artifact_exists != 'true'
+        run: |
+          echo "${{ steps.compute-version.outputs.version }}" > infrastructure/terraform/VERSION
+          cd infrastructure/terraform
+          zip -q ../../infrastructure-plan.zip tfplan tfplan.txt VERSION
+
+      - name: Attach artifact to the release
+        if: steps.check-artifact.outputs.artifact_exists != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "infrastructure-v${{ steps.compute-version.outputs.version }}" infrastructure-plan.zip --clobber=false

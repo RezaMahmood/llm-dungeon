@@ -53,9 +53,10 @@ async function main() {
   try {
     fs.mkdirSync(path.join(cwd, "backend"));
     fs.mkdirSync(path.join(cwd, "frontend"));
+    fs.mkdirSync(path.join(cwd, "infrastructure"));
 
-    // Seed commit: creates both package roots so pkgUp() can find them.
-    // Excluded from every scenario below by only ever analyzing the
+    // Seed commit: creates all three package roots so pkgUp() can find
+    // them. Excluded from every scenario below by only ever analyzing the
     // commits created after it.
     await gitCommitsWithFiles([
       {
@@ -63,6 +64,7 @@ async function main() {
         files: [
           { name: "backend/package.json", body: '{"name":"backend","version":"0.1.0"}' },
           { name: "frontend/package.json", body: '{"name":"frontend","version":"0.1.0"}' },
+          { name: "infrastructure/package.json", body: '{"name":"infrastructure","version":"0.1.0"}' },
         ],
       },
     ]);
@@ -76,10 +78,22 @@ async function main() {
         message: "fix(backend): vertical-slice change touching both packages",
         files: [{ name: "backend/index2.js" }, { name: "frontend/index2.js" }],
       },
+      {
+        message: "feat(infra): provision a new resource",
+        files: [{ name: "infrastructure/main.tf" }],
+      },
+      {
+        message: "feat: vertical-slice change touching all three components",
+        files: [
+          { name: "backend/index3.js" },
+          { name: "frontend/index3.js" },
+          { name: "infrastructure/main2.tf" },
+        ],
+      },
     ]);
     // gitCommitsWithFiles returns commits newest-first (git log order);
     // re-derive named handles for readability below.
-    const [vertical, chore, feat, fix] = created;
+    const [allThree, infra, vertical, chore, feat, fix] = created;
 
     console.log("Path-diff filtering (semantic-release-monorepo's onlyPackageCommits):");
 
@@ -117,6 +131,50 @@ async function main() {
     check(
       "frontend's filtered commits [feat, vertical(fix)] => minor (feat outranks fix)",
       frontendBump === "minor"
+    );
+
+    console.log("\nInfrastructure path scope (specs/023-cicd-pipeline-optimization, research.md Decision 9):");
+
+    process.chdir(path.join(cwd, "infrastructure"));
+    const infraCommits = await onlyPackageCommits([fix, feat, chore, vertical, infra, allThree]);
+    check(
+      "infrastructure sees [infra, allThree] and NOT any backend/frontend-only commit",
+      infraCommits.length === 2 &&
+        infraCommits.some((c) => c.hash === infra.hash) &&
+        infraCommits.some((c) => c.hash === allThree.hash) &&
+        !infraCommits.some((c) => c.hash === fix.hash) &&
+        !infraCommits.some((c) => c.hash === feat.hash) &&
+        !infraCommits.some((c) => c.hash === chore.hash) &&
+        !infraCommits.some((c) => c.hash === vertical.hash)
+    );
+
+    const infraBump = await analyzeType(infraCommits);
+    check(
+      "infrastructure's filtered commits [infra(feat), allThree(feat)] => minor",
+      infraBump === "minor"
+    );
+
+    console.log("\nA single commit touching all three components bumps each independently:");
+
+    process.chdir(path.join(cwd, "backend"));
+    const backendAllThreeOnly = await onlyPackageCommits([allThree]);
+    check(
+      "backend sees the all-three commit despite its declared scope being unrelated",
+      backendAllThreeOnly.length === 1 && backendAllThreeOnly[0].hash === allThree.hash
+    );
+
+    process.chdir(path.join(cwd, "frontend"));
+    const frontendAllThreeOnly = await onlyPackageCommits([allThree]);
+    check(
+      "frontend sees the all-three commit despite its declared scope being unrelated",
+      frontendAllThreeOnly.length === 1 && frontendAllThreeOnly[0].hash === allThree.hash
+    );
+
+    process.chdir(path.join(cwd, "infrastructure"));
+    const infraAllThreeOnly = await onlyPackageCommits([allThree]);
+    check(
+      "infrastructure sees the all-three commit despite its declared scope being unrelated",
+      infraAllThreeOnly.length === 1 && infraAllThreeOnly[0].hash === allThree.hash
     );
 
     console.log("\nThe F1 regression test — a single vertical-slice commit alone:");

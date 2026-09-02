@@ -1,7 +1,7 @@
-# Specification Quality Checklist: CI/CD Pipeline Optimization
+# Specification Quality Checklist: CI/CD Pipeline Optimization — Test-on-Push, Build-on-Merge, Manual Deploy
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-09-01
+**Created**: 2026-09-02
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -31,6 +31,5 @@
 
 ## Notes
 
-- Specific tool choices (semantic-release, commitlint, concurrency groups, artifact upload/download mechanics) were decided during pre-spec investigation with the user but are intentionally kept out of spec.md per template guidance — they belong in plan.md.
-- "Users" in this spec are the project's maintainers/contributors, since this is an internal engineering-process feature rather than an end-user-facing one.
-- All items pass; no revision iterations were required.
+- Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
+- This spec supersedes the previous version of `specs/023-cicd-pipeline-optimization/spec.md`, which described a different design (auto-deploy-on-merge with concurrency cancellation). The existing `plan.md`, `tasks.md`, `research.md`, `data-model.md`, `quickstart.md`, and `contracts/` in this directory were written against that prior spec and are now stale — regenerate them via `/speckit-plan` and `/speckit-tasks` before implementing.

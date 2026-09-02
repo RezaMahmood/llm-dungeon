@@ -1,0 +1,134 @@
+name: Build Frontend (reusable)
+
+# Reusable build workflow (specs/023-cicd-pipeline-optimization, research.md
+# Decision 5) — the single implementation of "compute version, build,
+# attach as a cached artifact" for frontend, called both by
+# frontend-build.yml (the normal post-merge CI path) and by
+# frontend-deploy.yml's cache-miss-on-latest fallback (US5). Never
+# duplicate this logic in either caller.
+#
+# workflow_call only — this workflow is not directly triggerable, and
+# performs no deploy of its own (FR-004/FR-005/FR-006/FR-007/FR-008).
+
+on:
+  workflow_call:
+    outputs:
+      version:
+        description: "The frontend version that is now built and cached (pre-existing or newly created this run)."
+        value: ${{ jobs.build.outputs.version }}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.compute-version.outputs.version }}
+    defaults:
+      run:
+        working-directory: src/frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # semantic-release needs full tag history
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install release tooling
+        run: npm ci
+
+      - name: Require a seed version tag
+        # semantic-release computes 1.0.0 for a component's first-ever
+        # release when no prior tag exists. spec.md's Clarifications commit
+        # to a 0.1.0 baseline instead, so a maintainer must seed
+        # frontend-v0.1.0 once (at rollout) pointing at a real commit
+        # reachable from main — see .github/workflows/README.md.
+        run: |
+          if ! git tag --list 'frontend-v*' | grep -q .; then
+            echo "::error::No frontend-v* tag found. Seed the 0.1.0 baseline once with: git tag frontend-v0.1.0 <commit-on-main> && git push origin frontend-v0.1.0 — see .github/workflows/README.md." >&2
+            exit 1
+          fi
+
+      - name: Run semantic-release
+        # A no-op (no new tag/release) when this commit's frontend-scoped
+        # commits have already been released — semantic-release's own
+        # idempotency. The explicit artifact-existence check below is what
+        # additionally guarantees the BUILD steps themselves don't re-run
+        # (FR-008/SC-006), since re-running install/build could in
+        # principle produce non-identical bytes even for the same version.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
+
+      - name: Compute this run's version output
+        id: compute-version
+        # The version to build/cache: whatever semantic-release just
+        # released, or — if this run's commits weren't releasable for
+        # frontend — the existing latest frontend-v* tag, unchanged.
+        run: |
+          LATEST_TAG=$(git tag --list 'frontend-v*' --sort=-v:refname | head -n1)
+          echo "version=${LATEST_TAG#frontend-v}" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether this version's artifact is already cached
+        id: check-artifact
+        # Idempotency short-circuit (FR-008/SC-006): if frontend-v<version>
+        # already has the expected release asset attached, skip every
+        # remaining build step below rather than re-building and
+        # re-uploading over it.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="frontend-v${{ steps.compute-version.outputs.version }}"
+          if gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx 'frontend-dist.zip'; then
+            echo "artifact_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "artifact_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        if: steps.check-artifact.outputs.artifact_exists != 'true'
+        run: npm ci
+
+      - name: Build static site
+        if: steps.check-artifact.outputs.artifact_exists != 'true'
+        env:
+          # msalConfig.js reads these via import.meta.env at build time
+          # (Vite bakes them into the bundle). VITE_AZURE_REDIRECT_URI is
+          # deliberately left unset: Azure Static Web Apps get a randomly
+          # generated hostname, not one derived from STATIC_WEB_APP_NAME —
+          # msalConfig.js falls back to window.location.origin at runtime.
+          VITE_AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          VITE_AZURE_APP_ID: ${{ vars.AZURE_APP_ID }}
+        run: |
+          if [ -z "$VITE_AZURE_TENANT_ID" ] || [ -z "$VITE_AZURE_APP_ID" ]; then
+            echo "::error::VITE_AZURE_TENANT_ID / VITE_AZURE_APP_ID are not set — MSAL sign-in would silently break in production. Set the AZURE_TENANT_ID and AZURE_APP_ID GitHub repository variables." >&2
+            exit 1
+          fi
+          npm run build
+
+      - name: Stamp version into the artifact
+        if: steps.check-artifact.outputs.artifact_exists != 'true'
+        run: |
+          printf '{"version": "%s"}' "${{ steps.compute-version.outputs.version }}" > dist/version.json
+
+      - name: Package the artifact
+        # A single file is what gets attached to the GitHub Release — the
+        # cache (research.md Decision 3). "usable as-is" means this exact
+        # zip is what a deploy downloads and ships, never rebuilt.
+        if: steps.check-artifact.outputs.artifact_exists != 'true'
+        run: |
+          cd dist
+          zip -r ../frontend-dist.zip .
+
+      - name: Attach artifact to the release
+        if: steps.check-artifact.outputs.artifact_exists != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "frontend-v${{ steps.compute-version.outputs.version }}" frontend-dist.zip --clobber=false

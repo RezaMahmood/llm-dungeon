@@ -1,0 +1,117 @@
+name: Build Backend (reusable)
+
+# Reusable build workflow (specs/023-cicd-pipeline-optimization, research.md
+# Decision 5) — the single implementation of "compute version, build,
+# attach as a cached artifact" for backend, called both by
+# backend-build.yml (the normal post-merge CI path) and by
+# backend-deploy.yml's cache-miss-on-latest fallback (US5). Never duplicate
+# this logic in either caller.
+#
+# workflow_call only — this workflow is not directly triggerable, and
+# performs no deploy of its own (FR-004/FR-005/FR-006/FR-007/FR-008).
+
+on:
+  workflow_call:
+    outputs:
+      version:
+        description: "The backend version that is now built and cached (pre-existing or newly created this run)."
+        value: ${{ jobs.build.outputs.version }}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.compute-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # semantic-release needs full tag history
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: src/backend/package-lock.json
+
+      - name: Install release tooling
+        working-directory: src/backend
+        run: npm ci
+
+      - name: Require a seed version tag
+        # semantic-release computes 1.0.0 for a component's first-ever
+        # release when no prior tag exists. spec.md's Clarifications commit
+        # to a 0.1.0 baseline instead, so a maintainer must seed
+        # backend-v0.1.0 once (at rollout) pointing at a real commit
+        # reachable from main — see .github/workflows/README.md.
+        run: |
+          if ! git tag --list 'backend-v*' | grep -q .; then
+            echo "::error::No backend-v* tag found. Seed the 0.1.0 baseline once with: git tag backend-v0.1.0 <commit-on-main> && git push origin backend-v0.1.0 — see .github/workflows/README.md." >&2
+            exit 1
+          fi
+
+      - name: Run semantic-release
+        # A no-op (no new tag/release) when this commit's backend-scoped
+        # commits have already been released — semantic-release's own
+        # idempotency. The explicit artifact-existence check below is what
+        # additionally guarantees the BUILD steps themselves don't re-run
+        # (FR-008/SC-006).
+        working-directory: src/backend
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
+
+      - name: Compute this run's version output
+        id: compute-version
+        run: |
+          LATEST_TAG=$(git tag --list 'backend-v*' --sort=-v:refname | head -n1)
+          echo "version=${LATEST_TAG#backend-v}" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether this version's artifact is already cached
+        id: check-artifact
+        # Idempotency short-circuit (FR-008/SC-006): if backend-v<version>
+        # already has the expected release asset attached, skip every
+        # remaining build step below rather than re-vendoring/re-zipping.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="backend-v${{ steps.compute-version.outputs.version }}"
+          if gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx 'backend-src.zip'; then
+            echo "artifact_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "artifact_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stamp version into the artifact
+        # No dependency-vendoring step here: this Function App runs on Azure
+        # Flex Consumption, which does not support a pre-built/vendored
+        # Python package the way classic Consumption/Premium plans do —
+        # confirmed empirically in production (see research.md's amendment
+        # to Decision 3, and backend-deploy.yml's `remote-build: true`).
+        # Vendoring dependencies here would be pointless: Azure's own Oryx
+        # remote build reinstalls them from src/requirements.txt regardless.
+        if: steps.check-artifact.outputs.artifact_exists != 'true'
+        run: echo "${{ steps.compute-version.outputs.version }}" > src/VERSION
+
+      - name: Package the artifact
+        # "src" (not "src/backend"): the deploy root must contain the
+        # `backend` package as a real subdirectory so `from backend.x
+        # import y` resolves the same way it does under pytest.ini's
+        # `pythonpath = src`. src/function_app.py is a thin shim satisfying
+        # Python v2's requirement that function_app.py sit at the deploy
+        # root. A single zip is what gets attached to the GitHub Release —
+        # the cache (research.md Decision 3).
+        if: steps.check-artifact.outputs.artifact_exists != 'true'
+        run: |
+          cd src
+          zip -rq ../backend-src.zip . -x 'frontend/**'
+
+      - name: Attach artifact to the release
+        if: steps.check-artifact.outputs.artifact_exists != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "backend-v${{ steps.compute-version.outputs.version }}" backend-src.zip --clobber=false

@@ -1,5 +1,15 @@
 name: Test Suite
+
+# CI test gate (specs/023-cicd-pipeline-optimization, FR-001/FR-002/FR-003).
+# Runs on every push (any branch) and every PR event, so no untested code
+# can reach `main`. The `changes` job skips both test jobs entirely when
+# every changed file is non-testable content (docs/specs/markdown, FR-019)
+# — see .github/actions/detect-non-testable-changes. The moment even one
+# changed file is testable, both jobs run normally (FR-020), regardless of
+# how many non-testable files are bundled in the same push/PR.
+
 on:
+  push:
   pull_request:
     types: [opened, synchronize, reopened]
 
@@ -7,22 +17,15 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      code: ${{ steps.filter.outputs.code }}
+      all-non-testable: ${{ steps.detect.outputs.all-non-testable }}
     steps:
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          predicate-quantifier: every
-          filters: |
-            code:
-              - '**'
-              - '!specs/**'
-              - '!docs/**'
-              - '!**/*.md'
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/detect-non-testable-changes
+        id: detect
 
   test:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.all-non-testable != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -64,7 +67,7 @@ jobs:
 
   frontend-test:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.all-non-testable != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
