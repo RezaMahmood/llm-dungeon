@@ -23,7 +23,14 @@ on:
         default: ""
 
 permissions:
-  contents: read
+  # contents: write (not read) — the build-on-demand job below calls
+  # _build-frontend.yml, which needs contents: write to create a git
+  # tag/GitHub Release via semantic-release. A called reusable workflow
+  # cannot request more than its caller grants (GitHub Actions fails
+  # the whole run at startup, zero jobs created, if it does) — this
+  # bit only surfaces the first time an actual cache-miss deploy runs,
+  # so it went undetected until then.
+  contents: write
   id-token: write
 
 jobs:
