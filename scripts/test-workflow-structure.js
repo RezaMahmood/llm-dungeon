@@ -308,11 +308,10 @@ function testUserStory3() {
   for (const name of ["frontend-deploy.yml", "backend-deploy.yml"]) {
     const deployJob = loadWorkflow(name).jobs.deploy;
     check(
-      `${name}'s deploy job has if: always() && needs.ensure-artifact.result == 'success' (both the always() and the exact comparison are required — see comment above)`,
+      `${name}'s deploy job has if: always() && needs.ensure-artifact.result == 'success', combined with &&, not just both present anywhere (e.g. a stray || would let deploy run after a failed ensure-artifact)`,
       !!deployJob &&
         typeof deployJob.if === "string" &&
-        deployJob.if.includes("always()") &&
-        /needs\.ensure-artifact\.result\s*==\s*['"]success['"]/.test(deployJob.if)
+        /always\(\)\s*&&\s*needs\.ensure-artifact\.result\s*==\s*['"]success['"]/.test(deployJob.if)
     );
   }
 
