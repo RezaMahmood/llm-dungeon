@@ -304,10 +304,10 @@ function testUserStory3() {
   for (const name of ["frontend-deploy.yml", "backend-deploy.yml"]) {
     const deployJob = loadWorkflow(name).jobs.deploy;
     check(
-      `${name}'s deploy job has an explicit if: checking needs.ensure-artifact.result (not the implicit default, which is skipped transitively when build-on-demand is skipped)`,
+      `${name}'s deploy job has an explicit if: requiring needs.ensure-artifact.result == 'success' (not the implicit default, which is skipped transitively when build-on-demand is skipped)`,
       !!deployJob &&
         typeof deployJob.if === "string" &&
-        deployJob.if.includes("needs.ensure-artifact.result")
+        /needs\.ensure-artifact\.result\s*==\s*['"]success['"]/.test(deployJob.if)
     );
   }
 
