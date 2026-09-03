@@ -147,9 +147,15 @@ jobs:
     # build-on-demand is skipped (the normal, expected outcome for an
     # explicit already-cached version), the implicit default would skip
     # this job too even though ensure-artifact succeeded, silently
-    # deploying nothing while the run still reports overall success.
-    # Discovered live during quickstart.md Scenario 4 re-validation (#165).
-    if: needs.ensure-artifact.result == 'success'
+    # deploying nothing while the run still reports overall success. The
+    # always() is required too, not just the explicit result check: GitHub
+    # Actions still implicitly ANDs any custom `if:` with success() (which
+    # is exactly this same transitive check) unless the expression itself
+    # calls a status-check function — confirmed live: this job stayed
+    # skipped even after adding the bare needs.ensure-artifact.result
+    # check with no always(). Discovered during quickstart.md Scenario 4
+    # re-validation (#165).
+    if: always() && needs.ensure-artifact.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
