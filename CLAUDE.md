@@ -23,7 +23,7 @@ pull request or resolve/close a GitHub issue directly against GitHub itself
   directly, and MUST NOT itself monitor the PR through to completion. From
   there, GitHub Copilot reviews the PR and posts its findings as review
   comments/recommendations — Copilot code review does not produce a formal
-  approval or perform the merge. The requesting user reviews Copilot's
+  approving review or perform the merge. The requesting user reviews Copilot's
   recommendations and the required status checks, then merges the pull
   request manually.
 - GitHub issue resolution (bugs, dependency updates, fixes) MUST be handed
