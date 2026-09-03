@@ -141,6 +141,15 @@ jobs:
 
   deploy:
     needs: ensure-artifact
+    # Explicit override, not the implicit default: GitHub Actions' default
+    # job condition (success()) is evaluated against the *entire* upstream
+    # dependency graph, not just this job's own `needs` list — so whenever
+    # build-on-demand is skipped (the normal, expected outcome for an
+    # explicit already-cached version), the implicit default would skip
+    # this job too even though ensure-artifact succeeded, silently
+    # deploying nothing while the run still reports overall success.
+    # Discovered live during quickstart.md Scenario 4 re-validation (#165).
+    if: needs.ensure-artifact.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production

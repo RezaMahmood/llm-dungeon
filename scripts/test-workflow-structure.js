@@ -290,6 +290,27 @@ function testUserStory3() {
     );
   }
 
+  // Regression guard (found live during real quickstart.md Scenario 4
+  // re-validation, 2026-09-03): GitHub Actions' default job condition
+  // (success()) is evaluated against the entire upstream dependency graph,
+  // not just a job's own `needs` list. ensure-artifact uses `if: always()`
+  // to survive build-on-demand being skipped (the normal, expected outcome
+  // for an explicit already-cached version) — but deploy, which only
+  // `needs: ensure-artifact`, was still transitively skipped whenever
+  // build-on-demand was skipped, even though ensure-artifact succeeded.
+  // The run reported overall success while silently deploying nothing.
+  // deploy must check its own immediate need's result explicitly instead
+  // of relying on the implicit default.
+  for (const name of ["frontend-deploy.yml", "backend-deploy.yml"]) {
+    const deployJob = loadWorkflow(name).jobs.deploy;
+    check(
+      `${name}'s deploy job has an explicit if: checking needs.ensure-artifact.result (not the implicit default, which is skipped transitively when build-on-demand is skipped)`,
+      !!deployJob &&
+        typeof deployJob.if === "string" &&
+        deployJob.if.includes("needs.ensure-artifact.result")
+    );
+  }
+
   // Regression guard (production incident, PR #149/#155): this Function
   // App runs on Azure Flex Consumption, which does not support a
   // pre-built/vendored Python package — remote-build: false deployed
