@@ -6,16 +6,17 @@ sessions running inside per-worktree devcontainers (see
 
 ## Git / PR workflow
 
-- Every `git push` of a branch MUST be followed by opening a pull request
-  for it (`gh pr create`) — never leave a pushed branch without an open PR.
+Per the constitution's Principle XIII (AI Agent Division of Labor), Claude
+Code performs local development and spec-related work only. It MUST NOT
+create, merge, or monitor pull requests, or resolve GitHub issues, directly
+against GitHub itself.
+
+- When local work on a branch is ready, Claude MUST hand off to GitHub
+  Copilot to open the pull request, monitor its required status checks,
+  and merge it — Claude MUST NOT run `gh pr create` or `gh pr merge` itself.
+- GitHub issue resolution (bugs, dependency updates, fixes) MUST likewise
+  be handed off to GitHub Copilot rather than resolved end-to-end by Claude
+  pushing directly to GitHub.
 - PR descriptions MUST NOT include a link to the Claude Code session/transcript.
-- Every PR created by Claude MUST be labelled `AI Generated` and `Claude`
-  (e.g. `gh pr create --label "AI Generated" --label "Claude" ...`). Both
-  labels already exist in this repo.
-- Claude MAY merge a PR it opened without asking for confirmation first,
-  once all required status checks report success
-  (`gh pr checks <pr> --required` or equivalent). Merge with
-  `gh pr merge --squash --delete-branch`. This authorization covers only
-  PRs Claude itself opened in the current session's line of work — still
-  ask before merging a PR opened by someone else, or one with failing/
-  pending required checks.
+- Every PR MUST be labelled `AI Generated` and `Claude`. Both labels already
+  exist in this repo — pass them along in the handoff to Copilot.
