@@ -37,6 +37,7 @@ console.log("Known-good titles:");
   "chore(deps-dev): bump vitest from 4.1.10 to 4.1.11",
   "chore(specs): mark 021-npm-dependency-audit as done",
   "fix(infra)!: rotate the storage account key rotation policy",
+  "fix/devcontainer claude json corruption",
 ].forEach((title) => check(`"${title}" is accepted`, validatePrTitle(title)));
 
 console.log("\nKnown-bad titles:");
@@ -47,6 +48,7 @@ console.log("\nKnown-bad titles:");
   ["unrecognized scope", "fix(billing): correct typo in error message"],
   ["empty description", "fix(backend): "],
   ["scope not lowercase", "fix(Backend): correct typo"],
+  ["empty slash-style description", "fix/devcontainer "],
 ].forEach(([label, title]) =>
   check(`"${title}" (${label}) is rejected`, !validatePrTitle(title))
 );

@@ -28,6 +28,7 @@ export const SCOPES = [
   "frontend",
   "backend",
   "infra",
+  "devcontainer",
   "ci",
   "specs",
   "deps",
@@ -38,10 +39,18 @@ export const SCOPES = [
 const TYPE_PATTERN = TYPES.join("|");
 const SCOPE_PATTERN = SCOPES.join("|");
 
-// type(scope): description — requireScope: true, matching FR-011's "at
-// least the type of change and a primary component/area".
+// Accept either:
+//   1) type(scope): description
+//   2) type/scope description (legacy bot-generated slash style)
+//
+// Scope is always required in both forms (matching FR-011's "at least the
+// type of change and a primary component/area").
 export const PR_TITLE_PATTERN = new RegExp(
-  `^(${TYPE_PATTERN})\\((${SCOPE_PATTERN})\\)(!)?: .+$`
+  `^(?:` +
+    `(${TYPE_PATTERN})\\((${SCOPE_PATTERN})\\)(!)?: .+` +
+    `|` +
+    `(${TYPE_PATTERN})\\/(${SCOPE_PATTERN}) .+` +
+  `)$`
 );
 
 export function validatePrTitle(title) {

@@ -47,12 +47,15 @@ jobs:
             frontend
             backend
             infra
+            devcontainer
             ci
             specs
             deps
             deps-dev
             docs
           requireScope: true
+          headerPattern: '^(\w*)(?:\(|\/)([\w$.\-*/]*)(?:(?:\)!?:)|) (.*)$'
+          headerPatternCorrespondence: type, scope, subject
           subjectPattern: ^(?!\s*$).+$
           subjectPatternError: |
-            The PR title's description (after "type(scope): ") must not be empty.
+            The PR title's description must not be empty.
