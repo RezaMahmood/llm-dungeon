@@ -261,6 +261,35 @@ function testUserStory3() {
     );
   }
 
+  // Regression guard (found live during real quickstart.md Scenario 4
+  // validation, 2026-09-02): an explicit version whose tag exists but whose
+  // release asset is missing used to fall through to build-on-demand, which
+  // only knows how to build "latest" (it runs semantic-release against
+  // current HEAD) — it silently deployed latest instead of the requested
+  // version, with no error. resolve-version must instead fail clearly on
+  // that cache-miss, the same as a nonexistent tag, and build-on-demand
+  // must only ever run for the must_build (unspecified/"latest") path.
+  for (const name of ["frontend-deploy.yml", "backend-deploy.yml"]) {
+    const wf = loadWorkflow(name);
+    const resolveStep = stepsOf(wf.jobs["resolve-version"]).find(
+      (s) => s.id === "resolve"
+    );
+    check(
+      `${name}'s resolve-version step exits non-zero on an explicit version's cache miss (no fallback to build-on-demand's "latest")`,
+      !!resolveStep &&
+        typeof resolveStep.run === "string" &&
+        /if\s+!\s*gh release view[\s\S]*exit 1/.test(resolveStep.run)
+    );
+    const buildJob = wf.jobs["build-on-demand"];
+    check(
+      `${name}'s 'build-on-demand' job only runs on must_build (never on an explicit version's cache_hit=false)`,
+      !!buildJob &&
+        typeof buildJob.if === "string" &&
+        buildJob.if.includes("must_build") &&
+        !buildJob.if.includes("cache_hit")
+    );
+  }
+
   // Regression guard (production incident, PR #149/#155): this Function
   // App runs on Azure Flex Consumption, which does not support a
   // pre-built/vendored Python package — remote-build: false deployed
