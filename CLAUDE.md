@@ -6,16 +6,23 @@ sessions running inside per-worktree devcontainers (see
 
 ## Git / PR workflow
 
-- Every `git push` of a branch MUST be followed by opening a pull request
-  for it (`gh pr create`) — never leave a pushed branch without an open PR.
+Per the constitution's Principle XIII (AI Agent Division of Labor), Claude
+Code performs local development and spec-related work, and also pushes and
+opens the pull request once that work is ready. Claude MUST NOT merge a
+pull request or resolve/close a GitHub issue directly against GitHub itself
+— those steps go to GitHub Copilot.
+
+- When local work on a branch is ready, Claude MUST push it and open the
+  pull request itself with `gh pr create`.
+- Every PR Claude opens MUST be labelled `AI Generated` and `Claude` (both
+  labels already exist in this repo), e.g.
+  `gh pr create --label "AI Generated" --label "Claude" ...`.
 - PR descriptions MUST NOT include a link to the Claude Code session/transcript.
-- Every PR created by Claude MUST be labelled `AI Generated` and `Claude`
-  (e.g. `gh pr create --label "AI Generated" --label "Claude" ...`). Both
-  labels already exist in this repo.
-- Claude MAY merge a PR it opened without asking for confirmation first,
-  once all required status checks report success
-  (`gh pr checks <pr> --required` or equivalent). Merge with
-  `gh pr merge --squash --delete-branch`. This authorization covers only
-  PRs Claude itself opened in the current session's line of work — still
-  ask before merging a PR opened by someone else, or one with failing/
-  pending required checks.
+- Claude MUST enable auto-merge on the PR it opens (`gh pr merge --auto --squash`)
+  and then stop — Claude MUST NOT run `gh pr merge` to merge directly, and MUST
+  NOT itself monitor the PR through to completion. From there, GitHub Copilot
+  reviews the PR and completes the merge (via that auto-merge) once required
+  status checks and its code-quality gate pass.
+- GitHub issue resolution (bugs, dependency updates, fixes) MUST be handed
+  off to GitHub Copilot rather than resolved end-to-end by Claude pushing
+  directly to GitHub.
