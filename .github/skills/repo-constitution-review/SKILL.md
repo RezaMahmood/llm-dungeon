@@ -70,9 +70,7 @@ can find the source of truth.
 - **Allowed `type`:** `feat`, `fix`, `chore`, `docs`, `refactor`, `perf`,
   `test`, `build`, `ci`, `style`, `revert`.
 - **Allowed `scope`:** `frontend`, `backend`, `infra`, `ci`, `specs`,
-  `deps`, `deps-dev`, `docs`. `frontend`/`backend` are the two scopes that
-  actually drive a version bump (see Semantic versioning below); the rest
-  must still be format-valid but never gate a release.
+  `deps`, `deps-dev`, `docs`. Scope is descriptive only and does not gate releases; component eligibility is determined by `semantic-release-monorepo` path-diff filtering.
 - Flag a title that doesn't match this pattern, uses a type/scope outside
   these lists, or picks a `type`/`!` that doesn't match what the diff
   actually does (e.g. `fix(backend)` on a change that's really a new
