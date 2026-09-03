@@ -10,7 +10,8 @@ Per the constitution's Principle XIII (AI Agent Division of Labor), Claude
 Code performs local development and spec-related work, and also pushes and
 opens the pull request once that work is ready. Claude MUST NOT merge a
 pull request or resolve/close a GitHub issue directly against GitHub itself
-— those steps go to GitHub Copilot.
+— those steps go to GitHub Copilot (review) and the requesting user
+(manual merge).
 
 - When local work on a branch is ready, Claude MUST push it and open the
   pull request itself with `gh pr create`.
@@ -18,11 +19,13 @@ pull request or resolve/close a GitHub issue directly against GitHub itself
   labels already exist in this repo), e.g.
   `gh pr create --label "AI Generated" --label "Claude" ...`.
 - PR descriptions MUST NOT include a link to the Claude Code session/transcript.
-- Claude MUST enable auto-merge on the PR it opens (`gh pr merge --auto --squash`)
-  and then stop — Claude MUST NOT run `gh pr merge` to merge directly, and MUST
-  NOT itself monitor the PR through to completion. From there, GitHub Copilot
-  reviews the PR and completes the merge (via that auto-merge) once required
-  status checks and its code-quality gate pass.
+- Claude MUST NOT enable auto-merge and MUST NOT run `gh pr merge` to merge
+  directly, and MUST NOT itself monitor the PR through to completion. From
+  there, GitHub Copilot reviews the PR and posts its findings as review
+  comments/recommendations — Copilot code review does not produce a formal
+  approval or perform the merge. The requesting user reviews Copilot's
+  recommendations and the required status checks, then merges the pull
+  request manually.
 - GitHub issue resolution (bugs, dependency updates, fixes) MUST be handed
   off to GitHub Copilot rather than resolved end-to-end by Claude pushing
   directly to GitHub.
