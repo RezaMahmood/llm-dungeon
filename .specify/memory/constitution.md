@@ -399,8 +399,8 @@ while still using Copilot for the GitHub-side review pass.
   credential).
 - Once a local AI agent has pushed a branch and opened its pull request, GitHub Copilot
   reviews the pull request and posts its findings as review comments/recommendations;
-  its required CI/status checks and code-quality gate run as usual, mirroring the merge
-  method and required checks already established in Development Workflow & Quality
+  its required CI/status checks and code-quality gate run as usual, mirroring the
+  required checks already established in Development Workflow & Quality
   Gates and Continuous Integration Gate (Principle V). Copilot code review does not
   produce a formal approving review or perform the merge. The requesting user or
   product owner MUST read Copilot's recommendations and the status of the required
