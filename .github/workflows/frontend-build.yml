@@ -22,7 +22,7 @@ jobs:
     outputs:
       all-non-testable: ${{ steps.detect.outputs.all-non-testable }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/detect-non-testable-changes
         id: detect
 

@@ -35,10 +35,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ vars.TERRAFORM_VERSION }}
 
@@ -46,7 +46,7 @@ jobs:
         run: ./infrastructure/tests/test_terraform_validate.sh
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -54,7 +54,7 @@ jobs:
         run: pip install -r infrastructure/tests/requirements.txt
 
       - name: Azure Login (OIDC)
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -76,15 +76,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ vars.TERRAFORM_VERSION }}
 
       - name: Azure Login (OIDC)
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -105,7 +105,7 @@ jobs:
         # Same-run artifact only (actions/upload-artifact) — never a
         # persistent, versioned release. This is what makes `apply` below
         # apply the exact plan generated here rather than re-planning.
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: infrastructure-plan-${{ github.run_id }}
           path: infrastructure/terraform/tfplan
@@ -121,7 +121,7 @@ jobs:
     # if the environment is actually so configured.
     environment: production-infra
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Only for the Terraform module source (`main.tf` etc.) that the
           # saved plan references — the plan file itself is downloaded and
@@ -134,18 +134,18 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Download the plan artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: infrastructure-plan-${{ github.run_id }}
           path: infrastructure/terraform
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ vars.TERRAFORM_VERSION }}
 
       - name: Azure Login (OIDC)
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -168,7 +168,7 @@ jobs:
         run: terraform output -json > outputs.json
 
       - name: Upload outputs artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: terraform-outputs
           path: infrastructure/terraform/outputs.json
