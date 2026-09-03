@@ -1,30 +1,32 @@
 <!--
 Sync Impact Report
-Version change: 1.10.1 → 1.11.0
-Modified principles: none
-Added principles:
-  - XIII. AI Agent Division of Labor: Local LLM for Development, GitHub Copilot for
-    GitHub Operations (NEW)
-Added sections:
-  - AI Agent / GitHub Handoff Requirements (new detailed-requirements section)
+Version change: 1.11.0 → 1.12.0
+Modified principles:
+  - XIII. AI Agent Division of Labor - re-drawn boundary: the local AI agent now pushes
+    a ready branch and opens its own pull request (previously exclusively GitHub
+    Copilot's job); GitHub Copilot's role narrows to reviewing the PR and merging it
+    (auto-merge once required checks and its own review/code-quality gate pass), plus
+    all GitHub issue resolution. The local agent still MUST NOT merge a pull request or
+    resolve/close a GitHub issue itself.
+Added principles: none
+Added sections: none
 Modified sections:
-  - Development Workflow & Quality Gates — added a bullet requiring PR creation, issue
-    resolution (bugs/dependencies/fixes), merging, and CI/test monitoring to be
-    performed via GitHub Copilot rather than directly by a local AI coding agent.
+  - AI Agent / GitHub Handoff Requirements - updated to authorize the local AI agent to
+    run `gh pr create` (with required labels) and enable auto-merge on the PR it opens;
+    Copilot's responsibility narrows to review + monitor + merge (via auto-merge) +
+    issue resolution, dropping "open the pull request" from its list.
+  - Development Workflow & Quality Gates - updated the Copilot-handoff bullet to match:
+    PR creation is now the local agent's job; Copilot reviews, monitors, and merges.
 Removed sections: none
-Source: direct user instruction (2026-09-03) — local AI agent development (Claude Code
-  or another LLM-based assistant, e.g. Cursor or equivalent) is for local dev and spec
-  work only; all GitHub-hosted operations (PR creation, issue resolution for bugs,
-  dependencies, and fixes, merging, and CI monitoring) MUST go through GitHub Copilot.
-  When Claude runs locally, it hands off to GitHub Copilot to complete opening the PR,
-  merging, and monitoring tests, rather than performing those steps itself.
-Templates requiring follow-up: none — dependent templates read this file at runtime and
+Source: direct user instruction (2026-09-03) - after observing that GitHub's "approve
+  and run workflows" gate fires for every PR opened by an automation actor (a
+  bot-authored PR is treated like an outside contributor's), the user chose to move the
+  handoff boundary: Claude pushes and opens the PR itself (a real, authenticated
+  push/PR, not bot-authored, so it does not trip that gate), and GitHub Copilot reviews
+  and auto-merges once required status checks and its code-quality gate pass.
+Templates requiring follow-up: none - dependent templates read this file at runtime and
   are not modified by this command.
 Deferred/TODO placeholders: none.
-Note: This amendment governs the constitution only. The repository's root CLAUDE.md
-  currently instructs the local Claude Code agent to itself run `gh pr create` and
-  `gh pr merge`, which now conflicts with this principle — see the companion PR that
-  updates CLAUDE.md to match.
 -->
 
 # LLM Dungeon Adventure Constitution
@@ -243,31 +245,31 @@ general YAGNI stance into an explicit, enforced process check specifically for
 enterprise-shaped patterns, since those are the ones most likely to be assumed rather
 than requested.
 
-### XIII. AI Agent Division of Labor: Local LLM for Development, GitHub Copilot for GitHub Operations (NON-NEGOTIABLE)
+### XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, GitHub Copilot Reviews & Merges (NON-NEGOTIABLE)
 Local AI agent development — writing code, running local tests, and spec-related work
 (intake, specify, clarify, plan, tasks, analyze) — MAY be performed by Claude Code or
 another local LLM-based coding assistant (e.g., Cursor or an equivalent). Spec-related
 work MUST stay local: it MUST be performed by the local AI agent and MUST NOT be
-delegated to GitHub Copilot. Conversely, every GitHub-hosted operation — opening a pull
-request, resolving a GitHub issue (bug reports, dependency-update issues, and fixes),
-merging a pull request, and monitoring pull request/CI test status to completion — MUST
-be performed via GitHub Copilot (e.g., the Copilot coding agent or Copilot's PR/issue
-tooling in GitHub), not executed directly by a local AI agent against the GitHub API or
-CLI. When a local AI agent's local work is ready to move to GitHub (a branch is ready to
-open as a PR, or a bug/dependency/fix issue is ready to be worked), the local agent MUST
-hand off that work to GitHub Copilot to open the PR, monitor its checks, and merge it,
-rather than performing those steps itself. Detailed rules are in the AI Agent / GitHub
-Handoff Requirements section below.
+delegated to GitHub Copilot. Once that local work is ready, the local AI agent MUST
+push the branch and open the pull request itself (e.g., `gh pr create`), labelled per
+the AI Agent / GitHub Handoff Requirements below, and MUST enable auto-merge on the PR
+it opens rather than merging it directly. From there, every remaining GitHub-hosted
+operation — reviewing the pull request, monitoring its required CI/status checks and
+code-quality gate to completion, merging it (via the auto-merge the local agent
+enabled), and resolving GitHub issues (bug reports, dependency-update issues, and
+fixes) — MUST be performed via GitHub Copilot (e.g., the Copilot coding agent or
+Copilot's PR/issue tooling in GitHub). A local AI agent MUST NOT merge a pull request
+or resolve/close a GitHub issue itself, even where the tool has the technical means to
+do so. Detailed rules are in the AI Agent / GitHub Handoff Requirements section below.
 
-Rationale: Splitting responsibility this way keeps a single, consistent actor
-(GitHub Copilot) as the system of record for everything that touches the shared GitHub
-surface — PR creation, issue triage, merges, and CI monitoring — while leaving
-spec-driven planning and local iteration to whichever local LLM tool the developer is
-using at the time. This avoids divergent GitHub automation behavior across different
-local AI tools, keeps GitHub-side actions auditable through one consistent agent
-identity, and matches the project's existing Continuous Integration Gate (Principle V)
-and PR workflow (Development Workflow & Quality Gates) without requiring every local
-tool to separately implement GitHub-safe merge/monitor logic.
+Rationale: A bot-authored pull request (one opened by an automation identity via a
+GitHub Actions workflow) is treated by GitHub the same way as an outside contributor's
+PR — its required checks sit pending a manual "approve and run workflows" click every
+time, which defeats a hands-off pipeline. Having the local AI agent open the PR as the
+developer's own authenticated action avoids that gate, while GitHub Copilot remains the
+single, consistent actor responsible for everything after that point — review, CI
+monitoring, merge, and issue triage — so GitHub-side completion stays auditable through
+one consistent agent identity regardless of which local LLM tool pushed the branch.
 
 ## Security & Access Control Requirements
 
@@ -378,18 +380,23 @@ tool to separately implement GitHub-safe merge/monitor logic.
 
 - Local AI agent tools (Claude Code or another local LLM-based coding assistant, e.g.
   Cursor or an equivalent) are authorized for: writing and editing code, running local
-  and automated tests, and all spec-related work (intake, specify, clarify, plan, tasks,
-  analyze) via this project's Spec Kit workflow.
-- Local AI agent tools MUST NOT directly perform GitHub-hosted operations: they MUST NOT
-  create a pull request, merge a pull request, or resolve/close a GitHub issue on their
-  own behalf, even where the tool has the technical means to do so (e.g., a `gh` CLI or
-  GitHub API credential).
-- Once local work is ready to move to GitHub (a branch is complete and locally verified,
-  or a bug/dependency/fix issue is ready to be worked), the local AI agent MUST hand off
-  to GitHub Copilot to: open the pull request, monitor its required CI/status checks
-  until they resolve, and merge it once green — mirroring the merge method and required
-  checks already established in Development Workflow & Quality Gates and Continuous
-  Integration Gate (Principle V).
+  and automated tests, all spec-related work (intake, specify, clarify, plan, tasks,
+  analyze) via this project's Spec Kit workflow, and — once that work is ready — pushing
+  the branch and opening the pull request for it.
+- When a local AI agent opens a pull request, it MUST label it `AI Generated` and
+  `Claude` (both labels already exist in this repository), MUST NOT include a link to
+  the local agent's own session/transcript in the PR description, and MUST enable
+  auto-merge on the PR (e.g., `gh pr merge --auto`) rather than merging it directly.
+- Local AI agent tools MUST NOT directly perform any other GitHub-hosted operation: they
+  MUST NOT merge a pull request or resolve/close a GitHub issue on their own behalf,
+  even where the tool has the technical means to do so (e.g., a `gh` CLI or GitHub API
+  credential).
+- Once a local AI agent has pushed a branch and opened its pull request, GitHub Copilot
+  MUST take over from there: review the pull request, monitor its required CI/status
+  checks and code-quality gate until they resolve, and complete the merge (via the
+  auto-merge the local agent already enabled) once green — mirroring the merge method
+  and required checks already established in Development Workflow & Quality Gates and
+  Continuous Integration Gate (Principle V).
 - GitHub issue resolution for bugs, dependency updates, and fixes MUST be assigned to or
   driven by GitHub Copilot (e.g., the Copilot coding agent), not resolved end-to-end by a
   local AI agent pushing directly to GitHub.
@@ -431,11 +438,11 @@ tool to separately implement GitHub-safe merge/monitor logic.
   task in its `tasks.md`, sequenced before that feature's implementation tasks, per
   Principle XI. That task is not complete until the requesting user or product owner has
   confirmed the design — a design artifact merely existing does not satisfy it.
-- Pull request creation, GitHub issue resolution (bugs, dependency updates, and fixes),
-  merging, and CI/status-check monitoring MUST be performed via GitHub Copilot, not
-  directly by a local AI agent, per Principle XIII and the AI Agent / GitHub Handoff
-  Requirements above. A local AI agent completing local work hands it off to GitHub
-  Copilot rather than opening or merging the PR itself.
+- A local AI agent completing local work pushes the branch and opens its own pull
+  request (labelled, auto-merge enabled), per Principle XIII and the AI Agent / GitHub
+  Handoff Requirements above. From there, GitHub issue resolution (bugs, dependency
+  updates, and fixes), PR review, merging, and CI/status-check monitoring MUST be
+  performed via GitHub Copilot, not directly by the local AI agent.
 - Feature work MUST happen inside that feature's own git worktree, running inside that
   worktree's own isolated devcontainer (started via `bin/wt <branch>`) — never directly in
   the primary checkout, and a worktree's container MUST NOT be shared with another
@@ -627,4 +634,4 @@ with the design-token, visual-rules, interaction-state, or layout/scroll require
 above as a blocking finding. No feature may ship a screen that is not traceable to a
 screen contract above or to a documented amendment extending it.
 
-**Version**: 1.11.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-03
+**Version**: 1.12.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-03

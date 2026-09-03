@@ -7,16 +7,22 @@ sessions running inside per-worktree devcontainers (see
 ## Git / PR workflow
 
 Per the constitution's Principle XIII (AI Agent Division of Labor), Claude
-Code performs local development and spec-related work only. It MUST NOT
-create, merge, or monitor pull requests, or resolve GitHub issues, directly
-against GitHub itself.
+Code performs local development and spec-related work, and also pushes and
+opens the pull request once that work is ready. Claude MUST NOT merge a
+pull request or resolve/close a GitHub issue directly against GitHub itself
+— those steps go to GitHub Copilot.
 
-- When local work on a branch is ready, Claude MUST hand off to GitHub
-  Copilot to open the pull request, monitor its required status checks,
-  and merge it — Claude MUST NOT run `gh pr create` or `gh pr merge` itself.
-- GitHub issue resolution (bugs, dependency updates, fixes) MUST likewise
-  be handed off to GitHub Copilot rather than resolved end-to-end by Claude
-  pushing directly to GitHub.
+- When local work on a branch is ready, Claude MUST push it and open the
+  pull request itself with `gh pr create`.
+- Every PR Claude opens MUST be labelled `AI Generated` and `Claude` (both
+  labels already exist in this repo), e.g.
+  `gh pr create --label "AI Generated" --label "Claude" ...`.
 - PR descriptions MUST NOT include a link to the Claude Code session/transcript.
-- Every PR MUST be labelled `AI Generated` and `Claude`. Both labels already
-  exist in this repo — pass them along in the handoff to Copilot.
+- Claude MUST enable auto-merge on the PR it opens (`gh pr merge --auto --squash`)
+  and then stop — Claude MUST NOT run `gh pr merge` to merge directly, and MUST
+  NOT itself monitor the PR through to completion. From there, GitHub Copilot
+  reviews the PR and completes the merge (via that auto-merge) once required
+  status checks and its code-quality gate pass.
+- GitHub issue resolution (bugs, dependency updates, fixes) MUST be handed
+  off to GitHub Copilot rather than resolved end-to-end by Claude pushing
+  directly to GitHub.
