@@ -311,7 +311,7 @@ function testUserStory3() {
       `${name}'s deploy job has if: always() && needs.ensure-artifact.result == 'success', combined with &&, not just both present anywhere (e.g. a stray || would let deploy run after a failed ensure-artifact)`,
       !!deployJob &&
         typeof deployJob.if === "string" &&
-        /always\(\)\s*&&\s*needs\.ensure-artifact\.result\s*==\s*['"]success['"]/.test(deployJob.if)
+        /^(?:\$\{\{\s*)?always\(\)\s*&&\s*needs\.ensure-artifact\.result\s*==\s*['"]success['"]\s*(?:\}\})?$/.test(deployJob.if.trim())
     );
   }
 
