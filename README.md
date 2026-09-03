@@ -45,4 +45,5 @@ Per the project [Constitution](.specify/memory/constitution.md) and [`001-ci-cd-
 - **Automated CI Test Gating**: Every PR automatically triggers the full automated test suite ([`.github/workflows/test.yml`](.github/workflows/test.yml)). PR merge is mechanically blocked until all status checks pass.
 - **Code Review**: Pull requests require at least 1 approval before merging.
 - **Contributing & Workflows**: See [CONTRIBUTING.md](CONTRIBUTING.md) and [CI/CD Troubleshooting Guide](docs/CI_CD_TROUBLESHOOTING.md).
+- **Auto-Opened PRs**: Pushing any non-`main` branch automatically opens a PR against `main` ([`.github/workflows/auto-pr.yml`](.github/workflows/auto-pr.yml)).
 
