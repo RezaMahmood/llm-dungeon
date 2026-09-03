@@ -4,6 +4,8 @@ on:
     branches-ignore:
       - main
       - master
+    tags-ignore:
+      - '**'
 jobs:
   auto-pull-request:
     runs-on: ubuntu-latest
