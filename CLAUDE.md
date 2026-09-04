@@ -50,6 +50,5 @@ check (`.github/workflows/pr-title-check.yml`) before merge.
   unsure, rather than inventing a new scope (e.g. a repo-tooling/config
   change like `.claude/`, `.specify/`, or hooks belongs under `infra`, not
   a bespoke scope).
-- `feat(backend|frontend)` → minor bump; `fix`/`perf(backend|frontend)` →
-  patch bump; a `!` or `BREAKING CHANGE:` footer → major bump; any other
-  type/scope combination triggers no release for that PR.
+- `feat(backend|frontend)` → minor bump for that component; `fix`/`perf(backend|frontend)` → patch bump; a `!` after the scope (or a `BREAKING CHANGE:` footer) → major bump.
+- Note: the declared scope is descriptive only; releases are additionally gated by path-diff filtering, so a `feat(backend)` title won’t cut a backend release if no backend paths changed.
