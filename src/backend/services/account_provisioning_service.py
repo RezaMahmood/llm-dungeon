@@ -15,6 +15,9 @@ from backend.services.cosmos_service import CosmosService
 from backend.services.entra_directory_service import EntraDirectoryService
 
 logger = logging.getLogger("account_provisioning_service")
+# #165 Scenario 6 live check: this comment is the "one testable file"
+# bundled alongside the docs-only commit on this branch, to confirm the
+# full pipeline runs once any code file is touched (FR-020).
 
 
 class InvalidEmailError(ValueError):
