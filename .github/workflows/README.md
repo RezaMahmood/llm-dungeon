@@ -28,7 +28,7 @@ state of `main`, with no persistent versioned artifact.
 | [`infrastructure-deploy.yml`](infrastructure-deploy.yml) | **Infrastructure Deploy** | `workflow_dispatch` only, no inputs | CD. No versioning, no persistent artifact — always operates against the current state of `main`. Job graph: `validate-and-test` → `plan` → `apply`. `apply` targets the `production-infra` environment, which requires human approval before it applies (see below), and applies the exact plan `plan` produced in the same run — never re-planning. |
 | [`pr-title-check.yml`](pr-title-check.yml) | **PR Title Check** | `pull_request_target` (opened, edited, synchronize, reopened) | Required check. Validates the PR title follows `type(scope): description` (Conventional Commits) — this repo merges by squash, so the PR title is the sole commit message that reaches `main` and the one `semantic-release` reads. |
 | [`workflow-lint.yml`](workflow-lint.yml) | **Workflow Lint** | `pull_request` (every PR — see note below) | Required check. Runs `actionlint` against all workflow files — syntax/schema only. |
-| [`workflow-structure-test.yml`](workflow-structure-test.yml) | **Workflow Structure Test** | `pull_request` (every PR — see note below) | Required check. Asserts the job/step *shape* `actionlint` can't check — see `scripts/test-workflow-structure.js` for the full assertion list (no deploy job in any `*-build.yml`; no push/PR trigger on any `*-deploy.yml`; idempotent build-skip; no rebuild in `deploy`/`apply`; approval-gate asymmetry; `resolve-version` before `ensure-artifact` for frontend/backend; the not-found failure path; the build-on-demand fallback; infrastructure's `validate-and-test` → `plan` → `apply` shape and no-versioning invariants). |
+| [`workflow-structure-test.yml`](workflow-structure-test.yml) | **Workflow Structure Test** | `pull_request` (every PR — see note below) | Required check. Asserts the job/step *shape* `actionlint` can't check — see `scripts/workflow-checks/test-workflow-structure.js` for the full assertion list (no deploy job in any `*-build.yml`; no push/PR trigger on any `*-deploy.yml`; idempotent build-skip; no rebuild in `deploy`/`apply`; approval-gate asymmetry; `resolve-version` before `ensure-artifact` for frontend/backend; the not-found failure path; the build-on-demand fallback; infrastructure's `validate-and-test` → `plan` → `apply` shape and no-versioning invariants). |
 | [`release-fixtures-test.yml`](release-fixtures-test.yml) | **Release Fixtures Test** | `pull_request` (every PR — see note below) | Required check. Exercises `semantic-release-monorepo`'s path-diff commit filtering combined with `@semantic-release/commit-analyzer`'s bump-type logic against synthetic commits for frontend and backend, including vertical-slice cases (a single commit touching both components) — the regression guard for a cross-component version-bump bug found during this feature's `/speckit-analyze` review. Infrastructure is not covered — it isn't versioned. |
 | [`infrastructure-tests.yml`](infrastructure-tests.yml) | **Infrastructure Tests** | `schedule` (nightly), `workflow_dispatch` | Live drift/regression check against the real deployed Azure infrastructure. Independent of `infrastructure-deploy.yml`. |
 | [`terraform-validate.yml`](terraform-validate.yml) | **Terraform Validate** | `pull_request` (paths: `infrastructure/**`) | Runs `terraform validate` and format checks at PR time. |
@@ -257,10 +257,16 @@ cd src/frontend && npm test
 # https://github.com/rhysd/actionlint/blob/main/docs/install.md)
 actionlint .github/workflows/*.yml
 
-# Workflow structure / release fixture / non-testable-detection / PR-title tests
-cd scripts && npm ci
+# Workflow structure / non-testable-detection tests (lightweight package)
+cd scripts/workflow-checks && npm ci
 npm run test:workflow-structure
-npm run test:release-fixtures
 npm run test:non-testable-detection
-npm run test:pr-title
+
+# Release fixture tests (heavier package — semantic-release-monorepo,
+# @semantic-release/commit-analyzer — kept separate per issue #192)
+cd scripts/release-fixtures && npm ci
+npm run test:release-fixtures
+
+# PR-title test (no dependencies)
+cd scripts && npm run test:pr-title
 ```

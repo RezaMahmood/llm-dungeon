@@ -1,0 +1,14 @@
+{
+  "name": "llmdungeon-ci-release-fixtures",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Release-fixture CI checks for release-fixtures-test.yml (specs/023-cicd-pipeline-optimization): exercises semantic-release-monorepo's path-diff commit filtering combined with @semantic-release/commit-analyzer's bump-type logic against synthetic commits. Split out from scripts/workflow-checks (issue #192) so this heavier dependency tree doesn't burden the lightweight workflow-structure-test.yml job.",
+  "scripts": {
+    "test:release-fixtures": "node test-release-fixtures.js"
+  },
+  "devDependencies": {
+    "@semantic-release/commit-analyzer": "^13.0.0",
+    "semantic-release-monorepo": "^8.0.2"
+  }
+}

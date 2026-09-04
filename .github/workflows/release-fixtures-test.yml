@@ -8,7 +8,13 @@ name: Release Fixtures Test
 # network calls, no GitHub token. This is the automated guard against
 # the cross-component version-bump bug /speckit-analyze found in the
 # original PR-title-scope-gated design. See
-# scripts/test-release-fixtures.js.
+# scripts/release-fixtures/test-release-fixtures.js.
+#
+# Dependencies live in scripts/release-fixtures/package.json, split out
+# from scripts/workflow-checks/package.json (issue #192) so this job's
+# semantic-release-monorepo/commit-analyzer tree stays isolated from — and
+# doesn't invalidate the install cache of — the lightweight
+# workflow-structure-test.yml check.
 
 on:
   pull_request: {}
@@ -28,7 +34,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: scripts
+        working-directory: scripts/release-fixtures
     steps:
       - uses: actions/checkout@v7
 
@@ -37,7 +43,7 @@ jobs:
         with:
           node-version: "24"
           cache: "npm"
-          cache-dependency-path: scripts/package-lock.json
+          cache-dependency-path: scripts/release-fixtures/package-lock.json
 
       - name: Install dependencies
         run: npm ci
