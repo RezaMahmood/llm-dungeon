@@ -89,7 +89,7 @@ describe("MainMenu", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText(/access provisioned/i)).toBeInTheDocument();
+    expect(screen.getByText(/access pending/i)).toBeInTheDocument();
   });
 
   it("no longer renders its own sign-out control, now owned by the shared nav bar", () => {
