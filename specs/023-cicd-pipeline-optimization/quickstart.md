@@ -74,3 +74,14 @@ Cache absent (cold path):
 ---
 
 Final acceptance (Constitution Principle IX): all seven scenarios above MUST be run against the real repository by the requesting user (or product owner) — not merely asserted by the automated `workflow-structure-test.yml`/`release-fixtures-test.yml` checks — before this feature is considered complete.
+
+## Validation log
+
+Live validation against the real repository, tracked in #165:
+
+- Scenario 1 — validated via throwaway PR #162.
+- Scenario 2 — validated via PR #163.
+- Scenario 3 — validated (frontend/backend deploy directly; infrastructure paused for approval).
+- Scenario 4 — validated: explicit not-found/uncached version fails clearly; explicit already-cached version deploys exactly; blank version resolves to true latest.
+- Scenario 5 — validated: cache-hit deploys without rebuilding; cache-miss on "latest" builds exactly once, then deploys it.
+- Scenario 6, 7 — in progress.
