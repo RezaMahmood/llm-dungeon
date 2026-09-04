@@ -106,10 +106,10 @@ loosely to the "hub" role `02-story-select.html` plays in the mockups) and `/gam
 are themselves still functional placeholders (`MainMenu.jsx` has no real
 in-progress/published story list yet; `GamePage.jsx` renders "Game features
 loading…", per `019-spa-refresh-button`'s plan and `008-core-gameplay`/
-`004-story-creation`'s own scope). This feature restyles what exists today (the hub
+`004-story-creation-done`'s own scope). This feature restyles what exists today (the hub
 menu, the placeholder game landing) and builds the nav/title bar correctly for when
 those screens gain real content later — it does not invent a new player-facing
-story-list UI; that remains `004-story-creation`'s and `008-core-gameplay`'s scope.
+story-list UI; that remains `004-story-creation-done`'s and `008-core-gameplay`'s scope.
 `/admin` is the one exception: per the 2026-08-30 clarification (FR-013/SC-007), this
 feature *does* build a minimal, read-only admin stories list there (name + published
 status, sourced from the already-existing `GET /api/manage/stories`), specifically so

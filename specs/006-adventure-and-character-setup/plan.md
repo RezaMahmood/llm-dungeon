@@ -20,7 +20,7 @@ new `authorize_player` middleware, mirroring the existing `authorize_admin` patt
 3-step flow (adventure → name → character type) is built inside the existing `/game` route
 (`GamePage.jsx`), replacing its placeholder content — no new route. No new persisted entity:
 this reuses the existing `Story`/`CharacterType` models and Cosmos container from
-`004-story-creation`.
+`004-story-creation-done`.
 
 ## Technical Context
 
@@ -143,7 +143,7 @@ src/frontend/
 **Structure Decision**: Existing web-application split (`src/backend`, `src/frontend`) is
 reused as-is. No new top-level directories; new files land inside the existing `api/game`,
 `services`, and `pages`/`components` trees, following the same file-per-concern pattern as
-`004-story-creation` and `005-story-publishing`.
+`004-story-creation-done` and `005-story-publishing`.
 
 ## Complexity Tracking
 

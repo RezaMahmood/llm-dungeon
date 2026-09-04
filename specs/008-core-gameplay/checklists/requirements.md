@@ -35,5 +35,5 @@
   rate limiting, session exclusivity) with `003-game-setup-and-authoring`'s former US3
   (completion criteria) — the play loop and how it ends are one mechanic.
 - Depends on `006-adventure-and-character-setup` (session start) and the completion
-  criteria authored in `004-story-creation`/`011-story-import`; hands off to
+  criteria authored in `004-story-creation-done`/`011-story-import`; hands off to
   `009-save-and-continue` for persistence across visits.

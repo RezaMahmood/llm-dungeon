@@ -30,7 +30,7 @@ storage ahead of a stated need.
 ## Decision 2: New player-scoped endpoint `GET /api/game/adventures`
 
 **Decision**: Add a new endpoint rather than reusing or relaxing the existing admin-only
-`GET /api/manage/stories` (`004-story-creation`).
+`GET /api/manage/stories` (`004-story-creation-done`).
 
 **Rationale**: `GET /api/manage/stories` is gated by `authorize_admin` and returns the
 admin-shaped summary (`id`, `name`, `published`, `createdAt` — unpublished stories included,

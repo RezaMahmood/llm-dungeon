@@ -13,7 +13,7 @@ See [contracts/api.md](./contracts/api.md) for exact request/response shapes and
   with a Cosmos `Stories` container reachable.
 - At least one seeded `Story` with `published: true` and ≥2 `characterTypes` (per the spec's
   Independent Test scenario). Use the existing admin story-creation + publish flow
-  (`004-story-creation` / `005-story-publishing`) to produce one, or seed directly via
+  (`004-story-creation-done` / `005-story-publishing`) to produce one, or seed directly via
   `StoryService`.
 - A test account with the `Player` role in the account-provisioning allow-list
   (`003-account-provisioning`).

@@ -33,6 +33,6 @@
 
 - All items pass. Split out from `003-game-setup-and-authoring` (former US8) as its own
   domain during the spec-set reorganization.
-- Depends on `004-story-creation`/`011-story-import` (stories to edit) and
+- Depends on `004-story-creation-done`/`011-story-import` (stories to edit) and
   `011-story-import`'s validation mechanism (re-upload path); does not touch
   `005-story-publishing`'s published-status flag.

@@ -6,17 +6,17 @@
 
 ## Summary
 
-Give a `Story` document an explicit `published` boolean (already defined by `004-story-creation`'s data model, defaulting to `false`) and add the two administrator-facing actions that flip it: `publish` and `unpublish`, each idempotent, each reachable from both the story-authoring wizard's new "Publish & assign" step and (once built) `012-story-editing-and-review`'s story list. Publishing is blocked unless a test-play gate (owned by `017-story-publish-test-play-gate`) is satisfied; this plan adds the two Story fields that gate reads (`contentUpdatedAt`, `lastTestPlayedAt`) and the read-side check itself, without building 017's own tracking UI/logic. A successful publish also stamps `lastPublishedAt`, retained across a later unpublish (FR-012). Unpublishing requires a client-side confirmation step only (FR-013) — no new server-side precondition beyond the existing "story exists" check.
+Give a `Story` document an explicit `published` boolean (already defined by `004-story-creation-done`'s data model, defaulting to `false`) and add the two administrator-facing actions that flip it: `publish` and `unpublish`, each idempotent, each reachable from both the story-authoring wizard's new "Publish & assign" step and (once built) `012-story-editing-and-review`'s story list. Publishing is blocked unless a test-play gate (owned by `017-story-publish-test-play-gate`) is satisfied; this plan adds the two Story fields that gate reads (`contentUpdatedAt`, `lastTestPlayedAt`) and the read-side check itself, without building 017's own tracking UI/logic. A successful publish also stamps `lastPublishedAt`, retained across a later unpublish (FR-012). Unpublishing requires a client-side confirmation step only (FR-013) — no new server-side precondition beyond the existing "story exists" check.
 
-**Sequencing note**: `004-story-creation` (the `Story` model, `story_service.py`, `api/manage/stories.py`, and the wizard shell) is fully planned but not yet implemented in code (`src/backend/models/story.py` etc. do not exist yet). This plan's contracts and file list assume `004`'s planned shapes as documented in its `data-model.md`/`contracts/api.md`, and its own tasks/implementation must land after (or together with) `004`'s.
+**Sequencing note**: `004-story-creation-done` (the `Story` model, `story_service.py`, `api/manage/stories.py`, and the wizard shell) is fully planned but not yet implemented in code (`src/backend/models/story.py` etc. do not exist yet). This plan's contracts and file list assume `004`'s planned shapes as documented in its `data-model.md`/`contracts/api.md`, and its own tasks/implementation must land after (or together with) `004`'s.
 
 ## Technical Context
 
 **Language/Version**: Python 3.11+ (Azure Functions backend, existing); JavaScript (ES2022) + React 18 via Vite (frontend, existing)
 
-**Primary Dependencies**: No new dependencies — reuses `004-story-creation`'s planned `story_service.py`/Cosmos access pattern (`azure-cosmos` via `CosmosService`, already in use elsewhere) and the existing `authorize_admin` middleware.
+**Primary Dependencies**: No new dependencies — reuses `004-story-creation-done`'s planned `story_service.py`/Cosmos access pattern (`azure-cosmos` via `CosmosService`, already in use elsewhere) and the existing `authorize_admin` middleware.
 
-**Storage**: Azure Cosmos DB, serverless (per `007-azure-infrastructure-provisioning`) — the existing `stories` container (defined in `004-story-creation`'s data-model.md); this feature adds three fields to the `Story` document (`lastPublishedAt`, `contentUpdatedAt`, `lastTestPlayedAt`) rather than a new container.
+**Storage**: Azure Cosmos DB, serverless (per `007-azure-infrastructure-provisioning`) — the existing `stories` container (defined in `004-story-creation-done`'s data-model.md); this feature adds three fields to the `Story` document (`lastPublishedAt`, `contentUpdatedAt`, `lastTestPlayedAt`) rather than a new container.
 
 **Testing**: pytest (backend `src/backend/tests/unit`, `src/backend/tests/integration`, existing convention); Vitest + React Testing Library (frontend `src/frontend/tests`, existing convention)
 
@@ -28,7 +28,7 @@ Give a `Story` document an explicit `published` boolean (already defined by `004
 
 **Constraints**: No per-player/per-group targeting capability (FR-009, explicit exclusion); no scheduled/future-dated publishing (Assumptions); the test-play gate (FR-008) is read-only from this feature's side — `017-story-publish-test-play-gate` owns writing `lastTestPlayedAt`, and until that feature ships, every publish attempt is correctly blocked (the field is always null), which is the safe and spec-correct interim state rather than a workaround
 
-**Scale/Scope**: Same small administrator population as `003-account-provisioning-done`/`004-story-creation`; one new wizard step tab, two new API endpoints, one new reusable frontend action (usable from the wizard now and from `012`'s story list once it exists)
+**Scale/Scope**: Same small administrator population as `003-account-provisioning-done`/`004-story-creation-done`; one new wizard step tab, two new API endpoints, one new reusable frontend action (usable from the wizard now and from `012`'s story list once it exists)
 
 ## Constitution Check
 
@@ -56,7 +56,7 @@ Give a `Story` document an explicit `published` boolean (already defined by `004
 **Status**: ✓ MET — Reuses `CosmosService`'s existing Managed Identity authentication; no new credential or connection type introduced.
 
 ### Principle VIII – UI Design System & Accessibility Compliance (NON-NEGOTIABLE)
-**Status**: ✓ MET — The new "Publish & assign" wizard step tab reuses the existing step-tab shell and design-token primitives (`.btn*`, `.field`) established by `004-story-creation`'s `AdminStoryWizardPage.jsx`; the unpublish confirmation (FR-013) uses the design system's existing dialog/confirmation primitive rather than a one-off modal. No new colors, fonts, or spacing values are introduced.
+**Status**: ✓ MET — The new "Publish & assign" wizard step tab reuses the existing step-tab shell and design-token primitives (`.btn*`, `.field`) established by `004-story-creation-done`'s `AdminStoryWizardPage.jsx`; the unpublish confirmation (FR-013) uses the design system's existing dialog/confirmation primitive rather than a one-off modal. No new colors, fonts, or spacing values are introduced.
 
 ### Principle IX – User-Verified Acceptance Before Completion (NON-NEGOTIABLE)
 **Status**: ✓ MET — This feature's task list (Phase 2) will end with an explicit final acceptance task verified by the requesting user/product owner against the deployed environment, per the constitution's standing requirement.
@@ -86,7 +86,7 @@ specs/005-story-publishing/
 
 ### Source Code (repository root)
 
-**Structure Decision**: Existing web-application layout (`src/backend/` Python Azure Functions + `src/frontend/` React SPA). This feature extends `004-story-creation`'s planned `Story` model/service and wizard shell; it does not introduce a new container, service module, or page.
+**Structure Decision**: Existing web-application layout (`src/backend/` Python Azure Functions + `src/frontend/` React SPA). This feature extends `004-story-creation-done`'s planned `Story` model/service and wizard shell; it does not introduce a new container, service module, or page.
 
 ```text
 src/backend/

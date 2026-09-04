@@ -115,7 +115,7 @@ resource "azurerm_cosmosdb_sql_container" "stories" {
 }
 
 resource "azurerm_cosmosdb_sql_container" "story_drafts" {
-  # 004-story-creation, data-model.md Storage Model: ephemeral in-progress
+  # 004-story-creation-done, data-model.md Storage Model: ephemeral in-progress
   # wizard sessions, one document per draft. default_ttl = -1 enables
   # per-item TTL without a container-wide expiry — every StoryDraft document
   # sets its own `ttl` field (reset to 86400 on each update, research.md §3),
@@ -240,7 +240,7 @@ resource "azurerm_function_app_flex_consumption" "functions" {
     STORAGE_CONTAINER            = azurerm_storage_container.assets.name
     AZURE_OPENAI_ENDPOINT        = azurerm_cognitive_account.openai.endpoint
     AZURE_OPENAI_DEPLOYMENT_NAME = azurerm_cognitive_deployment.model.name
-    # 004-story-creation's llm_service.py reads AZURE_AI_FOUNDRY_ENDPOINT
+    # 004-story-creation-done's llm_service.py reads AZURE_AI_FOUNDRY_ENDPOINT
     # (research.md §1's azure-ai-inference client), not the AZURE_OPENAI_*
     # names above — same cognitive account, the name this feature's code
     # actually looks up.

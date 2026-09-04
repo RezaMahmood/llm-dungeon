@@ -109,7 +109,7 @@ nav bar — citing commit `4a43123` / merged PR #79 (`71a4ca9` on `main`).
 **no match in any of the three nav-bar screens or the README**. Only
 `specs/designs/03-play.html`'s title bar (lines 29–32) actually contains the Refresh
 button. `git show 71a4ca9` confirms the merged diff touched only
-`specs/022-persistent-nav-redesign/spec.md` and `specs/004-story-creation/*` content in
+`specs/022-persistent-nav-redesign/spec.md` and `specs/004-story-creation-done/*` content in
 its first parent, with a second commit message claiming the four-screen addition — but
 the file contents as they exist on `main`/this branch do not reflect that second
 commit's stated scope for `02`/`04`/`05`/`README.md`.
