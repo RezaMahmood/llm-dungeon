@@ -29,3 +29,27 @@ pull request or resolve/close a GitHub issue directly against GitHub itself
 - GitHub issue resolution (bugs, dependency updates, fixes) MUST be handed
   off to GitHub Copilot rather than resolved end-to-end by Claude pushing
   directly to GitHub.
+
+## PR title format
+
+This repo merges exclusively by squash, so the PR title — not any
+individual commit message — becomes the sole commit on `main` and is what
+`semantic-release` reads to compute the next version. Every PR title
+Claude opens (via `gh pr create --title ...`) MUST follow Conventional
+Commits format, `type(scope): description` (optionally `type(scope)!:`
+for a breaking change), and MUST pass the required `check-title` status
+check (`.github/workflows/pr-title-check.yml`) before merge.
+
+- **Allowed `type`:** `feat`, `fix`, `chore`, `docs`, `refactor`, `perf`,
+  `test`, `build`, `ci`, `style`, `revert`.
+- **Allowed `scope`:** `frontend`, `backend`, `infra`, `ci`, `specs`,
+  `deps`, `deps-dev`, `docs`. Scope is required on every PR title, even
+  for a scope that never gates a version bump.
+- The single source of truth for these lists is `scripts/pr-title-config.js`
+  (mirrored into `.github/workflows/pr-title-check.yml`) — check there if
+  unsure, rather than inventing a new scope (e.g. a repo-tooling/config
+  change like `.claude/`, `.specify/`, or hooks belongs under `infra`, not
+  a bespoke scope).
+- `feat(backend|frontend)` → minor bump; `fix`/`perf(backend|frontend)` →
+  patch bump; a `!` or `BREAKING CHANGE:` footer → major bump; any other
+  type/scope combination triggers no release for that PR.
