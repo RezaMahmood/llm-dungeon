@@ -78,8 +78,8 @@ export function StepPublish({ story, token, onStoryChange }) {
 
       {confirmingUnpublish && (
         <div className="dialog-backdrop">
-          <div className="dialog" role="dialog" aria-modal="true">
-            <div className="dialog-title">Unpublish this story?</div>
+          <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="unpublish-dialog-title">
+            <div className="dialog-title" id="unpublish-dialog-title">Unpublish this story?</div>
             <div className="dialog-body">
               Are you sure? Unpublishing removes this story from every player&rsquo;s adventure list.
             </div>

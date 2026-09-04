@@ -16,9 +16,16 @@ from backend.services.cosmos_service import CosmosService
 
 logger = logging.getLogger("story_service")
 
-PUBLISH_GATE_NOT_SATISFIED = object()
-"""Sentinel returned by `StoryService.publish` when the FR-008 gate blocks the publish; the
-API layer maps this to a 409 response."""
+
+class _PublishGateNotSatisfied:
+    """Sentinel type returned by `StoryService.publish` when the FR-008 gate blocks the
+    publish; the API layer maps an instance of this to a 409 response."""
+
+    def __repr__(self) -> str:
+        return "PUBLISH_GATE_NOT_SATISFIED"
+
+
+PUBLISH_GATE_NOT_SATISFIED = _PublishGateNotSatisfied()
 
 
 def _now() -> str:
@@ -77,7 +84,7 @@ class StoryService:
         """FR-008 gate: a qualifying test play must exist since content was last saved."""
         return story.lastTestPlayedAt is not None and story.lastTestPlayedAt >= story.contentUpdatedAt
 
-    def publish(self, story_id: str) -> Optional[Story]:
+    def publish(self, story_id: str) -> Story | None | _PublishGateNotSatisfied:
         """Publish `story_id` (FR-003), idempotent (FR-006), gated by FR-008. Returns `None`
         if the story doesn't exist, `PUBLISH_GATE_NOT_SATISFIED` if the gate blocks it, or the
         updated `Story` on success."""
