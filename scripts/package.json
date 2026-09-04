@@ -3,17 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Automated tests for the CI/CD pipeline itself (specs/023-cicd-pipeline-optimization). Not part of the application.",
+  "description": "Automated tests for the CI/CD pipeline itself (specs/023-cicd-pipeline-optimization). Not part of the application. Package-specific checks live in scripts/workflow-checks and scripts/release-fixtures (split per issue #192) so each CI job installs only the dependencies it actually needs.",
   "scripts": {
-    "test:workflow-structure": "node test-workflow-structure.js",
-    "test:release-fixtures": "node test-release-fixtures.js",
-    "test:pr-title": "node test-pr-title.js",
-    "test:non-testable-detection": "node test-non-testable-detection.js"
-  },
-  "devDependencies": {
-    "@semantic-release/commit-analyzer": "^13.0.0",
-    "js-yaml": "^4.1.0",
-    "micromatch": "^4.0.8",
-    "semantic-release-monorepo": "^8.0.2"
+    "test:pr-title": "node test-pr-title.js"
   }
 }

@@ -11,7 +11,7 @@
 // the pattern list itself can be exercised locally, in CI, with no GitHub
 // Actions runtime required.
 //
-// Run with: node scripts/test-non-testable-detection.js
+// Run with: node scripts/workflow-checks/test-non-testable-detection.js
 
 import mm from "micromatch";
 

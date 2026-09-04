@@ -4,7 +4,7 @@
 //
 // Static YAML-shape checks that `actionlint` alone does not perform (it
 // only checks syntax/schema, not job/step content). Run with:
-//   node scripts/test-workflow-structure.js
+//   node scripts/workflow-checks/test-workflow-structure.js
 //
 // Exits non-zero on any failure, printing every assertion's pass/fail so
 // a human or CI log can see exactly which story's guarantee broke.
@@ -15,7 +15,7 @@ import { fileURLToPath } from "url";
 import yaml from "js-yaml";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const WORKFLOWS_DIR = path.join(REPO_ROOT, ".github", "workflows");
 
 let failures = 0;
