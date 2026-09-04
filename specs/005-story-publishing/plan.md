@@ -8,7 +8,7 @@
 
 Give a `Story` document an explicit `published` boolean (already defined by `004-story-creation-done`'s data model, defaulting to `false`) and add the two administrator-facing actions that flip it: `publish` and `unpublish`, each idempotent, each reachable from both the story-authoring wizard's new "Publish & assign" step and (once built) `012-story-editing-and-review`'s story list. Publishing is blocked unless a test-play gate (owned by `017-story-publish-test-play-gate`) is satisfied; this plan adds the two Story fields that gate reads (`contentUpdatedAt`, `lastTestPlayedAt`) and the read-side check itself, without building 017's own tracking UI/logic. A successful publish also stamps `lastPublishedAt`, retained across a later unpublish (FR-012). Unpublishing requires a client-side confirmation step only (FR-013) — no new server-side precondition beyond the existing "story exists" check.
 
-**Sequencing note**: `004-story-creation-done` (the `Story` model, `story_service.py`, `api/manage/stories.py`, and the wizard shell) is fully planned but not yet implemented in code (`src/backend/models/story.py` etc. do not exist yet). This plan's contracts and file list assume `004`'s planned shapes as documented in its `data-model.md`/`contracts/api.md`, and its own tasks/implementation must land after (or together with) `004`'s.
+**Sequencing note**: `004-story-creation-done` (the `Story` model, `story_service.py`, the admin story endpoints at `src/backend/api/admin/stories.py`, and the wizard shell) is now implemented in code. This plan's contracts and file list were originally written against `004`'s planned shapes (`data-model.md`/`contracts/api.md`); verified against the actual code during `/speckit-tasks`, the only drift is that the admin story endpoints live at `src/backend/api/admin/stories.py` (URL prefix `manage/stories`, per `function_app.py`'s route registration), not `src/backend/api/manage/stories.py` as originally assumed — `tasks.md` uses the correct path.
 
 ## Technical Context
 
@@ -59,10 +59,19 @@ Give a `Story` document an explicit `published` boolean (already defined by `004
 **Status**: ✓ MET — The new "Publish & assign" wizard step tab reuses the existing step-tab shell and design-token primitives (`.btn*`, `.field`) established by `004-story-creation-done`'s `AdminStoryWizardPage.jsx`; the unpublish confirmation (FR-013) uses the design system's existing dialog/confirmation primitive rather than a one-off modal. No new colors, fonts, or spacing values are introduced.
 
 ### Principle IX – User-Verified Acceptance Before Completion (NON-NEGOTIABLE)
-**Status**: ✓ MET — This feature's task list (Phase 2) will end with an explicit final acceptance task verified by the requesting user/product owner against the deployed environment, per the constitution's standing requirement.
+**Status**: ✓ MET — This feature's task list (final Polish phase) will end with an explicit final acceptance task verified by the requesting user/product owner against the deployed environment, per the constitution's standing requirement.
 
 ### Principle X – PII Protection by Design (NON-NEGOTIABLE)
 **Status**: ✓ MET — Per FR-012, `lastPublishedAt` records only a timestamp, explicitly with **no** administrator-identity attribution; no PII is introduced by this feature.
+
+### Principle XI – UI Design Pre-Agreement Before Implementation (NON-NEGOTIABLE)
+**Status**: ✓ MET (by task, not by this document alone) — This feature adds user-facing UI (`StepPublish.jsx`'s publish/blocked-explanation UI and unpublish confirmation dialog). Per Principle XI, `tasks.md` MUST include (and does include, as of `/speckit-analyze` remediation) an explicit UI design agreement/sign-off task, sequenced before all implementation tasks, requiring the requesting user/product owner to confirm the design against `specs/designs/04-admin-wizard.html` (steps 05–06) before implementation begins — a design artifact existing in `specs/designs/` is not itself sufficient to satisfy this principle.
+
+### Principle XII – Right-Sized Scope — Not Enterprise-Grade (NON-NEGOTIABLE)
+**Status**: ✓ MET — No new environment, identity federation, role hierarchy, or scaling infrastructure is introduced; publish/unpublish is a single boolean flip plus a timestamp, gated by the existing `authorize_admin` allow-list check already used elsewhere.
+
+### Principle XIII – AI Agent Division of Labor (NON-NEGOTIABLE)
+**Status**: ✓ MET / N/A at planning time — This principle governs the GitHub-hosted handoff (PR creation, labelling, review, merge) rather than the technical design; it will be followed when this feature's implementation is pushed and its PR opened (local agent opens the PR labelled `AI Generated`/`Claude`, does not enable auto-merge, GitHub Copilot reviews, the requesting user merges manually). No violation is introduced by this plan.
 
 ### Security & Access Control Requirements (constitution, non-principle section)
 **Status**: ✓ MET — No secrets introduced; publish/unpublish state is only reachable by an authenticated, allow-listed Administrator.
@@ -97,8 +106,9 @@ src/backend/
 │   └── story_service.py                         # MODIFY (as introduced by 004): add publish(story_id),
 │                                                 #   unpublish(story_id), and the FR-008 gate check
 ├── api/
-│   └── manage/
-│       └── stories.py                           # MODIFY (as introduced by 004): add publish_story,
+│   └── admin/
+│       └── stories.py                           # MODIFY (as introduced by 004; URL prefix is manage/stories,
+│                                                 #   file path is api/admin/ — see Sequencing note): add publish_story,
 │                                                 #   unpublish_story handlers
 ├── function_app.py                              # MODIFY: register the two new routes
 └── tests/
