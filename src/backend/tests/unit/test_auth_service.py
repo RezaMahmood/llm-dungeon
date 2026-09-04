@@ -143,6 +143,45 @@ def test_validate_token_accepts_personal_microsoft_account_issuer(key_pair):
     assert email == "user@example.com"
 
 
+def test_validate_token_accepts_app_id_uri_audience(key_pair):
+    """Entra ID may stamp the access token's `aud` as the App ID URI
+    (`api://{clientId}`) rather than the bare client ID GUID, depending on the
+    app registration's accessTokenAcceptedVersion setting (#212: every login
+    was hitting 401 from /api/auth/me because only the bare GUID was
+    accepted).
+    """
+    private_key, public_key = key_pair
+    app_id_uri = f"api://{APP_ID}"
+    service = AuthService(
+        jwks_uri="https://example.invalid/keys",
+        issuer=ISSUER,
+        audience=(APP_ID, app_id_uri),
+    )
+    signing_key = MagicMock()
+    signing_key.key = public_key
+    mock_jwk_client = MagicMock()
+    mock_jwk_client.get_signing_key_from_jwt.return_value = signing_key
+    service._jwk_client = mock_jwk_client
+    service._jwk_client_created_at = time.time()
+    token = _make_token(private_key, audience=app_id_uri)
+
+    is_valid, user_oid, email, error = service.validate_token(token)
+
+    assert is_valid is True
+    assert user_oid == "user-oid-123"
+    assert email == "user@example.com"
+
+
+def test_default_valid_audiences_include_bare_id_and_app_id_uri():
+    with patch("backend.services.auth_service.config") as mock_config:
+        mock_config.jwks_uri.return_value = "https://example.invalid/keys"
+        mock_config.valid_issuers.return_value = (ISSUER,)
+        mock_config.valid_audiences.return_value = (APP_ID, f"api://{APP_ID}")
+        service = AuthService()
+
+    assert service._valid_audiences == (APP_ID, f"api://{APP_ID}")
+
+
 def test_default_valid_issuers_include_both_org_and_consumers_tenants():
     with patch("backend.services.auth_service.config") as mock_config:
         mock_config.jwks_uri.return_value = "https://example.invalid/keys"

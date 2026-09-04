@@ -40,7 +40,15 @@ class AuthService:
             self._valid_issuers = (issuer,)
         else:
             self._valid_issuers = tuple(issuer)
-        self._audience = audience or config.AZURE_APP_ID
+        # Accept either a single audience (tests) or an iterable of accepted
+        # audiences; defaults to every audience form Entra ID may stamp on
+        # this app's own access tokens (see config.valid_audiences).
+        if audience is None:
+            self._valid_audiences: tuple[str, ...] = config.valid_audiences()
+        elif isinstance(audience, str):
+            self._valid_audiences = (audience,)
+        else:
+            self._valid_audiences = tuple(audience)
         self._jwk_client: Optional[PyJWKClient] = None
         self._jwk_client_created_at: float = 0.0
 
@@ -66,7 +74,7 @@ class AuthService:
                 token_string,
                 key=signing_key.key,
                 algorithms=["RS256"],
-                audience=self._audience,
+                audience=list(self._valid_audiences),
                 # Not passed to jwt.decode: PyJWT's built-in issuer check only
                 # accepts a single value, but this app must accept tokens
                 # from more than one issuer (org tenant + MSA consumers
