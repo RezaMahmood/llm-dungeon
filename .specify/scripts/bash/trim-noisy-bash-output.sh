@@ -7,7 +7,7 @@
 set -euo pipefail
 
 input="$(cat)"
-command="$(printf '%s' "$input" | jq -r '.tool_input.command // empty')"
+command="$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null || true)"
 
 if [[ -z "$command" ]]; then
   echo '{}'
