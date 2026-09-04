@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -96,6 +96,36 @@ describe("Game setup flow (006-adventure-and-character-setup)", () => {
 
     expect(await screen.findByRole("radio", { name: /pilot/i })).not.toBeChecked();
     expect(screen.getByLabelText(/character name/i)).toHaveValue("Wren");
+  });
+
+  it("ignores stale adventure detail responses after a newer selection", async () => {
+    const otherAdventure = { id: "a2", name: "The Balloon Post" };
+    listAdventures.mockResolvedValue({ adventures: [ADVENTURE, otherAdventure] });
+
+    let resolveFirstAdventure;
+    let resolveSecondAdventure;
+    getAdventure.mockImplementation(
+      (_token, id) =>
+        new Promise((resolve) => {
+          if (id === "a1") resolveFirstAdventure = resolve;
+          if (id === "a2") resolveSecondAdventure = resolve;
+        }),
+    );
+
+    const user = userEvent.setup();
+    render(<GamePage />);
+
+    await user.click(await screen.findByText(ADVENTURE.name));
+    await user.click(screen.getByText(otherAdventure.name));
+
+    resolveSecondAdventure({ adventure: { id: "a2", name: otherAdventure.name, characterTypes: [{ name: "Pilot" }] } });
+    expect(await screen.findByRole("radio", { name: /pilot/i })).toBeInTheDocument();
+
+    resolveFirstAdventure({ adventure: { id: "a1", name: ADVENTURE.name, characterTypes: CHARACTER_TYPES } });
+    await waitFor(() => {
+      expect(screen.queryByRole("radio", { name: /detective/i })).not.toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: /pilot/i })).toBeInTheDocument();
+    });
   });
 
   it("starts the game once adventure, name, and type are all valid (FR-004, Acceptance Scenario 5)", async () => {

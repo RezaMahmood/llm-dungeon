@@ -9,7 +9,7 @@
  * setup (POST /api/game/start does not create a play session yet).
  */
 import { useMsal } from "@azure/msal-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import AdventureList from "../components/GameSetup/AdventureList.jsx";
 import CharacterNameStep, { MAX_CHARACTER_NAME_LENGTH } from "../components/GameSetup/CharacterNameStep.jsx";
@@ -29,6 +29,7 @@ function nameError(name) {
 export function GamePage() {
   const { instance, accounts } = useMsal();
   const account = accounts[0];
+  const accountKey = account?.homeAccountId || account?.username || "";
 
   const [adventures, setAdventures] = useState(null);
   const [adventuresLoading, setAdventuresLoading] = useState(true);
@@ -45,11 +46,25 @@ export function GamePage() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [started, setStarted] = useState(null);
+  const accountRef = useRef(account);
+  const isMountedRef = useRef(true);
+  const adventureRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    accountRef.current = account;
+  }, [account]);
+
+  useEffect(
+    () => () => {
+      isMountedRef.current = false;
+    },
+    [],
+  );
 
   const getToken = useCallback(async () => {
-    const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
+    const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account: accountRef.current });
     return tokenResponse.accessToken;
-  }, [instance, account]);
+  }, [instance, accountKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,23 +95,26 @@ export function GamePage() {
       setFieldErrors({});
       setStarted(null);
 
-      let cancelled = false;
+      const requestId = ++adventureRequestIdRef.current;
       setTypesLoading(true);
       setTypesError(null);
       (async () => {
         try {
           const token = await getToken();
           const data = await getAdventure(token, id);
-          if (!cancelled) setCharacterTypes(data.adventure?.characterTypes || []);
+          if (isMountedRef.current && requestId === adventureRequestIdRef.current) {
+            setCharacterTypes(data.adventure?.characterTypes || []);
+          }
         } catch (err) {
-          if (!cancelled) setTypesError(err);
+          if (isMountedRef.current && requestId === adventureRequestIdRef.current) {
+            setTypesError(err);
+          }
         } finally {
-          if (!cancelled) setTypesLoading(false);
+          if (isMountedRef.current && requestId === adventureRequestIdRef.current) {
+            setTypesLoading(false);
+          }
         }
       })();
-      return () => {
-        cancelled = true;
-      };
     },
     [getToken],
   );

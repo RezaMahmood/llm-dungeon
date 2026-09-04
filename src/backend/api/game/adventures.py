@@ -3,16 +3,12 @@ contracts/api.md). Published stories only — see StoryService.list_published_su
 
 from __future__ import annotations
 
-import logging
-
 import azure.functions as func
 
 from backend.api.game.middleware import authorize_player
 from backend.api.utils import error_response, json_response
 from backend.services.account_provisioning_service import AccountProvisioningService
 from backend.services.story_service import StoryService
-
-logger = logging.getLogger("game.adventures")
 
 NOT_FOUND_MESSAGE = "Adventure not found"
 
