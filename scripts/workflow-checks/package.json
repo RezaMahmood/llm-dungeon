@@ -1,0 +1,15 @@
+{
+  "name": "llmdungeon-ci-workflow-checks",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Lightweight CI checks for workflow-structure-test.yml (specs/023-cicd-pipeline-optimization): workflow job/step-shape assertions and non-testable-change-detection fixture tests. Split out from scripts/release-fixtures (issue #192) so this job's dependency install doesn't pay for semantic-release-monorepo's much heavier transitive tree, which only test-release-fixtures.js needs.",
+  "scripts": {
+    "test:workflow-structure": "node test-workflow-structure.js",
+    "test:non-testable-detection": "node test-non-testable-detection.js"
+  },
+  "devDependencies": {
+    "js-yaml": "^4.1.0",
+    "micromatch": "^4.0.8"
+  }
+}

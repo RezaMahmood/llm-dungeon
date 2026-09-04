@@ -12,7 +12,7 @@
 // in a real (temporary) git repository — no network calls, no GitHub
 // token needed, so it runs identically locally and in CI.
 //
-// Run with: node scripts/test-release-fixtures.js
+// Run with: node scripts/release-fixtures/test-release-fixtures.js
 
 import path from "path";
 import fs from "fs";

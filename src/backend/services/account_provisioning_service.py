@@ -62,12 +62,21 @@ class AccountProvisioningService:
             return None
         return ProvisionedAccountEntry.from_dict(item)
 
-    def authorize_sign_in(self, email: str, oid: str) -> tuple[bool, Optional[ProvisionedAccountEntry]]:
+    def authorize_sign_in(self, email: Optional[str], oid: str) -> tuple[bool, Optional[ProvisionedAccountEntry]]:
         """Resolve a sign-in by email, then bind or verify the token's oid (FR-006/FR-007).
 
-        Returns (is_authorized, entry). No entry -> (False, None). Unbound entry -> bind
-        oid, persist, and allow. Matching bound oid -> allow. Mismatched bound oid -> deny.
+        Returns (is_authorized, entry). No email claim on the token, or no entry for it,
+        -> (False, None). Unbound entry -> bind oid, persist, and allow. Matching bound
+        oid -> allow. Mismatched bound oid -> deny.
         """
+        if email is None:
+            # Entra ID's `email` claim isn't guaranteed present on every token
+            # (varies by app registration/account type) — treat a missing
+            # claim the same as "no provisioned entry" rather than crashing
+            # inside get_by_email's unconditional email.lower().
+            logger.info("Sign-in denied: token carried no email claim")
+            return False, None
+
         entry = self.get_by_email(email)
         if entry is None:
             return False, None

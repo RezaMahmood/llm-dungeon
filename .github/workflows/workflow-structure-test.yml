@@ -8,7 +8,13 @@ name: Workflow Structure Test
 # deploy/apply job in CI), US3 (deploy is workflow_dispatch-only, no rebuild
 # in deploy/apply, infra's approval-gate asymmetry), US4 (resolve-version
 # before ensure-artifact), US5 (build-on-demand fallback). See
-# scripts/test-workflow-structure.js and contracts/workflow-interfaces.md.
+# scripts/workflow-checks/test-workflow-structure.js and
+# contracts/workflow-interfaces.md.
+#
+# Dependencies live in scripts/workflow-checks/package.json, split out from
+# scripts/release-fixtures/package.json (issue #192) so this lightweight,
+# always-run check doesn't install semantic-release-monorepo's much heavier
+# transitive tree, which only release-fixtures-test.yml needs.
 
 on:
   pull_request: {}
@@ -28,7 +34,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: scripts
+        working-directory: scripts/workflow-checks
     steps:
       - uses: actions/checkout@v7
 
@@ -37,7 +43,7 @@ jobs:
         with:
           node-version: "24"
           cache: "npm"
-          cache-dependency-path: scripts/package-lock.json
+          cache-dependency-path: scripts/workflow-checks/package-lock.json
 
       - name: Install dependencies
         run: npm ci
