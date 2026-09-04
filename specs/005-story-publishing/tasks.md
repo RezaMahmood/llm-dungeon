@@ -11,7 +11,7 @@ description: "Task list for Story Publishing (005-story-publishing)"
 
 **Tests**: FR-007 explicitly requires an automated test for every distinct publishing outcome, so test tasks are included throughout.
 
-**Organization**: Tasks are grouped by user story. This feature has a single user story (US1 — Administrator Publishes or Unpublishes a Story, P1), so almost all work lives in Phase 3; Setup/Foundational is minimal because `004-story-creation-done`'s `Story` model, `story_service.py`, `api/admin/stories.py`, and wizard shell already exist in this codebase (verified in `src/backend/` and `src/frontend/` — plan.md's `manage/stories.py` naming refers to the URL prefix, not the file path, which is actually `src/backend/api/admin/stories.py`).
+**Organization**: Tasks are grouped by user story. This feature has a single user story (US1 — Administrator Publishes or Unpublishes a Story, P1), so almost all work lives in Phase 3; Setup/Foundational is minimal because `004-story-creation-done`'s `Story` model (`src/backend/models/story.py`), `StoryService` (`src/backend/services/story_service.py`), admin story endpoints (`src/backend/api/admin/stories.py`), and wizard shell already exist in this codebase (verified in `src/backend/` and `src/frontend/` — plan.md's `manage/stories.py` naming refers to the URL prefix, not the file path, which is actually `src/backend/api/admin/stories.py`).
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -48,8 +48,8 @@ Existing web-application layout: `src/backend/` (Python Azure Functions) + `src/
 **⚠️ CRITICAL**: No US1 work can begin until this phase is complete.
 
 - [ ] T002 Add `lastPublishedAt: Optional[str] = None`, `contentUpdatedAt: str`, and `lastTestPlayedAt: Optional[str] = None` fields to the `Story` dataclass in `src/backend/models/story.py`, including them in `to_dict()`/`from_dict()` (data-model.md's New/changed properties table); `contentUpdatedAt` has no default since it is always required, matching the dataclass's existing required/optional field ordering.
-- [ ] T003 In `src/backend/services/story_service.py`'s `create_story`, stamp `contentUpdatedAt=_now()` (equal to `createdAt`) and leave `lastPublishedAt`/`lastTestPlayedAt` at their `None` defaults (data-model.md: "Stamped equal to `createdAt` at creation").
-- [ ] T004 [P] Update `test_create_story_defaults_to_unpublished` and add a new assertion in `src/backend/tests/unit/test_story_service.py` confirming a freshly created story has `contentUpdatedAt` set (equal to `createdAt`) and `lastPublishedAt`/`lastTestPlayedAt` both `None`.
+- [ ] T003 In `src/backend/services/story_service.py`'s `create_story`, compute the creation timestamp once (e.g. `created_at = _now()`) and pass that same value to both `createdAt` and `contentUpdatedAt` — calling `_now()` twice would let the two values drift by up to a second, breaking the exact equality data-model.md and T004 require ("Stamped equal to `createdAt` at creation"); leave `lastPublishedAt`/`lastTestPlayedAt` at their `None` defaults.
+- [ ] T004 [P] Update `test_create_story_defaults_to_unpublished` and add a new assertion in `src/backend/tests/unit/test_story_service.py` confirming a freshly created story has `contentUpdatedAt` exactly equal to `createdAt` (not merely close in time) and `lastPublishedAt`/`lastTestPlayedAt` both `None`.
 
 **Checkpoint**: `Story` model and creation path carry all three new fields — US1 implementation can now begin.
 
