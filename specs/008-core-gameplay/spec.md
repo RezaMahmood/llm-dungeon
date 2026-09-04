@@ -77,7 +77,7 @@ While a player is in an active game, the game automatically ends when the condit
 
 - **Play Session**: One player's individual playthrough of a specific adventure — tracks the ongoing narrative history and current state, is exclusive to the player who started it, and ends when its configured completion criteria are met.
 - **Player Interaction**: A single natural-language input from a player during a Play Session and the narrative response it produces — the atomic unit of gameplay.
-- **Completion Criteria**: The set of conditions configured on an adventure (defined during story creation/import — see `004-story-creation`, `011-story-import`) that determine when a play session automatically ends — a maximum duration, success condition(s), and/or failure condition(s) — together with a rule for whether any one or all configured conditions must be met.
+- **Completion Criteria**: The set of conditions configured on an adventure (defined during story creation/import — see `004-story-creation-done`, `011-story-import`) that determine when a play session automatically ends — a maximum duration, success condition(s), and/or failure condition(s) — together with a rule for whether any one or all configured conditions must be met.
 
 ## Success Criteria *(mandatory)*
 
@@ -93,5 +93,5 @@ While a player is in an active game, the game automatically ends when the condit
 ## Assumptions
 
 - This spec assumes a play session has already been set up with a chosen adventure, character name, and character type, per `006-adventure-and-character-setup`; it does not redefine that setup flow.
-- Completion criteria (duration, success, failure, and the any/all combination rule) are authored as part of a story's configuration in `004-story-creation` or `011-story-import`; this spec only covers how they are enforced during play, not how they are defined.
+- Completion criteria (duration, success, failure, and the any/all combination rule) are authored as part of a story's configuration in `004-story-creation-done` or `011-story-import`; this spec only covers how they are enforced during play, not how they are defined.
 - Saving progress mid-session and resuming later is a separate capability (see `009-save-and-continue`); this spec covers the moment-to-moment play loop and its natural conclusion, not persistence across visits.

@@ -11,7 +11,7 @@ contract; this feature has no HTTP API surface.
 | Screen | Route | Mockup | Functional code touched? | Notes |
 |---|---|---|---|---|
 | Login | `/login` | `01-login.html` | No — `LoginScreen.jsx` already uses `.btn`, `.hr`, `.text-muted`, token spacing (research.md finding) | Confirm/complete alignment only; no `AuthenticatedLayout` (unauthenticated route) |
-| Hub / story select | `/menu` | `02-story-select.html` | No — `MainMenu.jsx`'s existing menu-item logic (`GameMenuItem`/`AdminMenuItem`) is unchanged | Remove ad hoc `<h1>`/logout header (now in `NavBar`); retire `MainMenu.css`; body content stays what exists today (real story list is `004-story-creation`/future scope, not this feature's) |
+| Hub / story select | `/menu` | `02-story-select.html` | No — `MainMenu.jsx`'s existing menu-item logic (`GameMenuItem`/`AdminMenuItem`) is unchanged | Remove ad hoc `<h1>`/logout header (now in `NavBar`); retire `MainMenu.css`; body content stays what exists today (real story list is `004-story-creation-done`/future scope, not this feature's) |
 | Admin wizard | `/admin/stories/new` | `04-admin-wizard.html` | No — draft fetch/save/autosave, `activeStep` state, per-step validation all unchanged (FR-005, FR-012) | Restyle step-tab row and step content per mockup; `NavBar` replaces the page's own header |
 | People (accounts) | `/admin/accounts` | `05-admin-users.html` | No — `AccountForm`/`AccountList`'s data operations and one-at-a-time remove-with-confirmation unchanged (FR-011) | Restyle form/list layout per mockup; `NavBar` replaces the page's own header |
 | Story play | `/game` | `03-play.html` (header only) | No — `GamePage.jsx` remains a content placeholder (008-core-gameplay scope) | Only the header changes, from nothing to `TitleBar`; body content is out of scope until 008 lands |
@@ -57,7 +57,7 @@ contract; this feature has no HTTP API surface.
 ## Non-goals
 
 - Building the real "story select" list content shown in `02-story-select.html`
-  (in-progress/published story rows) — that is `004-story-creation`'s scope; this
+  (in-progress/published story rows) — that is `004-story-creation-done`'s scope; this
   feature restyles `MainMenu.jsx`'s current hub content, it does not build a new
   player-facing list. (The admin stories list added at `/admin` per FR-013 is a
   separate, read-only, admin-only view — not the player story-select experience.)

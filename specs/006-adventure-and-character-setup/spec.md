@@ -66,7 +66,7 @@ A player choosing to start a new game first picks which published adventure to p
 
 ### Key Entities
 
-- **Character Type**: An administrator-defined option, scoped to a specific adventure, that a player chooses from when setting up a new game against that adventure (defined in `004-story-creation` / `011-story-import`).
+- **Character Type**: An administrator-defined option, scoped to a specific adventure, that a player chooses from when setting up a new game against that adventure (defined in `004-story-creation-done` / `011-story-import`).
 - **Play Session Setup**: The adventure, character name, and character type a player has selected for a given play session before gameplay is permitted to begin.
 
 ## Success Criteria *(mandatory)*

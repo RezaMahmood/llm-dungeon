@@ -35,5 +35,5 @@
   `001-adventure-game` (auto-publish assumption) and `003-game-setup-and-authoring`
   (explicit publish requirement) by being the single authoritative spec on story
   visibility — the explicit publish/unpublish model is now the only model.
-- Depends on `004-story-creation` and `011-story-import` (both stories' entry points)
+- Depends on `004-story-creation-done` and `011-story-import` (both stories' entry points)
   and is depended on by `006-adventure-and-character-setup` (player-facing adventure list).

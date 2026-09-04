@@ -3,7 +3,7 @@
 Python Azure Functions backend implementing authentication, account
 provisioning, guided story creation, and adventure/character setup (features
 `002-login-and-access-control`, `003-account-provisioning-done`,
-`004-story-creation`, `006-adventure-and-character-setup`).
+`004-story-creation-done`, `006-adventure-and-character-setup`).
 
 ## Structure
 
@@ -57,7 +57,7 @@ func start
 | `AZURE_TENANT_ID` | Azure AD tenant ID |
 | `AZURE_APP_ID` | Azure AD app registration ID (token audience) |
 | `COSMOS_ENDPOINT` | Cosmos DB account endpoint (Managed Identity auth, no keys) |
-| `AZURE_AI_FOUNDRY_ENDPOINT` | Azure OpenAI resource endpoint (Managed Identity auth, no keys) — `004-story-creation`'s `llm_service.py`, via `agent_framework.openai.OpenAIChatCompletionClient` |
+| `AZURE_AI_FOUNDRY_ENDPOINT` | Azure OpenAI resource endpoint (Managed Identity auth, no keys) — `004-story-creation-done`'s `llm_service.py`, via `agent_framework.openai.OpenAIChatCompletionClient` |
 | `AZURE_AI_FOUNDRY_DEPLOYMENT_NAME` | Deployed model name on that resource (e.g. `gpt-5-nano`) — passed as `OpenAIChatCompletionClient`'s `model` |
 | `LLM_INPUT_TOKEN_PRICE_USD` | USD price per input token, used to compute `gen_ai.cost_usd` on every LLM call span (Constitution Principle VI) |
 | `LLM_OUTPUT_TOKEN_PRICE_USD` | USD price per output token, same purpose |
@@ -73,7 +73,7 @@ via the GitHub Actions workflow, on merge to `main`.
 
 See [002's contracts/api.md](../../specs/002-login-and-access-control-done/contracts/api.md),
 [003's contracts/api.md](../../specs/003-account-provisioning-done/contracts/api.md), and
-[004's contracts/api.md](../../specs/004-story-creation/contracts/api.md) for full
+[004's contracts/api.md](../../specs/004-story-creation-done/contracts/api.md) for full
 request/response contracts.
 
 | Endpoint | Method | Requires |

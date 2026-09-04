@@ -34,5 +34,5 @@
 - All items pass. Merges `001-adventure-game`'s former US3 (choose among stories) with
   `003-game-setup-and-authoring`'s former US1 (character setup) — the same pre-play
   setup flow described at different levels of detail.
-- Depends on `005-story-publishing` (adventure list) and `004-story-creation`/`011-story-import`
+- Depends on `005-story-publishing` (adventure list) and `004-story-creation-done`/`011-story-import`
   (character type definitions); hands off to `008-core-gameplay`.

@@ -4,13 +4,13 @@
 
 **Feature**: Story Publishing (005-story-publishing)
 
-This feature does not introduce a new entity or container. It extends the `Story` entity defined in `004-story-creation`'s `data-model.md` with the fields this spec's Key Entities (Published Status, Last Published At) and FR-008's gate require. Fields already defined by `004` are not repeated here except where their behavior changes.
+This feature does not introduce a new entity or container. It extends the `Story` entity defined in `004-story-creation-done`'s `data-model.md` with the fields this spec's Key Entities (Published Status, Last Published At) and FR-008's gate require. Fields already defined by `004` are not repeated here except where their behavior changes.
 
 ---
 
 ## Entity: Story (extension)
 
-**Container**: `stories` (existing, defined by `004-story-creation`; partition key `/id`).
+**Container**: `stories` (existing, defined by `004-story-creation-done`; partition key `/id`).
 
 ### New/changed properties
 

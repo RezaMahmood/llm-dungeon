@@ -4,7 +4,7 @@
 
 **Feature**: Story Publishing (005-story-publishing)
 
-Adds two endpoints to `src/backend/api/manage/stories.py` (as introduced by `004-story-creation`). Both require an authenticated Administrator (`authorize_admin`), returning the same `unauthorized()`/`forbidden_access_not_granted()`/`forbidden_insufficient_permission()` shapes as existing admin endpoints on failure. Response shapes follow `src/backend/api/utils.py`'s `json_response`/`error_response` helpers, matching `004-story-creation/contracts/api.md`'s conventions.
+Adds two endpoints to `src/backend/api/manage/stories.py` (as introduced by `004-story-creation-done`). Both require an authenticated Administrator (`authorize_admin`), returning the same `unauthorized()`/`forbidden_access_not_granted()`/`forbidden_insufficient_permission()` shapes as existing admin endpoints on failure. Response shapes follow `src/backend/api/utils.py`'s `json_response`/`error_response` helpers, matching `004-story-creation-done/contracts/api.md`'s conventions.
 
 Both endpoints are reachable from two callers with no difference in behavior (FR-010): the story-authoring wizard's "Publish & assign" step (this feature) and, once built, `012-story-editing-and-review`'s story list.
 

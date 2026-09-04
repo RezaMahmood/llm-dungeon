@@ -115,7 +115,7 @@ resource "azurerm_cosmosdb_sql_container" "stories" {
 }
 
 resource "azurerm_cosmosdb_sql_container" "story_drafts" {
-  # 004-story-creation, data-model.md Storage Model: ephemeral in-progress
+  # 004-story-creation-done, data-model.md Storage Model: ephemeral in-progress
   # wizard sessions, one document per draft. default_ttl = -1 enables
   # per-item TTL without a container-wide expiry — every StoryDraft document
   # sets its own `ttl` field (reset to 86400 on each update, research.md §3),
@@ -240,10 +240,10 @@ resource "azurerm_function_app_flex_consumption" "functions" {
     STORAGE_CONTAINER            = azurerm_storage_container.assets.name
     AZURE_OPENAI_ENDPOINT        = azurerm_cognitive_account.openai.endpoint
     AZURE_OPENAI_DEPLOYMENT_NAME = azurerm_cognitive_deployment.model.name
-    # 004-story-creation's llm_service.py reads AZURE_AI_FOUNDRY_ENDPOINT
-    # (research.md §1's azure-ai-inference client), not the AZURE_OPENAI_*
-    # names above — same cognitive account, the name this feature's code
-    # actually looks up.
+# 004-story-creation-done's llm_service.py reads AZURE_AI_FOUNDRY_ENDPOINT
+# + AZURE_AI_FOUNDRY_DEPLOYMENT_NAME to configure its OpenAIChatCompletionClient.
+# These intentionally mirror the AZURE_OPENAI_* values above (same cognitive account),
+# but the backend code looks up the AZURE_AI_FOUNDRY_* names.
     AZURE_AI_FOUNDRY_ENDPOINT        = azurerm_cognitive_account.openai.endpoint
     AZURE_AI_FOUNDRY_DEPLOYMENT_NAME = azurerm_cognitive_deployment.model.name
     LLM_INPUT_TOKEN_PRICE_USD        = var.llm_input_token_price_usd

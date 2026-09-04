@@ -3,7 +3,7 @@
 **Feature**: 006-adventure-and-character-setup | **Date**: 2026-08-31
 
 No new persisted entity is introduced (see [research.md](./research.md) Decision 1). This
-document describes the entities this feature *reads* (already defined in `004-story-creation`)
+document describes the entities this feature *reads* (already defined in `004-story-creation-done`)
 and the request/response shapes it introduces, which exist only for the lifetime of an HTTP
 call — never persisted as-is.
 

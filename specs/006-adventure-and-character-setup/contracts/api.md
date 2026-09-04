@@ -10,7 +10,7 @@ authenticated Player (`authorize_player` — new, mirrors `authorize_admin`, see
 [research.md](../research.md) Decision 3), returning the same `unauthorized()` /
 `forbidden_access_not_granted()` / `forbidden_insufficient_permission()` shapes as existing
 endpoints on failure (`src/backend/api/utils.py`). Response shapes follow the same
-`json_response`/`error_response` helper conventions as `004-story-creation` and
+`json_response`/`error_response` helper conventions as `004-story-creation-done` and
 `005-story-publishing`'s contracts.
 
 ---
