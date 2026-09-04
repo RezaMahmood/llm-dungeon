@@ -45,7 +45,7 @@ export function MainMenu() {
       <hr className="hr" />
       {hasNoCapabilities && (
         <div className="no-access-message">
-          <h2>Access Provisioned</h2>
+          <h2>Access Pending</h2>
           <p>
             Your account is registered but no roles have been assigned yet. Contact your
             administrator to grant access.
