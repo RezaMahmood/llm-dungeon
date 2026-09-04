@@ -1,0 +1,7 @@
+{
+  "name": "tempy",
+  "version": "1.0.1",
+  "description": "Local compatibility patch for tempy@1.0.1 that removes deprecated del/rimraf/glob/inflight transitive deps.",
+  "main": "index.js",
+  "license": "MIT"
+}
