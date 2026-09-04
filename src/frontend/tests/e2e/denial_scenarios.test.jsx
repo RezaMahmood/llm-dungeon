@@ -51,7 +51,7 @@ describe("Denial scenarios", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText(/access provisioned/i)).toBeInTheDocument();
+    expect(screen.getByText(/access pending/i)).toBeInTheDocument();
   });
 
   it("Player capability: admin menu item is not rendered", () => {
