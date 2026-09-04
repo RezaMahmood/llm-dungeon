@@ -137,6 +137,8 @@ class Story:
             lastPublishedAt=data.get("lastPublishedAt"),
             createdBy=data["createdBy"],
             createdAt=data["createdAt"],
-            contentUpdatedAt=data["contentUpdatedAt"],
+            # Falls back to createdAt for Story rows persisted before this field existed —
+            # without this, every pre-existing story would raise KeyError on the next read.
+            contentUpdatedAt=data.get("contentUpdatedAt", data["createdAt"]),
             lastTestPlayedAt=data.get("lastTestPlayedAt"),
         )
