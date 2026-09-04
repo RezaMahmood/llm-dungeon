@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Optional
+from typing import Iterable, Optional, Union
 
 import jwt
 import requests
@@ -26,8 +26,8 @@ class AuthService:
     def __init__(
         self,
         jwks_uri: Optional[str] = None,
-        issuer: Optional[str] = None,
-        audience: Optional[str] = None,
+        issuer: Optional[Union[str, Iterable[str]]] = None,
+        audience: Optional[Union[str, Iterable[str]]] = None,
     ) -> None:
         self._jwks_uri = jwks_uri or config.jwks_uri()
         # Accept either a single issuer (tests) or an iterable of accepted
