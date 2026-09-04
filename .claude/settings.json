@@ -10,6 +10,16 @@
             "statusMessage": "Checking worktree sync..."
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".specify/scripts/bash/trim-noisy-bash-output.sh",
+            "statusMessage": "Trimming noisy test/build output..."
+          }
+        ]
       }
     ]
   }
