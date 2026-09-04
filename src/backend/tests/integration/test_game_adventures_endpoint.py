@@ -24,6 +24,7 @@ def _published_story(story_id="story-1"):
         narrativeGuidance="Keep it eerie but safe.",
         createdBy="admin-oid",
         createdAt="2026-08-30T00:00:00Z",
+        contentUpdatedAt="2026-08-30T00:00:00Z",
         published=True,
     )
 

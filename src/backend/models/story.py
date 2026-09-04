@@ -74,6 +74,7 @@ class Story:
     narrativeGuidance: str
     createdBy: str
     createdAt: str
+    contentUpdatedAt: str
     name: Optional[str] = None
     coverImageUrl: Optional[str] = None
     tone: Optional[str] = None
@@ -82,6 +83,8 @@ class Story:
     chapters: Optional[int] = None
     rules: Optional[str] = None
     published: bool = False
+    lastPublishedAt: Optional[str] = None
+    lastTestPlayedAt: Optional[str] = None
     entityType: str = field(default="Story")
 
     def __post_init__(self) -> None:
@@ -107,8 +110,11 @@ class Story:
             "completionCriteria": self.completionCriteria.to_dict(),
             "narrativeGuidance": self.narrativeGuidance,
             "published": self.published,
+            "lastPublishedAt": self.lastPublishedAt,
             "createdBy": self.createdBy,
             "createdAt": self.createdAt,
+            "contentUpdatedAt": self.contentUpdatedAt,
+            "lastTestPlayedAt": self.lastTestPlayedAt,
             "entityType": self.entityType,
         }
 
@@ -128,6 +134,9 @@ class Story:
             completionCriteria=CompletionCriteria.from_dict(data["completionCriteria"]),
             narrativeGuidance=data["narrativeGuidance"],
             published=data.get("published", False),
+            lastPublishedAt=data.get("lastPublishedAt"),
             createdBy=data["createdBy"],
             createdAt=data["createdAt"],
+            contentUpdatedAt=data["contentUpdatedAt"],
+            lastTestPlayedAt=data.get("lastTestPlayedAt"),
         )

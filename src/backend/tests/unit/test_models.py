@@ -114,6 +114,7 @@ def test_story_accepts_single_character_type():
         narrativeGuidance="Keep it eerie but never actually dangerous.",
         createdBy="oid-1",
         createdAt="2026-08-29T20:04:00Z",
+        contentUpdatedAt="2026-08-29T20:04:00Z",
     )
     assert len(story.characterTypes) == 1
     assert story.published is False
@@ -129,6 +130,7 @@ def test_story_rejects_empty_character_types():
             narrativeGuidance="Keep it eerie but never actually dangerous.",
             createdBy="oid-1",
             createdAt="2026-08-29T20:04:00Z",
+            contentUpdatedAt="2026-08-29T20:04:00Z",
         )
 
 
@@ -142,6 +144,7 @@ def test_story_rejects_empty_world_prompt():
             narrativeGuidance="Keep it eerie but never actually dangerous.",
             createdBy="oid-1",
             createdAt="2026-08-29T20:04:00Z",
+            contentUpdatedAt="2026-08-29T20:04:00Z",
         )
 
 
@@ -154,6 +157,7 @@ def test_story_round_trips_through_dict():
         narrativeGuidance="Keep it eerie but never actually dangerous.",
         createdBy="oid-1",
         createdAt="2026-08-29T20:04:00Z",
+        contentUpdatedAt="2026-08-29T20:04:00Z",
         name="The Lighthouse at Gullwing Cove",
     )
     restored = Story.from_dict(story.to_dict())
