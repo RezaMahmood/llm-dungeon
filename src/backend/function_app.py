@@ -15,6 +15,8 @@ from backend.api.admin.stories import (
     list_stories,
     patch_draft,
     post_message,
+    publish_story,
+    unpublish_story,
 )
 from backend.api.auth.login import login
 from backend.api.auth.logout import logout
@@ -103,6 +105,16 @@ def admin_stories_list(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="manage/stories/{storyId}", methods=["GET"])
 def admin_stories_get(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(get_story)(req)
+
+
+@app.route(route="manage/stories/{storyId}/publish", methods=["POST"])
+def admin_stories_publish(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(publish_story)(req)
+
+
+@app.route(route="manage/stories/{storyId}/unpublish", methods=["POST"])
+def admin_stories_unpublish(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(unpublish_story)(req)
 
 
 @app.route(route="game/start", methods=["POST"])

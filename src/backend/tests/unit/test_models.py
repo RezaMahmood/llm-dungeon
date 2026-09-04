@@ -114,6 +114,7 @@ def test_story_accepts_single_character_type():
         narrativeGuidance="Keep it eerie but never actually dangerous.",
         createdBy="oid-1",
         createdAt="2026-08-29T20:04:00Z",
+        contentUpdatedAt="2026-08-29T20:04:00Z",
     )
     assert len(story.characterTypes) == 1
     assert story.published is False
@@ -129,6 +130,7 @@ def test_story_rejects_empty_character_types():
             narrativeGuidance="Keep it eerie but never actually dangerous.",
             createdBy="oid-1",
             createdAt="2026-08-29T20:04:00Z",
+            contentUpdatedAt="2026-08-29T20:04:00Z",
         )
 
 
@@ -142,6 +144,7 @@ def test_story_rejects_empty_world_prompt():
             narrativeGuidance="Keep it eerie but never actually dangerous.",
             createdBy="oid-1",
             createdAt="2026-08-29T20:04:00Z",
+            contentUpdatedAt="2026-08-29T20:04:00Z",
         )
 
 
@@ -154,10 +157,30 @@ def test_story_round_trips_through_dict():
         narrativeGuidance="Keep it eerie but never actually dangerous.",
         createdBy="oid-1",
         createdAt="2026-08-29T20:04:00Z",
+        contentUpdatedAt="2026-08-29T20:04:00Z",
         name="The Lighthouse at Gullwing Cove",
     )
     restored = Story.from_dict(story.to_dict())
     assert restored == story
+
+
+def test_story_from_dict_defaults_content_updated_at_to_created_at_for_pre_existing_rows():
+    """Story rows persisted before this feature added contentUpdatedAt must still be
+    readable after deploy — falling back to createdAt is the correct interim value
+    (it predates 017's edit-tracking path, so createdAt is the only known "content set" time)."""
+    data = {
+        "id": "story-1",
+        "worldPrompt": "A half-abandoned lighthouse...",
+        "characterTypes": [{"name": "Curious Cousin", "description": None}],
+        "completionCriteria": {"successConditions": ["Find the keeper"], "maxDurationMinutes": None, "failureConditions": [], "rule": None},
+        "narrativeGuidance": "Keep it eerie but never actually dangerous.",
+        "createdBy": "oid-1",
+        "createdAt": "2026-08-29T20:04:00Z",
+    }
+
+    story = Story.from_dict(data)
+
+    assert story.contentUpdatedAt == "2026-08-29T20:04:00Z"
 
 
 # --- StoryDraft ---

@@ -2,6 +2,7 @@ import { useMsal } from "@azure/msal-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import StepNameCover from "../components/Admin/StoryWizard/StepNameCover.jsx";
+import StepPublish from "../components/Admin/StoryWizard/StepPublish.jsx";
 import StepSessionLength from "../components/Admin/StoryWizard/StepSessionLength.jsx";
 import StepToneReadingLevel from "../components/Admin/StoryWizard/StepToneReadingLevel.jsx";
 import StepWorldSetting from "../components/Admin/StoryWizard/StepWorldSetting.jsx";
@@ -255,9 +256,13 @@ export function AdminStoryWizardPage() {
           Story generated
         </div>
         <h1>{story.name || "Untitled story"}</h1>
-        <p className="text-muted">Generated and saved, unpublished. Publishing is handled elsewhere.</p>
+        <p className="text-muted">Generated and saved.</p>
         <h3>Narrative guidance</h3>
         <p>{story.narrativeGuidance}</p>
+
+        <hr className="hr" style={{ margin: "24px 0" }} />
+        <h3>Publish & assign</h3>
+        <StepPublish story={story} token={token} onStoryChange={setStory} />
       </div>
     );
   }

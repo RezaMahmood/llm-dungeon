@@ -17,6 +17,17 @@ from backend.services.cosmos_service import CosmosService
 logger = logging.getLogger("story_service")
 
 
+class _PublishGateNotSatisfied:
+    """Sentinel type returned by `StoryService.publish` when the FR-008 gate blocks the
+    publish; the API layer maps an instance of this to a 409 response."""
+
+    def __repr__(self) -> str:
+        return "PUBLISH_GATE_NOT_SATISFIED"
+
+
+PUBLISH_GATE_NOT_SATISFIED = _PublishGateNotSatisfied()
+
+
 def _now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -31,6 +42,7 @@ class StoryService:
     def create_story(self, draft: StoryDraft, narrative_guidance: str) -> Story:
         """Persist a complete `Story` from a draft that just met the Completeness Rule,
         `published=False` by default (FR-006)."""
+        created_at = _now()
         story = Story(
             id=str(uuid.uuid4()),
             name=draft.name,
@@ -46,7 +58,8 @@ class StoryService:
             narrativeGuidance=narrative_guidance,
             published=False,
             createdBy=draft.createdBy,
-            createdAt=_now(),
+            createdAt=created_at,
+            contentUpdatedAt=created_at,
         )
         self._container().upsert_item(story.to_dict())
         logger.info("Story persisted", extra={"story_id": story.id, "created_by": story.createdBy})
@@ -60,12 +73,40 @@ class StoryService:
         return Story.from_dict(item)
 
     def list_summaries(self) -> list[dict[str, Any]]:
-        """Summary shape only (`id`, `name`, `published`, `createdAt`) — full detail is
-        fetched via `get_story` (contracts/api.md)."""
+        """Summary shape only (`id`, `name`, `published`, `lastPublishedAt`, `createdAt`) —
+        full detail is fetched via `get_story` (contracts/api.md)."""
         return self._cosmos.query(
             config.STORIES_CONTAINER,
-            "SELECT c.id, c.name, c.published, c.createdAt FROM c WHERE c.entityType = 'Story'",
+            "SELECT c.id, c.name, c.published, c.lastPublishedAt, c.createdAt FROM c WHERE c.entityType = 'Story'",
         )
+
+    def can_publish(self, story: Story) -> bool:
+        """FR-008 gate: a qualifying test play must exist since content was last saved."""
+        return story.lastTestPlayedAt is not None and story.lastTestPlayedAt >= story.contentUpdatedAt
+
+    def publish(self, story_id: str) -> Story | None | _PublishGateNotSatisfied:
+        """Publish `story_id` (FR-003), idempotent (FR-006), gated by FR-008. Returns `None`
+        if the story doesn't exist, `PUBLISH_GATE_NOT_SATISFIED` if the gate blocks it, or the
+        updated `Story` on success."""
+        story = self.get_story(story_id)
+        if story is None:
+            return None
+        if not self.can_publish(story):
+            return PUBLISH_GATE_NOT_SATISFIED
+        story.published = True
+        story.lastPublishedAt = _now()
+        self._container().upsert_item(story.to_dict())
+        return story
+
+    def unpublish(self, story_id: str) -> Optional[Story]:
+        """Unpublish `story_id` (FR-004), idempotent (FR-006); `lastPublishedAt` is left
+        untouched (FR-012). No server-side precondition beyond the story existing."""
+        story = self.get_story(story_id)
+        if story is None:
+            return None
+        story.published = False
+        self._container().upsert_item(story.to_dict())
+        return story
 
     def list_published_summaries(self) -> list[dict[str, Any]]:
         """Player-facing `AdventureSummary` shape (006-adventure-and-character-setup
