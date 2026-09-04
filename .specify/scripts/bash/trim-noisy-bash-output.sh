@@ -24,7 +24,7 @@ if ! printf '%s' "$command" | grep -qE "$noisy_pattern"; then
 fi
 
 # Don't double-wrap a command that already bounds its own output.
-if printf '%s' "$command" | grep -qE '\|[[:space:]]*(head|tail|wc)\b'; then
+if printf '%s' "$command" | grep -qE '\|[[:space:]]*(head|tail|wc)([[:space:]]|$)'; then
   echo '{}'
   exit 0
 fi
