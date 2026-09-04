@@ -10,8 +10,5 @@
   "devDependencies": {
     "@semantic-release/commit-analyzer": "^13.0.0",
     "semantic-release-monorepo": "^8.0.2"
-  },
-  "overrides": {
-    "tempy": "file:../../utilities/npm/tempy"
   }
 }
