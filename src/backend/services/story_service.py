@@ -66,11 +66,11 @@ class StoryService:
         return Story.from_dict(item)
 
     def list_summaries(self) -> list[dict[str, Any]]:
-        """Summary shape only (`id`, `name`, `published`, `createdAt`) — full detail is
-        fetched via `get_story` (contracts/api.md)."""
+        """Summary shape only (`id`, `name`, `published`, `lastPublishedAt`, `createdAt`) —
+        full detail is fetched via `get_story` (contracts/api.md)."""
         return self._cosmos.query(
             config.STORIES_CONTAINER,
-            "SELECT c.id, c.name, c.published, c.createdAt FROM c WHERE c.entityType = 'Story'",
+            "SELECT c.id, c.name, c.published, c.lastPublishedAt, c.createdAt FROM c WHERE c.entityType = 'Story'",
         )
 
     def can_publish(self, story: Story) -> bool:

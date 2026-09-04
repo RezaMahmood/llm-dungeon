@@ -39,15 +39,29 @@ def test_create_story_defaults_to_unpublished():
 def test_list_summaries_returns_summary_shape_only():
     cosmos = MagicMock()
     cosmos.query.return_value = [
-        {"id": "story-1", "name": "The Lighthouse at Gullwing Cove", "published": False, "createdAt": "2026-08-29T20:04:00Z"}
+        {
+            "id": "story-1",
+            "name": "The Lighthouse at Gullwing Cove",
+            "published": False,
+            "lastPublishedAt": None,
+            "createdAt": "2026-08-29T20:04:00Z",
+        }
     ]
     service = StoryService(cosmos_service=cosmos)
 
     summaries = service.list_summaries()
 
     assert summaries == [
-        {"id": "story-1", "name": "The Lighthouse at Gullwing Cove", "published": False, "createdAt": "2026-08-29T20:04:00Z"}
+        {
+            "id": "story-1",
+            "name": "The Lighthouse at Gullwing Cove",
+            "published": False,
+            "lastPublishedAt": None,
+            "createdAt": "2026-08-29T20:04:00Z",
+        }
     ]
+    query_args = cosmos.query.call_args[0]
+    assert "c.lastPublishedAt" in query_args[1]
 
 
 def test_get_story_returns_full_config_including_narrative_guidance():
