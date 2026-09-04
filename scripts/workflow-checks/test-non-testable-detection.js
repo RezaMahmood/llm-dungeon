@@ -8,7 +8,32 @@
 //
 // Run with: node scripts/workflow-checks/test-non-testable-detection.js
 
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
 import { allNonTestable } from "./check-non-testable.mjs";
+
+const CHECK_SCRIPT = fileURLToPath(new URL("./check-non-testable.mjs", import.meta.url));
+
+// Invokes the module the exact way detect-non-testable-changes/action.yml
+// does: as a child process, changed files passed via CHANGED_FILES_JSON.
+// The imported allNonTestable() checks above only prove the predicate
+// logic is right; they can't catch a broken CLI entry point (the import
+// path is never exercised when the module is run as a subprocess) — which
+// is exactly what shipped in this PR's first revision (Copilot review,
+// PR #199): a hand-rolled `file://${process.argv[1]}` comparison that
+// only happens to match when argv[1] resolves to a plain absolute path
+// with no symlinks/encoding involved.
+function cliAllNonTestable(changedFiles) {
+  const output = execFileSync("node", [CHECK_SCRIPT], {
+    env: { ...process.env, CHANGED_FILES_JSON: JSON.stringify(changedFiles) },
+    encoding: "utf8",
+  }).trim();
+  if (output !== "true" && output !== "false") {
+    throw new Error(`check-non-testable.mjs CLI printed unexpected output: ${JSON.stringify(output)}`);
+  }
+  return output === "true";
+}
 
 let failures = 0;
 let passes = 0;
@@ -71,6 +96,16 @@ check(
     "(regression check for #165 Scenario 6: this exact shape previously " +
     "evaluated false under dorny/paths-filter's predicate-quantifier: every)",
   allNonTestable(["specs/023-cicd-pipeline-optimization/quickstart.md"]) === true
+);
+
+check(
+  "CLI entry point (invoked as a subprocess, exactly like action.yml does) -> all-non-testable = true for docs-only",
+  cliAllNonTestable(["specs/023-cicd-pipeline-optimization/quickstart.md"]) === true
+);
+
+check(
+  "CLI entry point -> all-non-testable = false for a code change",
+  cliAllNonTestable(["src/backend/app.py"]) === false
 );
 
 console.log(`\n${passes} passed, ${failures} failed`);

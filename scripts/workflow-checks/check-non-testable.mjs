@@ -16,6 +16,8 @@
 // can never drift out of sync the way the inline dorny/paths-filter config
 // and this file's earlier standalone reimplementation once did.
 
+import { pathToFileURL } from "node:url";
+
 import mm from "micromatch";
 
 export const NON_TESTABLE_PATTERNS = [
@@ -33,7 +35,11 @@ export function allNonTestable(changedFiles) {
 
 // CLI mode: prints "true"/"false" for a JSON array of changed file paths,
 // taken from the first argv or the CHANGED_FILES_JSON env var.
-if (import.meta.url === `file://${process.argv[1]}`) {
+// pathToFileURL (not a hand-rolled `file://${...}` string) so this holds up
+// whether argv[1] is relative, absolute, or contains characters that need
+// URL-encoding — a naive comparison can mismatch on those (Copilot review,
+// PR #199).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const raw = process.argv[2] ?? process.env.CHANGED_FILES_JSON ?? "[]";
   const files = JSON.parse(raw);
   console.log(allNonTestable(files) ? "true" : "false");
