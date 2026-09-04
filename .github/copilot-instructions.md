@@ -7,4 +7,6 @@ review, always use the `repo-constitution-review` agent skill
 review — it covers GitHub- and CI/CD-specific rules (workflow security, PR
 title conventions, PII in GitHub artifacts, the AI-agent GitHub handoff
 process) that a generic review has no way to know about. It deliberately
-does not cover application code, UI, or in-progress implementation details.
+does not cover application code, UI, in-progress implementation details, or
+files under `specs/**` — spec-kit feature specs/plans/tasks are authored and
+reviewed by Claude, not Copilot.
