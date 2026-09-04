@@ -105,6 +105,18 @@ def test_authorize_sign_in_denies_when_no_entry():
     assert entry is None
 
 
+def test_authorize_sign_in_denies_without_crashing_when_token_has_no_email_claim():
+    """Entra ID's `email` claim isn't guaranteed present on every token — must deny
+    cleanly rather than raising AttributeError out of email.lower()."""
+    service, _cosmos, container = _service_with_container()
+
+    is_authorized, entry = service.authorize_sign_in(None, OID)
+
+    assert is_authorized is False
+    assert entry is None
+    container.read_item.assert_not_called()
+
+
 def test_authorize_sign_in_binds_oid_on_first_sign_in():
     service, _cosmos, container = _service_with_container()
     container.read_item.return_value = _entry_dict(objectId=None, dateBound=None)
