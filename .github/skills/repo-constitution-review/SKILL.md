@@ -1,6 +1,6 @@
 ---
 name: repo-constitution-review
-description: Use this during code review of every pull request in this repository, to check the PR title against this repo's Conventional Commits and semantic-versioning conventions, and — for changes touching .github/workflows/**, repository/CI configuration, or GitHub Actions — workflow security, PR/commit hygiene, and the AI-agent GitHub handoff process. Checks GitHub- and CI/CD-specific rules from this project's constitution that a generic review would not know to check. Does not review application code, UI, or in-progress feature implementation.
+description: Use this during code review of every pull request in this repository, to check the PR title against this repo's Conventional Commits and semantic-versioning conventions, and — for changes touching .github/workflows/**, repository/CI configuration, or GitHub Actions — workflow security, PR/commit hygiene, and the AI-agent GitHub handoff process. Checks GitHub- and CI/CD-specific rules from this project's constitution that a generic review would not know to check. Does not review application code, UI, in-progress feature implementation, or files under specs/** (spec-kit feature specs/plans/tasks), which stay with Claude.
 license: N/A
 ---
 
@@ -12,6 +12,11 @@ and CI/CD — not application code quality, UI/design, telemetry, or other
 in-progress implementation details, which are expected to evolve freely
 while a feature is being built. Only apply the sections below relevant to
 what actually changed in the diff.
+
+**Skip `specs/**` entirely.** Do not review changes under `specs/` (spec-kit
+feature specs, plans, tasks, and research notes) — that content is authored
+and reviewed by Claude via the Spec Kit workflow, not this skill. If a PR's
+diff is entirely within `specs/**`, this skill has nothing to check.
 
 Read `.specify/memory/constitution.md` for full rationale before making a
 judgment call; the checklist below is a pointer into it, not a replacement
@@ -112,8 +117,9 @@ can find the source of truth.
 
 - A PR opened by a local AI agent (Claude Code or similar) MUST be labelled
   `AI Generated` and `Claude`, MUST NOT link to the agent's own
-  session/transcript in the description, and MUST have auto-merge enabled
-  rather than being merged directly by that agent.
+  session/transcript in the description, and MUST NOT have auto-merge
+  enabled — merging is a manual step for the requesting user or product
+  owner, not something the agent enables or performs itself.
 - The local agent must not itself merge a PR or close/resolve a GitHub
   issue — that's GitHub Copilot's job. Note it if a PR's history shows the
   opening actor also merging it or closing an issue directly.
