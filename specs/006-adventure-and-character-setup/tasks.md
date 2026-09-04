@@ -72,6 +72,9 @@ are not blocked by this phase, since they carry no UI.
   design (per Principle XI, a design artifact existing is not sufficient — confirmation is
   required). Do not begin T015 or any later frontend task until this is confirmed.
 
+  **Sign-off record**: Design `specs/designs/06-game-setup.html` reviewed and approved by
+  Reza Mahmood (product owner) on 2026-09-04, confirmed during `/speckit-analyze` remediation.
+
 **Checkpoint**: Design agreed and confirmed — User Story 1 frontend implementation may begin.
 
 ---
