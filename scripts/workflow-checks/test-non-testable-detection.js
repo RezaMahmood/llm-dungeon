@@ -1,19 +1,14 @@
 #!/usr/bin/env node
 // Fixture test for specs/023-cicd-pipeline-optimization tasks.md T003.
 //
-// .github/actions/detect-non-testable-changes/action.yml delegates its
-// glob evaluation to dorny/paths-filter with predicate-quantifier: "every"
-// against the pattern list below. That pattern list is the actual product
-// decision (FR-019/FR-020) this test guards — dorny/paths-filter's own
-// matching engine is third-party and out of scope to re-test here. This
-// file re-implements the same "every changed file matches one of these
-// patterns" semantics with micromatch (a gitignore-style glob matcher) so
-// the pattern list itself can be exercised locally, in CI, with no GitHub
-// Actions runtime required.
+// Exercises check-non-testable.mjs — the actual implementation
+// .github/actions/detect-non-testable-changes/action.yml runs in CI —
+// rather than a separate reimplementation of its logic. That pattern list
+// is the actual product decision (FR-019/FR-020) this test guards.
 //
 // Run with: node scripts/workflow-checks/test-non-testable-detection.js
 
-import mm from "micromatch";
+import { allNonTestable } from "./check-non-testable.mjs";
 
 let failures = 0;
 let passes = 0;
@@ -26,23 +21,6 @@ function check(label, condition) {
     failures += 1;
     console.error(`  ✗ ${label}`);
   }
-}
-
-// Must stay byte-identical to the `non_testable` filter in
-// .github/actions/detect-non-testable-changes/action.yml.
-const NON_TESTABLE_PATTERNS = [
-  "**/*.md",
-  "specs/**",
-  "docs/**",
-  "LICENSE",
-  "LICENSE.*",
-  "CONTRIBUTING.md",
-];
-
-function allNonTestable(changedFiles) {
-  // predicate-quantifier: "every" — true iff every file matches at least
-  // one non-testable pattern.
-  return changedFiles.every((f) => mm.isMatch(f, NON_TESTABLE_PATTERNS, { dot: true }));
 }
 
 console.log("=== Non-testable-change detection fixture tests ===\n");
@@ -86,6 +64,13 @@ check(
 check(
   "LICENSE and CONTRIBUTING.md alone -> all-non-testable = true",
   allNonTestable(["LICENSE", "CONTRIBUTING.md"]) === true
+);
+
+check(
+  "a single specs/**/*.md file alone -> all-non-testable = true " +
+    "(regression check for #165 Scenario 6: this exact shape previously " +
+    "evaluated false under dorny/paths-filter's predicate-quantifier: every)",
+  allNonTestable(["specs/023-cicd-pipeline-optimization/quickstart.md"]) === true
 );
 
 console.log(`\n${passes} passed, ${failures} failed`);
