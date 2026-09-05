@@ -253,6 +253,13 @@ resource "azurerm_function_app_flex_consumption" "functions" {
     SEED_ADMIN_EMAIL                 = var.seed_admin_email
     FRONTEND_URL                     = "https://${azurerm_static_web_app.web.default_host_name}/"
     PYTHON_ENABLE_WORKER_EXTENSIONS  = "true"
+    # configure_azure_monitor() (013-opentelemetry-observability) has no other
+    # way to learn this app's identity — without it, OTel resource detection
+    # falls back to "unknown_service", and every span/exception/log it emits
+    # lands under a different Cloud Role Name than this Function App's
+    # host-level telemetry, making them invisible when filtering Application
+    # Insights by role.
+    OTEL_SERVICE_NAME = local.functions_app_name
   }
 
   tags = local.common_tags
