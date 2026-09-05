@@ -13,7 +13,7 @@
     "audit:frontend": "npm audit --audit-level=high"
   },
   "dependencies": {
-    "@azure/msal-browser": "^3.20.0",
+    "@azure/msal-browser": "^5.20.0",
     "@azure/msal-react": "^2.0.20",
     "@microsoft/applicationinsights-react-js": "^17.3.6",
     "@microsoft/applicationinsights-web": "^3.4.0",
