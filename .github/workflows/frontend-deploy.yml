@@ -1,6 +1,6 @@
 name: Frontend Deploy
 
-# CD: workflow_dispatch only, version input, no approval gate
+# CD: workflow_dispatch (and workflow_call), version input, no approval gate
 # (specs/023-cicd-pipeline-optimization, FR-010/FR-011/FR-011b). Deploy is
 # always a distinct, explicitly-triggered action — never a side effect of
 # a push or merge to `main`. Frontend deploys execute directly once

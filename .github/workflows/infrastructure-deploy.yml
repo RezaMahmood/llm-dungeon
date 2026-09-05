@@ -1,6 +1,6 @@
 name: Infrastructure Deploy
 
-# CD: workflow_dispatch only, no version input, required-reviewer
+# CD: workflow_dispatch (and workflow_call), no version input, required-reviewer
 # environment (specs/023-cicd-pipeline-optimization, FR-010/FR-011/FR-011a).
 # Deploy is always a distinct, explicitly-triggered action — never a side
 # effect of a push or merge to `main`.

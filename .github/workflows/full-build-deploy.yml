@@ -48,6 +48,11 @@ jobs:
   resolve-inputs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    # Least-privilege override: this job only manipulates its own inputs in
+    # a shell step — it never calls the GitHub API — unlike the top-level
+    # contents: write / id-token: write, which the downstream deploy-*
+    # workflow_call jobs need.
+    permissions: {}
     outputs:
       backend_version: ${{ steps.resolve.outputs.backend_version }}
       frontend_version: ${{ steps.resolve.outputs.frontend_version }}
