@@ -41,7 +41,7 @@ _PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 
 def _load_prompt(filename: str) -> str:
-    return (_PROMPTS_DIR / filename).read_text(encoding="utf-8").strip()
+    return (_PROMPTS_DIR / filename).read_text(encoding="utf-8").removesuffix("\n")
 
 
 EXCHANGE_SYSTEM_PROMPT = _load_prompt("exchange_system_prompt.txt")
