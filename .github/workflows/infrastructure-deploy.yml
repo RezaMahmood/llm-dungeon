@@ -99,6 +99,15 @@ jobs:
         env:
           TF_VAR_azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_azure_tenant_id: ${{ vars.AZURE_TENANT_ID }}
+          # Neither var was ever threaded through here, so both silently used
+          # their "" defaults on every apply — main.tf's AZURE_APP_ID app
+          # setting (var.azure_app_id != "" ? var.azure_app_id :
+          # var.azure_client_id) resolved to "" in production regardless of
+          # the vars.AZURE_APP_ID repo variable's actual value. AuthService
+          # then rejected every access token with "Audience doesn't match"
+          # (#212) since no token's `aud` claim can ever equal "".
+          TF_VAR_azure_client_id: ${{ vars.AZURE_CLIENT_ID }}
+          TF_VAR_azure_app_id: ${{ vars.AZURE_APP_ID }}
         run: terraform plan -input=false -out=tfplan -var-file=terraform.tfvars
 
       - name: Upload plan for the apply job
