@@ -222,7 +222,7 @@ locals {
             value = { xAxis = { name = "name", type = "string" }, yAxis = [{ name = "AvgDuration", type = "real" }], splitBy = [], aggregation = "Sum" }
           },
           { name = "resourceIds", value = [azurerm_application_insights.appinsights.id] },
-          { name = "isQueryContainTimeRange", value = false }
+          { name = "isQueryContainTimeRange", value = true }
         ]
         type = "Extension/HubsExtension/PartType/LogsDashboardPart"
         settings = {
@@ -290,7 +290,7 @@ locals {
               aggregation = "Sum"
             }
           },
-          { name = "isQueryContainTimeRange", value = false }
+          { name = "isQueryContainTimeRange", value = true }
         ]
         type = "Extension/HubsExtension/PartType/LogsDashboardPart"
         settings = {
