@@ -4,10 +4,11 @@ import { Navigate, Route, BrowserRouter as Router, Routes } from "react-router-d
 
 import AuthProvider from "./components/Auth/AuthProvider.jsx";
 import ProtectedRoute from "./components/Auth/ProtectedRoute.jsx";
-import ErrorBoundary from "./components/Common/ErrorBoundary.jsx";
 import LoginScreen from "./components/Login/LoginScreen.jsx";
 import MainMenu from "./components/Menu/MainMenu.jsx";
 import { CapabilitiesProvider } from "./context/CapabilitiesContext.jsx";
+import ErrorBoundary from "./observability/ErrorBoundary.jsx";
+import { PageViewTracker } from "./observability/appInsights.js";
 
 // Lazy-loaded: each page becomes its own chunk, fetched on navigation instead of
 // bundled into the initial (login/menu) payload — keeps the always-loaded bundle
@@ -31,6 +32,7 @@ export function App() {
       <AuthProvider>
         <Router>
           <CapabilitiesProvider>
+            <PageViewTracker />
             <Suspense fallback={<PageFallback />}>
               <Routes>
                 <Route
