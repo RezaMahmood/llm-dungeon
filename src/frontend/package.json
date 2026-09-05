@@ -15,6 +15,8 @@
   "dependencies": {
     "@azure/msal-browser": "^3.20.0",
     "@azure/msal-react": "^2.0.20",
+    "@microsoft/applicationinsights-react-js": "^17.3.6",
+    "@microsoft/applicationinsights-web": "^3.4.0",
     "axios": "^1.7.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

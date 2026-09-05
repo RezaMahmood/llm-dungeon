@@ -10,6 +10,12 @@
 
 **Split**: 2026-08-29 — this spec originally also contained a third user story, "Observability Keeps Working When Application Insights Is Unavailable or Unconfigured". It has been split out into [018-observability-resilience](../018-observability-resilience/spec.md) so this spec covers at most two user stories: emitting trustworthy backend telemetry, and correlating it end-to-end with frontend telemetry.
 
+## Clarifications
+
+### Session 2026-09-05
+
+- Q: When a frontend-initiated request never reaches the backend at all (e.g., a network failure before the server), must the frontend still capture and report that failure as its own telemetry event? → A: Yes — the frontend MUST always capture and report this as its own telemetry event; it is not an unspecified/best-effort gap.
+
 ## User Scenarios & Testing *(mandatory)*
 
 <!--
@@ -54,8 +60,7 @@ An engineer investigating a user-reported problem can follow a single user actio
 
 ### Edge Cases
 
-- What happens to a trace that starts on the frontend but whose backend leg fails before a response is returned (e.g., a network failure) — is the frontend-side failure still captured on its own?
-- What happens when a request or log message would otherwise include a bearer token, password, or similar credential value — is it excluded from captured telemetry?
+- A request or log message that would otherwise include a bearer token, password, or similar credential value: that value MUST be excluded from captured telemetry (see FR-006).
 
 ## Requirements *(mandatory)*
 
@@ -66,6 +71,7 @@ An engineer investigating a user-reported problem can follow a single user actio
 - **FR-003**: Backend log messages (info, warning, error) MUST be emitted as structured OpenTelemetry log records correlated to the request/operation that produced them, not only as free-text log lines.
 - **FR-004**: The frontend MUST emit page-view, unhandled-exception, and outbound API call telemetry using OpenTelemetry SDK instrumentation, exported to the same Azure Application Insights instance as the backend.
 - **FR-005**: A user action that spans a frontend interaction and the backend request(s) it triggers MUST be correlated end-to-end in Application Insights via shared distributed-tracing context.
+- **FR-005a**: If a frontend-initiated request never reaches the backend (e.g., a network failure before the server), the frontend MUST still capture and report that failure as its own telemetry event; this is not an unspecified or best-effort gap.
 - **FR-006**: Telemetry MUST NOT include the value of bearer tokens, passwords, or other credential material, regardless of severity level or whether the containing request succeeded or failed.
 - **FR-007**: The instrumentation design MUST accommodate attaching future LLM-call attributes (prompt, response, input/output token counts, computed cost, latency) to spans without a breaking schema change, even though no LLM call sites exist yet to instrument.
 - **FR-008**: Existing backend log call sites MUST be preserved in content and meaning but routed through the OpenTelemetry logging pipeline rather than the Azure Functions host's built-in, non-OpenTelemetry Application Insights bridge.

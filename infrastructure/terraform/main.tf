@@ -240,10 +240,10 @@ resource "azurerm_function_app_flex_consumption" "functions" {
     STORAGE_CONTAINER            = azurerm_storage_container.assets.name
     AZURE_OPENAI_ENDPOINT        = azurerm_cognitive_account.openai.endpoint
     AZURE_OPENAI_DEPLOYMENT_NAME = azurerm_cognitive_deployment.model.name
-# 004-story-creation-done's llm_service.py reads AZURE_AI_FOUNDRY_ENDPOINT
-# + AZURE_AI_FOUNDRY_DEPLOYMENT_NAME to configure its OpenAIChatCompletionClient.
-# These intentionally mirror the AZURE_OPENAI_* values above (same cognitive account),
-# but the backend code looks up the AZURE_AI_FOUNDRY_* names.
+    # 004-story-creation-done's llm_service.py reads AZURE_AI_FOUNDRY_ENDPOINT
+    # + AZURE_AI_FOUNDRY_DEPLOYMENT_NAME to configure its OpenAIChatCompletionClient.
+    # These intentionally mirror the AZURE_OPENAI_* values above (same cognitive account),
+    # but the backend code looks up the AZURE_AI_FOUNDRY_* names.
     AZURE_AI_FOUNDRY_ENDPOINT        = azurerm_cognitive_account.openai.endpoint
     AZURE_AI_FOUNDRY_DEPLOYMENT_NAME = azurerm_cognitive_deployment.model.name
     LLM_INPUT_TOKEN_PRICE_USD        = var.llm_input_token_price_usd
@@ -253,6 +253,13 @@ resource "azurerm_function_app_flex_consumption" "functions" {
     SEED_ADMIN_EMAIL                 = var.seed_admin_email
     FRONTEND_URL                     = "https://${azurerm_static_web_app.web.default_host_name}/"
     PYTHON_ENABLE_WORKER_EXTENSIONS  = "true"
+    # configure_azure_monitor() (013-opentelemetry-observability) doesn't set
+    # service.name in code — without OTEL_SERVICE_NAME, OTel resource
+    # detection falls back to "unknown_service", and every span/exception/log
+    # it emits lands under a different Cloud Role Name than this Function
+    # App's host-level telemetry, making them invisible when filtering
+    # Application Insights by role.
+    OTEL_SERVICE_NAME = local.functions_app_name
   }
 
   tags = local.common_tags

@@ -421,12 +421,16 @@ function testInfrastructureDeploy() {
 
   const wf = loadWorkflow("infrastructure-deploy.yml");
   const triggers = triggersOf(wf);
+  const dispatchInputs =
+    (triggers.workflow_dispatch && triggers.workflow_dispatch !== true && triggers.workflow_dispatch.inputs) || {};
   check(
-    "infrastructure-deploy.yml's 'workflow_dispatch' trigger has no inputs (no versioning)",
-    !!triggers.workflow_dispatch &&
-      (triggers.workflow_dispatch === true ||
-        !triggers.workflow_dispatch.inputs ||
-        Object.keys(triggers.workflow_dispatch.inputs).length === 0)
+    "infrastructure-deploy.yml's 'workflow_dispatch' trigger has no 'version' input (no versioning)",
+    !!triggers.workflow_dispatch && !dispatchInputs.version
+  );
+  const bypassInput = dispatchInputs.bypass_appid_drift_check;
+  check(
+    "infrastructure-deploy.yml's 'workflow_dispatch' trigger has a 'bypass_appid_drift_check' boolean input, defaulting to false",
+    !!bypassInput && bypassInput.type === "boolean" && bypassInput.default === false
   );
 
   const jobNames = Object.keys(wf.jobs || {});
@@ -439,6 +443,16 @@ function testInfrastructureDeploy() {
       jobNames.indexOf("plan") < jobNames.indexOf("apply")
   );
 
+  const validateJob = wf.jobs && wf.jobs["validate-and-test"];
+  check(
+    "infrastructure-deploy.yml's validate-and-test only skips the AZURE_APP_ID drift assertion when bypass_appid_drift_check is set (not unconditionally)",
+    !!validateJob &&
+      stepRunContains(
+        stepsOf(validateJob),
+        "inputs.bypass_appid_drift_check && '-k \"not test_function_app_app_id_matches_login_app_registration\"'"
+      )
+  );
+
   const planJob = wf.jobs && wf.jobs.plan;
   check(
     "infrastructure-deploy.yml's 'plan' job depends on 'validate-and-test'",
@@ -449,6 +463,13 @@ function testInfrastructureDeploy() {
   check(
     "infrastructure-deploy.yml's 'plan' job runs terraform plan",
     !!planJob && stepRunContains(stepsOf(planJob), "terraform plan")
+  );
+  const terraformPlanStep = (planJob ? stepsOf(planJob) : []).find((s) => s.name === "Terraform Plan");
+  check(
+    "infrastructure-deploy.yml's 'Terraform Plan' step wires TF_VAR_azure_app_id from vars.AZURE_APP_ID (#212 regression guard)",
+    !!terraformPlanStep &&
+      terraformPlanStep.env &&
+      terraformPlanStep.env.TF_VAR_azure_app_id === "${{ vars.AZURE_APP_ID }}"
   );
   check(
     "infrastructure-deploy.yml's 'plan' job uploads the plan as a same-run artifact",
@@ -473,11 +494,7 @@ function testInfrastructureDeploy() {
   // No persistent versioned artifact for infrastructure: no GitHub Release
   // upload/download anywhere in this workflow (gh release ...), unlike
   // frontend-deploy.yml/backend-deploy.yml.
-  const allSteps = [
-    ...stepsOf(wf.jobs && wf.jobs["validate-and-test"]),
-    ...stepsOf(planJob),
-    ...stepsOf(applyJob),
-  ];
+  const allSteps = [...stepsOf(validateJob), ...stepsOf(planJob), ...stepsOf(applyJob)];
   check(
     "infrastructure-deploy.yml never references a GitHub Release (gh release) — no persistent versioned artifact",
     !allSteps.some((s) => typeof s.run === "string" && s.run.includes("gh release"))
