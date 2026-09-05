@@ -2,9 +2,12 @@
 Insights (Principle VI, FR-001/FR-002/FR-003/FR-008).
 
 `configure_azure_monitor()` (the Azure Monitor OpenTelemetry Distro) wires up
-tracing, logging, and metrics export in one call, auto-instrumenting Azure
-Functions HTTP triggers (request spans, W3C context extraction from incoming
-headers) and the Python stdlib `logging` module. Attaching its `LoggingHandler`
+tracing, logging, and metrics export in one call. It does not auto-instrument
+Azure Functions HTTP triggers — no such instrumentor ships in this distro's
+supported library set, so `backend.function_app._guarded()` creates the
+request SERVER span and performs the W3C `traceparent` extraction from
+incoming headers itself. `configure_azure_monitor()` does auto-instrument the
+Python stdlib `logging` module, though. Attaching its `LoggingHandler`
 to the root logger (the default when `logger_name` is left unset) is what makes
 every existing `logging.getLogger(...)` call site's records — regardless of
 which named logger the site uses — flow through as trace/span-correlated OTel

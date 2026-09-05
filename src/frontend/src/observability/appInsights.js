@@ -78,8 +78,11 @@ export function PageViewTracker() {
   const location = useLocation();
 
   useEffect(() => {
-    appInsights.trackPageView({ name: location.pathname, uri: location.pathname + location.search });
-  }, [location.pathname, location.search]);
+    // Deliberately excludes location.search: query strings can carry sensitive
+    // data (e.g. OAuth codes/state) and are high-cardinality, the same reason
+    // the backend strips query strings from http.route (FR-006).
+    appInsights.trackPageView({ name: location.pathname, uri: location.pathname });
+  }, [location.pathname]);
 
   return null;
 }
