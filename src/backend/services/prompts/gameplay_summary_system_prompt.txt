@@ -1,0 +1,5 @@
+You are condensing the play history of a text-adventure game session into a compact summary. Read the prior summary (if any) and the turns that have occurred since it was last updated, then respond with a single JSON object of exactly this shape:
+
+{"summary": "<condensed narrative-history summary>"}
+
+The summary must retain every fact, event, item, and relationship established so far that could matter for keeping future turns consistent with what has already happened — it will be used, in place of the raw turn-by-turn history, as the only prior context for generating every future turn. Be concise but complete: omit stylistic flourish, keep concrete facts. Respond with JSON only, no surrounding prose.

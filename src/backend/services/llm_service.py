@@ -24,6 +24,8 @@ from opentelemetry import trace
 from pydantic import BaseModel, ValidationError
 
 from backend.config import config
+from backend.models.play_session import PlaySession
+from backend.models.story import Story
 
 logger = logging.getLogger("llm_service")
 tracer = trace.get_tracer("backend.services.llm_service")
@@ -46,6 +48,10 @@ def _load_prompt(filename: str) -> str:
 
 EXCHANGE_SYSTEM_PROMPT = _load_prompt("exchange_system_prompt.txt")
 GENERATION_SYSTEM_PROMPT = _load_prompt("generation_system_prompt.txt")
+GAMEPLAY_TURN_SYSTEM_PROMPT = _load_prompt("gameplay_turn_system_prompt.txt")
+GAMEPLAY_SUMMARY_SYSTEM_PROMPT = _load_prompt("gameplay_summary_system_prompt.txt")
+
+MAX_NARRATIVE_WORDS = 150
 
 
 class LLMOutputError(ValueError):
@@ -59,6 +65,12 @@ class LLMRateLimitError(RuntimeError):
     `MAX_RATE_LIMIT_ATTEMPTS` attempts with backoff. Callers treat this like
     `LLMOutputError` — the triggering write is never partially applied — but the caller
     maps it to a distinct, retry-friendly response rather than a generic failure (#33)."""
+
+
+class LLMContentFilteredError(RuntimeError):
+    """Raised when a call fails because the Foundry deployment's default content filter
+    rejected the prompt or the completion (008-core-gameplay research.md Decision 3).
+    Callers map this to a safe in-fiction deflection narrative, never a raw error."""
 
 
 class _FieldUpdates(BaseModel):
@@ -84,6 +96,27 @@ class _ExchangeResponse(BaseModel):
 
 class _GenerationResponse(BaseModel):
     narrativeGuidance: str
+
+
+class _OpeningNarrativeResponse(BaseModel):
+    """The turn-0 (opening-narrative) call's schema — no player input yet exists, so a
+    session cannot end before the player has acted (research.md Decision 6): this schema
+    has no completion-condition-matching fields at all."""
+
+    narrativeText: str
+    suggestedActions: list[str]
+    locationLabel: str
+    goalLabel: Optional[str] = None
+    progress: Optional[dict[str, int]] = None
+
+
+class _GameplayTurnResponse(_OpeningNarrativeResponse):
+    newlySatisfiedSuccessConditions: list[int] = []
+    newlySatisfiedFailureConditions: list[int] = []
+
+
+class _SummaryResponse(BaseModel):
+    summary: str
 
 
 class LLMService:
@@ -120,6 +153,35 @@ class LLMService:
         prompt = self._build_generation_prompt(draft)
         result = self._call("gen_ai.story_creation.generate", GENERATION_SYSTEM_PROMPT, prompt, _GenerationResponse)
         return result.model_dump()
+
+    def generate_gameplay_turn(self, story: Story, session: PlaySession, player_input: Optional[str]) -> dict[str, Any]:
+        """One turn of gameplay narrative (008-core-gameplay research.md Decision 6).
+        `player_input is None` is the opening-narrative call (turn 0), which skips
+        requesting completion-condition matching entirely — a session cannot end before
+        the player has acted."""
+        prompt = self._build_gameplay_turn_prompt(story, session, player_input)
+        response_model = _OpeningNarrativeResponse if player_input is None else _GameplayTurnResponse
+        result = self._call("gen_ai.gameplay.turn", GAMEPLAY_TURN_SYSTEM_PROMPT, prompt, response_model)
+        data = result.model_dump()
+        data.setdefault("newlySatisfiedSuccessConditions", [])
+        data.setdefault("newlySatisfiedFailureConditions", [])
+
+        word_count = len(data["narrativeText"].split())
+        if word_count > MAX_NARRATIVE_WORDS:
+            # Logged, never truncated (research.md Decision 6a) — truncating mid-sentence
+            # could itself introduce a fact-consistency contradiction.
+            logger.warning("gameplay turn narrative exceeded %d words (got %d)", MAX_NARRATIVE_WORDS, word_count)
+        return data
+
+    def summarize_session_history(self, story: Story, session: PlaySession) -> str:
+        """Condenses `session.summary` (if any) plus the turns since
+        `session.summarizedThroughTurn` into a fresh summary string (008-core-gameplay
+        research.md Decision 10, FR-014). May use a different deployment than
+        `generate_gameplay_turn` (spec.md Assumptions) — a distinct method/call site is
+        what makes that possible."""
+        prompt = self._build_summary_prompt(story, session)
+        result = self._call("gen_ai.gameplay.summary", GAMEPLAY_SUMMARY_SYSTEM_PROMPT, prompt, _SummaryResponse)
+        return result.summary
 
     def _call(
         self,
@@ -175,9 +237,11 @@ class LLMService:
                 return asyncio.run(
                     self.client.get_response(messages, options={"response_format": response_model})
                 )
-            except Exception as exc:  # noqa: BLE001 - re-raised untouched unless it's a 429
+            except Exception as exc:  # noqa: BLE001 - re-raised untouched unless it's a 429/content-filter
                 rate_limit_error = self._as_rate_limit_error(exc)
                 if rate_limit_error is None:
+                    if self._as_content_filter_error(exc) is not None:
+                        raise LLMContentFilteredError(f"{span_name} was blocked by content filtering") from exc
                     raise
                 if attempt == MAX_RATE_LIMIT_ATTEMPTS:
                     raise LLMRateLimitError(
@@ -209,6 +273,28 @@ class LLMService:
         return None
 
     @staticmethod
+    def _as_content_filter_error(exc: Exception) -> Optional[openai.BadRequestError]:
+        """Unwraps to find an underlying `openai.BadRequestError` whose code/body indicates
+        the Foundry deployment's default content filter rejected the prompt or completion
+        (research.md Decision 3)."""
+        seen: set[int] = set()
+        current: Optional[BaseException] = exc
+        while current is not None and id(current) not in seen:
+            if isinstance(current, openai.BadRequestError):
+                body = getattr(current, "body", None) or {}
+                nested_error = body.get("error") if isinstance(body, dict) else None
+                codes = [
+                    getattr(current, "code", None),
+                    body.get("code") if isinstance(body, dict) else None,
+                    nested_error.get("code") if isinstance(nested_error, dict) else None,
+                ]
+                if any(code and "content_filter" in str(code) for code in codes):
+                    return current
+            seen.add(id(current))
+            current = current.__cause__
+        return None
+
+    @staticmethod
     def _retry_after_seconds(exc: openai.RateLimitError, fallback: float) -> float:
         response = getattr(exc, "response", None)
         header = response.headers.get("retry-after") if response is not None else None
@@ -227,3 +313,75 @@ class LLMService:
 
     def _build_generation_prompt(self, draft: dict[str, Any]) -> str:
         return "Complete draft:\n" + json.dumps(draft, indent=2)
+
+    def _build_gameplay_turn_prompt(self, story: Story, session: PlaySession, player_input: Optional[str]) -> str:
+        lines = [f"World: {story.worldPrompt}"]
+        if story.rules:
+            lines.append(f"Rules: {story.rules}")
+        if story.narrativeGuidance:
+            lines.append(f"Narrative guidance: {story.narrativeGuidance}")
+        if story.tone:
+            lines.append(f"Tone: {story.tone}")
+        if story.readingLevel:
+            lines.append(f"Reading level: {story.readingLevel}")
+        if story.chapters:
+            lines.append(f"Total chapters: {story.chapters}")
+        lines.append(f"Character: {session.characterName} ({session.characterType})")
+
+        history = self._prior_context(session)
+        lines.append("Prior narrative history:\n" + history if history else "This is the opening turn — no prior history yet.")
+
+        if player_input is not None:
+            criteria = story.completionCriteria
+            remaining_success = [
+                (i, text)
+                for i, text in enumerate(criteria.successConditions)
+                if i not in session.satisfiedSuccessConditions
+            ]
+            remaining_failure = [
+                (i, text)
+                for i, text in enumerate(criteria.failureConditions)
+                if i not in session.satisfiedFailureConditions
+            ]
+            if remaining_success:
+                lines.append(
+                    "Not-yet-satisfied success conditions (index: text):\n"
+                    + "\n".join(f"  {i}: {text}" for i, text in remaining_success)
+                )
+            if remaining_failure:
+                lines.append(
+                    "Not-yet-satisfied failure conditions (index: text):\n"
+                    + "\n".join(f"  {i}: {text}" for i, text in remaining_failure)
+                )
+            lines.append(f"Player's latest input: {player_input}")
+        else:
+            lines.append("Generate the opening narrative for this session's first turn.")
+
+        return "\n\n".join(lines)
+
+    def _build_summary_prompt(self, story: Story, session: PlaySession) -> str:
+        lines = [f"World: {story.worldPrompt}"]
+        if session.summary:
+            lines.append(f"Prior summary: {session.summary}")
+        for turn in session.turns:
+            if turn.turnNumber <= session.summarizedThroughTurn:
+                continue
+            if turn.playerInput is not None:
+                lines.append(f"Turn {turn.turnNumber} — player: {turn.playerInput}")
+            lines.append(f"Turn {turn.turnNumber} — narrative: {turn.narrativeText}")
+        return "\n".join(lines)
+
+    def _prior_context(self, session: PlaySession) -> str:
+        """Prior narrative context for a turn call: `summary` + only turns after
+        `summarizedThroughTurn` once a summary exists, else the full `turns` history
+        (research.md Decision 10)."""
+        lines: list[str] = []
+        if session.summary:
+            lines.append(f"Summary so far: {session.summary}")
+        for turn in session.turns:
+            if session.summary and turn.turnNumber <= session.summarizedThroughTurn:
+                continue
+            if turn.playerInput is not None:
+                lines.append(f"Turn {turn.turnNumber} — player: {turn.playerInput}")
+            lines.append(f"Turn {turn.turnNumber} — narrative: {turn.narrativeText}")
+        return "\n".join(lines)

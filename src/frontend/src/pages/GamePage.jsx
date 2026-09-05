@@ -1,12 +1,9 @@
 /**
  * 3-step adventure/character setup flow (006-adventure-and-character-setup): pick a
  * published adventure, name a character, choose a character type — in that order
- * (FR-003a) — then confirm to start play. Replaces the prior placeholder; the header for
- * this screen is the compact TitleBar supplied by AuthenticatedLayout (FR-006 of
- * 019-spa-refresh-button).
- *
- * Full gameplay itself lands in 008-core-gameplay; this page only validates and confirms
- * setup (POST /api/game/start does not create a play session yet).
+ * (FR-003a) — then confirm to start play, which creates a Play Session and hands off
+ * into PlayPage (008-core-gameplay). The header for this screen is the compact TitleBar
+ * supplied by AuthenticatedLayout (FR-006 of 019-spa-refresh-button).
  */
 import { useMsal } from "@azure/msal-react";
 import { useCallback, useEffect, useState } from "react";
@@ -14,8 +11,9 @@ import { useCallback, useEffect, useState } from "react";
 import AdventureList from "../components/GameSetup/AdventureList.jsx";
 import CharacterNameStep, { MAX_CHARACTER_NAME_LENGTH } from "../components/GameSetup/CharacterNameStep.jsx";
 import CharacterTypeStep from "../components/GameSetup/CharacterTypeStep.jsx";
-import { getAdventure, listAdventures, startGame } from "../services/gameService.js";
+import { createSession, getAdventure, listAdventures } from "../services/gameService.js";
 import { loginRequest } from "../services/msalConfig.js";
+import PlayPage from "./PlayPage.jsx";
 
 function nameError(name) {
   const trimmed = name.trim();
@@ -44,7 +42,7 @@ export function GamePage() {
 
   const [fieldErrors, setFieldErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
-  const [started, setStarted] = useState(null);
+  const [session, setSession] = useState(null);
 
   const getToken = useCallback(async () => {
     const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
@@ -78,7 +76,7 @@ export function GamePage() {
       setCharacterType(null);
       setCharacterTypes([]);
       setFieldErrors({});
-      setStarted(null);
+      setSession(null);
 
       let cancelled = false;
       setTypesLoading(true);
@@ -117,16 +115,33 @@ export function GamePage() {
     setFieldErrors({});
     try {
       const token = await getToken();
-      const data = await startGame(token, { adventureId, characterName: characterName.trim(), characterType });
-      setStarted(data);
+      const data = await createSession(token, { adventureId, characterName: characterName.trim(), characterType });
+      setSession(data);
     } catch (err) {
-      setFieldErrors(err.response?.data?.fields || { adventureId: "Something went wrong. Please try again." });
+      if (err.response?.status === 423) {
+        setFieldErrors({ adventureId: err.response.data?.message || "You're temporarily locked out. Please try again later." });
+      } else {
+        setFieldErrors(err.response?.data?.fields || { adventureId: "Something went wrong. Please try again." });
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
   const step1Done = Boolean(adventureId);
+
+  if (session) {
+    const selectedAdventure = (adventures || []).find((a) => a.id === adventureId);
+    return (
+      <PlayPage
+        sessionId={session.sessionId}
+        storyName={selectedAdventure?.name || "Adventure"}
+        initialNarrative={session.narrative}
+        getToken={getToken}
+        onExit={() => setSession(null)}
+      />
+    );
+  }
 
   return (
     <div style={{ maxWidth: "1020px", padding: "var(--space-6) var(--space-4) 64px" }}>
@@ -193,11 +208,6 @@ export function GamePage() {
         <button type="button" className="btn btn-primary" onClick={handleStart} disabled={submitting}>
           {submitting ? "Starting…" : "Start playing"}
         </button>
-        {started && (
-          <p className="text-muted" style={{ margin: 0 }}>
-            Setup complete — playing as {started.characterName} ({started.characterType}).
-          </p>
-        )}
       </div>
     </div>
   );

@@ -24,7 +24,7 @@ from backend.api.auth.login import login
 from backend.api.auth.logout import logout
 from backend.api.auth.me import me
 from backend.api.game.adventures import get_adventure, list_adventures
-from backend.api.game.start import start
+from backend.api.game.sessions import create_session, resume_session, submit_interaction
 from backend.api.utils import server_error
 from backend.config import config
 from backend.observability.setup import setup_observability
@@ -159,9 +159,19 @@ def admin_stories_unpublish(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(unpublish_story)(req)
 
 
-@app.route(route="game/start", methods=["POST"])
-def game_start(req: func.HttpRequest) -> func.HttpResponse:
-    return _guarded(start)(req)
+@app.route(route="game/sessions", methods=["POST"])
+def game_sessions_create(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(create_session)(req)
+
+
+@app.route(route="game/sessions/{sessionId}/interactions", methods=["POST"])
+def game_sessions_interactions(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(submit_interaction)(req)
+
+
+@app.route(route="game/sessions/{sessionId}/resume", methods=["POST"])
+def game_sessions_resume(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(resume_session)(req)
 
 
 @app.route(route="game/adventures", methods=["GET"])
