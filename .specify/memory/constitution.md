@@ -1,27 +1,36 @@
 <!--
 Sync Impact Report
-Version change: 1.12.0 → 1.13.0
+Version change: 1.13.0 → 2.0.0
 Modified principles:
-  - XIII. AI Agent Division of Labor - re-drawn boundary again: GitHub Copilot's role
-    narrows from "reviews and merges via auto-merge" to "reviews and posts
-    recommendations only." The local AI agent MUST NOT enable auto-merge when it opens
-    a pull request. The requesting user (or product owner) now performs the final
-    merge manually, after reviewing Copilot's recommendations and the required checks.
+  - IX. User-Verified Acceptance Before Completion → Playtesting-Driven Quality
+    (Post-Ship Verification, Non-Blocking) - removed as a NON-NEGOTIABLE, blocking gate.
+    A feature is now complete once automated tests pass and CI merges it; human
+    playtesting against the deployed environment still happens, but afterward, on an
+    ongoing basis, feeding fixes into follow-up work rather than blocking completion or
+    merge. Backward-incompatible: previously no feature could be called complete without
+    human sign-off; that requirement is gone.
+  - XI. UI Design Pre-Agreement Before Implementation → Implementer Design Latitude
+    (Non-Blocking) - removed as a NON-NEGOTIABLE, design-time blocking gate. Implementers
+    may proceed to implementation on their own design judgment, within the existing
+    design system/screen contracts (Principle VIII, unaffected); a pre-implementation
+    mockup/sign-off from the requesting user is no longer required or permitted to block
+    implementation. Backward-incompatible: previously implementation could not start
+    without that sign-off.
 Added principles: none
+Removed principles: none (IX and XI redefined in place, not deleted, to avoid
+  renumbering every cross-reference in this document)
 Added sections: none
 Modified sections:
-  - AI Agent / GitHub Handoff Requirements - the local AI agent no longer enables
-    auto-merge when opening a PR; GitHub Copilot no longer completes the merge; a
-    manual merge by the requesting user is now required after reviewing Copilot's PR
-    recommendations and the required checks.
-  - Development Workflow & Quality Gates - updated the Copilot-handoff bullet to match:
-    auto-merge is not enabled, and merging is an explicit manual step for the
-    requesting user, not something Copilot completes.
+  - Development Workflow & Quality Gates - replaced the mandatory final user-verified
+    acceptance task bullet and the mandatory UI design agreement/sign-off task bullet
+    with non-blocking equivalents consistent with the redefined Principles IX and XI.
 Removed sections: none
-Source: direct user instruction (2026-09-03) - GitHub Copilot code review is relatively
-  slow and does not produce a formal approving review before merge, so the user wants
-  to personally review Copilot's recommendations and manually merge each pull request
-  rather than relying on auto-merge to complete once Copilot finishes.
+Source: direct user instruction (2026-09-05) - development speed and shipping an MVP are
+  being prioritized over getting implementation and design right on the first attempt;
+  issues are expected to be found and fixed through playtesting rather than prevented by
+  upfront human sign-off gates on implementation and design. Scope of the relaxation
+  (which gates, and that automated test/CI gates stay in place as the safety net) was
+  confirmed via clarifying questions in this session.
 Templates requiring follow-up: none - dependent templates read this file at runtime and
   are not modified by this command.
 Deferred/TODO placeholders: none.
@@ -156,30 +165,28 @@ story authoring, gameplay, save/continue); without a single enforced design syst
 accessibility bar, screens built in different cycles would visually and behaviorally
 drift apart, degrading the experience and making the interface harder to maintain.
 
-### IX. User-Verified Acceptance Before Completion (NON-NEGOTIABLE)
-A feature is not complete when its automated tests pass; it is complete when a human
-has actually exercised it end-to-end against the real deployed environment (or, where
-no deployed environment exists yet, the most representative environment available) and
-confirmed it behaves as intended. Every feature's task list MUST include an explicit
-final acceptance task for this, and that task MUST be verified by the requesting user
-or product owner — not marked complete on the strength of the implementing agent's own
-testing, automated or manual. This check is not a substitute for Principle I's automated
-tests and does not relax them; it is a distinct, additional gate that automated tests
-cannot satisfy on their own.
+### IX. Playtesting-Driven Quality (Post-Ship Verification, Non-Blocking)
+A feature is complete once its automated tests (Principle I) pass and it merges through
+the CI gate (Principle V) — human verification against the real deployed environment is
+NOT a precondition for completion or merge, and MUST NOT be used to block a pull request
+or hold a feature open. Human playtesting against the deployed environment still
+happens, but as an ongoing, post-ship activity: issues it surfaces are captured (e.g., as
+GitHub issues) and fixed in follow-up work, not treated as proof the original work was
+incomplete. A feature's task list MAY include a playtesting/acceptance task, but it is
+informational and non-blocking, not a required gate, unless a specific feature's plan
+explicitly opts back into a blocking check for a named, high-risk area.
 
-Rationale: Automated tests verify code-level behavior in isolation — they run against
-mocks, local fixtures, or an already-configured test harness. They cannot verify that a
-feature actually works when a real user reaches it through the real deployed system,
-because deployment wiring, third-party identity-provider configuration, and hosting-
-platform routing behavior can all break a feature while every unit and integration test
-still passes. This was proven directly: during 003-account-provisioning-done's live
-validation, all 82 backend and 31 frontend automated tests passed throughout, yet
-sign-in was completely broken in production for five separate, sequential reasons — a
-missing backend-to-frontend routing link, a client-side redirect loop, an overly narrow
-token-issuer check, an access token audienced to the wrong resource, and a reserved
-platform route name — none of which any automated test exercised or could have caught.
-Only a human actually attempting to sign in against the live deployed app surfaced
-them, one at a time.
+Rationale: The team has explicitly deprioritized getting every feature right on first
+delivery in favor of development speed and shipping an MVP; issues are expected to be
+found and fixed through live play rather than prevented upfront by a human sign-off gate.
+This principle previously required human verification before completion specifically
+because automated tests missed real deployment-wiring failures (e.g., during
+003-account-provisioning-done, where all 82 backend and 31 frontend tests passed while
+sign-in was broken in production for five separate reasons). That risk has not
+disappeared, but the team has decided the cost of a mandatory pre-completion human gate
+now outweighs it for MVP velocity — automated tests (Principle I) remain the safety net,
+and issues that slip through are expected to be caught and fixed via playtesting after
+the fact instead of before merge.
 
 ### X. PII Protection by Design (NON-NEGOTIABLE)
 Personally identifiable information (PII) — a real person's email address, name, phone
@@ -200,25 +207,26 @@ stores are. Including a real person's PII on any of these surfaces defeats the p
 restricting where that data is allowed to live, and cannot be reliably un-published once
 posted.
 
-### XI. UI Design Pre-Agreement Before Implementation (NON-NEGOTIABLE)
-For any feature that includes a user-facing UI, the screen design (mockup, wireframe, or an
-extension of the existing screen contracts under UI Design System Requirements) MUST be
-explicitly reviewed and agreed with the requesting user or product owner during the
-design/planning phase — before any implementation task for that feature begins. This
-agreement is a design-time gate, not a post-hoc review: implementation MUST NOT start on
-the strength of the implementing agent's or team's own design judgment alone. Every such
-feature's task list (`tasks.md`) MUST include an explicit UI design agreement/sign-off task,
-sequenced before all implementation tasks for that feature; that task is not complete until
-the requesting user or product owner has confirmed the design, not merely until a design
-artifact exists.
+### XI. Implementer Design Latitude (Non-Blocking)
+For a feature that includes a user-facing UI, the implementing agent or team MAY proceed
+directly to implementation using its own design judgment, guided by the existing design
+system and screen contracts (Principle VIII, UI Design System Requirements) — a
+pre-implementation design mockup/sign-off from the requesting user or product owner is
+NOT required to start implementation, and MUST NOT be used to block or delay it. A
+feature's task list MAY include a design walkthrough or mockup review, but only as an
+optional, non-blocking checkpoint at the author's discretion, not a required gate.
+Design issues (a layout that doesn't fit, a flow that confuses players) are expected to
+surface through playtesting (Principle IX) and are fixed as follow-up work rather than
+prevented upfront through mandatory pre-approval.
 
-Rationale: Principle VIII enforces that any UI built stays inside this project's design
-system and accessibility bar; it does not by itself force the specific screen layout and
-flow to be agreed before code is written. Without a design-time sign-off gate, implementation
-can proceed on a screen design that turns out to be wrong or unwanted, wasting build effort
-that a five-minute mockup review would have caught. Making this an explicit tasks.md item —
-rather than an informal expectation — ensures it is actually enforced the same way Principle
-IX's acceptance gate is: as a checklist item someone can verify was done, not skipped.
+Rationale: The team has explicitly deprioritized getting the design right on the first
+attempt in favor of development speed toward an MVP, accepting that some design rework
+will be discovered and fixed via playtesting instead of avoided by an upfront sign-off
+gate. Principle VIII still enforces that any UI built stays inside this project's design
+system, token layer, and accessibility bar regardless of who approved the specific
+layout — that constraint is unaffected and remains NON-NEGOTIABLE; only the requirement
+that the requesting user pre-approve the specific screen design before coding starts is
+removed.
 
 ### XII. Right-Sized Scope — Not Enterprise-Grade (NON-NEGOTIABLE)
 This project is a small application for a specific, named set of users, not an
@@ -436,17 +444,18 @@ while still using Copilot for the GitHub-side review pass.
 - Code review by at least one other contributor is required before merge, focused on
   correctness, adherence to this constitution, and meaningful test quality (not just
   presence of tests).
-- Every feature's task list MUST end with a final, explicit user-verified acceptance
-  task, per Principle IX. That task is not complete until the requesting user or
-  product owner has confirmed the feature works end-to-end against the real deployed
-  environment — a passing automated test suite alone does not satisfy it.
+- A passing automated test suite (Principle I) and a green CI run (Principle V) are
+  sufficient for a feature to be considered complete and mergeable; human playtesting
+  against the deployed environment happens afterward, on an ongoing basis, per
+  Principle IX, and MUST NOT be used to block merge or hold a feature open.
 - Issues, pull request descriptions/comments, and commit messages MUST NOT include PII
   (Principle X, PII & Data Protection Requirements) — reference affected records
   indirectly instead.
-- Every feature with a user-facing UI MUST have an explicit UI design agreement/sign-off
-  task in its `tasks.md`, sequenced before that feature's implementation tasks, per
-  Principle XI. That task is not complete until the requesting user or product owner has
-  confirmed the design — a design artifact merely existing does not satisfy it.
+- A feature with a user-facing UI is NOT required to have a pre-implementation UI design
+  agreement/sign-off task; per Principle XI, the implementer MAY proceed on its own
+  design judgment within the constraints of Principle VIII and the UI Design System
+  Requirements below. A task list MAY still include an optional, non-blocking design
+  walkthrough at the author's discretion.
 - A local AI agent completing local work pushes the branch and opens its own pull
   request (labelled, auto-merge NOT enabled), per Principle XIII and the AI Agent /
   GitHub Handoff Requirements above. GitHub Copilot reviews the PR and posts its
@@ -645,4 +654,4 @@ with the design-token, visual-rules, interaction-state, or layout/scroll require
 above as a blocking finding. No feature may ship a screen that is not traceable to a
 screen contract above or to a documented amendment extending it.
 
-**Version**: 1.13.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-03
+**Version**: 2.0.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-05
