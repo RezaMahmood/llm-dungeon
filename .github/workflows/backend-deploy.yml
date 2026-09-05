@@ -21,14 +21,14 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Exact backend-v<version> to deploy. Leave blank to deploy the latest available version at execution time."
+        description: "Bare version number to deploy, e.g. 1.2.3 (not the backend-v<version> tag). Leave blank to deploy the latest available version at execution time."
         required: false
         type: string
         default: ""
   workflow_call:
     inputs:
       version:
-        description: "Exact backend-v<version> to deploy. Leave blank to deploy the latest available version at execution time."
+        description: "Bare version number to deploy, e.g. 1.2.3 (not the backend-v<version> tag). Leave blank to deploy the latest available version at execution time."
         required: false
         type: string
         default: ""

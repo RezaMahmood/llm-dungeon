@@ -30,12 +30,12 @@ on:
           - "refresh everything"
           - "specific versions"
       backend_version:
-        description: "Exact backend-v<version> to deploy. Only used when mode = specific versions; blank = latest."
+        description: "Bare version number to deploy, e.g. 1.2.3 (not the backend-v<version> tag). Only used when mode = specific versions; blank = latest."
         type: string
         required: false
         default: ""
       frontend_version:
-        description: "Exact frontend-v<version> to deploy. Only used when mode = specific versions; blank = latest."
+        description: "Bare version number to deploy, e.g. 1.2.3 (not the frontend-v<version> tag). Only used when mode = specific versions; blank = latest."
         type: string
         required: false
         default: ""
@@ -59,15 +59,24 @@ jobs:
           BACKEND_VERSION: ${{ inputs.backend_version }}
           FRONTEND_VERSION: ${{ inputs.frontend_version }}
         run: |
+          # "refresh everything" always forces blank (latest-at-execution-time
+          # for both), regardless of what the form fields held. The multiline
+          # $GITHUB_OUTPUT form with a random delimiter (rather than
+          # "key=$VALUE") avoids output injection if a version input ever
+          # contained a newline (or a line matching a fixed delimiter).
           if [ "$MODE" = "refresh everything" ]; then
-            # Force blank regardless of what the form fields held — "refresh
-            # everything" always means latest-at-execution-time for both.
-            echo "backend_version=" >> "$GITHUB_OUTPUT"
-            echo "frontend_version=" >> "$GITHUB_OUTPUT"
-          else
-            echo "backend_version=$BACKEND_VERSION" >> "$GITHUB_OUTPUT"
-            echo "frontend_version=$FRONTEND_VERSION" >> "$GITHUB_OUTPUT"
+            BACKEND_VERSION=""
+            FRONTEND_VERSION=""
           fi
+          DELIM="GITHUB_OUTPUT_EOF_$(openssl rand -hex 16)"
+          {
+            echo "backend_version<<$DELIM"
+            echo "$BACKEND_VERSION"
+            echo "$DELIM"
+            echo "frontend_version<<$DELIM"
+            echo "$FRONTEND_VERSION"
+            echo "$DELIM"
+          } >> "$GITHUB_OUTPUT"
 
   deploy-infrastructure:
     needs: resolve-inputs
