@@ -8,14 +8,14 @@ export async function login(token) {
   const response = await client.post(
     "/auth/login",
     {},
-    { headers: { "X-MSAL-Authorization": `Bearer ${token}` } },
+    { headers: { "X-Custom-Authorization": `Bearer ${token}` } },
   );
   return response.data;
 }
 
 export async function getMe(token) {
   const response = await client.get("/auth/me", {
-    headers: { "X-MSAL-Authorization": `Bearer ${token}` },
+    headers: { "X-Custom-Authorization": `Bearer ${token}` },
   });
   return response.data;
 }
@@ -24,7 +24,7 @@ export async function logout(token) {
   const response = await client.post(
     "/auth/logout",
     {},
-    { headers: { "X-MSAL-Authorization": `Bearer ${token}` } },
+    { headers: { "X-Custom-Authorization": `Bearer ${token}` } },
   );
   return response.data;
 }

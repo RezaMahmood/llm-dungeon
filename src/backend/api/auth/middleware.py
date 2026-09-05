@@ -19,8 +19,13 @@ def extract_bearer_token(req: func.HttpRequest) -> Optional[str]:
     # never reaches the function (Azure/static-web-apps#158, #275, #34), which
     # made every request look unauthenticated (#212). A custom header name
     # isn't touched by that proxying, so the frontend sends the token there
-    # instead (see src/frontend/src/services/authService.js et al.).
-    header = req.headers.get("X-MSAL-Authorization", "")
+    # instead (see src/frontend/src/services/authService.js et al.) — but an
+    # earlier attempt named it `X-MSAL-Authorization`, which the platform also
+    # swallowed (confirmed live: still 401 with a verified-valid token after
+    # that rename shipped). Any header starting with `x-ms` (case-insensitive)
+    # appears to be reserved/stripped the same way — this name deliberately
+    # avoids that prefix.
+    header = req.headers.get("X-Custom-Authorization", "")
     if not header.startswith("Bearer "):
         return None
     return header[len("Bearer "):].strip()
