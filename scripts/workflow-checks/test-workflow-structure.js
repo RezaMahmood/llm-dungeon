@@ -446,6 +446,15 @@ function testInfrastructureDeploy() {
       (planJob.needs === "validate-and-test" ||
         (Array.isArray(planJob.needs) && planJob.needs.includes("validate-and-test")))
   );
+  const validateJob = wf.jobs && wf.jobs["validate-and-test"];
+  check(
+    "infrastructure-deploy.yml's validate-and-test excludes the AZURE_APP_ID post-deploy assertion so remediation applies can proceed",
+    !!validateJob &&
+      stepRunContains(
+        stepsOf(validateJob),
+        "not test_function_app_app_id_matches_login_app_registration"
+      )
+  );
   check(
     "infrastructure-deploy.yml's 'plan' job runs terraform plan",
     !!planJob && stepRunContains(stepsOf(planJob), "terraform plan")
@@ -474,7 +483,7 @@ function testInfrastructureDeploy() {
   // upload/download anywhere in this workflow (gh release ...), unlike
   // frontend-deploy.yml/backend-deploy.yml.
   const allSteps = [
-    ...stepsOf(wf.jobs && wf.jobs["validate-and-test"]),
+    ...stepsOf(validateJob),
     ...stepsOf(planJob),
     ...stepsOf(applyJob),
   ];
