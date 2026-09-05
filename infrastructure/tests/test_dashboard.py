@@ -1,4 +1,4 @@
-"""Verify the Azure Portal Dashboard `terraform apply` provisions exists
+"""Verify the Azure Portal Dashboard provisioned by `terraform apply` exists
 (plan.md's Constitution Check, Principle I). Run post-apply, either by
 infrastructure-tests.yml or locally.
 
@@ -7,7 +7,7 @@ quickstart.md's manual validation steps and research.md §7.
 """
 
 import pytest
-from azure.mgmt.resource import ResourceManagementClient
+from azure.mgmt.resource.resources import ResourceManagementClient
 
 
 @pytest.fixture(scope="session")

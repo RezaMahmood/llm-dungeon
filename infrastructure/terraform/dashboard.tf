@@ -14,10 +14,9 @@
 # (contracts/dashboard-contract.md's "Replace semantics").
 
 locals {
-  # 5-minute auto-refresh applies to the Failure/Performance/User-Statistics
-  # parts (FR-012); the Cost panel is a pinned Workbook and refreshes on open
-  # instead (research.md §4), so it is not driven by this interval.
-  dashboard_refresh_interval_ms = 300000
+  # The dashboard's refreshInterval below is set to 5 minutes (FR-012),
+  # applying to the Failure/Performance/User-Statistics parts; the Cost
+  # panel is a pinned Workbook and refreshes on open instead (research.md §4).
   dashboard_default_timespan_ms = 86400000 # 24h, FR-002/FR-003/FR-005 default window (FR-010)
 
   # --- User Story 1 (P1): Failures ---
@@ -383,8 +382,11 @@ resource "azurerm_application_insights_workbook" "cost_estimate" {
   resource_group_name = data.azurerm_resource_group.rg.name
   location            = data.azurerm_resource_group.rg.location
   display_name        = "${local.dashboard_name}-cost-estimate"
-  source_id           = data.azurerm_resource_group.rg.id
-  tags                = local.common_tags
+  # The provider validates source_id has no uppercase letters, but Azure
+  # resource IDs always contain "resourceGroups" - lowercase it to satisfy
+  # that check without changing which resource it actually points to.
+  source_id = lower(data.azurerm_resource_group.rg.id)
+  tags      = local.common_tags
 
   data_json = jsonencode({
     version = "Notebook/1.0"
