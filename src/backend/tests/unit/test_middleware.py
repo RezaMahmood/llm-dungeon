@@ -21,7 +21,7 @@ def test_extract_bearer_token_returns_none_when_missing(request_factory):
 
 def test_extract_bearer_token_returns_none_for_non_bearer_scheme():
     req = func.HttpRequest(
-        method="GET", url="/api/test", headers={"X-Msal-Authorization": "Basic abc123"}, params={}, body=b""
+        method="GET", url="/api/test", headers={"X-MSAL-Authorization": "Basic abc123"}, params={}, body=b""
     )
     assert extract_bearer_token(req) is None
 

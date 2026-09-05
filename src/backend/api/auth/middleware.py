@@ -20,7 +20,7 @@ def extract_bearer_token(req: func.HttpRequest) -> Optional[str]:
     # made every request look unauthenticated (#212). A custom header name
     # isn't touched by that proxying, so the frontend sends the token there
     # instead (see src/frontend/src/services/authService.js et al.).
-    header = req.headers.get("X-Msal-Authorization", "")
+    header = req.headers.get("X-MSAL-Authorization", "")
     if not header.startswith("Bearer "):
         return None
     return header[len("Bearer "):].strip()
