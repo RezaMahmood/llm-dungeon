@@ -46,3 +46,21 @@ def test_guarded_success_span_and_correlated_log_record(otel_exporters, request_
     assert log_record.trace_id == span.context.trace_id
     assert log_record.span_id == span.context.span_id
     assert log_record.attributes["user_oid"] == "test-oid-123"
+
+
+def test_guarded_normalizes_route_params_into_a_low_cardinality_template(otel_exporters, request_factory):
+    """http.route must stay a route template (e.g. /manage/stories/{storyId}),
+    not one unique string per concrete resource ID — otherwise it's
+    high-cardinality and no longer queryable/aggregatable the way OTel's HTTP
+    semantic conventions expect."""
+    span_exporter, _log_exporter = otel_exporters
+
+    req = request_factory(
+        method="GET",
+        url="/api/manage/stories/abc123",
+        route_params={"storyId": "abc123"},
+    )
+    _guarded(_successful_handler)(req)
+
+    span = span_exporter.get_finished_spans()[0]
+    assert span.attributes["http.route"] == "/api/manage/stories/{storyId}"

@@ -65,11 +65,19 @@ def _guarded(handler):
         # querystring content into telemetry. Only the path is a route-shaped,
         # queryable identifier.
         path = urlparse(req.url).path
+        # req.route_params gives each dynamic segment's *resolved* value (e.g.
+        # {"storyId": "abc123"}) — substituting the placeholder name back in
+        # keeps http.route a low-cardinality route template (matching OTel's
+        # semantic-convention expectation) rather than one unique string per
+        # concrete resource ID.
+        route = path
+        for name, value in (req.route_params or {}).items():
+            route = route.replace(f"/{value}", f"/{{{name}}}")
         with tracer.start_as_current_span(
-            f"{req.method} {path}",
+            f"{req.method} {route}",
             context=incoming_context,
             kind=SpanKind.SERVER,
-            attributes={"http.method": req.method, "http.route": path},
+            attributes={"http.method": req.method, "http.route": route},
         ) as span:
             try:
                 response = handler(req)
