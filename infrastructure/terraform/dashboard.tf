@@ -205,11 +205,14 @@ locals {
           {
             name  = "Query"
             value = <<-KQL
-              dependencies
-              | where timestamp > ago(24h)
-              | summarize AvgDuration = avg(duration), FailureCount = countif(success == false), CallCount = count() by name, target
-              | order by AvgDuration desc
-              | take 10
+              let base = dependencies
+                | where timestamp > ago(24h)
+                | summarize AvgDuration = avg(duration), FailureCount = countif(success == false), CallCount = count() by name, target;
+              base
+              | top 5 by AvgDuration desc
+              | union (base | top 5 by FailureCount desc)
+              | distinct name, target, AvgDuration, FailureCount, CallCount
+              | order by FailureCount desc, AvgDuration desc
             KQL
           },
           { name = "TimeRange", value = "P1D" },
