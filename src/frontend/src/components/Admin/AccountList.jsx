@@ -50,7 +50,7 @@ export function AccountList({ accounts = [], token, currentUserEmail, onRemoved 
                     </span>
                   ))}
                 </td>
-                <td>{account.bound ? "Signed in" : "Not yet signed in"}</td>
+                <td>{account.bound ? "Signed in" : "Pending first sign-in"}</td>
                 <td>
                   {isRemovable && (
                     <button
