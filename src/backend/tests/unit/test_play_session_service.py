@@ -175,6 +175,15 @@ def _clear_rate_limit(cosmos: FakeCosmosService, session_id: str) -> None:
     container.items[session_id]["lastInteractionAt"] = _minutes_ago(1)
 
 
+def _clear_creation_rate_limit(cosmos: FakeCosmosService, player_id: str = PLAYER_ID) -> None:
+    """Test helper: backdate this player's session start times so a following
+    `create_session` isn't rejected by MIN_SESSION_CREATION_INTERVAL_SECONDS. Safe for
+    stories with no `maxDurationMinutes`, which is every story these tests use it with."""
+    for row in cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items.values():
+        if row.get("playerId") == player_id:
+            row["startedAt"] = _minutes_ago(1)
+
+
 def _existing_session(cosmos: FakeCosmosService, story: Story, **overrides) -> PlaySession:
     now = _now()
     session = PlaySession(
@@ -273,6 +282,7 @@ def test_create_session_sets_active_and_deactivates_other_active_sessions():
     first = service.create_session(story.id, "Wren", "Curious Cousin", PLAYER_ID)
     assert first.isActiveForPlayer is True
 
+    _clear_creation_rate_limit(cosmos)
     second = service.create_session(story.id, "Ash", "Detective", PLAYER_ID)
 
     assert second.isActiveForPlayer is True
@@ -414,7 +424,10 @@ def test_submit_interaction_third_flag_explains_lockout_in_narrative():
 
     updated, _reason = service.submit_interaction(session.id, PLAYER_ID, "something disallowed")
 
-    assert "locked out" in updated.turns[-1].narrativeText
+    narrative = updated.turns[-1].narrativeText
+    assert "blocked" in narrative and "play again" in narrative
+    # ...and it says so in words, never by showing the raw lockout timestamp (FR-013).
+    assert safety.get_standing(PLAYER_ID).lockoutUntil not in narrative
 
 
 def test_submit_interaction_override_attempt_uses_same_turn_path_no_distinct_error():
@@ -448,21 +461,32 @@ def test_submit_interaction_summarizes_every_20_turns_and_uses_summary_afterward
     session = _existing_session(cosmos, story, turns=turns)
 
     # Drive turn 19 (the 20th appended interaction, turns.length becomes 20).
-    updated, _reason = service.submit_interaction(session.id, PLAYER_ID, "act")
+    llm.generate_gameplay_turn.side_effect = None
+    llm.generate_gameplay_turn.return_value = _turn_data("NARRATIVE-19")
+    updated, _reason = service.submit_interaction(session.id, PLAYER_ID, "act 19")
     assert len(updated.turns) == 20
     assert updated.summary == "Condensed summary."
-    assert updated.summarizedThroughTurn == 20
+    # The turnNumber of the last turn folded in (data-model.md), not the turn count.
+    assert updated.summarizedThroughTurn == 19
 
-    # 21st interaction: generate_gameplay_turn should be called with a session whose
-    # prior context comes from summary + only turns after summarizedThroughTurn.
+    # Turn 20 is the first turn generated after summarization: it is in neither the
+    # summary nor the summarized range, so it must survive in the raw prior context.
     _clear_rate_limit(cosmos, updated.id)
-    service.submit_interaction(updated.id, PLAYER_ID, "act again")
-    # NOTE: this assertion is deliberately weak and is tracked as a defect in #245 —
-    # strengthening it to assert which turns actually reach the prompt is what surfaces
-    # the summarization off-by-one in #240. Both are out of scope for this change.
-    call_session_arg = llm.generate_gameplay_turn.call_args_list[-1].args[1]
-    assert call_session_arg.summary == "Condensed summary."
-    assert call_session_arg.summarizedThroughTurn == 20
+    llm.generate_gameplay_turn.return_value = _turn_data("NARRATIVE-20")
+    updated, _reason = service.submit_interaction(updated.id, PLAYER_ID, "act 20")
+
+    _clear_rate_limit(cosmos, updated.id)
+    llm.generate_gameplay_turn.return_value = _turn_data("NARRATIVE-21")
+    service.submit_interaction(updated.id, PLAYER_ID, "act 21")
+
+    context = LLMService(client=MagicMock())._prior_context(  # noqa: SLF001
+        llm.generate_gameplay_turn.call_args_list[-1].args[1]
+    )
+    assert "Condensed summary." in context
+    assert "NARRATIVE-20" in context
+    assert "act 20" in context
+    # ...while the turns the summary replaced are gone from the raw context.
+    assert "NARRATIVE-19" not in context
 
 
 # --- FR-015: single active session per player (T037-T039) ---
@@ -483,6 +507,7 @@ def test_resume_session_activates_target_and_deactivates_previous():
     story = _story()
     service, cosmos, _llm, _safety = _make_service(story)
     session_a = service.create_session(story.id, "Wren", "Curious Cousin", PLAYER_ID)
+    _clear_creation_rate_limit(cosmos)
     session_b = service.create_session(story.id, "Ash", "Detective", PLAYER_ID)
     assert session_b.isActiveForPlayer is True
 
@@ -625,6 +650,64 @@ def test_opening_turn_never_evaluates_completion_conditions():
 
     assert session.status == "active"
     assert session.satisfiedSuccessConditions == []
+
+
+def test_create_session_blank_adventure_id_is_a_field_error_not_a_404():
+    """Matches the retired game/start and contracts/api.md: a missing adventure id is a
+    malformed request, not a missing adventure (Copilot review, PR #237)."""
+    story = _story()
+    service, _cosmos, llm, _safety = _make_service(story)
+
+    with pytest.raises(InvalidSetupError) as exc_info:
+        service.create_session("", "Wren", "Curious Cousin", PLAYER_ID)
+
+    assert "adventureId" in exc_info.value.fields
+    llm.generate_gameplay_turn.assert_not_called()
+
+
+def test_create_session_content_filtered_opening_is_narrative_unavailable_not_a_strike():
+    """The opening call has no player input, so a filtered opening narrative is the
+    adventure's own content — it must not count against the player (FR-013)."""
+    story = _story()
+    service, _cosmos, llm, safety = _make_service(story)
+    llm.generate_gameplay_turn.side_effect = LLMContentFilteredError("blocked")
+
+    with pytest.raises(NarrativeUnavailableError):
+        service.create_session(story.id, "Wren", "Curious Cousin", PLAYER_ID)
+
+    assert safety.get_standing(PLAYER_ID) is None
+
+
+def test_submit_interaction_raises_not_found_when_the_adventure_is_gone():
+    """`published` is only re-checked at creation, so a session can outlive its adventure.
+    That must be a defined response, not an AttributeError-driven 500."""
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+    del cosmos.get_container(config.STORIES_CONTAINER).items[story.id]
+
+    with pytest.raises(AdventureNotFoundError):
+        service.submit_interaction(session.id, PLAYER_ID, "look around")
+
+    stored = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items[session.id]
+    assert stored["interactionInProgress"] is False
+
+
+def test_duration_ending_directive_does_not_travel_inside_player_input():
+    """FR-012: the system prompt tells the model to distrust player input, so the ending
+    instruction must arrive as a narrator directive instead."""
+    story = _story(max_duration_minutes=1)
+    service, cosmos, llm, _safety = _make_service(story, llm_turn_data=_turn_data("The lamp goes dark."))
+    session = _existing_session(cosmos, story, startedAt=_minutes_ago(2))
+
+    updated, reason = service.submit_interaction(session.id, PLAYER_ID, "look around")
+
+    assert reason == {"type": "duration", "detail": None}
+    call = llm.generate_gameplay_turn.call_args
+    assert call.args[2] == "look around"
+    assert call.kwargs["concluding_reason"]
+    # The turn records only what the player actually typed.
+    assert updated.turns[-1].playerInput == "look around"
 
 
 def test_failed_llm_call_releases_the_interaction_claim(monkeypatch):

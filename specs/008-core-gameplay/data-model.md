@@ -81,11 +81,13 @@ this document — out of scope here).
 Created (status="active", turns=[opening narrative], entityType="PlaySession",
          isActiveForPlayer=true; any other active session of this playerId set
          isActiveForPlayer=false)
-  → each POST .../interactions:
+  → each POST .../interactions (checks run in exactly this order, matching
+    contracts/api.md and PlaySessionService.submit_interaction):
       - reject (423) if the player's Player Content-Safety Standing is locked out
-      - reject (409) if status == "concluded"
+      - reject (403) if playerId != authenticated user — before any state is revealed
       - reject (409) session_inactive if isActiveForPlayer == false (FR-015) — the
         player must POST .../resume first
+      - reject (409) if status == "concluded"
       - reject (429) if now - lastInteractionAt < MIN_INTERACTION_INTERVAL_SECONDS
       - reject (409) if interactionInProgress or ETag precondition fails
       - duration ceiling reached → status="concluded", completionReason={"type":"duration"}

@@ -49,14 +49,30 @@ for this; it's an internal side effect.
 
 **Response (404 Not Found)** — adventure doesn't exist or isn't published.
 
+**Response (429 Too Many Requests)** — the player started a session less than
+`MIN_SESSION_CREATION_INTERVAL_SECONDS` ago (FR-005). Each creation costs an
+opening-narrative LLM call, so this endpoint is throttled per player just as
+`.../interactions` is per session. Checked after field validation (so a mistyped setup
+still returns its field errors) and before any LLM call:
+
+```json
+{ "error": "rate_limited", "message": "You've just started a story — take a moment before starting another." }
+```
+
 **Response (423 Locked)** — the player is within an active content-safety lockout
 (FR-013, data-model.md Player Content-Safety Standing):
 
 ```json
-{ "error": "content_safety_lockout", "message": "You're temporarily locked out due to repeated flagged submissions. Try again after {lockoutUntil}." }
+{
+  "error": "content_safety_lockout",
+  "message": "A few of your messages were blocked, so play is paused for a bit. You can play again in about an hour.",
+  "lockoutUntil": "2026-09-05T21:00:00Z"
+}
 ```
 
-Checked before any other validation or LLM call.
+The `message` states the remaining time in words — players are young, so a raw UTC
+timestamp is never shown to them; `lockoutUntil` carries the machine-readable value for
+any client that wants a countdown. Checked before any other validation or LLM call.
 
 **Response (500)** — `LLMOutputError`/`LLMRateLimitError` from the opening-narrative call
 maps to `error_response(502, "narrative_unavailable", "...")`; no session is persisted if
@@ -147,7 +163,13 @@ concluded/in-progress/rate-limit checks below and before any LLM call.
 (FR-006 exclusivity): same `forbidden_access_not_granted()` shape used elsewhere, never
 revealing that the session exists to a non-owner.
 
-**Response (404 Not Found)** — `sessionId` doesn't exist.
+**Response (404 Not Found)** — `sessionId` doesn't exist, or the adventure the session
+was started against has since been deleted (`published` is only re-checked at session
+creation, so a session can outlive its adventure):
+
+```json
+{ "error": "not_found", "message": "Adventure not found" }
+```
 
 **Response (200 OK)** — unsafe content was screened out on either side (FR-004, Edge
 Cases), or the input attempted to override the system's behavior/reveal its instructions

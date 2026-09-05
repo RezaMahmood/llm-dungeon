@@ -86,6 +86,12 @@ export function StatusPanel({ locationLabel, goalLabel, progress, completionReas
           </p>
         </>
       )}
+
+      {/* FR-017: the play surface states that progress is autosaved after every turn.
+          specs/designs/03-play.html places this at the foot of the status panel. */}
+      <div className="text-muted" style={{ marginTop: "auto", paddingTop: "24px", fontSize: "12px" }}>
+        Autosaved after every turn
+      </div>
     </div>
   );
 }

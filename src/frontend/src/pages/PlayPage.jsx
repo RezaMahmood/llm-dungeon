@@ -3,13 +3,14 @@
  * creation's opening narrative and each subsequent free-text/suggested-action submit
  * into the story pane, status panel, and pause-and-exit confirmation.
  */
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import InstructionInput from "../components/Play/InstructionInput.jsx";
 import PauseDialog from "../components/Play/PauseDialog.jsx";
 import StatusPanel from "../components/Play/StatusPanel.jsx";
 import StoryPane from "../components/Play/StoryPane.jsx";
 import SuggestedActions from "../components/Play/SuggestedActions.jsx";
+import { usePublishPlayTitle } from "../context/PlayTitleContext.jsx";
 import { resumeSession, submitInteraction } from "../services/gameService.js";
 
 export function PlayPage({ sessionId, storyName, initialNarrative, getToken, onExit }) {
@@ -24,6 +25,11 @@ export function PlayPage({ sessionId, storyName, initialNarrative, getToken, onE
   const latest = turns[turns.length - 1];
   const locked = notice?.type === "lockout";
   const disabled = status === "concluded" || locked || submitting;
+
+  // Published to the header AuthenticatedLayout renders, so this page never grows a
+  // second title bar with its own, unconfirmed way out (FR-016).
+  const openPauseDialog = useCallback(() => setPauseOpen(true), []);
+  usePublishPlayTitle({ storyTitle: storyName, onPauseExit: openPauseDialog });
 
   const handleSubmit = async (input) => {
     setSubmitting(true);
@@ -70,29 +76,8 @@ export function PlayPage({ sessionId, storyName, initialNarrative, getToken, onE
   };
 
   return (
-    <div className="shell" style={{ height: "100vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+    <div className="shell" style={{ height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, position: "relative" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "16px",
-            padding: "12px 20px",
-            borderBottom: "2px solid var(--color-divider)",
-            flex: "none",
-          }}
-        >
-          <span style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: "17px", marginRight: "auto" }}>
-            {storyName}
-          </span>
-          <span className="text-muted" style={{ fontSize: "12px" }}>
-            Autosaved after every turn
-          </span>
-          <button className="btn btn-primary" type="button" onClick={() => setPauseOpen(true)}>
-            Pause &amp; exit
-          </button>
-        </div>
-
         <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 292px", minHeight: 0 }}>
           <div style={{ display: "flex", flexDirection: "column", minHeight: 0, borderRight: "2px solid var(--color-divider)" }}>
             <StoryPane turns={turns} />

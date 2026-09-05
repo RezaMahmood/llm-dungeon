@@ -188,6 +188,17 @@ def _clear_rate_limit(cosmos: FakeCosmosService, session_id: str) -> None:
     container.items[session_id]["lastInteractionAt"] = past
 
 
+def _clear_creation_rate_limit(cosmos: FakeCosmosService, player_id: str = USER_OID) -> None:
+    """Backdate this player's session start times so a following create isn't rejected by
+    MIN_SESSION_CREATION_INTERVAL_SECONDS (tests start sessions far faster than a player)."""
+    import datetime
+
+    past = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    for row in cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items.values():
+        if row.get("playerId") == player_id:
+            row["startedAt"] = past
+
+
 # --- POST /api/game/sessions (T028) ---
 
 
@@ -220,6 +231,34 @@ def test_create_session_missing_adventure_returns_404(request_factory):
     response = _create(request_factory, service, {"adventureId": "missing", "characterName": "Wren", "characterType": "Curious Cousin"})
 
     assert response.status_code == 404
+
+
+def test_creating_sessions_back_to_back_is_rate_limited(request_factory):
+    """FR-005: each creation costs an opening-narrative LLM call, so it cannot be
+    unthrottled just because the interactions endpoint is throttled."""
+    story = _story()
+    service, _cosmos, llm, _safety = _service(story)
+    first = _create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"})
+    assert first.status_code == 201
+
+    second = _create(request_factory, service, {"adventureId": story.id, "characterName": "Ash", "characterType": "Curious Cousin"})
+
+    assert second.status_code == 429
+    assert json.loads(second.get_body())["error"] == "rate_limited"
+    # The throttled attempt never reached the model.
+    assert llm.generate_gameplay_turn.call_count == 1
+
+
+def test_create_session_blank_adventure_id_returns_400_not_404(request_factory):
+    story = _story()
+    service, _cosmos, _llm, _safety = _service(story)
+
+    response = _create(request_factory, service, {"characterName": "Wren", "characterType": "Curious Cousin"})
+
+    assert response.status_code == 400
+    body = json.loads(response.get_body())
+    assert body["error"] == "invalid_setup"
+    assert "adventureId" in body["fields"]
 
 
 def test_create_session_returns_423_when_locked_out(request_factory):
@@ -409,7 +448,8 @@ def test_three_flags_lock_out_player_scoped_per_player(request_factory):
     _clear_rate_limit(cosmos, session_id)
     third = _interact(request_factory, service, session_id, {"input": "bad 3"})
 
-    assert "locked out" in json.loads(third.get_body())["narrative"]["narrativeText"]
+    third_narrative = json.loads(third.get_body())["narrative"]["narrativeText"]
+    assert "blocked" in third_narrative and "play again" in third_narrative
 
     further = _interact(request_factory, service, session_id, {"input": "anything"})
     assert further.status_code == 423
@@ -435,7 +475,8 @@ def test_twenty_turns_produces_summary_used_on_turn_twenty_one(request_factory):
     created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
     session_id = created["sessionId"]
 
-    for _ in range(19):
+    # Turn 0 is the opening narrative, so the session reaches 20 turns on the 19th action.
+    for _ in range(18):
         _clear_rate_limit(cosmos, session_id)
         _interact(request_factory, service, session_id, {"input": "act"})
 
@@ -443,12 +484,18 @@ def test_twenty_turns_produces_summary_used_on_turn_twenty_one(request_factory):
     twentieth = _interact(request_factory, service, session_id, {"input": "act"})
     assert twentieth.status_code == 200
     stored = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items[session_id]
+    assert len(stored["turns"]) == 20
     assert stored["summary"] is not None
-    assert stored["summarizedThroughTurn"] == 20
+    # The turnNumber of the last turn folded in (data-model.md) — turns 0..19.
+    assert stored["summarizedThroughTurn"] == 19
 
     _clear_rate_limit(cosmos, session_id)
     twenty_first = _interact(request_factory, service, session_id, {"input": "act again"})
     assert twenty_first.status_code == 200
+    # The turn generated right after summarization is neither summarized nor dropped.
+    stored = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items[session_id]
+    assert stored["turns"][-1]["turnNumber"] == 20
+    assert stored["summarizedThroughTurn"] == 19
 
 
 # --- FR-015 single active session per player (T040-T041) ---
@@ -458,6 +505,7 @@ def test_creating_second_session_deactivates_first(request_factory):
     story = _story()
     service, cosmos, _llm, _safety = _service(story)
     s1 = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    _clear_creation_rate_limit(cosmos)
     s2 = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Ash", "characterType": "Curious Cousin"}).get_body())
 
     response = _interact(request_factory, service, s1["sessionId"], {"input": "look around"})
@@ -471,6 +519,7 @@ def test_resume_reactivates_session_and_deactivates_the_other(request_factory):
     story = _story()
     service, cosmos, _llm, _safety = _service(story)
     s1 = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    _clear_creation_rate_limit(cosmos)
     s2 = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Ash", "characterType": "Curious Cousin"}).get_body())
 
     resumed = _resume(request_factory, service, s1["sessionId"])
@@ -483,8 +532,9 @@ def test_resume_reactivates_session_and_deactivates_the_other(request_factory):
 
 def test_resume_non_owner_returns_403(request_factory):
     story = _story()
-    service, _cosmos, _llm, _safety = _service(story)
+    service, cosmos, _llm, _safety = _service(story)
     s1 = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    _clear_creation_rate_limit(cosmos)
     service.create_session(story.id, "Ash", "Curious Cousin", USER_OID)  # deactivates s1
 
     response = _resume(request_factory, service, s1["sessionId"], oid=OTHER_OID)

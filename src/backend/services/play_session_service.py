@@ -18,7 +18,10 @@ from backend.models.play_session import PlayerInteraction, PlaySession
 from backend.models.player_content_safety_standing import PlayerContentSafetyStanding
 from backend.services.cosmos_service import CosmosService
 from backend.services.llm_service import LLMContentFilteredError, LLMOutputError, LLMRateLimitError, LLMService
-from backend.services.player_content_safety_standing_service import PlayerContentSafetyStandingService
+from backend.services.player_content_safety_standing_service import (
+    PlayerContentSafetyStandingService,
+    describe_lockout,
+)
 from backend.services.story_service import StoryService
 
 logger = logging.getLogger("play_session_service")
@@ -28,6 +31,10 @@ MAX_CHARACTER_NAME_LENGTH = 50
 # hit (research.md Decision 4) — a best-effort, request-shape limiter, not a distributed
 # rate-limiter.
 MIN_INTERACTION_INTERVAL_SECONDS = 2
+# Starting an adventure is a rare, deliberate act, and each one costs an opening-narrative
+# LLM call — so it gets a longer floor than a turn does. Without this, session creation is
+# the cheapest way for one player to drive unbounded model spend (FR-005).
+MIN_SESSION_CREATION_INTERVAL_SECONDS = 10
 SUMMARIZE_EVERY_N_TURNS = 20
 
 # A content-filtered submission is never stored verbatim. `turns[].playerInput` is replayed
@@ -36,6 +43,7 @@ SUMMARIZE_EVERY_N_TURNS = 20
 REDACTED_PLAYER_INPUT = "[removed by content safety]"
 
 FIELD_MESSAGES = {
+    "adventureId": "Select an adventure.",
     "characterName_required": "Character name is required.",
     "characterName_too_long": f"Character name must be {MAX_CHARACTER_NAME_LENGTH} characters or fewer.",
     "characterType_required": "Select a character type for this adventure.",
@@ -142,6 +150,11 @@ class PlaySessionService:
         if self._safety.is_locked_out(player_id):
             raise ContentSafetyLockoutError(self._safety.get_standing(player_id))
 
+        # A missing adventure id is a malformed request, not a missing adventure — the
+        # retired game/start reported it as a field error and the contract still does.
+        if not adventure_id:
+            raise InvalidSetupError({"adventureId": FIELD_MESSAGES["adventureId"]})
+
         story = self._stories.get_story(adventure_id)
         if story is None or not story.published:
             raise AdventureNotFoundError()
@@ -162,6 +175,15 @@ class PlaySessionService:
         if fields:
             raise InvalidSetupError(fields)
 
+        # Checked after validation (so a mistyped name still gets its field error) but
+        # before the opening-narrative call, which is the cost this protects.
+        most_recent_start = self._most_recent_session_start(player_id)
+        if (
+            most_recent_start
+            and (_now_dt() - _parse(most_recent_start)).total_seconds() < MIN_SESSION_CREATION_INTERVAL_SECONDS
+        ):
+            raise RateLimitedError()
+
         now = _now()
         session = PlaySession(
             id=str(uuid.uuid4()),
@@ -176,6 +198,12 @@ class PlaySessionService:
 
         try:
             turn_data = self._llm.generate_gameplay_turn(story, session, None)
+        except LLMContentFilteredError as exc:
+            # No player input exists yet, so this is the adventure's own content tripping
+            # the filter. That is not the player's doing, so it must not count toward
+            # their safety standing (FR-013) — it is simply an unavailable narrative.
+            logger.warning("Opening narrative was content-filtered for adventure %s", story.id)
+            raise NarrativeUnavailableError() from exc
         except (LLMOutputError, LLMRateLimitError) as exc:
             raise NarrativeUnavailableError() from exc
 
@@ -233,6 +261,12 @@ class PlaySessionService:
         self, session: PlaySession, player_id: str, trimmed_input: str, etag: str
     ) -> tuple[PlaySession, Optional[dict]]:
         story = self._stories.get_story(session.adventureId)
+        if story is None:
+            # The adventure was deleted after this session started (published is only
+            # re-checked at creation). There is nothing to narrate from, so say so
+            # plainly rather than crashing on the completion criteria below.
+            raise AdventureNotFoundError()
+
         now = _now()
         completion_reason: Optional[dict[str, Any]] = None
 
@@ -241,7 +275,8 @@ class PlaySessionService:
                 turn_data = self._llm.generate_gameplay_turn(
                     story,
                     session,
-                    f"{trimmed_input} (Note to narrator: this session's time has run out — narrate a concluding scene now.)",
+                    trimmed_input,
+                    concluding_reason="the session's configured time limit has been reached",
                 )
             except (LLMOutputError, LLMRateLimitError) as exc:
                 raise NarrativeUnavailableError() from exc
@@ -276,8 +311,10 @@ class PlaySessionService:
 
     def _summarize_if_due(self, story, session: PlaySession) -> None:
         """Fold the turns since the last summary into a fresh one every
-        SUMMARIZE_EVERY_N_TURNS turns (FR-014)."""
-        if len(session.turns) % SUMMARIZE_EVERY_N_TURNS != 0 or len(session.turns) <= session.summarizedThroughTurn:
+        SUMMARIZE_EVERY_N_TURNS turns (FR-014). The opening narrative counts as a turn, so
+        the first summary covers turn 0 plus the next 19."""
+        last_turn_number = session.turns[-1].turnNumber
+        if len(session.turns) % SUMMARIZE_EVERY_N_TURNS != 0 or last_turn_number <= session.summarizedThroughTurn:
             return
         try:
             summary = self._llm.summarize_session_history(story, session)
@@ -288,7 +325,10 @@ class PlaySessionService:
             logger.warning("Summarization failed for session %s; keeping the full history", session.id)
             return
         session.summary = summary
-        session.summarizedThroughTurn = len(session.turns)
+        # data-model.md defines this as the turnNumber of the last turn folded in. Using
+        # the turn count instead would be one too high, and the `turnNumber <=` filters in
+        # llm_service would then also swallow the turn generated right after this one.
+        session.summarizedThroughTurn = last_turn_number
 
     def _release_claim(self, session_id: str) -> None:
         """Best-effort release of a claimed interaction after a failed turn, so one
@@ -328,6 +368,17 @@ class PlaySessionService:
         return session
 
     # --- Helpers ---
+
+    def _most_recent_session_start(self, player_id: str) -> Optional[str]:
+        """When this player last started a session, from the same cross-partition query
+        shape session deactivation already relies on — no new stored state needed."""
+        rows = self._cosmos.query(
+            config.PLAY_SESSIONS_CONTAINER,
+            "SELECT c.startedAt FROM c WHERE c.playerId = @playerId",
+            params=[{"name": "@playerId", "value": player_id}],
+        )
+        starts = [row["startedAt"] for row in rows if row.get("startedAt")]
+        return max(starts) if starts else None
 
     def _deactivate_other_active_sessions(self, player_id: str, exclude_session_id: str) -> None:
         rows = self._cosmos.query(
@@ -387,10 +438,7 @@ class PlaySessionService:
     def _deflection_turn_data(self, session: PlaySession, standing: PlayerContentSafetyStanding) -> dict[str, Any]:
         text = "That doesn't seem to work here."
         if standing.lockoutUntil is not None:
-            text += (
-                f" You're temporarily locked out due to repeated flagged submissions. "
-                f"Try again after {standing.lockoutUntil}."
-            )
+            text += f" A few of your messages were blocked, so play is paused for a bit. {describe_lockout(standing.lockoutUntil)}"
         last_turn = session.turns[-1] if session.turns else None
         return {
             "narrativeText": text,

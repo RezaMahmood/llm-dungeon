@@ -28,15 +28,18 @@ TEST_USERS = [
     {"label": "Dual-role", "roles": ["Player", "Administrator"]},
 ]
 
-# 008-core-gameplay Phase 1 (T002): every container this backend uses locally against
-# the Cosmos DB emulator, so a fresh emulator only needs this script run once.
-CONTAINERS = [
-    config.PROVISIONED_ACCOUNTS_CONTAINER,
-    config.STORY_DRAFTS_CONTAINER,
-    config.STORIES_CONTAINER,
-    config.PLAY_SESSIONS_CONTAINER,
-    config.PLAYER_CONTENT_SAFETY_STANDINGS_CONTAINER,
-]
+# 008-core-gameplay Phase 1 (T002): every container this backend uses locally against the
+# Cosmos DB emulator, each with the partition key its Terraform resource declares
+# (infrastructure/terraform/main.tf). provisionedAccountEntries is keyed by `/email`, not
+# `/id`, so that an entry can be looked up before a first sign-in binds an oid — creating
+# it locally with `/id` would silently break every point read against it.
+CONTAINER_PARTITION_KEY_PATHS = {
+    config.PROVISIONED_ACCOUNTS_CONTAINER: "/email",
+    config.STORY_DRAFTS_CONTAINER: "/id",
+    config.STORIES_CONTAINER: "/id",
+    config.PLAY_SESSIONS_CONTAINER: "/id",
+    config.PLAYER_CONTENT_SAFETY_STANDINGS_CONTAINER: "/id",
+}
 
 
 def _now() -> str:
@@ -44,11 +47,13 @@ def _now() -> str:
 
 
 def ensure_containers(cosmos: CosmosService | None = None) -> None:
-    """Create-if-not-exists every container this backend reads/writes locally, all
-    partitioned on `/id` (matching each container's Terraform definition)."""
+    """Create-if-not-exists every container this backend reads/writes locally, each with
+    the partition key its Terraform resource declares."""
     service = cosmos or CosmosService()
-    for name in CONTAINERS:
-        service.database.create_container_if_not_exists(id=name, partition_key=PartitionKey(path="/id"))
+    for name, partition_key_path in CONTAINER_PARTITION_KEY_PATHS.items():
+        service.database.create_container_if_not_exists(
+            id=name, partition_key=PartitionKey(path=partition_key_path)
+        )
 
 
 def seed_stories(cosmos: CosmosService | None = None) -> list[str]:

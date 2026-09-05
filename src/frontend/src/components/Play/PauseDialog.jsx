@@ -6,11 +6,17 @@
 export function PauseDialog({ locationLabel, onKeepPlaying, onConfirmExit }) {
   return (
     <div className="dialog-backdrop">
-      <div className="dialog" style={{ width: "min(520px,100%)", padding: "32px" }}>
+      <div
+        className="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pause-dialog-title"
+        style={{ width: "min(520px,100%)", padding: "32px" }}
+      >
         <div className="ovnum" style={{ fontSize: "72px", color: "var(--color-accent)" }}>
           II
         </div>
-        <div className="dialog-title" style={{ fontSize: "28px" }}>
+        <div className="dialog-title" id="pause-dialog-title" style={{ fontSize: "28px" }}>
           Paused
         </div>
         <div className="dialog-body">

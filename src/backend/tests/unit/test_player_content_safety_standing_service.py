@@ -90,6 +90,46 @@ def test_is_locked_out_false_once_lockout_expires():
     assert service.is_locked_out(PLAYER_ID) is False
 
 
+def test_describe_lockout_never_shows_a_raw_timestamp():
+    """FR-013 requires the player be told clearly; this audience is young players, so the
+    UTC timestamp stays machine-readable and out of the prose."""
+    from backend.services.player_content_safety_standing_service import describe_lockout
+
+    in_an_hour = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    message = describe_lockout(in_an_hour)
+
+    assert "about an hour" in message
+    assert in_an_hour not in message
+    assert ":" not in message  # no time-of-day leaking through in any form
+
+    soon = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=4)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    assert "about 4 minutes" in describe_lockout(soon)
+    # An already-expired or absent lockout still reads as a sentence, never as an error.
+    assert describe_lockout(None)
+    past = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    assert "now" in describe_lockout(past)
+
+
+def test_record_flag_gives_up_after_bounded_retries_rather_than_recursing():
+    """A conditional write that keeps losing must fail predictably; the player's turn has
+    already produced a safe deflection, so the strike is dropped and loudly logged."""
+    service = _service()
+    container = service._container()  # noqa: SLF001
+    service.record_flag(PLAYER_ID)
+
+    def always_conflict(*args, **kwargs):  # noqa: ARG001
+        raise CosmosAccessConditionFailedError
+
+    container.replace_item = always_conflict
+
+    standing = service.record_flag(PLAYER_ID)
+
+    # Returned rather than raised, and the earlier count is intact.
+    assert standing.flaggedCount == 1
+
+
 def test_fourth_flag_after_expiry_does_not_reset_count_and_issues_fresh_lockout():
     service = _service()
     for _ in range(3):

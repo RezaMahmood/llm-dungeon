@@ -11,6 +11,7 @@ import azure.functions as func
 from backend.api.game.middleware import authorize_player
 from backend.api.utils import error_response, forbidden_access_not_granted, json_response
 from backend.services.account_provisioning_service import AccountProvisioningService
+from backend.services.player_content_safety_standing_service import describe_lockout
 from backend.services.play_session_service import (
     AdventureNotFoundError,
     AlreadyActiveError,
@@ -49,10 +50,15 @@ def _narrative_dict(turn) -> dict:
 
 
 def _lockout_response(exc: ContentSafetyLockoutError) -> func.HttpResponse:
-    return error_response(
-        423,
-        "content_safety_lockout",
-        f"You're temporarily locked out due to repeated flagged submissions. Try again after {exc.lockout_until}.",
+    return json_response(
+        {
+            "error": "content_safety_lockout",
+            "message": f"A few of your messages were blocked, so play is paused for a bit. {describe_lockout(exc.lockout_until)}",
+            # Kept machine-readable for a client that wants to show a countdown; the
+            # message itself never shows a raw timestamp to the player (FR-013).
+            "lockoutUntil": exc.lockout_until,
+        },
+        status_code=423,
     )
 
 
@@ -84,6 +90,8 @@ def create_session(
             {"error": "invalid_setup", "message": "Setup is incomplete or invalid.", "fields": exc.fields},
             status_code=400,
         )
+    except RateLimitedError:
+        return error_response(429, "rate_limited", "You've just started a story — take a moment before starting another.")
     except NarrativeUnavailableError:
         return error_response(502, "narrative_unavailable", "Couldn't generate the opening narrative. Please try again.")
 
@@ -116,6 +124,8 @@ def submit_interaction(
         return error_response(400, "invalid_input", "Type an action to continue.")
     except SessionNotFoundError:
         return error_response(404, "not_found", "Session not found")
+    except AdventureNotFoundError:
+        return error_response(404, "not_found", "Adventure not found")
     except ForbiddenError:
         return forbidden_access_not_granted()
     except SessionInactiveError:

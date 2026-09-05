@@ -154,12 +154,20 @@ class LLMService:
         result = self._call("gen_ai.story_creation.generate", GENERATION_SYSTEM_PROMPT, prompt, _GenerationResponse)
         return result.model_dump()
 
-    def generate_gameplay_turn(self, story: Story, session: PlaySession, player_input: Optional[str]) -> dict[str, Any]:
+    def generate_gameplay_turn(
+        self,
+        story: Story,
+        session: PlaySession,
+        player_input: Optional[str],
+        concluding_reason: Optional[str] = None,
+    ) -> dict[str, Any]:
         """One turn of gameplay narrative (008-core-gameplay research.md Decision 6).
         `player_input is None` is the opening-narrative call (turn 0), which skips
         requesting completion-condition matching entirely — a session cannot end before
-        the player has acted."""
-        prompt = self._build_gameplay_turn_prompt(story, session, player_input)
+        the player has acted. `concluding_reason` asks for an ending; it travels as a
+        narrator directive rather than inside `player_input`, which the system prompt
+        instructs the model to distrust for behavior changes (FR-012)."""
+        prompt = self._build_gameplay_turn_prompt(story, session, player_input, concluding_reason)
         response_model = _OpeningNarrativeResponse if player_input is None else _GameplayTurnResponse
         result = self._call("gen_ai.gameplay.turn", GAMEPLAY_TURN_SYSTEM_PROMPT, prompt, response_model)
         data = result.model_dump()
@@ -314,7 +322,13 @@ class LLMService:
     def _build_generation_prompt(self, draft: dict[str, Any]) -> str:
         return "Complete draft:\n" + json.dumps(draft, indent=2)
 
-    def _build_gameplay_turn_prompt(self, story: Story, session: PlaySession, player_input: Optional[str]) -> str:
+    def _build_gameplay_turn_prompt(
+        self,
+        story: Story,
+        session: PlaySession,
+        player_input: Optional[str],
+        concluding_reason: Optional[str] = None,
+    ) -> str:
         lines = [f"World: {story.worldPrompt}"]
         if story.rules:
             lines.append(f"Rules: {story.rules}")
@@ -356,6 +370,16 @@ class LLMService:
             lines.append(f"Player's latest input: {player_input}")
         else:
             lines.append("Generate the opening narrative for this session's first turn.")
+
+        if concluding_reason:
+            # Kept out of the player-input field on purpose: the system prompt tells the
+            # model never to take behaviour changes from player input, so an ending
+            # instruction smuggled in there is one it should rightly refuse (FR-012).
+            lines.append(
+                "Narrator directive (from the game system, not the player): this session is "
+                f"ending now because {concluding_reason}. Narrate a scene that brings the "
+                "story to a close."
+            )
 
         return "\n\n".join(lines)
 
