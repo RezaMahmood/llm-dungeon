@@ -31,12 +31,51 @@ describe("observability: frontend->backend trace correlation (FR-005)", () => {
     const { initializeAppInsights } = await import("../../src/observability/appInsights.js");
     initializeAppInsights();
 
-    // No extra wait needed: axios.get only resolves once the server has already
-    // received the request and responded, so receivedTraceparent is set by now.
-    await axios.get(`http://127.0.0.1:${port}/ping`);
-
-    await new Promise((resolve) => server.close(resolve));
+    try {
+      // No extra wait needed: axios.get only resolves once the server has
+      // already received the request and responded, so receivedTraceparent
+      // is set by now.
+      await axios.get(`http://127.0.0.1:${port}/ping`);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
 
     expect(receivedTraceparent).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-0[01]$/);
+  }, 10000);
+
+  it("never captures the bearer token header value in dependency telemetry (FR-006)", async () => {
+    const FIXTURE_TOKEN = "s3cr3t-fixture-bearer-token-value-should-never-be-captured";
+    const server = http.createServer((_req, res) => {
+      res.writeHead(200, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "*",
+      });
+      res.end("ok");
+    });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address();
+
+    const { appInsights, initializeAppInsights } = await import("../../src/observability/appInsights.js");
+    initializeAppInsights();
+
+    const captured = [];
+    appInsights.addTelemetryInitializer((item) => {
+      captured.push(item);
+      return false;
+    });
+
+    try {
+      await axios.get(`http://127.0.0.1:${port}/ping`, {
+        headers: { "X-Custom-Authorization": `Bearer ${FIXTURE_TOKEN}` },
+      });
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+
+    const dependencyEvents = captured.filter((item) => item.baseType === "RemoteDependencyData");
+    expect(dependencyEvents.length).toBeGreaterThan(0);
+    for (const event of dependencyEvents) {
+      expect(JSON.stringify(event)).not.toContain(FIXTURE_TOKEN);
+    }
   }, 10000);
 });

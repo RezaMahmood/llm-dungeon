@@ -22,8 +22,12 @@ export const appInsights = new ApplicationInsights({
     extensions: [reactPlugin],
     distributedTracingMode: DistributedTracingModes.W3C,
     enableCorsCorrelation: true,
-    enableRequestHeaderTracking: true,
-    enableResponseHeaderTracking: true,
+    // Deliberately NOT enabling enableRequestHeaderTracking/
+    // enableResponseHeaderTracking: the AjaxPlugin captures header *values*
+    // verbatim when these are on, with no default redaction — since every
+    // outbound call carries an X-Custom-Authorization bearer token, turning
+    // these on would export it straight into Application Insights, violating
+    // FR-006/contract §3 ("never request/response body or header values").
     autoTrackPageVisitTime: true,
   },
 });
