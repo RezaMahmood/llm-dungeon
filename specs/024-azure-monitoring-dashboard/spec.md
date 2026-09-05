@@ -8,6 +8,16 @@
 
 **Input**: User description: "as a cloud administrator I want to know what the state of my application and deployed infrastructure is. I want to see this as an Azure Dashboard. I already have Application Insights and application metrics being logged. I want to see failures, performance, traces and user statistics. this dashboard should be source controlled and deployed via github. availability is not required. I also want an estimated usage cost to show how much is being consumed by all resources in the llm-dungeon resource group"
 
+## Clarifications
+
+### Session 2026-09-05
+
+- Q: Who or what should control who can view this Azure Dashboard, given it's a native Azure Portal resource rather than a page inside the application itself? → A: Azure RBAC role (e.g., Reader/Monitoring Reader) scoped to the `llm-dungeon` resource group, granted to the same people who administer that resource group today.
+- Q: Does the cost panel need to show a breakdown by resource or resource type, or is a single aggregate total for the whole resource group enough? → A: Aggregate total only — one number for the whole `llm-dungeon` resource group.
+- Q: What margin of error is acceptable between the dashboard's estimated cost and Azure's actual billed cost for the same period? → A: ±10% of actual billed cost for the period.
+- Q: How fresh does the failure/performance/user-statistics data need to be — auto-refresh on a schedule, or current data whenever opened/reloaded? → A: Dashboard MUST auto-refresh on a defined interval (every 5 minutes) while open.
+- Q: For the traces/dependency-calls panel, does the administrator need a searchable/filterable view of individual trace records, or is a summary view sufficient? → A: Summary view (top N slowest/failing dependencies over the time window), with a link to the full Application Insights trace details for further investigation.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - See Application Failures at a Glance (Priority: P1)
@@ -58,7 +68,9 @@ traces or dependency calls sourced from Application Insights.
    time and throughput are displayed for that window.
 2. **Given** a dependency (e.g., an external call the application makes) is slow or
    failing, **When** the administrator views the traces section, **Then** that
-   dependency's performance is visible and distinguishable from normal calls.
+   dependency appears in a top-N slowest/failing summary distinguishable from normal
+   calls, with a link to the full Application Insights trace details for further
+   investigation.
 
 ---
 
@@ -94,8 +106,8 @@ independent of, and less urgent than, understanding whether the application itse
 healthy and performing well.
 
 **Independent Test**: Can be fully tested by opening the dashboard and confirming it
-shows an estimated cost figure (and a breakdown or trend) covering all resources
-currently deployed in the `llm-dungeon` resource group.
+shows a single estimated cost total covering all resources currently deployed in the
+`llm-dungeon` resource group.
 
 **Acceptance Scenarios**:
 
@@ -136,7 +148,9 @@ currently deployed in the `llm-dungeon` resource group.
 - **FR-003**: Dashboard MUST display performance data (response time/latency and request
   throughput trends over a recent time window) sourced from existing application
   metrics.
-- **FR-004**: Dashboard MUST display request/dependency trace information so an
+- **FR-004**: Dashboard MUST display a summary of the top N slowest and/or failing
+  request/dependency traces over the selected time window, each with a link to the
+  corresponding Application Insights trace details for further investigation, so an
   administrator can identify which operations or dependencies are slow or failing.
 - **FR-005**: Dashboard MUST display user statistics (active users and/or session
   activity, with a trend over a recent time window) sourced from existing application
@@ -154,9 +168,13 @@ currently deployed in the `llm-dungeon` resource group.
   dashboard definition is reflected in the live dashboard without a manual portal edit.
 - **FR-010**: Each dashboard panel MUST clearly indicate what data it shows and the time
   window it covers, so an administrator can interpret the state at a glance.
-- **FR-011**: Access to the dashboard MUST be restricted to authorized cloud
-  administrators, consistent with this project's existing access-control policy for
-  application resources.
+- **FR-011**: Access to the dashboard MUST be restricted via an Azure RBAC role (e.g.,
+  Reader or Monitoring Reader) scoped to the `llm-dungeon` resource group, granted to
+  the same people who already administer that resource group, rather than a
+  separately-maintained access list.
+- **FR-012**: The failure, performance, and user-statistics panels MUST auto-refresh on a
+  5-minute interval while the dashboard is open, so an administrator viewing it sees
+  current data without manually reloading.
 
 ### Key Entities
 
@@ -188,8 +206,8 @@ currently deployed in the `llm-dungeon` resource group.
 - **SC-004**: A change to the dashboard definition committed to source control is
   reflected in the live Azure Dashboard without any manual configuration step in the
   Azure portal.
-- **SC-005**: The estimated resource group cost shown on the dashboard stays within a
-  reasonable margin of the actual cost reported by Azure for the same period (accepting
+- **SC-005**: The estimated resource group cost shown on the dashboard stays within ±10%
+  of the actual cost reported by Azure Cost Management for the same period (accepting
   that cloud cost/usage data is inherently an estimate with reporting delay).
 
 ## Assumptions
@@ -206,9 +224,10 @@ currently deployed in the `llm-dungeon` resource group.
   custom cost-prediction model.
 - The relevant scope is the single `llm-dungeon` resource group; the dashboard does not
   need to cover resources outside that resource group.
-- Dashboard access follows the same authorized-administrator access control already in
-  place for this project's cloud resources, rather than introducing a new, separate
-  access mechanism.
+- Dashboard access is governed by Azure RBAC (a role such as Reader or Monitoring Reader
+  scoped to the `llm-dungeon` resource group), granted to the resource group's existing
+  administrators — not by the application's own Entra ID sign-in/allow-list, which
+  governs the application itself rather than native Azure Portal resources.
 - A "recent time window" default (e.g., last 24 hours, with the ability to adjust) is
   acceptable for failure/performance/user-statistic panels unless a specific reporting
   window is later required.
