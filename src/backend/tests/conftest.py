@@ -15,7 +15,7 @@ def make_request(
 ) -> func.HttpRequest:
     headers = {}
     if token is not None:
-        headers["Authorization"] = f"Bearer {token}"
+        headers["X-MSAL-Authorization"] = f"Bearer {token}"
     return func.HttpRequest(method=method, url=url, headers=headers, params={}, route_params=route_params or {}, body=body)
 
 
