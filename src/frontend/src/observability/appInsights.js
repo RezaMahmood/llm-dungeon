@@ -46,14 +46,20 @@ export function initializeAppInsights() {
   // instrumentation, so an unhandled JS error/rejection outside the React tree
   // is reliably reported with a message and stack trace (FR-004, contract §3)
   // regardless of browser/environment differences in how that auto-instrumentation
-  // attaches.
-  window.addEventListener("error", (event) => {
-    appInsights.trackException({ exception: event.error ?? new Error(event.message) });
-  });
-  window.addEventListener("unhandledrejection", (event) => {
-    const reason = event.reason instanceof Error ? event.reason : new Error(String(event.reason));
-    appInsights.trackException({ exception: reason });
-  });
+  // attaches. Guarded by a flag on `window` itself, not just this module's
+  // `initialized` — `window` outlives a single module instance (e.g. Vite HMR
+  // re-evaluating this file), so a module-scoped guard alone would let a second
+  // pair of listeners attach and double-report every subsequent error.
+  if (!window.__appInsightsGlobalErrorHandlersInstalled) {
+    window.addEventListener("error", (event) => {
+      appInsights.trackException({ exception: event.error ?? new Error(event.message) });
+    });
+    window.addEventListener("unhandledrejection", (event) => {
+      const reason = event.reason instanceof Error ? event.reason : new Error(String(event.reason));
+      appInsights.trackException({ exception: reason });
+    });
+    window.__appInsightsGlobalErrorHandlersInstalled = true;
+  }
   initialized = true;
   return appInsights;
 }

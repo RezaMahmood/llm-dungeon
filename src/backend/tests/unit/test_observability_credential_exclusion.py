@@ -1,6 +1,11 @@
 """FR-006 / SC-004 / contract §1: no captured span or log-record attribute may ever
 equal or contain, as a substring, a bearer token or other credential value from the
 triggering request — on a success path or a failure path.
+
+Only `AuthService.validate_token` is mocked (the network/JWT-verification
+boundary) — `middleware.extract_bearer_token`/`authenticate_with_email` run for
+real, so the fixture token genuinely flows through the header-parsing code this
+requirement is actually about, rather than being mocked away before it does.
 """
 
 from __future__ import annotations
@@ -32,7 +37,7 @@ def test_credential_excluded_on_success_path(otel_exporters, request_factory):
     req = request_factory(method="POST", url="/api/auth/login", token=FIXTURE_TOKEN)
 
     with patch(
-        "backend.api.auth.login.authenticate_with_email",
+        "backend.services.auth_service.AuthService.validate_token",
         return_value=(True, "test-oid", "player@example.com", None),
     ), patch("backend.api.auth.login.AccountProvisioningService") as service_cls:
         service_cls.return_value.authorize_sign_in.return_value = (
@@ -49,7 +54,10 @@ def test_credential_excluded_on_failure_path(otel_exporters, request_factory):
     span_exporter, log_exporter = otel_exporters
     req = request_factory(method="POST", url="/api/auth/login", token=FIXTURE_TOKEN)
 
-    with patch("backend.api.auth.login.authenticate_with_email", side_effect=RuntimeError("boom")):
+    with patch(
+        "backend.services.auth_service.AuthService.validate_token",
+        side_effect=RuntimeError("boom"),
+    ):
         response = auth_login(req)
 
     assert response.status_code == 500

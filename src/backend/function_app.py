@@ -53,8 +53,11 @@ def _guarded(handler):
         # Insights JS SDK sends one on every dependency call) parents this span
         # under the caller's trace instead of starting a new, uncorrelated one —
         # this is what FR-005/contract §4's frontend<->backend correlation
-        # actually depends on.
-        incoming_context = extract(dict(req.headers))
+        # actually depends on. HTTP header names are case-insensitive, and the
+        # propagator's getter looks up the lowercase "traceparent" key exactly —
+        # lowercasing explicitly here means correlation doesn't depend on
+        # whichever casing a proxy or client happened to send it in.
+        incoming_context = extract({key.lower(): value for key, value in req.headers.items()})
         with tracer.start_as_current_span(
             f"{req.method} {req.url}",
             context=incoming_context,
@@ -69,7 +72,9 @@ def _guarded(handler):
                 logger.exception("Unhandled error in %s", handler.__name__)
                 span.record_exception(exc)
                 span.set_status(Status(StatusCode.ERROR, str(exc)))
-                return server_error()
+                response = server_error()
+                span.set_attribute("http.status_code", response.status_code)
+                return response
 
     return wrapper
 

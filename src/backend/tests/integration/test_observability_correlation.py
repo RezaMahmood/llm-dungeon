@@ -30,3 +30,24 @@ def test_incoming_traceparent_parents_the_backend_span(otel_exporters):
     spans = span_exporter.get_finished_spans()
     assert len(spans) == 1
     assert format(spans[0].context.trace_id, "032x") == INCOMING_TRACE_ID
+
+
+def test_incoming_traceparent_correlates_regardless_of_header_casing(otel_exporters):
+    """HTTP header names are case-insensitive; a proxy or client sending
+    `Traceparent`/`TRACEPARENT` rather than the canonical lowercase form must
+    not silently break correlation."""
+    span_exporter, _log_exporter = otel_exporters
+    req = func.HttpRequest(
+        method="GET",
+        url="/api/auth/me",
+        headers={"TraceParent": INCOMING_TRACEPARENT},
+        params={},
+        route_params={},
+        body=b"",
+    )
+
+    auth_me(req)
+
+    spans = span_exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert format(spans[0].context.trace_id, "032x") == INCOMING_TRACE_ID

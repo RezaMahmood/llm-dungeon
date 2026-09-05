@@ -25,6 +25,7 @@ def test_guarded_records_exception_and_error_status(otel_exporters, request_fact
     assert len(spans) == 1
     span = spans[0]
     assert span.status.status_code.name == "ERROR"
+    assert span.attributes["http.status_code"] == 500
 
     exception_events = [event for event in span.events if event.name == "exception"]
     assert len(exception_events) == 1
