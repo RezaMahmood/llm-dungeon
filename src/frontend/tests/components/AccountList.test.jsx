@@ -45,7 +45,7 @@ describe("AccountList", () => {
     expect(screen.getByText("Administrator")).toBeInTheDocument();
   });
 
-  it("shows bound status as Signed in / Not yet signed in", () => {
+  it("shows bound status as Signed in / Pending first sign-in", () => {
     render(
       <AccountList
         accounts={[
@@ -56,7 +56,7 @@ describe("AccountList", () => {
     );
 
     expect(screen.getByText("Signed in")).toBeInTheDocument();
-    expect(screen.getByText("Not yet signed in")).toBeInTheDocument();
+    expect(screen.getByText("Pending first sign-in")).toBeInTheDocument();
   });
 
   it("renders an empty table when there are no accounts", () => {

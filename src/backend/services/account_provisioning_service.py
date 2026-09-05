@@ -150,12 +150,12 @@ class AccountProvisioningService:
         return entry
 
     def list_all(self) -> list[ProvisionedAccountEntry]:
-        """Return every Provisioned Account Entry (FR-010)."""
+        """Return every Provisioned Account Entry, sorted alphabetically by email (FR-001, FR-010)."""
         results = self._cosmos.query(
             config.PROVISIONED_ACCOUNTS_CONTAINER,
             "SELECT * FROM c WHERE c.entityType = 'ProvisionedAccountEntry'",
         )
-        return [ProvisionedAccountEntry.from_dict(row) for row in results]
+        return sorted((ProvisionedAccountEntry.from_dict(row) for row in results), key=lambda e: e.email)
 
     def remove_account(self, email: str, requested_by_email: str, seed_admin_email: str) -> None:
         """Remove a Provisioned Account Entry and its Entra guest user (FR-012/FR-013).
