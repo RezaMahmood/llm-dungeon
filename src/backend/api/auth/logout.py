@@ -9,8 +9,8 @@ from backend.api.utils import json_response, unauthorized
 
 
 def logout(req: func.HttpRequest) -> func.HttpResponse:
-    is_valid, _user_oid, _error = authenticate(req)
+    is_valid, _user_oid, error = authenticate(req)
     if not is_valid:
-        return unauthorized()
+        return unauthorized(error)
 
     return json_response({"message": "Logged out successfully"}, status_code=200)
