@@ -28,3 +28,7 @@ hooks:
     command: speckit.branch.ensure
     description: "Ensure the active feature's branch is checked out (create it if missing) before implementation"
     optional: false
+  - extension: git-sync
+    command: speckit.git.pull
+    description: "Fast-forward the active feature branch from its remote tracking branch before implementation"
+    optional: false

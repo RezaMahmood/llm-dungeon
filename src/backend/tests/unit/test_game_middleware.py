@@ -61,3 +61,18 @@ def test_authorize_player_returns_unauthorized_without_token(request_factory):
     assert is_authorized is False
     assert user_oid is None
     assert error.status_code == 401
+
+
+def test_authorize_player_forwards_the_auth_failure_message(request_factory):
+    """#212/#217: the 401 response must carry the specific reason
+    authenticate_with_email() gave, not always the same generic default."""
+    req = request_factory(method="GET", url="/api/game/adventures", token="bad-token")
+
+    with patch(
+        "backend.api.game.middleware.authenticate_with_email",
+        return_value=(False, None, None, "Invalid or expired token"),
+    ):
+        _is_authorized, _user_oid, error = authorize_player(req)
+
+    assert error.status_code == 401
+    assert "Invalid or expired token" in error.get_body().decode()

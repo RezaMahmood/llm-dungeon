@@ -13,6 +13,7 @@ import asyncio
 import json
 import logging
 import time
+from pathlib import Path
 from typing import Any, Optional
 
 import openai
@@ -33,32 +34,18 @@ tracer = trace.get_tracer("backend.services.llm_service")
 MAX_RATE_LIMIT_ATTEMPTS = 3
 INITIAL_RETRY_DELAY_SECONDS = 2.0
 
-EXCHANGE_SYSTEM_PROMPT = """You are helping an administrator create a new story for a \
-text-adventure game aimed at young players, through a guided conversation. Read the \
-current draft state and the administrator's latest message (if any), then respond with a \
-single JSON object of exactly this shape:
+# Prompts are kept out of source as plain-text files (#228) so prompt wording can be
+# reviewed/diffed/tuned independently of application code; read once at import time
+# since Function App instances are short-lived and the files never change at runtime.
+_PROMPTS_DIR = Path(__file__).parent / "prompts"
 
-{"assistantMessage": "<your next guiding question or acknowledgment>", \
-"fieldUpdates": {"worldPrompt": "<string or omit>", "rules": "<string or omit>", \
-"name": "<string or omit>", "coverImageUrl": "<string or omit>", "tone": "<string or omit>", \
-"readingLevel": "<string or omit>", "sessionLengthMinutes": <integer or omit>, \
-"chapters": <integer or omit>}}
 
-Only include a field in fieldUpdates when the conversation actually established or changed \
-its value; omit fields you have no new information for. Focus your guiding questions on \
-setting/plot detail not yet captured in worldPrompt. Never invent characterTypes or \
-completionCriteria — those are collected through dedicated form fields, not this \
-conversation. Respond with JSON only, no surrounding prose."""
+def _load_prompt(filename: str) -> str:
+    return (_PROMPTS_DIR / filename).read_text(encoding="utf-8").removesuffix("\n")
 
-GENERATION_SYSTEM_PROMPT = """You are generating the final narrative-consistency guidance \
-for a complete story configuration in a text-adventure game for young players. Read the \
-complete draft below and respond with a single JSON object of exactly this shape:
 
-{"narrativeGuidance": "<prose guidance the game's narrator will follow to keep every \
-session consistent with this story's setting, characters, and rules>"}
-
-The guidance must be specific to the supplied worldPrompt, rules, characterTypes, and \
-completionCriteria — never generic. Respond with JSON only, no surrounding prose."""
+EXCHANGE_SYSTEM_PROMPT = _load_prompt("exchange_system_prompt.txt")
+GENERATION_SYSTEM_PROMPT = _load_prompt("generation_system_prompt.txt")
 
 
 class LLMOutputError(ValueError):
