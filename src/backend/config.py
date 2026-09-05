@@ -53,6 +53,20 @@ class Config:
         )
 
     @classmethod
+    def valid_audiences(cls) -> tuple[str, str]:
+        # The frontend requests the `api://{clientId}/access_as_user` scope
+        # (msalConfig.js) so the access token's audience is this app itself
+        # rather than Microsoft Graph. Which literal value Entra ID stamps into
+        # `aud` for that token — the bare client ID GUID, or the App ID URI
+        # (`api://{clientId}`) — depends on the app registration's
+        # accessTokenAcceptedVersion manifest setting, not on anything this
+        # repo controls. Accepting either form here means a valid token is
+        # never rejected purely because of that manifest detail (#212: every
+        # login was hitting 401 from /api/auth/me because only the bare GUID
+        # was accepted).
+        return (cls.AZURE_APP_ID, f"api://{cls.AZURE_APP_ID}")
+
+    @classmethod
     def jwks_uri(cls) -> str:
         # /common/ rather than the org-specific tenant: signing keys for both
         # organizational and personal-account (consumers) v2.0 tokens are

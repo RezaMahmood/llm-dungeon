@@ -55,6 +55,13 @@ def test_me_expired_token_returns_401(request_factory):
         response = me(req)
 
     assert response.status_code == 401
+    # #212: the endpoint previously always returned the generic "No valid
+    # authentication token provided" message regardless of *why* validation
+    # failed, discarding middleware's already-generic (non-account-revealing)
+    # distinction between "missing" and "present but invalid" — collapsing
+    # a genuine token-validation failure and a missing-token request into an
+    # identical response, which made diagnosing #212 in production impossible.
+    assert "Invalid or expired token" in response.get_body().decode()
 
 
 def test_me_unprovisioned_returns_403(request_factory):
