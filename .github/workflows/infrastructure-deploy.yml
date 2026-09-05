@@ -69,6 +69,9 @@ jobs:
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           AZURE_APP_ID: ${{ vars.AZURE_APP_ID }}
           AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+        # Remediation-only bypass: this preflight skips the post-deploy
+        # AZURE_APP_ID assertion so plan/apply can repair drift. The full
+        # assertion still runs in infrastructure-tests.yml.
         run: pytest infrastructure/tests/ -v -k "not test_function_app_app_id_matches_login_app_registration"
 
   plan:

@@ -455,6 +455,15 @@ function testInfrastructureDeploy() {
         "not test_function_app_app_id_matches_login_app_registration"
       )
   );
+  const terraformPlanStep = !!planJob
+    ? stepsOf(planJob).find((step) => step.name === "Terraform Plan")
+    : null;
+  check(
+    "infrastructure-deploy.yml's Terraform Plan step wires TF_VAR_azure_app_id from vars.AZURE_APP_ID",
+    !!terraformPlanStep &&
+      terraformPlanStep.env &&
+      terraformPlanStep.env.TF_VAR_azure_app_id === "${{ vars.AZURE_APP_ID }}"
+  );
   check(
     "infrastructure-deploy.yml's 'plan' job runs terraform plan",
     !!planJob && stepRunContains(stepsOf(planJob), "terraform plan")
