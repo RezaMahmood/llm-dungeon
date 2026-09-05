@@ -14,9 +14,9 @@ def authorize_admin(
     account_provisioning_service: AccountProvisioningService | None = None,
 ) -> tuple[bool, str | None, func.HttpResponse | None]:
     """Returns (is_authorized, user_oid, error_response_or_None)."""
-    is_valid, user_oid, email, _error = authenticate_with_email(req)
+    is_valid, user_oid, email, error = authenticate_with_email(req)
     if not is_valid:
-        return False, None, unauthorized()
+        return False, None, unauthorized(error)
 
     service = account_provisioning_service or AccountProvisioningService()
     is_authorized, entry = service.authorize_sign_in(email, user_oid)

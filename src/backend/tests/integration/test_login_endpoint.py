@@ -74,6 +74,7 @@ def test_login_expired_token_returns_401(request_factory):
         response = login(req)
 
     assert response.status_code == 401
+    assert "Invalid or expired token" in response.get_body().decode()
 
 
 # --- Scenario 1: seed administrator bootstraps and binds (User Story 1) ---
