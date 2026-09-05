@@ -30,6 +30,26 @@ pull request or resolve/close a GitHub issue directly against GitHub itself
   off to GitHub Copilot rather than resolved end-to-end by Claude pushing
   directly to GitHub.
 
+### Responding to GitHub Copilot review comments
+
+When the user hands Claude a link to a GitHub Copilot code review (or an
+individual Copilot review comment) on one of Claude's PRs, and Claude then
+fixes the underlying issue and pushes the fix:
+
+- Reply on that specific review comment thread (not just the PR generally)
+  summarizing the fix and the commit it landed in, e.g.
+  `gh api repos/{owner}/{repo}/pulls/{pr}/comments -f body="..." -f in_reply_to={comment_id}`.
+- Mark the thread resolved via the GraphQL `resolveReviewThread` mutation
+  (look up the thread id with a `reviewThreads` query first if only the
+  comment id/URL is known), e.g.
+  `gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "..."}) { thread { isResolved } } }'`.
+- Resolving a Copilot review thread this way is addressing feedback on an
+  open PR, not "resolving/closing a GitHub issue" or merging — the
+  restrictions above on merging and closing issues still apply.
+- If a Copilot comment is out of scope, already handled elsewhere, or a
+  fix isn't warranted, reply explaining why instead of silently resolving
+  it, and leave the thread open for the user to decide.
+
 ## PR title format
 
 This repo merges exclusively by squash, so the PR title — not any
