@@ -24,7 +24,18 @@ name: Infrastructure Deploy
 # re-planning.
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      bypass_appid_drift_check:
+        description: >-
+          Remediation-only: skip the post-deploy assertion that the live
+          AZURE_APP_ID app setting matches the login app registration.
+          Needed to break the deadlock where pre-existing drift makes that
+          check fail before plan/apply can run to correct it (#212). Leave
+          false for normal runs so the check keeps gating every deploy;
+          only set true for the one run that fixes the drift.
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -69,7 +80,12 @@ jobs:
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           AZURE_APP_ID: ${{ vars.AZURE_APP_ID }}
           AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
-        run: pytest infrastructure/tests/ -v
+        # bypass_appid_drift_check defaults to false, so this runs the full
+        # suite (including the AZURE_APP_ID drift assertion) on every normal
+        # deploy. Only a run explicitly opted into the remediation bypass
+        # skips that one test — see the workflow_dispatch input above.
+        run: |
+          pytest infrastructure/tests/ -v ${{ inputs.bypass_appid_drift_check && '-k "not test_function_app_app_id_matches_login_app_registration"' || '' }}
 
   plan:
     needs: validate-and-test
