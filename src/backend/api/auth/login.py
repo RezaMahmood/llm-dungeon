@@ -19,7 +19,6 @@ def login(
 ) -> func.HttpResponse:
     is_valid, user_oid, email, error = authenticate_with_email(req)
     if not is_valid:
-        logger.info("Authentication failed: %s", error)
         return unauthorized(error)
 
     service = account_provisioning_service or AccountProvisioningService()

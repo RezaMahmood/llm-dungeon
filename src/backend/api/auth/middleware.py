@@ -59,6 +59,7 @@ def _validate(
     service = auth_service or AuthService()
     token = extract_bearer_token(req)
     if not token:
+        logger.info("Rejected request: no bearer token provided")
         return False, None, None, "No valid authentication token provided"
 
     is_valid, user_oid, email, error = service.validate_token(token)
