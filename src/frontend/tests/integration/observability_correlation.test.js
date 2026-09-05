@@ -31,8 +31,9 @@ describe("observability: frontend->backend trace correlation (FR-005)", () => {
     const { initializeAppInsights } = await import("../../src/observability/appInsights.js");
     initializeAppInsights();
 
+    // No extra wait needed: axios.get only resolves once the server has already
+    // received the request and responded, so receivedTraceparent is set by now.
     await axios.get(`http://127.0.0.1:${port}/ping`);
-    await new Promise((resolve) => setTimeout(resolve, 200));
 
     await new Promise((resolve) => server.close(resolve));
 

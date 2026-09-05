@@ -1,6 +1,7 @@
 """Azure Functions app entry point — registers HTTP routes for auth, admin, and game APIs."""
 
 import logging
+from urllib.parse import urlparse
 
 import azure.functions as func
 from opentelemetry import trace
@@ -58,11 +59,17 @@ def _guarded(handler):
         # lowercasing explicitly here means correlation doesn't depend on
         # whichever casing a proxy or client happened to send it in.
         incoming_context = extract({key.lower(): value for key, value in req.headers.items()})
+        # req.url is the full incoming URL (scheme/host and, for a real Azure
+        # Functions request, potentially a querystring) — using it unparsed
+        # would make http.route unstable/high-cardinality and could leak
+        # querystring content into telemetry. Only the path is a route-shaped,
+        # queryable identifier.
+        path = urlparse(req.url).path
         with tracer.start_as_current_span(
-            f"{req.method} {req.url}",
+            f"{req.method} {path}",
             context=incoming_context,
             kind=SpanKind.SERVER,
-            attributes={"http.method": req.method, "http.route": req.url},
+            attributes={"http.method": req.method, "http.route": path},
         ) as span:
             try:
                 response = handler(req)
@@ -70,8 +77,13 @@ def _guarded(handler):
                 return response
             except Exception as exc:  # noqa: BLE001 - convert unexpected errors to a generic 500
                 logger.exception("Unhandled error in %s", handler.__name__)
+                # No description here (e.g. str(exc)) — record_exception below
+                # already captures the exception's message/stacktrace in the
+                # canonical exception event; a second, less-audited copy on the
+                # span status isn't needed and is one more place a sensitive
+                # exception message could end up (FR-006/Principle X).
                 span.record_exception(exc)
-                span.set_status(Status(StatusCode.ERROR, str(exc)))
+                span.set_status(Status(StatusCode.ERROR))
                 response = server_error()
                 span.set_attribute("http.status_code", response.status_code)
                 return response

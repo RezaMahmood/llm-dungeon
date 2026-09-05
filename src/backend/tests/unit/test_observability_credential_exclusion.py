@@ -21,6 +21,7 @@ def _assert_token_never_captured(span_exporter, log_exporter, token: str) -> Non
     for span in span_exporter.get_finished_spans():
         for value in span.attributes.values():
             assert token not in str(value)
+        assert token not in str(span.status.description or "")
         for event in span.events:
             for value in event.attributes.values():
                 assert token not in str(value)
