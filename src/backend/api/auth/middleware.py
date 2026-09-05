@@ -13,7 +13,14 @@ logger = logging.getLogger("auth_middleware")
 
 
 def extract_bearer_token(req: func.HttpRequest) -> Optional[str]:
-    header = req.headers.get("Authorization", "")
+    # Static Web Apps overwrites the standard `Authorization` header itself
+    # when proxying a request to a linked ("bring your own") Function App
+    # backend — whatever value the client (this app's own MSAL login) sets
+    # never reaches the function (Azure/static-web-apps#158, #275, #34), which
+    # made every request look unauthenticated (#212). A custom header name
+    # isn't touched by that proxying, so the frontend sends the token there
+    # instead (see src/frontend/src/services/authService.js et al.).
+    header = req.headers.get("X-Msal-Authorization", "")
     if not header.startswith("Bearer "):
         return None
     return header[len("Bearer "):].strip()
