@@ -1,6 +1,6 @@
 name: Backend Deploy
 
-# CD: workflow_dispatch only, version input, no approval gate
+# CD: workflow_dispatch (and workflow_call), version input, no approval gate
 # (specs/023-cicd-pipeline-optimization, FR-010/FR-011/FR-011b). Deploy is
 # always a distinct, explicitly-triggered action — never a side effect of
 # a push or merge to `main`. Backend deploys execute directly once
@@ -12,15 +12,30 @@ name: Backend Deploy
 # call (`uses: ./.github/workflows/_build-backend.yml`) to be the entire
 # content of its job — see contracts/workflow-interfaces.md for the
 # conceptual 3-stage contract this graph implements.
+#
+# Also callable via workflow_call (full-build-deploy.yml), with the same
+# `version` semantics, so the combined workflow reuses this exact job graph
+# instead of duplicating it.
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Exact backend-v<version> to deploy. Leave blank to deploy the latest available version at execution time."
+        description: "Bare version number to deploy, e.g. 1.2.3 (not the backend-v<version> tag). Leave blank to deploy the latest available version at execution time."
         required: false
         type: string
         default: ""
+  workflow_call:
+    inputs:
+      version:
+        description: "Bare version number to deploy, e.g. 1.2.3 (not the backend-v<version> tag). Leave blank to deploy the latest available version at execution time."
+        required: false
+        type: string
+        default: ""
+    outputs:
+      version:
+        description: "The backend version that was deployed."
+        value: ${{ jobs.ensure-artifact.outputs.version }}
 
 permissions:
   # contents: write (not read) — the build-on-demand job below calls
