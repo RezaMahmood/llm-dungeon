@@ -1,10 +1,11 @@
 """Azure Functions app entry point — registers HTTP routes for auth, admin, and game APIs."""
 
 import logging
-import os
 
 import azure.functions as func
-from azure.monitor.opentelemetry import configure_azure_monitor
+from opentelemetry import trace
+from opentelemetry.propagate import extract
+from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from backend.api.admin.accounts import add_account, list_accounts, remove_account
 from backend.api.admin.stories import (
@@ -25,20 +26,16 @@ from backend.api.game.adventures import get_adventure, list_adventures
 from backend.api.game.start import start
 from backend.api.utils import server_error
 from backend.config import config
+from backend.observability.setup import setup_observability
 from backend.services.account_provisioning_service import AccountProvisioningService
 
 logger = logging.getLogger("function_app")
+tracer = trace.get_tracer("backend.function_app")
 
 # Principle VI (Observability & AI Cost Transparency, NON-NEGOTIABLE) — one-call
 # OpenTelemetry -> Application Insights wiring, initialized once at startup so
 # every later span (e.g. llm_service.py's gen_ai.* spans) is exported.
-# APPLICATIONINSIGHTS_CONNECTION_STRING is supplied as an Azure Functions
-# application setting by 007-azure-infrastructure-provisioning, same as
-# config.py's Azure AD / Cosmos settings — not present locally, where this
-# step is skipped (configure_azure_monitor() raises rather than no-opping
-# if it's absent).
-if os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING"):
-    configure_azure_monitor()
+setup_observability()
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
@@ -48,11 +45,31 @@ if config.SEED_ADMIN_EMAIL:
 
 def _guarded(handler):
     def wrapper(req: func.HttpRequest) -> func.HttpResponse:
-        try:
-            return handler(req)
-        except Exception:  # noqa: BLE001 - convert unexpected errors to a generic 500
-            logger.exception("Unhandled error in %s", handler.__name__)
-            return server_error()
+        # Every route's request span is created here, rather than relied on from
+        # auto-instrumentation, so FR-001/FR-002's span/exception guarantees hold
+        # the same way whether the request arrives through the real Azure
+        # Functions host or a test calls this wrapper directly (FR-002, contract §1).
+        # Extracting the incoming W3C `traceparent` (the frontend's Application
+        # Insights JS SDK sends one on every dependency call) parents this span
+        # under the caller's trace instead of starting a new, uncorrelated one —
+        # this is what FR-005/contract §4's frontend<->backend correlation
+        # actually depends on.
+        incoming_context = extract(dict(req.headers))
+        with tracer.start_as_current_span(
+            f"{req.method} {req.url}",
+            context=incoming_context,
+            kind=SpanKind.SERVER,
+            attributes={"http.method": req.method, "http.route": req.url},
+        ) as span:
+            try:
+                response = handler(req)
+                span.set_attribute("http.status_code", response.status_code)
+                return response
+            except Exception as exc:  # noqa: BLE001 - convert unexpected errors to a generic 500
+                logger.exception("Unhandled error in %s", handler.__name__)
+                span.record_exception(exc)
+                span.set_status(Status(StatusCode.ERROR, str(exc)))
+                return server_error()
 
     return wrapper
 
