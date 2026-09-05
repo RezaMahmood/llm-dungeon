@@ -174,6 +174,27 @@ def test_list_accounts_returns_every_entry_with_email_and_roles(request_factory)
     ]
 
 
+def test_list_accounts_preserves_alphabetical_order_from_service(request_factory):
+    req = request_factory(method="GET", url="/api/manage/accounts", token="valid-token")
+    service = MagicMock()
+    service.list_all.return_value = [
+        ProvisionedAccountEntry(email="admin@example.com", roles=["Administrator"], objectId="oid-1"),
+        ProvisionedAccountEntry(email="mid@example.com", roles=["Player"]),
+        ProvisionedAccountEntry(email="zed@example.com", roles=["Player"]),
+    ]
+
+    authorize_patch, email_patch = _patched_authorize_admin()
+    with authorize_patch, email_patch:
+        response = list_accounts(req, account_provisioning_service=service)
+
+    body = json.loads(response.get_body())
+    assert [account["email"] for account in body["accounts"]] == [
+        "admin@example.com",
+        "mid@example.com",
+        "zed@example.com",
+    ]
+
+
 def test_list_accounts_marks_the_seed_administrator_entry(request_factory, monkeypatch):
     monkeypatch.setattr("backend.api.admin.accounts.config.SEED_ADMIN_EMAIL", "admin@example.com")
     req = request_factory(method="GET", url="/api/manage/accounts", token="valid-token")

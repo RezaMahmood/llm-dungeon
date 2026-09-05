@@ -14,6 +14,7 @@ this page is a short map, not a restatement.
   `main.tf` (Storage, Cosmos DB, AI Foundry, Functions, Static Web App),
   `network.tf` (VNet, subnets, private endpoints, Private DNS Zones),
   `monitoring.tf` (Log Analytics, Application Insights, budget alert),
+  `dashboard.tf` (Portal Dashboard + cost estimate Workbook),
   `identity.tf` (Functions Managed Identity role assignments).
 - `.github/workflows/` — `terraform-validate.yml` (PR checks + drift-detecting
   plan), `infrastructure-deploy.yml` (CD: manually triggered only, no
@@ -51,6 +52,21 @@ Functions reaches Storage, Cosmos DB, and AI Foundry exclusively over private
 endpoints, authenticated via its own system-assigned Managed Identity — no
 keys, connection strings, or stored credentials anywhere in this
 configuration (Constitution Principle VII).
+
+## Observability & Cost Dashboard
+
+`dashboard.tf` (see
+[`024-azure-monitoring-dashboard`](../specs/024-azure-monitoring-dashboard/spec.md))
+defines a version-controlled Azure Portal Dashboard surfacing failures,
+performance, a top-N slow/failing dependency summary, and user statistics —
+all read live from the existing Application Insights / Log Analytics
+resources above — plus a pinned Azure Monitor Workbook showing a single
+aggregate estimated cost for the `llm-dungeon` Resource Group. It deploys
+through the same `terraform-validate.yml` / `infrastructure-deploy.yml`
+pipeline as every other resource here — no new pipeline. It is opened via
+Azure Portal → the `llm-dungeon` Resource Group, by anyone already holding a
+Reader, Monitoring Reader, Contributor, or Owner Azure RBAC role on that
+group — no new access-list resource (FR-011, research.md §5).
 
 ## First-time setup and validation
 

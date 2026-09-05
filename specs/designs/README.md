@@ -47,7 +47,10 @@ One `.nav` bar, same markup on every signed-in surface.
 - **People (05):** roles are Player and/or Administrator — an account may hold both, so the
   role field is checkboxes, not a segmented control, and at least one must be selected. Accounts are Microsoft identities —
   no password field anywhere. Removal is one account at a time, always behind the confirm
-  dialog (`.confirm.show`); there is no bulk selection by design.
+  dialog (`.confirm.show`); there is no bulk selection by design. The list is sorted alphabetically
+  by email, and an account that has never completed sign-in shows a status of "Pending first
+  sign-in" (sign-off recorded in `014-account-listing`'s tasks.md T001; not depicted in this
+  static mockup).
 - **Suggested actions** on 03 are required, not decorative — a player who cannot spell must
   still be able to progress.
 - No inline classes were invented beyond three utilities in each page's `<style>`

@@ -164,6 +164,16 @@ output "budget_name" {
   description = "Name of the Resource Group budget/cost alert"
 }
 
+output "dashboard_id" {
+  value       = azurerm_portal_dashboard.dashboard.id
+  description = "Azure Portal Dashboard resource ID"
+}
+
+output "dashboard_name" {
+  value       = azurerm_portal_dashboard.dashboard.name
+  description = "Azure Portal Dashboard resource name"
+}
+
 output "github_environment_variables" {
   value = {
     RESOURCE_GROUP_NAME          = data.azurerm_resource_group.rg.name
