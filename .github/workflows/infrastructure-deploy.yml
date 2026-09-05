@@ -22,6 +22,11 @@ name: Infrastructure Deploy
 # drifted since that plan was generated, `terraform apply <saved-plan>`
 # fails outright with a native stale-plan error instead of silently
 # re-planning.
+#
+# Also callable via workflow_call (full-build-deploy.yml) so that combined
+# workflow reuses this exact job graph instead of duplicating it — the
+# `apply` job's environment: production-infra approval gate still applies
+# unchanged when invoked that way.
 
 on:
   workflow_dispatch:
@@ -35,6 +40,16 @@ on:
           false for normal runs so the check keeps gating every deploy;
           only set true for the one run that fixes the drift.
         type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      bypass_appid_drift_check:
+        description: >-
+          Remediation-only: skip the post-deploy assertion that the live
+          AZURE_APP_ID app setting matches the login app registration. See
+          the workflow_dispatch input above; leave false for normal runs.
+        type: boolean
+        required: false
         default: false
 
 permissions:

@@ -12,6 +12,10 @@ name: Frontend Deploy
 # call (`uses: ./.github/workflows/_build-frontend.yml`) to be the entire
 # content of its job — see contracts/workflow-interfaces.md for the
 # conceptual 3-stage contract this graph implements.
+#
+# Also callable via workflow_call (full-build-deploy.yml), with the same
+# `version` semantics, so the combined workflow reuses this exact job graph
+# instead of duplicating it.
 
 on:
   workflow_dispatch:
@@ -21,6 +25,17 @@ on:
         required: false
         type: string
         default: ""
+  workflow_call:
+    inputs:
+      version:
+        description: "Exact frontend-v<version> to deploy. Leave blank to deploy the latest available version at execution time."
+        required: false
+        type: string
+        default: ""
+    outputs:
+      version:
+        description: "The frontend version that was deployed."
+        value: ${{ jobs.ensure-artifact.outputs.version }}
 
 permissions:
   # contents: write (not read) — the build-on-demand job below calls
