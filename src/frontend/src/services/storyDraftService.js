@@ -5,7 +5,7 @@ const client = axios.create({
 });
 
 function authHeaders(token) {
-  return { headers: { "X-MSAL-Authorization": `Bearer ${token}` } };
+  return { headers: { "X-Custom-Authorization": `Bearer ${token}` } };
 }
 
 export async function createDraft(token, idea) {
