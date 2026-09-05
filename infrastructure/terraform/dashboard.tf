@@ -249,7 +249,7 @@ locals {
         settings = {
           content = {
             settings = {
-              content  = "[Open Application Insights -> Transaction search](https://portal.azure.com/#resource${azurerm_application_insights.appinsights.id}/overview) for full trace details behind the dependency summary above."
+              content  = "[Open Application Insights](https://portal.azure.com/#resource${azurerm_application_insights.appinsights.id}/overview) - from there, open **Transaction search** in the left-hand blade list for full trace details behind the dependency summary above."
               title    = ""
               subtitle = ""
             }
