@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".specify/scripts/bash/check-worktree-sync.sh",
+            "command": "$CLAUDE_PROJECT_DIR/.specify/scripts/bash/check-worktree-sync.sh",
             "statusMessage": "Checking worktree sync..."
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".specify/scripts/bash/trim-noisy-bash-output.sh",
+            "command": "$CLAUDE_PROJECT_DIR/.specify/scripts/bash/trim-noisy-bash-output.sh",
             "statusMessage": "Trimming noisy test/build output..."
           }
         ]
