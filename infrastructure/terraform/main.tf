@@ -129,6 +129,28 @@ resource "azurerm_cosmosdb_sql_container" "story_drafts" {
   default_ttl           = -1
 }
 
+resource "azurerm_cosmosdb_sql_container" "play_sessions" {
+  # 008-core-gameplay, data-model.md Storage Model: one document per player-per-
+  # playthrough, holding the full turn history plus completion-tracking state.
+  name                  = "playSessions"
+  resource_group_name   = data.azurerm_resource_group.rg.name
+  account_name          = azurerm_cosmosdb_account.cosmos.name
+  database_name         = azurerm_cosmosdb_sql_database.db.name
+  partition_key_paths   = ["/id"]
+  partition_key_version = 2
+}
+
+resource "azurerm_cosmosdb_sql_container" "player_content_safety_standings" {
+  # 008-core-gameplay, research.md Decision 9: a small, cross-session per-player
+  # record of flagged-submission count and any resulting 1-hour lockout.
+  name                  = "playerContentSafetyStandings"
+  resource_group_name   = data.azurerm_resource_group.rg.name
+  account_name          = azurerm_cosmosdb_account.cosmos.name
+  database_name         = azurerm_cosmosdb_sql_database.db.name
+  partition_key_paths   = ["/id"]
+  partition_key_version = 2
+}
+
 resource "azurerm_cosmosdb_sql_container" "provisioned_account_entries" {
   # Replaces allowListEntries + capabilityAssignments (003-account-provisioning-done):
   # both were keyed by user_oid; this single container is keyed by lowercased
@@ -231,15 +253,17 @@ resource "azurerm_function_app_flex_consumption" "functions" {
   }
 
   app_settings = {
-    COSMOS_ENDPOINT              = azurerm_cosmosdb_account.cosmos.endpoint
-    COSMOS_DATABASE              = azurerm_cosmosdb_sql_database.db.name
-    COSMOS_CONTAINER             = azurerm_cosmosdb_sql_container.stories.name
-    STORY_DRAFTS_CONTAINER       = azurerm_cosmosdb_sql_container.story_drafts.name
-    STORIES_CONTAINER            = azurerm_cosmosdb_sql_container.stories.name
-    STORAGE_ACCOUNT_URL          = azurerm_storage_account.app_storage.primary_blob_endpoint
-    STORAGE_CONTAINER            = azurerm_storage_container.assets.name
-    AZURE_OPENAI_ENDPOINT        = azurerm_cognitive_account.openai.endpoint
-    AZURE_OPENAI_DEPLOYMENT_NAME = azurerm_cognitive_deployment.model.name
+    COSMOS_ENDPOINT                           = azurerm_cosmosdb_account.cosmos.endpoint
+    COSMOS_DATABASE                           = azurerm_cosmosdb_sql_database.db.name
+    COSMOS_CONTAINER                          = azurerm_cosmosdb_sql_container.stories.name
+    STORY_DRAFTS_CONTAINER                    = azurerm_cosmosdb_sql_container.story_drafts.name
+    STORIES_CONTAINER                         = azurerm_cosmosdb_sql_container.stories.name
+    PLAY_SESSIONS_CONTAINER                   = azurerm_cosmosdb_sql_container.play_sessions.name
+    PLAYER_CONTENT_SAFETY_STANDINGS_CONTAINER = azurerm_cosmosdb_sql_container.player_content_safety_standings.name
+    STORAGE_ACCOUNT_URL                       = azurerm_storage_account.app_storage.primary_blob_endpoint
+    STORAGE_CONTAINER                         = azurerm_storage_container.assets.name
+    AZURE_OPENAI_ENDPOINT                     = azurerm_cognitive_account.openai.endpoint
+    AZURE_OPENAI_DEPLOYMENT_NAME              = azurerm_cognitive_deployment.model.name
     # 004-story-creation-done's llm_service.py reads AZURE_AI_FOUNDRY_ENDPOINT
     # + AZURE_AI_FOUNDRY_DEPLOYMENT_NAME to configure its OpenAIChatCompletionClient.
     # These intentionally mirror the AZURE_OPENAI_* values above (same cognitive account),

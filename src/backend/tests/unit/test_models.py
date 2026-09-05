@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import pytest
 
+from backend.models.play_session import PlayerInteraction, PlaySession
+from backend.models.player_content_safety_standing import PlayerContentSafetyStanding
 from backend.models.provisioned_account_entry import ProvisionedAccountEntry
 from backend.models.story import CharacterType, CompletionCriteria, Story
 from backend.models.story_draft import StoryCreationExchange, StoryDraft
@@ -226,3 +228,85 @@ def test_story_draft_round_trips_through_dict():
 def test_story_creation_exchange_rejects_invalid_role():
     with pytest.raises(ValueError):
         StoryCreationExchange(role="narrator", message="hello")
+
+
+# --- PlayerInteraction / PlaySession (008-core-gameplay) ---
+
+
+def _opening_turn() -> PlayerInteraction:
+    return PlayerInteraction(
+        turnNumber=0,
+        narrativeText="The lighthouse door creaks open.",
+        suggestedActions=["look around", "step inside"],
+        locationLabel="Lighthouse entrance",
+        timestamp="2026-09-05T00:00:00Z",
+    )
+
+
+def test_player_interaction_round_trips_through_dict():
+    turn = PlayerInteraction(
+        turnNumber=1,
+        playerInput="look around",
+        narrativeText="A spiral of stairs climbs into the dark.",
+        suggestedActions=["climb the stairs", "call out"],
+        locationLabel="Lighthouse base",
+        goalLabel="Find the keeper",
+        progress={"current": 1, "total": 5},
+        timestamp="2026-09-05T00:01:00Z",
+    )
+    restored = PlayerInteraction.from_dict(turn.to_dict())
+    assert restored == turn
+
+
+def test_play_session_defaults_is_active_for_player_true():
+    session = PlaySession(
+        id="session-1",
+        adventureId="story-1",
+        playerId="oid-1",
+        characterName="Wren",
+        characterType="Detective",
+        startedAt="2026-09-05T00:00:00Z",
+        lastInteractionAt="2026-09-05T00:00:00Z",
+        turns=[_opening_turn()],
+    )
+    assert session.isActiveForPlayer is True
+    assert session.status == "active"
+    assert session.summary is None
+    assert session.summarizedThroughTurn == 0
+
+
+def test_play_session_round_trips_through_dict():
+    session = PlaySession(
+        id="session-1",
+        adventureId="story-1",
+        playerId="oid-1",
+        characterName="Wren",
+        characterType="Detective",
+        startedAt="2026-09-05T00:00:00Z",
+        lastInteractionAt="2026-09-05T00:05:00Z",
+        turns=[_opening_turn()],
+        satisfiedSuccessConditions=[0],
+        completionReason={"type": "success", "detail": "Found the ninth door"},
+        status="concluded",
+        endedAt="2026-09-05T00:10:00Z",
+        summary="A brief recap.",
+        summarizedThroughTurn=20,
+        isActiveForPlayer=False,
+    )
+    restored = PlaySession.from_dict(session.to_dict())
+    assert restored == session
+
+
+# --- PlayerContentSafetyStanding (008-core-gameplay) ---
+
+
+def test_player_content_safety_standing_defaults():
+    standing = PlayerContentSafetyStanding(id="oid-1")
+    assert standing.flaggedCount == 0
+    assert standing.lockoutUntil is None
+
+
+def test_player_content_safety_standing_round_trips_through_dict():
+    standing = PlayerContentSafetyStanding(id="oid-1", flaggedCount=3, lockoutUntil="2026-09-05T01:00:00Z")
+    restored = PlayerContentSafetyStanding.from_dict(standing.to_dict())
+    assert restored == standing

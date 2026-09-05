@@ -89,7 +89,11 @@ request/response contracts.
 | `/api/manage/stories/drafts/{draftId}/messages` | POST | Administrator role |
 | `/api/manage/stories` | GET | Administrator role |
 | `/api/manage/stories/{storyId}` | GET | Administrator role |
-| `/api/game/start` | POST | Player role |
+| `/api/game/adventures` | GET | Player role |
+| `/api/game/adventures/{adventureId}` | GET | Player role |
+| `/api/game/sessions` | POST | Player role |
+| `/api/game/sessions/{sessionId}/interactions` | POST | Player role |
+| `/api/game/sessions/{sessionId}/resume` | POST | Player role |
 
 `manage/*`, not `admin/*`: Azure Functions reserves any function route starting
 with the literal segment `admin` for its own internal management API,

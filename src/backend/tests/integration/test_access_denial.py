@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 from backend.api.admin.stories import list_stories
 from backend.api.auth.me import me
-from backend.api.game.start import start
+from backend.api.game.sessions import resume_session
 
 USER_OID = "550e8400-e29b-41d4-a716-446655440000"
 EMAIL = "user@example.com"
@@ -40,14 +40,19 @@ def test_admin_endpoint_returns_403_without_administrator_role(request_factory):
 
 
 def test_game_endpoint_returns_403_without_player_role(request_factory):
-    req = request_factory(method="POST", url="/api/game/start", token="valid-token")
+    req = request_factory(
+        method="POST",
+        url="/api/game/sessions/session-1/resume",
+        token="valid-token",
+        route_params={"sessionId": "session-1"},
+    )
     entry = MagicMock()
     entry.roles = ["Administrator"]
     account_provisioning_service = MagicMock()
     account_provisioning_service.authorize_sign_in.return_value = (True, entry)
 
     with patch("backend.api.game.middleware.authenticate_with_email", return_value=(True, USER_OID, EMAIL, None)):
-        response = start(req, account_provisioning_service=account_provisioning_service)
+        response = resume_session(req, account_provisioning_service=account_provisioning_service)
 
     assert response.status_code == 403
 
