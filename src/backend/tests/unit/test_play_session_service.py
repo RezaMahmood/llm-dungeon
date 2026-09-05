@@ -4,6 +4,7 @@ mocked in-memory, matching this repo's other unit tests."""
 from __future__ import annotations
 
 import datetime
+import json
 import uuid
 from unittest.mock import MagicMock
 
@@ -14,7 +15,7 @@ from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosReso
 from backend.config import config
 from backend.models.play_session import PlayerInteraction, PlaySession
 from backend.models.story import CharacterType, CompletionCriteria, Story
-from backend.services.llm_service import LLMContentFilteredError
+from backend.services.llm_service import LLMContentFilteredError, LLMRateLimitError, LLMService
 from backend.services.play_session_service import (
     AdventureNotFoundError,
     AlreadyActiveError,
@@ -23,6 +24,7 @@ from backend.services.play_session_service import (
     InteractionInProgressError,
     InvalidInputError,
     InvalidSetupError,
+    NarrativeUnavailableError,
     PlaySessionService,
     RateLimitedError,
     SessionConcludedError,
@@ -455,9 +457,9 @@ def test_submit_interaction_summarizes_every_20_turns_and_uses_summary_afterward
     # prior context comes from summary + only turns after summarizedThroughTurn.
     _clear_rate_limit(cosmos, updated.id)
     service.submit_interaction(updated.id, PLAYER_ID, "act again")
-    # LLMService itself (test_llm_service.py) is what filters turns by
-    # summarizedThroughTurn when building the prompt; here we only need the session
-    # handed to it to carry the summary and the advanced summarizedThroughTurn.
+    # NOTE: this assertion is deliberately weak and is tracked as a defect in #245 —
+    # strengthening it to assert which turns actually reach the prompt is what surfaces
+    # the summarization off-by-one in #240. Both are out of scope for this change.
     call_session_arg = llm.generate_gameplay_turn.call_args_list[-1].args[1]
     assert call_session_arg.summary == "Condensed summary."
     assert call_session_arg.summarizedThroughTurn == 20
@@ -623,6 +625,99 @@ def test_opening_turn_never_evaluates_completion_conditions():
 
     assert session.status == "active"
     assert session.satisfiedSuccessConditions == []
+
+
+def test_failed_llm_call_releases_the_interaction_claim(monkeypatch):
+    """A transient LLM failure must not leave the exclusivity claim set — otherwise every
+    later interaction is rejected with 409 forever and the session is unplayable."""
+    story = _story()
+    service, cosmos, llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+    llm.generate_gameplay_turn.side_effect = LLMRateLimitError("rate limited")
+
+    with pytest.raises(NarrativeUnavailableError):
+        service.submit_interaction(session.id, PLAYER_ID, "look around")
+
+    stored = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items[session.id]
+    assert stored["interactionInProgress"] is False
+
+    # ...and the session still accepts the player's next attempt.
+    llm.generate_gameplay_turn.side_effect = None
+    llm.generate_gameplay_turn.return_value = _turn_data("You look around.")
+    _clear_rate_limit(cosmos, session.id)
+    updated, _reason = service.submit_interaction(session.id, PLAYER_ID, "look around")
+    assert updated.turns[-1].narrativeText == "You look around."
+
+
+def test_unexpected_error_also_releases_the_interaction_claim():
+    """Any failure after the claim — not just the ones we anticipate — must release it."""
+    story = _story()
+    service, cosmos, llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+    llm.generate_gameplay_turn.side_effect = RuntimeError("boom")
+
+    with pytest.raises(RuntimeError):
+        service.submit_interaction(session.id, PLAYER_ID, "look around")
+
+    stored = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items[session.id]
+    assert stored["interactionInProgress"] is False
+
+
+def test_summarization_failure_still_persists_the_generated_turn():
+    """A failing summarization call must not discard the turn the player just earned."""
+    story = _story()
+    service, cosmos, llm, _safety = _make_service(story, llm_turn_data=_turn_data("Turn narrative"))
+    turns = [
+        PlayerInteraction(
+            turnNumber=i, playerInput="go", narrativeText=f"Turn {i}", suggestedActions=["a"], locationLabel="x", timestamp=_now()
+        )
+        for i in range(0, 19)
+    ]
+    session = _existing_session(cosmos, story, turns=turns)
+    llm.summarize_session_history.side_effect = LLMRateLimitError("rate limited")
+
+    updated, _reason = service.submit_interaction(session.id, PLAYER_ID, "act")
+
+    assert len(updated.turns) == 20
+    assert updated.turns[-1].narrativeText == "Turn narrative"
+    assert updated.summary is None
+    stored = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items[session.id]
+    assert len(stored["turns"]) == 20
+    assert stored["interactionInProgress"] is False
+
+
+def test_content_filtered_input_is_not_persisted_verbatim():
+    """FR-004: flagged content must not be stored on the session document."""
+    story = _story()
+    service, cosmos, llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+    llm.generate_gameplay_turn.side_effect = LLMContentFilteredError("blocked")
+
+    service.submit_interaction(session.id, PLAYER_ID, "DISALLOWED-CONTENT-XYZ")
+
+    stored = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items[session.id]
+    assert "DISALLOWED-CONTENT-XYZ" not in json.dumps(stored)
+
+
+def test_content_filtered_input_is_not_replayed_into_later_prompts():
+    """A flagged submission must not poison the session: replaying it would re-trip the
+    filter on every later turn and drive an unearned 3-strike lockout (FR-013)."""
+    story = _story()
+    service, cosmos, llm, safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+    llm.generate_gameplay_turn.side_effect = LLMContentFilteredError("blocked")
+    service.submit_interaction(session.id, PLAYER_ID, "DISALLOWED-CONTENT-XYZ")
+
+    llm.generate_gameplay_turn.side_effect = None
+    llm.generate_gameplay_turn.return_value = _turn_data("A normal turn.")
+    _clear_rate_limit(cosmos, session.id)
+    service.submit_interaction(session.id, PLAYER_ID, "a perfectly innocent action")
+
+    prompt_session = llm.generate_gameplay_turn.call_args.args[1]
+    context = LLMService(client=MagicMock())._prior_context(prompt_session)  # noqa: SLF001
+    assert "DISALLOWED-CONTENT-XYZ" not in context
+    # The innocent turn was generated normally, so no further strike was recorded.
+    assert safety.get_standing(PLAYER_ID).flaggedCount == 1
 
 
 def test_bare_player_assertion_does_not_satisfy_condition_without_llm_reporting_it():

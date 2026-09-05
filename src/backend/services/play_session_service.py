@@ -30,6 +30,11 @@ MAX_CHARACTER_NAME_LENGTH = 50
 MIN_INTERACTION_INTERVAL_SECONDS = 2
 SUMMARIZE_EVERY_N_TURNS = 20
 
+# A content-filtered submission is never stored verbatim. `turns[].playerInput` is replayed
+# into the prompt for every later turn, so keeping the flagged text would re-trip the filter
+# on each one and walk the player into a lockout they didn't earn (FR-004, FR-013).
+REDACTED_PLAYER_INPUT = "[removed by content safety]"
+
 FIELD_MESSAGES = {
     "characterName_required": "Character name is required.",
     "characterName_too_long": f"Character name must be {MAX_CHARACTER_NAME_LENGTH} characters or fewer.",
@@ -214,8 +219,19 @@ class PlaySessionService:
             )
         except CosmosAccessConditionFailedError as exc:
             raise InteractionInProgressError() from exc
-        etag = claimed["_etag"]
 
+        try:
+            return self._generate_and_persist_turn(session, player_id, trimmed_input, claimed["_etag"])
+        except Exception:
+            # Only the turn's own write clears `interactionInProgress`, so any failure
+            # between the claim above and that write would leave the session rejecting
+            # every later interaction with 409 for good.
+            self._release_claim(session.id)
+            raise
+
+    def _generate_and_persist_turn(
+        self, session: PlaySession, player_id: str, trimmed_input: str, etag: str
+    ) -> tuple[PlaySession, Optional[dict]]:
         story = self._stories.get_story(session.adventureId)
         now = _now()
         completion_reason: Optional[dict[str, Any]] = None
@@ -239,7 +255,7 @@ class PlaySessionService:
             except LLMContentFilteredError:
                 standing = self._safety.record_flag(player_id)
                 turn_data = self._deflection_turn_data(session, standing)
-                turn = self._turn_from_llm_data(len(session.turns), trimmed_input, turn_data, now)
+                turn = self._turn_from_llm_data(len(session.turns), REDACTED_PLAYER_INPUT, turn_data, now)
             except (LLMOutputError, LLMRateLimitError) as exc:
                 raise NarrativeUnavailableError() from exc
 
@@ -250,15 +266,43 @@ class PlaySessionService:
             session.completionReason = completion_reason
             session.endedAt = now
 
-        if len(session.turns) % SUMMARIZE_EVERY_N_TURNS == 0 and len(session.turns) > session.summarizedThroughTurn:
-            session.summary = self._llm.summarize_session_history(story, session)
-            session.summarizedThroughTurn = len(session.turns)
+        self._summarize_if_due(story, session)
 
         session.interactionInProgress = False
         self._container().replace_item(
             item=session.id, body=session.to_dict(), etag=etag, match_condition=MatchConditions.IfNotModified
         )
         return session, completion_reason
+
+    def _summarize_if_due(self, story, session: PlaySession) -> None:
+        """Fold the turns since the last summary into a fresh one every
+        SUMMARIZE_EVERY_N_TURNS turns (FR-014)."""
+        if len(session.turns) % SUMMARIZE_EVERY_N_TURNS != 0 or len(session.turns) <= session.summarizedThroughTurn:
+            return
+        try:
+            summary = self._llm.summarize_session_history(story, session)
+        except (LLMOutputError, LLMRateLimitError):
+            # Summarizing only bounds future context; it is not part of the turn the
+            # player just earned, so a failure must not cost them that turn. The next
+            # summarization picks up everything still unsummarized.
+            logger.warning("Summarization failed for session %s; keeping the full history", session.id)
+            return
+        session.summary = summary
+        session.summarizedThroughTurn = len(session.turns)
+
+    def _release_claim(self, session_id: str) -> None:
+        """Best-effort release of a claimed interaction after a failed turn, so one
+        transient failure doesn't make the session permanently unplayable."""
+        try:
+            item = self._read_item(session_id)
+            if item is None:
+                return
+            item["interactionInProgress"] = False
+            self._container().replace_item(
+                item=session_id, body=item, etag=item["_etag"], match_condition=MatchConditions.IfNotModified
+            )
+        except Exception:  # noqa: BLE001 - must never mask the failure that brought us here
+            logger.exception("Could not release the interaction claim on session %s", session_id)
 
     # --- Resume (T057, FR-015) ---
 
