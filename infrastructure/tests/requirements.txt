@@ -9,3 +9,4 @@ azure-mgmt-storage
 azure-mgmt-cosmosdb
 azure-mgmt-cognitiveservices
 azure-mgmt-network
+azure-mgmt-resource

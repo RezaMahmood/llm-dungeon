@@ -45,9 +45,9 @@ under `infrastructure/`:
 **Purpose**: Establish the new Terraform file and naming so later phases only
 add to an already-valid, already-`fmt`-clean resource.
 
-- [ ] T001 Add `dashboard_name = "${local.name_prefix}dash${local.name_suffix}"` to the `locals` block in `infrastructure/terraform/locals.tf`, following the existing naming convention documented at the top of that file (data-model.md's Dashboard Definition entity).
-- [ ] T002 Create `infrastructure/terraform/dashboard.tf` with a header comment (matching `monitoring.tf`'s style) referencing data-model.md's Dashboard Definition and Resource Group Cost Estimate entities, and a placeholder `azurerm_portal_dashboard` resource block (`name = local.dashboard_name`, `resource_group_name`/`location` from `data.azurerm_resource_group.rg`, `tags = local.common_tags`) with an empty `dashboard_properties` JSON (`{"lenses":{}}`) so the file is syntactically valid before panels are added.
-- [ ] T003 Run `terraform fmt` and `terraform validate` in `infrastructure/terraform/` to confirm the new file is syntactically valid before building out `dashboard_properties`.
+- [X] T001 Add `dashboard_name = "${local.name_prefix}dash${local.name_suffix}"` to the `locals` block in `infrastructure/terraform/locals.tf`, following the existing naming convention documented at the top of that file (data-model.md's Dashboard Definition entity).
+- [X] T002 Create `infrastructure/terraform/dashboard.tf` with a header comment (matching `monitoring.tf`'s style) referencing data-model.md's Dashboard Definition and Resource Group Cost Estimate entities, and a placeholder `azurerm_portal_dashboard` resource block (`name = local.dashboard_name`, `resource_group_name`/`location` from `data.azurerm_resource_group.rg`, `tags = local.common_tags`) with an empty `dashboard_properties` JSON (`{"lenses":{}}`) so the file is syntactically valid before panels are added.
+- [X] T003 Run `terraform fmt` and `terraform validate` in `infrastructure/terraform/` to confirm the new file is syntactically valid before building out `dashboard_properties`.
 
 **Checkpoint**: `dashboard.tf` exists, named correctly, and validates — ready for the JSON body to be built out phase by phase.
 
@@ -59,10 +59,10 @@ add to an already-valid, already-`fmt`-clean resource.
 
 **⚠️ CRITICAL**: All user story phases append `parts` entries into the `lenses.0.parts` map this phase creates — this must be correct first.
 
-- [ ] T004 In `infrastructure/terraform/dashboard.tf`, replace the placeholder `dashboard_properties` with the real `jsonencode({ lenses = { "0" = { order = 0, parts = {} } } })` skeleton (contract: dashboard-contract.md's "`dashboard_properties` shape"), using a Terraform local (e.g. `local.dashboard_parts`) merged in so each later phase adds to that map rather than editing one giant literal.
-- [ ] T005 In `infrastructure/terraform/dashboard.tf`, add the dashboard's top-level `metadata.model.timeRange` and auto-refresh-interval settings (5 minutes) to the `dashboard_properties` document per FR-012 and contracts/dashboard-contract.md's "Auto-refresh" clause, scoped so it applies to the Failure/Performance/User-Statistics parts added in Phases 3-5.
-- [ ] T006 Add `output "dashboard_id"` (value `azurerm_portal_dashboard.dashboard.id`) and `output "dashboard_name"` (value `azurerm_portal_dashboard.dashboard.name`) to `infrastructure/terraform/outputs.tf`, following the existing output style, for use by the post-apply test in Phase 6.
-- [ ] T007 Run `terraform fmt` and `terraform validate` in `infrastructure/terraform/` to confirm the skeleton `dashboard_properties` document is well-formed.
+- [X] T004 In `infrastructure/terraform/dashboard.tf`, replace the placeholder `dashboard_properties` with the real `jsonencode({ lenses = { "0" = { order = 0, parts = {} } } })` skeleton (contract: dashboard-contract.md's "`dashboard_properties` shape"), using a Terraform local (e.g. `local.dashboard_parts`) merged in so each later phase adds to that map rather than editing one giant literal.
+- [X] T005 In `infrastructure/terraform/dashboard.tf`, add the dashboard's top-level `metadata.model.timeRange` and auto-refresh-interval settings (5 minutes) to the `dashboard_properties` document per FR-012 and contracts/dashboard-contract.md's "Auto-refresh" clause, scoped so it applies to the Failure/Performance/User-Statistics parts added in Phases 3-5.
+- [X] T006 Add `output "dashboard_id"` (value `azurerm_portal_dashboard.dashboard.id`) and `output "dashboard_name"` (value `azurerm_portal_dashboard.dashboard.name`) to `infrastructure/terraform/outputs.tf`, following the existing output style, for use by the post-apply test in Phase 6.
+- [X] T007 Run `terraform fmt` and `terraform validate` in `infrastructure/terraform/` to confirm the skeleton `dashboard_properties` document is well-formed.
 
 **Checkpoint**: Foundation ready — every user story phase below only needs to add entries into `local.dashboard_parts`.
 
@@ -76,9 +76,9 @@ add to an already-valid, already-`fmt`-clean resource.
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] In `infrastructure/terraform/dashboard.tf`, add a `MonitorChartPart` entry to `local.dashboard_parts` for the `requests/failed` metric on `azurerm_application_insights.appinsights` (contracts/dashboard-contract.md's Panel query contract table), with a `metadata.settings.content.options.chart.title` naming the panel and its time window (FR-010, default last 24h).
-- [ ] T009 [US1] In `infrastructure/terraform/dashboard.tf`, add a `MonitorChartPart` entry for the `exceptions/count` metric on the same Application Insights resource, with title/window metadata per FR-010.
-- [ ] T010 [US1] Run `terraform fmt` and `terraform validate` in `infrastructure/terraform/`, then `terraform plan` to confirm only the expected `azurerm_portal_dashboard.dashboard` change appears.
+- [X] T008 [US1] In `infrastructure/terraform/dashboard.tf`, add a `MonitorChartPart` entry to `local.dashboard_parts` for the `requests/failed` metric on `azurerm_application_insights.appinsights` (contracts/dashboard-contract.md's Panel query contract table), with a `metadata.settings.content.options.chart.title` naming the panel and its time window (FR-010, default last 24h).
+- [X] T009 [US1] In `infrastructure/terraform/dashboard.tf`, add a `MonitorChartPart` entry for the `exceptions/count` metric on the same Application Insights resource, with title/window metadata per FR-010.
+- [X] T010 [US1] Run `terraform fmt` and `terraform validate` in `infrastructure/terraform/`, then `terraform plan` to confirm only the expected `azurerm_portal_dashboard.dashboard` change appears.
 
 **Checkpoint**: User Story 1 is fully functional and independently deployable/testable — failures are visible without any other panel existing yet.
 
@@ -92,10 +92,10 @@ add to an already-valid, already-`fmt`-clean resource.
 
 ### Implementation for User Story 2
 
-- [ ] T011 [US2] In `infrastructure/terraform/dashboard.tf`, add `MonitorChartPart` entries to `local.dashboard_parts` for `requests/duration` (avg + percentiles) and `requests/count` (throughput) on `azurerm_application_insights.appinsights`, titled/windowed per FR-010.
-- [ ] T012 [US2] In `infrastructure/terraform/dashboard.tf`, add a `LogsDashboardPart` entry running a KQL query against the `dependencies` table (via `azurerm_log_analytics_workspace.logs`) that summarizes the top N slowest and failing dependencies over the panel's window (`summarize ... | top N by duration desc`, plus a failure-rate variant), rendered as a table, per data-model.md's Trace/Dependency Record entity and contracts/dashboard-contract.md's query-shape contract.
-- [ ] T013 [US2] In the same `LogsDashboardPart` from T012, add the "open in Application Insights" link/markdown pointing at the App Insights resource's Transaction Search blade, satisfying FR-004's "link to the corresponding Application Insights trace details" requirement.
-- [ ] T014 [US2] Run `terraform fmt` and `terraform validate` in `infrastructure/terraform/`, then `terraform plan` to confirm the expected incremental change to `azurerm_portal_dashboard.dashboard`.
+- [X] T011 [US2] In `infrastructure/terraform/dashboard.tf`, add `MonitorChartPart` entries to `local.dashboard_parts` for `requests/duration` (avg + percentiles) and `requests/count` (throughput) on `azurerm_application_insights.appinsights`, titled/windowed per FR-010.
+- [X] T012 [US2] In `infrastructure/terraform/dashboard.tf`, add a `LogsDashboardPart` entry running a KQL query against the `dependencies` table (via `azurerm_log_analytics_workspace.logs`) that summarizes the top N slowest and failing dependencies over the panel's window (`summarize ... | top N by duration desc`, plus a failure-rate variant), rendered as a table, per data-model.md's Trace/Dependency Record entity and contracts/dashboard-contract.md's query-shape contract.
+- [X] T013 [US2] In the same `LogsDashboardPart` from T012, add the "open in Application Insights" link/markdown pointing at the App Insights resource's Transaction Search blade, satisfying FR-004's "link to the corresponding Application Insights trace details" requirement.
+- [X] T014 [US2] Run `terraform fmt` and `terraform validate` in `infrastructure/terraform/`, then `terraform plan` to confirm the expected incremental change to `azurerm_portal_dashboard.dashboard`.
 
 **Checkpoint**: User Stories 1 AND 2 both work independently — failures and performance/traces are both visible.
 
@@ -109,8 +109,8 @@ add to an already-valid, already-`fmt`-clean resource.
 
 ### Implementation for User Story 3
 
-- [ ] T015 [US3] In `infrastructure/terraform/dashboard.tf`, add a `LogsDashboardPart` entry to `local.dashboard_parts` running a KQL query against `customEvents`/`pageViews` (via `azurerm_log_analytics_workspace.logs`) that summarizes distinct users/sessions bucketed over time, per data-model.md's User Statistic entity, titled/windowed per FR-010, subject to the 5-minute refresh from T005 (FR-012).
-- [ ] T016 [US3] Run `terraform fmt` and `terraform validate` in `infrastructure/terraform/`, then `terraform plan` to confirm the expected incremental change.
+- [X] T015 [US3] In `infrastructure/terraform/dashboard.tf`, add a `LogsDashboardPart` entry to `local.dashboard_parts` running a KQL query against `customEvents`/`pageViews` (via `azurerm_log_analytics_workspace.logs`) that summarizes distinct users/sessions bucketed over time, per data-model.md's User Statistic entity, titled/windowed per FR-010, subject to the 5-minute refresh from T005 (FR-012).
+- [X] T016 [US3] Run `terraform fmt` and `terraform validate` in `infrastructure/terraform/`, then `terraform plan` to confirm the expected incremental change.
 
 **Checkpoint**: User Stories 1, 2, AND 3 all work independently.
 
@@ -124,10 +124,10 @@ add to an already-valid, already-`fmt`-clean resource.
 
 ### Implementation for User Story 4
 
-- [ ] T017 [US4] In `infrastructure/terraform/dashboard.tf`, define the Azure Monitor Workbook resource (`azurerm_application_insights_workbook`, or the minimal equivalent supported by the pinned `azurerm` provider version) scoped to `data.azurerm_resource_group.rg`, named per the `local.name_prefix`/`local.name_suffix` convention, containing a Cost Management `ActualCost` query (`microsoft.costmanagement/query`) scoped to the Resource Group ID with no grouping dimension (research.md §4, data-model.md's Resource Group Cost Estimate entity).
-- [ ] T018 [US4] In the Workbook's query/markdown content from T017, include text stating the billing period the figure covers and that it is an estimate, satisfying the Edge Case in spec.md ("incomplete/delayed cost data... labeled as an estimate").
-- [ ] T019 [US4] In `infrastructure/terraform/dashboard.tf`, add a `WorkbookPinnedPart` entry to `local.dashboard_parts` referencing the Workbook from T017, per contracts/dashboard-contract.md's Panel query contract table (this part is not subject to the 5-minute refresh from T005 per research.md §4).
-- [ ] T020 [US4] Run `terraform fmt` and `terraform validate` in `infrastructure/terraform/`, then `terraform plan` to confirm the expected final incremental change (new Workbook resource + updated `azurerm_portal_dashboard.dashboard`).
+- [X] T017 [US4] In `infrastructure/terraform/dashboard.tf`, define the Azure Monitor Workbook resource (`azurerm_application_insights_workbook`, or the minimal equivalent supported by the pinned `azurerm` provider version) scoped to `data.azurerm_resource_group.rg`, named per the `local.name_prefix`/`local.name_suffix` convention, containing a Cost Management `ActualCost` query (`microsoft.costmanagement/query`) scoped to the Resource Group ID with no grouping dimension (research.md §4, data-model.md's Resource Group Cost Estimate entity).
+- [X] T018 [US4] In the Workbook's query/markdown content from T017, include text stating the billing period the figure covers and that it is an estimate, satisfying the Edge Case in spec.md ("incomplete/delayed cost data... labeled as an estimate").
+- [X] T019 [US4] In `infrastructure/terraform/dashboard.tf`, add a `WorkbookPinnedPart` entry to `local.dashboard_parts` referencing the Workbook from T017, per contracts/dashboard-contract.md's Panel query contract table (this part is not subject to the 5-minute refresh from T005 per research.md §4).
+- [X] T020 [US4] Run `terraform fmt` and `terraform validate` in `infrastructure/terraform/`, then `terraform plan` to confirm the expected final incremental change (new Workbook resource + updated `azurerm_portal_dashboard.dashboard`).
 
 **Checkpoint**: All four user stories are independently functional — the dashboard now matches spec.md's full FR-001 through FR-006 scope.
 
@@ -137,10 +137,10 @@ add to an already-valid, already-`fmt`-clean resource.
 
 **Purpose**: Automated verification, documentation, and end-to-end validation across all four stories together.
 
-- [ ] T021 [P] Add `azure-mgmt-resource` to `infrastructure/tests/requirements.txt` (needed to look up the generic `Microsoft.Portal/dashboards` resource by ID in T022, since no dedicated dashboard-specific SDK client exists).
-- [ ] T022 Create `infrastructure/tests/test_dashboard.py`, following the fixture pattern in `test_resource_creation.py`/`conftest.py`: a `resource_client` fixture (`azure.mgmt.resource.ResourceManagementClient`) and a test asserting the dashboard resource at `terraform_outputs["dashboard_id"]` exists with `name == terraform_outputs["dashboard_name"]` (plan.md's Constitution Check, Principle I).
-- [ ] T023 Add a short "Observability & Cost Dashboard" subsection to `docs/INFRASTRUCTURE.md` (near the existing Application Insights/monitoring description) documenting: the dashboard is defined in `dashboard.tf`, deploys via the existing `terraform-validate.yml`/`infrastructure-deploy.yml` pipeline (FR-008/FR-009), and is opened via Azure Portal → the `llm-dungeon` Resource Group by anyone already holding a Reader/Monitoring Reader/Contributor/Owner RBAC role on that group (FR-011, research.md §5 — no new access-list resource).
-- [ ] T024 Run the full `infrastructure/tests/test_terraform_validate.sh` suite locally to confirm `terraform fmt -check` and `terraform validate` both pass on the completed `dashboard.tf`.
+- [X] T021 [P] Add `azure-mgmt-resource` to `infrastructure/tests/requirements.txt` (needed to look up the generic `Microsoft.Portal/dashboards` resource by ID in T022, since no dedicated dashboard-specific SDK client exists).
+- [X] T022 Create `infrastructure/tests/test_dashboard.py`, following the fixture pattern in `test_resource_creation.py`/`conftest.py`: a `resource_client` fixture (`azure.mgmt.resource.ResourceManagementClient`) and a test asserting the dashboard resource at `terraform_outputs["dashboard_id"]` exists with `name == terraform_outputs["dashboard_name"]` (plan.md's Constitution Check, Principle I).
+- [X] T023 Add a short "Observability & Cost Dashboard" subsection to `docs/INFRASTRUCTURE.md` (near the existing Application Insights/monitoring description) documenting: the dashboard is defined in `dashboard.tf`, deploys via the existing `terraform-validate.yml`/`infrastructure-deploy.yml` pipeline (FR-008/FR-009), and is opened via Azure Portal → the `llm-dungeon` Resource Group by anyone already holding a Reader/Monitoring Reader/Contributor/Owner RBAC role on that group (FR-011, research.md §5 — no new access-list resource).
+- [X] T024 Run the full `infrastructure/tests/test_terraform_validate.sh` suite locally to confirm `terraform fmt -check` and `terraform validate` both pass on the completed `dashboard.tf`.
 - [ ] T025 Execute quickstart.md's Deploy steps (merge, trigger `infrastructure-deploy.yml`, approve `production-infra`) and all four "Validate (User Story N)" sections plus the "Validate (auto-refresh)" and "Validate (redeploy replaces layout)" sections end-to-end against the live `llm-dungeon` dashboard.
 
 ---
