@@ -1,28 +1,49 @@
 <!--
 Sync Impact Report
-Version change: 2.0.0 → 2.1.0
+Version change: 2.1.0 -> 2.2.0
 Modified principles:
   - XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, GitHub Copilot
-    Reviews, Human Merges (NON-NEGOTIABLE) - materially expanded, not redefined. Added an
-    explicit rule that a local AI agent MUST NOT push follow-up commits onto the branch of
-    a pull request that has already been closed or merged; such work MUST go onto a fresh
-    branch behind a new pull request. Backward-compatible: nothing previously permitted by
-    this principle is withdrawn, and the existing push/open-PR authorization, the
-    no-auto-merge and no-merge rules, the Copilot review pass, and the manual human merge
-    are all unchanged.
+    Reviews, Human Merges (NON-NEGOTIABLE) - materially expanded, not redefined. Added a
+    sync-before-work rule: before any development or spec-related work begins on a feature
+    branch - planning (plan, tasks, clarify, analyze) included, not implementation alone -
+    that branch MUST be brought up to date with `origin/main`, and a divergence MUST be
+    resolved or reported rather than worked around. Where an artifact then states that
+    code already exists, that statement MUST match the synced tree or `origin/main`, never
+    an unmerged local branch, another worktree, or a stale local `main`. Identifiers an
+    artifact proposes to create are expressly exempt - a plan is expected to name code
+    that does not exist yet - and a dependency on unmerged work MUST be named as such.
+    Backward-compatible: nothing previously permitted is withdrawn, and the existing
+    push/open-PR authorization, no-auto-merge and no-merge rules, the merged/closed-PR
+    push prohibition, the Copilot review pass, and the manual human merge are all
+    unchanged.
 Added principles: none
 Removed principles: none
 Added sections: none
 Modified sections:
-  - AI Agent / GitHub Handoff Requirements - added a bullet stating the merged/closed-PR
-    rule in operational terms (verify PR state before pushing; branch and open a new PR
-    when the prior PR is no longer open).
+  - AI Agent / GitHub Handoff Requirements - added a bullet stating the rule operationally
+    (fetch and fast-forward/merge `origin/main` before spec-related work; read existing
+    code from the synced tree or `git show origin/main:<path>`, never from another branch
+    or worktree).
+  - Development Workflow & Quality Gates - added a bullet making a claim that code already
+    exists, where it is absent from `origin/main` and not declared as a named unmerged
+    dependency, a blocking cross-artifact consistency analysis finding. Proposed
+    identifiers are explicitly not findings.
 Removed sections: none
-Source: direct user instruction (2026-09-06) - follow-up work landing silently on the
-  branch of an already-merged or closed pull request is invisible to reviewers, so every
-  new push must surface as its own reviewable pull request.
-Templates requiring follow-up: none - dependent templates read this file at runtime and
-  are not modified by this command.
+Source: direct user instruction (2026-09-06), prompted by a concrete failure during
+  010-story-test-play planning. The plan was written by reading the then-unmerged local
+  `008-core-gameplay` branch, and asserted a service method `list_saved_games()` that does
+  not exist; the real method on `origin/main` is `list_player_sessions()`. The error was
+  caught only when the artifacts were re-verified against `origin/main` after that work
+  merged. The project's existing `speckit.git.pull` hook did not prevent it: it runs only
+  on `before_implement`, fast-forwards a feature branch from its own upstream rather than
+  from the trunk, and skips silently when a branch has no upstream - which was the case
+  here. Nothing in the constitution required syncing before planning.
+Templates requiring follow-up: `.specify/extensions.yml` registers `speckit.git.pull` on
+  `before_implement` only, and `.claude/skills/speckit-git-pull/SKILL.md` fast-forwards
+  from the branch's own upstream rather than from `origin/main`. Bringing that tooling in
+  line with this rule (running before the planning commands, and syncing the trunk) is
+  tracked as issue #260, deliberately not bundled into this governance amendment. Until
+  that lands, this rule is enforced by convention rather than by tooling.
 Deferred/TODO placeholders: none.
 -->
 
@@ -259,10 +280,21 @@ dependency-update issues, and fixes) MUST still be performed via GitHub Copilot 
 the Copilot coding agent or Copilot's issue tooling in GitHub), not resolved end-to-end
 by a local AI agent pushing directly to GitHub. A local AI agent MUST NOT merge a pull
 request or resolve/close a GitHub issue itself, even where the tool has the technical
-means to do so. Every push of new work MUST be visible as its own open pull request:
-a local AI agent MUST NOT push follow-up commits onto the branch of a pull request
-that has already been merged or closed, even where that branch still exists and the
-push would technically succeed. Such work MUST go onto a fresh branch behind a new
+means to do so. Work MUST start from a synced tree: before any development or
+spec-related work begins on a feature branch — planning (plan, tasks, clarify, analyze)
+included, not implementation alone — that branch MUST be brought up to date with
+`origin/main`, and a divergence MUST be resolved or reported rather than worked around.
+Where an artifact then states that code already exists — a module path, a class or
+function name, a constant, a field, an endpoint, or a configuration value — that statement
+MUST match the synced tree or `origin/main` itself, never an unmerged local branch,
+another worktree's checkout, or a stale local `main`. Identifiers an artifact proposes to
+create are expressly exempt: a plan is expected to name files, symbols, and fields that do
+not exist yet, and MUST simply make clear which it proposes and which it claims already
+exist. A dependency on work that has not yet merged MUST be named explicitly rather than
+described as if it had already landed. Every push of new work MUST be visible as its own
+open pull request: a local AI agent MUST NOT push follow-up commits onto the branch of a
+pull request that has already been merged or closed, even where that branch still exists
+and the push would technically succeed. Such work MUST go onto a fresh branch behind a new
 pull request. Detailed rules are in the AI Agent / GitHub Handoff Requirements
 section below.
 
@@ -281,6 +313,19 @@ while still using Copilot for the GitHub-side review pass. Reusing the branch of
 already-merged or closed pull request hides the new work: the merged PR is no longer
 part of anyone's review queue, Copilot does not re-review it, and the commits reach
 the repository without ever appearing as something a human was asked to look at.
+
+Rationale for the sync-before-work rule: a local AI agent can read any branch or
+worktree the machine happens to hold, and code read from an unmerged branch looks exactly
+like code that already exists. A plan built that way asserts identifiers that are not on
+the trunk — a defect that survives review precisely because the artifact reads as
+authoritative. Syncing first is the root prevention: once the branch carries `origin/main`,
+reading the working tree *is* reading the trunk, and the failure cannot arise. The project
+already had a pull step, but only as a pre-implementation hook that fast-forwards a
+feature branch from its own upstream — it does not run before planning, does not sync with
+the trunk, and skips silently on a branch with no upstream, so it did not prevent this.
+Exempting proposed identifiers keeps the rule from blocking the ordinary business of a
+plan, which is to describe code that does not exist yet; naming an unmerged dependency
+keeps that legitimate case available without disguising it as fact.
 
 ## Security & Access Control Requirements
 
@@ -394,6 +439,16 @@ the repository without ever appearing as something a human was asked to look at.
   and automated tests, all spec-related work (intake, specify, clarify, plan, tasks,
   analyze) via this project's Spec Kit workflow, and — once that work is ready — pushing
   the branch and opening the pull request for it.
+- Before a local AI agent begins spec-related work on a branch — writing or updating
+  `plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md`, or `tasks.md`,
+  not only implementing — it MUST sync that branch with `origin/main` (e.g. `git fetch
+  origin`, then fast-forward or merge `origin/main` into the branch), and MUST report a
+  divergence it cannot fast-forward rather than forcing or working around it. Existing
+  code an artifact describes MUST then be read from that synced tree, or from
+  `origin/main` directly (e.g. `git show origin/main:<path>`) — never from a different
+  local branch or another worktree's checkout. This applies to identifiers the artifact
+  says already exist; identifiers it proposes to create are exempt, and a dependency on
+  unmerged work MUST be named as such.
 - When a local AI agent opens a pull request, it MUST label it `AI Generated` and
   `Claude` (both labels already exist in this repository), MUST NOT include a link to
   the local agent's own session/transcript in the PR description, and MUST NOT enable
@@ -451,6 +506,13 @@ the repository without ever appearing as something a human was asked to look at.
   sufficient for a feature to be considered complete and mergeable; human playtesting
   against the deployed environment happens afterward, on an ongoing basis, per
   Principle IX, and MUST NOT be used to block merge or hold a feature open.
+- Spec-related work MUST begin from a branch synced with `origin/main`, not from an
+  unmerged local branch, another worktree, or a stale local `main`, per Principle XIII.
+  A cross-artifact consistency analysis MUST treat as a blocking finding any statement
+  that code already exists — a module path, symbol, constant, field, or endpoint — where
+  that code is absent from `origin/main` and is not declared as a named, not-yet-merged
+  dependency. Identifiers the artifact proposes to create are not findings; a plan naming
+  code it intends to add is doing its job.
 - Issues, pull request descriptions/comments, and commit messages MUST NOT include PII
   (Principle X, PII & Data Protection Requirements) — reference affected records
   indirectly instead.
@@ -657,4 +719,4 @@ with the design-token, visual-rules, interaction-state, or layout/scroll require
 above as a blocking finding. No feature may ship a screen that is not traceable to a
 screen contract above or to a documented amendment extending it.
 
-**Version**: 2.1.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-06
+**Version**: 2.2.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-06
