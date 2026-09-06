@@ -14,7 +14,7 @@ from azure.core import MatchConditions
 from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosResourceNotFoundError
 
 from backend.config import config
-from backend.models.play_session import PlayerInteraction, PlaySession
+from backend.models.play_session import CheckpointMarker, PlayerInteraction, PlaySession
 from backend.models.player_content_safety_standing import PlayerContentSafetyStanding
 from backend.services.cosmos_service import CosmosService
 from backend.services.llm_service import LLMContentFilteredError, LLMOutputError, LLMRateLimitError, LLMService
@@ -116,6 +116,16 @@ class RateLimitedError(Exception):
 
 class AlreadyActiveError(Exception):
     pass
+
+
+class CheckpointUnavailableError(Exception):
+    pass
+
+
+# A checkpoint's label falls back to this when the session's latest turn carries no
+# location (research.md Decision 2) — mirrors how `_deflection_turn_data` already falls
+# back to "Unknown" for the same missing-location case.
+DEFAULT_CHECKPOINT_LABEL = "Your story"
 
 
 class PlaySessionService:
@@ -373,6 +383,112 @@ class PlaySessionService:
         )
         self._deactivate_other_active_sessions(player_id, exclude_session_id=session.id)
         return session
+
+    # --- Saved games: list, detail, checkpoints (009-save-and-continue) ---
+
+    def list_player_sessions(self, player_id: str) -> list[dict[str, Any]]:
+        """The player's own in-progress games, newest activity first (data-model.md
+        "Saved Game Summary"). Adventure names are batch-resolved by distinct
+        `adventureId` (research.md Decision 4)."""
+        rows = self._cosmos.query(
+            config.PLAY_SESSIONS_CONTAINER,
+            "SELECT * FROM c WHERE c.playerId = @playerId AND c.status = 'active'",
+            params=[{"name": "@playerId", "value": player_id}],
+        )
+        sessions = [PlaySession.from_dict(row) for row in rows]
+        sessions.sort(key=lambda s: s.lastInteractionAt, reverse=True)
+
+        names: dict[str, str] = {}
+        for session in sessions:
+            if session.adventureId not in names:
+                names[session.adventureId] = self._resolve_adventure_name(session.adventureId)
+
+        return [self._session_summary(session, names[session.adventureId]) for session in sessions]
+
+    def get_session_for_player(self, session_id: str, player_id: str) -> PlaySession:
+        """The player's own session in full, for rehydrating the play surface
+        (data-model.md "Saved Game Detail"). Concluded sessions are readable here — only
+        the list excludes them."""
+        item = self._read_item(session_id)
+        if item is None:
+            raise SessionNotFoundError()
+        session = PlaySession.from_dict(item)
+        if session.playerId != player_id:
+            raise ForbiddenError()
+        return session
+
+    def get_session_detail_for_player(self, session_id: str, player_id: str) -> dict[str, Any]:
+        """The Saved Game Detail shape (data-model.md), including every turn and
+        checkpoint — sufficient to rebuild the play surface exactly as the player left it
+        (FR-006, contracts/api.md)."""
+        session = self.get_session_for_player(session_id, player_id)
+        summary = self._session_summary(session, self._resolve_adventure_name(session.adventureId))
+        summary["characterType"] = session.characterType
+        summary["status"] = session.status
+        summary["completionReason"] = session.completionReason
+        summary["turns"] = [turn.to_dict() for turn in session.turns]
+        summary["checkpoints"] = [checkpoint.to_dict() for checkpoint in session.checkpoints]
+        return summary
+
+    def record_checkpoint(self, session_id: str, player_id: str) -> CheckpointMarker:
+        """Append a labelled, timestamped marker to the session (data-model.md
+        invariants, research.md Decisions 2, 7, 8). Never touches `turns`, `status`,
+        `summary`, or `lastInteractionAt`."""
+        for _attempt in range(2):
+            item = self._read_item(session_id)
+            if item is None:
+                raise SessionNotFoundError()
+            etag = item["_etag"]
+            session = PlaySession.from_dict(item)
+
+            if session.playerId != player_id:
+                raise ForbiddenError()
+            if session.status == "concluded":
+                raise SessionConcludedError()
+
+            latest = session.turns[-1] if session.turns else None
+            marker = CheckpointMarker(
+                label=(latest.locationLabel if latest and latest.locationLabel else DEFAULT_CHECKPOINT_LABEL),
+                turnNumber=latest.turnNumber if latest else 0,
+                createdAt=_now(),
+            )
+            session.checkpoints.append(marker)
+
+            try:
+                self._container().replace_item(
+                    item=session.id,
+                    body=session.to_dict(),
+                    etag=etag,
+                    match_condition=MatchConditions.IfNotModified,
+                )
+                return marker
+            except CosmosAccessConditionFailedError:
+                continue
+
+        raise CheckpointUnavailableError()
+
+    def _resolve_adventure_name(self, adventure_id: str) -> str:
+        """`"Adventure"` when the story can no longer be read (research.md Decision 4) —
+        a player resuming a game they already started must never lose the row over it."""
+        story = self._stories.get_story(adventure_id)
+        return story.name if story is not None else "Adventure"
+
+    @staticmethod
+    def _session_summary(session: PlaySession, adventure_name: str) -> dict[str, Any]:
+        latest = session.turns[-1] if session.turns else None
+        return {
+            "sessionId": session.id,
+            "adventureId": session.adventureId,
+            "adventureName": adventure_name,
+            "characterName": session.characterName,
+            "locationLabel": latest.locationLabel if latest else None,
+            "progress": latest.progress if latest else None,
+            "turnCount": len(session.turns),
+            "startedAt": session.startedAt,
+            "lastInteractionAt": session.lastInteractionAt,
+            "isActiveForPlayer": session.isActiveForPlayer,
+            "checkpointCount": len(session.checkpoints),
+        }
 
     # --- Helpers ---
 
