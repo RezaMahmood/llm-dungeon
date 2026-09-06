@@ -1,38 +1,48 @@
 <!--
 Sync Impact Report
-Version change: 2.1.0 → 2.2.0
+Version change: 2.1.0 -> 2.2.0
 Modified principles:
   - XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, GitHub Copilot
     Reviews, Human Merges (NON-NEGOTIABLE) - materially expanded, not redefined. Added a
-    trunk-verification rule: any claim a planning artifact makes about existing code (a
-    module path, class/function name, constant, field, endpoint, or configuration value)
-    MUST be verified against `origin/main`, never against an unmerged local branch,
-    another worktree's checkout, or a stale local `main`. A plan that deliberately depends
-    on unmerged work MUST name that dependency explicitly rather than describing it as if
-    it already existed. Backward-compatible: nothing previously permitted is withdrawn,
-    and the existing push/open-PR authorization, no-auto-merge and no-merge rules, the
-    merged/closed-PR push prohibition, the Copilot review pass, and the manual human merge
-    are all unchanged.
+    sync-before-work rule: before any development or spec-related work begins on a feature
+    branch - planning (plan, tasks, clarify, analyze) included, not implementation alone -
+    that branch MUST be brought up to date with `origin/main`, and a divergence MUST be
+    resolved or reported rather than worked around. Where an artifact then states that
+    code already exists, that statement MUST match the synced tree or `origin/main`, never
+    an unmerged local branch, another worktree, or a stale local `main`. Identifiers an
+    artifact proposes to create are expressly exempt - a plan is expected to name code
+    that does not exist yet - and a dependency on unmerged work MUST be named as such.
+    Backward-compatible: nothing previously permitted is withdrawn, and the existing
+    push/open-PR authorization, no-auto-merge and no-merge rules, the merged/closed-PR
+    push prohibition, the Copilot review pass, and the manual human merge are all
+    unchanged.
 Added principles: none
 Removed principles: none
 Added sections: none
 Modified sections:
   - AI Agent / GitHub Handoff Requirements - added a bullet stating the rule operationally
-    (fetch and read code from `origin/main`, e.g. `git show origin/main:<path>`, before
-    writing a planning artifact that references it).
-  - Development Workflow & Quality Gates - added a bullet making a reference to a symbol,
-    path, or field absent from `origin/main` - and not declared as a named unmerged
-    dependency - a blocking cross-artifact-analysis finding.
+    (fetch and fast-forward/merge `origin/main` before spec-related work; read existing
+    code from the synced tree or `git show origin/main:<path>`, never from another branch
+    or worktree).
+  - Development Workflow & Quality Gates - added a bullet making a claim that code already
+    exists, where it is absent from `origin/main` and not declared as a named unmerged
+    dependency, a blocking cross-artifact consistency analysis finding. Proposed
+    identifiers are explicitly not findings.
 Removed sections: none
 Source: direct user instruction (2026-09-06), prompted by a concrete failure during
   010-story-test-play planning. The plan was written by reading the then-unmerged local
   `008-core-gameplay` branch, and asserted a service method `list_saved_games()` that does
   not exist; the real method on `origin/main` is `list_player_sessions()`. The error was
   caught only when the artifacts were re-verified against `origin/main` after that work
-  merged. Nothing in the constitution had required trunk verification, so no gate would
-  have caught it.
-Templates requiring follow-up: none - dependent templates read this file at runtime and
-  are not modified by this command.
+  merged. The project's existing `speckit.git.pull` hook did not prevent it: it runs only
+  on `before_implement`, fast-forwards a feature branch from its own upstream rather than
+  from the trunk, and skips silently when a branch has no upstream - which was the case
+  here. Nothing in the constitution required syncing before planning.
+Templates requiring follow-up: `.specify/extensions.yml` registers `speckit.git.pull` on
+  `before_implement` only, and `.claude/skills/speckit-git-pull/SKILL.md` fast-forwards
+  from the branch's own upstream rather than from `origin/main`. Bringing that tooling in
+  line with this rule (running before the planning commands, and syncing the trunk) is a
+  follow-up change, deliberately not bundled into this governance amendment.
 Deferred/TODO placeholders: none.
 -->
 
@@ -269,17 +279,21 @@ dependency-update issues, and fixes) MUST still be performed via GitHub Copilot 
 the Copilot coding agent or Copilot's issue tooling in GitHub), not resolved end-to-end
 by a local AI agent pushing directly to GitHub. A local AI agent MUST NOT merge a pull
 request or resolve/close a GitHub issue itself, even where the tool has the technical
-means to do so. Spec-related work MUST be grounded in the remote trunk: any claim a
-planning artifact makes about existing code — a module path, a class or function name, a
-constant, a field, an endpoint, or a configuration value — MUST be verified against
-`origin/main` (or the artifact's own feature branch as it descends from `origin/main`),
-never against an unmerged local branch, another worktree's checkout, or a stale local
-`main`. Where a plan deliberately depends on work that has not yet merged, it MUST say so
-explicitly and name the dependency, rather than describing that work as if it already
-existed. Every push of new work MUST be visible as its own open pull request:
-a local AI agent MUST NOT push follow-up commits onto the branch of a pull request
-that has already been merged or closed, even where that branch still exists and the
-push would technically succeed. Such work MUST go onto a fresh branch behind a new
+means to do so. Work MUST start from a synced tree: before any development or
+spec-related work begins on a feature branch — planning (plan, tasks, clarify, analyze)
+included, not implementation alone — that branch MUST be brought up to date with
+`origin/main`, and a divergence MUST be resolved or reported rather than worked around.
+Where an artifact then states that code already exists — a module path, a class or
+function name, a constant, a field, an endpoint, or a configuration value — that statement
+MUST match the synced tree or `origin/main` itself, never an unmerged local branch,
+another worktree's checkout, or a stale local `main`. Identifiers an artifact proposes to
+create are expressly exempt: a plan is expected to name files, symbols, and fields that do
+not exist yet, and MUST simply make clear which it proposes and which it claims already
+exist. A dependency on work that has not yet merged MUST be named explicitly rather than
+described as if it had already landed. Every push of new work MUST be visible as its own
+open pull request: a local AI agent MUST NOT push follow-up commits onto the branch of a
+pull request that has already been merged or closed, even where that branch still exists
+and the push would technically succeed. Such work MUST go onto a fresh branch behind a new
 pull request. Detailed rules are in the AI Agent / GitHub Handoff Requirements
 section below.
 
@@ -299,13 +313,18 @@ already-merged or closed pull request hides the new work: the merged PR is no lo
 part of anyone's review queue, Copilot does not re-review it, and the commits reach
 the repository without ever appearing as something a human was asked to look at.
 
-Rationale for the trunk-verification rule: a local AI agent can read any branch or
+Rationale for the sync-before-work rule: a local AI agent can read any branch or
 worktree the machine happens to hold, and code read from an unmerged branch looks exactly
 like code that already exists. A plan built that way asserts identifiers that are not on
 the trunk — a defect that survives review precisely because the artifact reads as
-authoritative. Verifying against `origin/main` costs one command and makes the failure
-impossible; naming an unmerged dependency explicitly keeps the legitimate case available
-without disguising it as fact.
+authoritative. Syncing first is the root prevention: once the branch carries `origin/main`,
+reading the working tree *is* reading the trunk, and the failure cannot arise. The project
+already had a pull step, but only as a pre-implementation hook that fast-forwards a
+feature branch from its own upstream — it does not run before planning, does not sync with
+the trunk, and skips silently on a branch with no upstream, so it did not prevent this.
+Exempting proposed identifiers keeps the rule from blocking the ordinary business of a
+plan, which is to describe code that does not exist yet; naming an unmerged dependency
+keeps that legitimate case available without disguising it as fact.
 
 ## Security & Access Control Requirements
 
@@ -419,13 +438,16 @@ without disguising it as fact.
   and automated tests, all spec-related work (intake, specify, clarify, plan, tasks,
   analyze) via this project's Spec Kit workflow, and — once that work is ready — pushing
   the branch and opening the pull request for it.
-- Before a local AI agent writes a planning artifact (`plan.md`, `research.md`,
-  `data-model.md`, `contracts/`, `quickstart.md`, `tasks.md`) that references existing
-  code, it MUST fetch and read that code from `origin/main` — e.g. `git fetch origin`
-  followed by `git show origin/main:<path>` — rather than from a local branch, another
-  worktree, or an unfetched local `main`. Every module path, symbol, constant, and field
-  the artifact names MUST exist at that ref, unless the artifact explicitly identifies it
-  as coming from a named, not-yet-merged dependency.
+- Before a local AI agent begins spec-related work on a branch — writing or updating
+  `plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md`, or `tasks.md`,
+  not only implementing — it MUST sync that branch with `origin/main` (e.g. `git fetch
+  origin`, then fast-forward or merge `origin/main` into the branch), and MUST report a
+  divergence it cannot fast-forward rather than forcing or working around it. Existing
+  code an artifact describes MUST then be read from that synced tree, or from
+  `origin/main` directly (e.g. `git show origin/main:<path>`) — never from a different
+  local branch or another worktree's checkout. This applies to identifiers the artifact
+  says already exist; identifiers it proposes to create are exempt, and a dependency on
+  unmerged work MUST be named as such.
 - When a local AI agent opens a pull request, it MUST label it `AI Generated` and
   `Claude` (both labels already exist in this repository), MUST NOT include a link to
   the local agent's own session/transcript in the PR description, and MUST NOT enable
@@ -483,11 +505,13 @@ without disguising it as fact.
   sufficient for a feature to be considered complete and mergeable; human playtesting
   against the deployed environment happens afterward, on an ongoing basis, per
   Principle IX, and MUST NOT be used to block merge or hold a feature open.
-- Planning artifacts MUST be verified against `origin/main`, not against an unmerged
-  local branch or another worktree, per Principle XIII. A cross-artifact consistency
-  analysis MUST treat a reference to a symbol, path, or field that does not exist at
-  `origin/main` — and is not declared as a named unmerged dependency — as a blocking
-  finding.
+- Spec-related work MUST begin from a branch synced with `origin/main`, not from an
+  unmerged local branch, another worktree, or a stale local `main`, per Principle XIII.
+  A cross-artifact consistency analysis MUST treat as a blocking finding any statement
+  that code already exists — a module path, symbol, constant, field, or endpoint — where
+  that code is absent from `origin/main` and is not declared as a named, not-yet-merged
+  dependency. Identifiers the artifact proposes to create are not findings; a plan naming
+  code it intends to add is doing its job.
 - Issues, pull request descriptions/comments, and commit messages MUST NOT include PII
   (Principle X, PII & Data Protection Requirements) — reference affected records
   indirectly instead.
