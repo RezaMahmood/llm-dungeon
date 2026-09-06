@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -95,7 +95,13 @@ describe("Admin Story Wizard unsaved-changes warning (FR-010)", () => {
     await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
     await screen.findByText(/saved/i);
 
-    expect(removeSpy).toHaveBeenCalledWith("beforeunload", expect.any(Function));
+    // The "Saved" text landing in the DOM only means the commit happened; the
+    // effect cleanup that detaches the listener is a passive effect React
+    // flushes after that commit, so poll for it rather than asserting on the
+    // same tick.
+    await waitFor(() =>
+      expect(removeSpy).toHaveBeenCalledWith("beforeunload", expect.any(Function)),
+    );
     removeSpy.mockRestore();
   });
 });
