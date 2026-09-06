@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { useRefreshable } from "../../src/hooks/useRefreshable.js";
@@ -26,9 +26,16 @@ describe("useRefreshable", () => {
 
     await waitFor(() => expect(result.current.data).toBe("first"));
 
-    await result.current.refresh();
+    // `refresh()` is an imperative call from outside React, so its state
+    // updates have to be flushed by `act` before `result.current` is read.
+    // Waiting on `loading` here instead would be a race: it is already false
+    // from the mount fetch above, so the assertion can pass against the
+    // pre-refresh render and observe a still-null `error`.
+    await act(async () => {
+      await result.current.refresh();
+    });
 
-    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.loading).toBe(false);
     expect(result.current.data).toBe("first");
     expect(result.current.error).toBeInstanceOf(Error);
   });
@@ -49,11 +56,16 @@ describe("useRefreshable", () => {
     await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(1));
 
     // A second call while the first is still in flight must not invoke fetchFn again.
-    result.current.refresh();
+    await act(async () => {
+      result.current.refresh();
+    });
     expect(fetchFn).toHaveBeenCalledTimes(1);
 
-    resolveFetch("first-call-payload");
-    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => {
+      resolveFetch("first-call-payload");
+    });
+
+    expect(result.current.loading).toBe(false);
     expect(result.current.data).toBe("first-call-payload");
   });
 });
