@@ -10,8 +10,6 @@ function formatLastPlayed(iso) {
   return `Last played ${date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
 }
 
-const PROGRESS_SEGMENTS = 5;
-
 export function SavedGameRow({ session, ordinal, onResume }) {
   const { adventureName, characterName, locationLabel, progress, isActiveForPlayer, checkpointCount } = session;
 
@@ -60,7 +58,7 @@ export function SavedGameRow({ session, ordinal, onResume }) {
         )}
         {progress && (
           <div style={{ display: "flex", gap: "6px", marginTop: "12px" }}>
-            {Array.from({ length: PROGRESS_SEGMENTS }, (_, index) => (
+            {Array.from({ length: progress.total }, (_, index) => (
               <span
                 key={index}
                 style={{

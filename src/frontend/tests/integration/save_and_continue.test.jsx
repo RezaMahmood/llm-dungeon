@@ -37,6 +37,8 @@ vi.mock("../../src/services/gameService.js", () => ({
 }));
 
 import NavBar from "../../src/components/Layout/NavBar.jsx";
+import TitleBar from "../../src/components/Layout/TitleBar.jsx";
+import { PlayTitleProvider } from "../../src/context/PlayTitleContext.jsx";
 import GamePage from "../../src/pages/GamePage.jsx";
 
 const SAVED_GAME = {
@@ -131,6 +133,30 @@ describe("Save and continue: list -> Resume -> play (009-save-and-continue)", ()
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't resume this story/i);
     expect(getSession).not.toHaveBeenCalled();
+  });
+
+  it("shows a checkpoint-failure notice back on the stories screen after Save and exit fails", async () => {
+    resumeSession.mockResolvedValue({ status: "active", sessionId: "session-1" });
+    saveCheckpoint.mockRejectedValue(new Error("network error"));
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <PlayTitleProvider>
+          <TitleBar />
+          <GamePage />
+        </PlayTitleProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: /resume/i }));
+    await screen.findByText("You find the stairs.");
+
+    await user.click(screen.getByRole("button", { name: /pause & exit/i }));
+    await user.click(screen.getByRole("button", { name: /save and exit to my stories/i }));
+
+    expect(await screen.findByText(/couldn't record that checkpoint/i)).toBeInTheDocument();
+    // Back on the stories screen, not stuck on the play surface.
+    expect(await screen.findByRole("heading", { name: /choose an adventure/i })).toBeInTheDocument();
   });
 });
 

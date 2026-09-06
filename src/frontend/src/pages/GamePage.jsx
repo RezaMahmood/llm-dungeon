@@ -49,6 +49,7 @@ export function GamePage() {
   const [savedGamesLoading, setSavedGamesLoading] = useState(true);
   const [savedGamesError, setSavedGamesError] = useState(null);
   const [resumeError, setResumeError] = useState(null);
+  const [checkpointExitNotice, setCheckpointExitNotice] = useState(null);
 
   const getToken = useCallback(async () => {
     const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
@@ -194,7 +195,12 @@ export function GamePage() {
         storyName={session.storyName}
         initialTurns={session.initialTurns}
         getToken={getToken}
-        onExit={() => setSession(null)}
+        onExit={(checkpointFailureMessage) => {
+          // PlayPage unmounts as soon as this runs, so a failed exit-save's notice
+          // (FR-006a) has to be shown here, once we're back on the stories screen.
+          setCheckpointExitNotice(checkpointFailureMessage || null);
+          setSession(null);
+        }}
       />
     );
   }
@@ -213,6 +219,11 @@ export function GamePage() {
       {resumeError && (
         <p role="alert" style={{ fontSize: "12px", color: "var(--color-accent-700)", margin: "8px 0 32px" }}>
           {resumeError}
+        </p>
+      )}
+      {checkpointExitNotice && (
+        <p role="status" className="text-muted" style={{ fontSize: "13px", margin: "8px 0 32px" }}>
+          {checkpointExitNotice}
         </p>
       )}
 

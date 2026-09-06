@@ -199,7 +199,7 @@ describe("PlayPage (008-core-gameplay)", () => {
     expect(screen.getByLabelText(/what do you do next/i)).not.toBeDisabled();
   });
 
-  it("still exits via Save and exit to my stories when the save fails", async () => {
+  it("still exits via Save and exit to my stories when the save fails, passing a failure notice along", async () => {
     saveCheckpoint.mockRejectedValue(new Error("network error"));
     const user = userEvent.setup();
     const { onExit } = renderPlayPageWithTitleBar();
@@ -208,5 +208,17 @@ describe("PlayPage (008-core-gameplay)", () => {
     await user.click(screen.getByRole("button", { name: /save and exit to my stories/i }));
 
     await waitFor(() => expect(onExit).toHaveBeenCalledOnce());
+    expect(onExit).toHaveBeenCalledWith(expect.stringMatching(/couldn't record that checkpoint/i));
+  });
+
+  it("exits with no argument via Save and exit to my stories when the save succeeds", async () => {
+    saveCheckpoint.mockResolvedValue({ checkpoint: { label: "Lighthouse entrance", turnNumber: 0, createdAt: "now" } });
+    const user = userEvent.setup();
+    const { onExit } = renderPlayPageWithTitleBar();
+
+    await user.click(screen.getByRole("button", { name: /pause & exit/i }));
+    await user.click(screen.getByRole("button", { name: /save and exit to my stories/i }));
+
+    await waitFor(() => expect(onExit).toHaveBeenCalledWith());
   });
 });

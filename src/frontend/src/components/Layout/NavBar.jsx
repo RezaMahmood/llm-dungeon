@@ -74,10 +74,12 @@ export function NavBar() {
     try {
       const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
       await saveCheckpoint(tokenResponse.accessToken, activeSessionId);
-      instance.logoutRedirect();
     } catch {
-      setSaving(false);
       setFailureMessage("We couldn't record that checkpoint, but your progress is safe.");
+    } finally {
+      // Reset before redirecting (not just on the failure path) so the prompt can
+      // recover if logoutRedirect() doesn't actually navigate away.
+      setSaving(false);
       instance.logoutRedirect();
     }
   };

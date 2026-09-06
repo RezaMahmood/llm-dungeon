@@ -59,13 +59,15 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
   // A failed save must never block, delay, or reverse departure (FR-006a) — the
   // checkpoint call is best-effort and `onExit` always runs.
   const handleConfirmExit = useCallback(async () => {
+    // The turns themselves are already persisted; only the marker can be lost. FR-006a
+    // still requires telling the player, so a failure is passed along to `onExit` —
+    // this page unmounts immediately after, so it cannot show the notice itself.
     try {
       const token = await getToken();
       await saveCheckpoint(token, sessionId);
-    } catch {
-      // Ignored: the turns themselves are already persisted; only the marker is lost.
-    } finally {
       onExit();
+    } catch {
+      onExit("We couldn't record that checkpoint, but your progress is safe.");
     }
   }, [getToken, sessionId, onExit]);
 
