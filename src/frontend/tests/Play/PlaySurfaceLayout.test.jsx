@@ -64,7 +64,7 @@ function renderPlaySurface() {
               <PlayPage
                 sessionId="session-1"
                 storyName={STORY_NAME}
-                initialNarrative={OPENING_NARRATIVE}
+                initialTurns={[OPENING_NARRATIVE]}
                 getToken={vi.fn().mockResolvedValue("tok")}
                 onExit={onExit}
               />

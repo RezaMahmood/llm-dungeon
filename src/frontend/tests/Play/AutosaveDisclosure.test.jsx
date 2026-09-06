@@ -25,7 +25,7 @@ const renderPlayPage = () =>
     <PlayPage
       sessionId="session-1"
       storyName="The Lighthouse at Gullwing Cove"
-      initialNarrative={OPENING_NARRATIVE}
+      initialTurns={[OPENING_NARRATIVE]}
       getToken={vi.fn().mockResolvedValue("tok")}
       onExit={vi.fn()}
     />,
