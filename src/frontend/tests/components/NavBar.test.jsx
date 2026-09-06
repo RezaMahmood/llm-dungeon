@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -233,7 +233,7 @@ describe("NavBar sign-out save prompt (009-save-and-continue, FR-004, research.m
 
     await user.click(screen.getByRole("link", { name: "Sign out" }));
 
-    await vi.waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
+    await waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -246,7 +246,7 @@ describe("NavBar sign-out save prompt (009-save-and-continue, FR-004, research.m
 
     await user.click(screen.getByRole("link", { name: "Sign out" }));
 
-    await vi.waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
+    await waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
   });
 
   it("signs out directly when no returned session is active for this player", async () => {
@@ -258,7 +258,7 @@ describe("NavBar sign-out save prompt (009-save-and-continue, FR-004, research.m
 
     await user.click(screen.getByRole("link", { name: "Sign out" }));
 
-    await vi.waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
+    await waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -269,7 +269,7 @@ describe("NavBar sign-out save prompt (009-save-and-continue, FR-004, research.m
 
     await user.click(screen.getByRole("link", { name: "Sign out" }));
 
-    await vi.waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
+    await waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -286,7 +286,7 @@ describe("NavBar sign-out save prompt (009-save-and-continue, FR-004, research.m
     await user.click(screen.getByRole("button", { name: /save and sign out/i }));
 
     expect(saveCheckpoint).toHaveBeenCalledWith("tok", "s1");
-    await vi.waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
+    await waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
   });
 
   it("declining the prompt signs out with no checkpoint call", async () => {
@@ -301,7 +301,7 @@ describe("NavBar sign-out save prompt (009-save-and-continue, FR-004, research.m
     await user.click(screen.getByRole("button", { name: /sign out without saving/i }));
 
     expect(saveCheckpoint).not.toHaveBeenCalled();
-    await vi.waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
+    await waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
   });
 
   it("cancelling the prompt does neither", async () => {
@@ -333,6 +333,6 @@ describe("NavBar sign-out save prompt (009-save-and-continue, FR-004, research.m
     await user.click(screen.getByRole("button", { name: /save and sign out/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't record that checkpoint/i);
-    await vi.waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
+    await waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
   });
 });
