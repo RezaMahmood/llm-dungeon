@@ -65,5 +65,5 @@ For every backend HTTP route registered in `function_app.py`:
   listed in `data-model.md`'s Telemetry Attribute Schema section for prompt, response, token
   counts, cost, and latency, so aggregate Application Insights queries can rely on consistent
   field names across every LLM call site, present and future. No call site is added by this
-  feature — this contract line exists so 008-core-gameplay's implementer (human or AI) has a
+  feature — this contract line exists so 008-core-gameplay-done's implementer (human or AI) has a
   contract to follow rather than inventing new field names per call site.

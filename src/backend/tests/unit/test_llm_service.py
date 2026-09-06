@@ -192,7 +192,7 @@ def test_call_does_not_retry_non_rate_limit_errors():
     assert client.get_response.call_count == 1
 
 
-# --- Gameplay turn / summarization (008-core-gameplay) ---
+# --- Gameplay turn / summarization (008-core-gameplay-done) ---
 
 
 def _story() -> Story:
@@ -353,7 +353,7 @@ def test_summarize_session_history_condenses_prior_summary_and_new_turns():
 
 
 def test_generate_gameplay_turn_populates_span_attributes_like_existing_calls():
-    """008-core-gameplay Constitution Principle VI: every gameplay LLM call is traced
+    """008-core-gameplay-done Constitution Principle VI: every gameplay LLM call is traced
     identically to existing calls (prompt, response, tokens, cost, latency) — this reuses
     the same `_call` wrapper, so span attributes should match `test_call_populates_span_
     attributes_from_usage` above."""

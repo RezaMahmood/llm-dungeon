@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import InstructionInput from "../../src/components/Play/InstructionInput.jsx";
 
-describe("InstructionInput (008-core-gameplay)", () => {
+describe("InstructionInput (008-core-gameplay-done)", () => {
   it("submits trimmed free-text input", async () => {
     const onSubmit = vi.fn();
     const user = userEvent.setup();

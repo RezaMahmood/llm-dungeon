@@ -35,8 +35,8 @@ Cosmos DB (provisionedAccountEntries)
 `002-login-and-access-control` depends on infrastructure provisioned by
 `007-azure-infrastructure-provisioning` (Cosmos DB account, Function App,
 Static Web App, Managed Identity). Features that depend on
-`002-login-and-access-control` include `008-core-gameplay`,
-`005-story-publishing`, and `012-story-editing-and-review`.
+`002-login-and-access-control` include `008-core-gameplay-done`,
+`005-story-publishing-done`, and `012-story-editing-and-review`.
 
 ## CI/CD Governance & Branch Protection
 

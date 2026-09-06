@@ -14,7 +14,7 @@ the existing `StoryService`. No new "Play Session Setup" entity is persisted by 
 
 **Rationale**: The spec's "Play Session Setup" key entity (adventure + name + character type) is
 explicitly scoped as *ephemeral, pre-play state* — the spec says the resulting play session
-itself is owned by `008-core-gameplay`. Persisting a separate setup-state entity here would be
+itself is owned by `008-core-gameplay-done`. Persisting a separate setup-state entity here would be
 speculative infrastructure for a value that only needs to exist for the duration of one HTTP
 request (`POST /api/game/start`'s request body) plus whatever client-side state React holds
 between steps. Constitution Principle IV (Simplicity Over Premature Scale) rules out adding
@@ -22,7 +22,7 @@ storage ahead of a stated need.
 
 **Alternatives considered**:
 - A `PlaySessionSetup` Cosmos entity, written as the player progresses through the three steps
-  and read back by `008-core-gameplay`. Rejected: `008-core-gameplay` is a separate, not-yet-
+  and read back by `008-core-gameplay-done`. Rejected: `008-core-gameplay-done` is a separate, not-yet-
   planned spec: this feature owning the shape of a hand-off entity for it is exactly the kind
   of premature coupling Principle IV warns against. When `008` is planned, it can define
   whatever request/entity shape it needs `POST /api/game/start`'s successful response to carry.
@@ -80,7 +80,7 @@ characterType }` in the request body and validate, in order:
 
 All three must pass before returning a success response; any missing/invalid field is reported
 back identified by name (FR-005). The endpoint still does **not** create a play session — that
-remains `008-core-gameplay`'s responsibility; a 200 response here means "setup is valid," not
+remains `008-core-gameplay-done`'s responsibility; a 200 response here means "setup is valid," not
 "a session now exists."
 
 **Rationale**: Constitution Principle II requires server-side enforcement — a client-side-only
@@ -96,7 +96,7 @@ endpoint itself must be the enforcement point, not just the frontend's step-gati
   unnecessary two-call round trip for what is otherwise one atomic gate; `start` already exists
   as exactly the right seam (per the prior session's codebase research) and its current
   placeholder response ("Game start not yet implemented") already signals it's the intended
-  extension point once `008-core-gameplay` lands.
+  extension point once `008-core-gameplay-done` lands.
 
 ## Decision 5: 3-step flow lives inside the existing `/game` route, no new route
 
@@ -107,7 +107,7 @@ route is added.
 
 **Rationale**: `/game` is already the player's entry point for starting a game session
 (confirmed: `MainMenu.jsx` navigates there via `GameMenuItem`), and its current content is
-explicitly a placeholder pending exactly this kind of feature. `008-core-gameplay`'s actual play
+explicitly a placeholder pending exactly this kind of feature. `008-core-gameplay-done`'s actual play
 surface (`specs/designs/03-play.html`) will presumably also live at or under this route once
 setup is complete — introducing a separate route for setup now would need to be reconciled with
 that later anyway.

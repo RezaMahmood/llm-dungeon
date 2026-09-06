@@ -69,7 +69,7 @@ class LLMRateLimitError(RuntimeError):
 
 class LLMContentFilteredError(RuntimeError):
     """Raised when a call fails because the Foundry deployment's default content filter
-    rejected the prompt or the completion (008-core-gameplay research.md Decision 3).
+    rejected the prompt or the completion (008-core-gameplay-done research.md Decision 3).
     Callers map this to a safe in-fiction deflection narrative, never a raw error."""
 
 
@@ -161,7 +161,7 @@ class LLMService:
         player_input: Optional[str],
         concluding_reason: Optional[str] = None,
     ) -> dict[str, Any]:
-        """One turn of gameplay narrative (008-core-gameplay research.md Decision 6).
+        """One turn of gameplay narrative (008-core-gameplay-done research.md Decision 6).
         `player_input is None` is the opening-narrative call (turn 0), which skips
         requesting completion-condition matching entirely — a session cannot end before
         the player has acted. `concluding_reason` asks for an ending; it travels as a
@@ -183,7 +183,7 @@ class LLMService:
 
     def summarize_session_history(self, story: Story, session: PlaySession) -> str:
         """Condenses `session.summary` (if any) plus the turns since
-        `session.summarizedThroughTurn` into a fresh summary string (008-core-gameplay
+        `session.summarizedThroughTurn` into a fresh summary string (008-core-gameplay-done
         research.md Decision 10, FR-014). May use a different deployment than
         `generate_gameplay_turn` (spec.md Assumptions) — a distinct method/call site is
         what makes that possible."""

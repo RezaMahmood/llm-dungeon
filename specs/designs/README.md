@@ -58,7 +58,7 @@ One `.nav` bar, same markup on every signed-in surface.
   to `StoriesInProgress`/`SavedGameRow`. Resume skips the `POST .../resume` call entirely
   when the row is already the player's active game (FR-001a).
 - **Checkpoint save (03):** the header's "Save a checkpoint" button — inert in
-  `008-core-gameplay` — is wired up by `009-save-and-continue` (FR-003): it records a
+  `008-core-gameplay-done` — is wired up by `009-save-and-continue` (FR-003): it records a
   server-labelled, timestamped marker and shows a brief visible confirmation, with no new
   chrome added to this screen.
 - No inline classes were invented beyond three utilities in each page's `<style>`

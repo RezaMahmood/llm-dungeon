@@ -570,7 +570,7 @@ restyle these states locally.
 7. Player-facing surfaces MUST NOT use shaming language, artificial time pressure, or
    punitive UI patterns. This governs tone and interface pressure tactics only — it does
    not remove the game's own configured success/failure outcomes (see
-   `008-core-gameplay`), which remain a legitimate, narratively-framed part of gameplay.
+   `008-core-gameplay-done`), which remain a legitimate, narratively-framed part of gameplay.
 
 ### Layout and scroll contract
 
@@ -605,7 +605,7 @@ that govern its behavior (see `specs/designs/README.md`).
   six-step, administrator-facing flow whose steps (name & cover, world & setting, tone
   & reading level, session length, test play, publish & assign) are reachable in any
   order; the adventure's core premise and its content-safety configuration are required
-  fields. A story MUST NOT be publishable (see `005-story-publishing`) until it has
+  fields. A story MUST NOT be publishable (see `005-story-publishing-done`) until it has
   completed a test play.
 - **Administrator — people** (`specs/designs/05-admin-users.html`) — add a new Player or
   Administrator by email; existing accounts are listed with their role(s), and removed

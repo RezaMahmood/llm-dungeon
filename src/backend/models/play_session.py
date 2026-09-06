@@ -1,6 +1,6 @@
 """PlaySession and PlayerInteraction — one player's individual playthrough of a published
 Story, persisted so it survives across the independent HTTP requests that make up a play
-session (008-core-gameplay data-model.md)."""
+session (008-core-gameplay-done data-model.md)."""
 
 from __future__ import annotations
 

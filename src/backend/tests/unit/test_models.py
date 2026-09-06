@@ -230,7 +230,7 @@ def test_story_creation_exchange_rejects_invalid_role():
         StoryCreationExchange(role="narrator", message="hello")
 
 
-# --- PlayerInteraction / PlaySession (008-core-gameplay) ---
+# --- PlayerInteraction / PlaySession (008-core-gameplay-done) ---
 
 
 def _opening_turn() -> PlayerInteraction:
@@ -297,7 +297,7 @@ def test_play_session_round_trips_through_dict():
     assert restored == session
 
 
-# --- PlayerContentSafetyStanding (008-core-gameplay) ---
+# --- PlayerContentSafetyStanding (008-core-gameplay-done) ---
 
 
 def test_player_content_safety_standing_defaults():

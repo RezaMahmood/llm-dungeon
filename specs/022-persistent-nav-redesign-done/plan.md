@@ -27,7 +27,7 @@ returning `id`/`name`/`published`/`createdAt`). No backend change is required �
 is a frontend-only addition following the same fetch-on-mount pattern
 `AdminAccountsPage.jsx` already uses via `accountService.js` (a parallel
 `storyService.js` is added for stories). Building the real story-authoring/publishing
-workflow behind that list remains `005-story-publishing`'s scope; this feature only
+workflow behind that list remains `005-story-publishing-done`'s scope; this feature only
 lists existing stories read-only.
 
 **Cross-feature note (read before implementing)**: this feature is a hard, in-repo
@@ -87,7 +87,7 @@ this is a rendering/styling change with no new network calls
   fetching, mutation, and validation logic must not change.
 - FR-013's stories list is read-only (list name + status) — no create/edit/delete
   action is added to `/admin`; publishing/editing a story remains
-  `005-story-publishing`/`012-story-editing-and-review`'s scope.
+  `005-story-publishing-done`/`012-story-editing-and-review`'s scope.
 - **Open design gap requiring resolution before/alongside `/speckit-tasks`**: the
   actual current mockups (`specs/designs/02-story-select.html`, `04-admin-wizard.html`,
   `05-admin-users.html`) contain the shared `.nav` bar with **no Refresh control** in
@@ -105,16 +105,16 @@ below). Two of the routes this feature restyles a *header* for — `/menu` (mapp
 loosely to the "hub" role `02-story-select.html` plays in the mockups) and `/game` —
 are themselves still functional placeholders (`MainMenu.jsx` has no real
 in-progress/published story list yet; `GamePage.jsx` renders "Game features
-loading…", per `019-spa-refresh-button`'s plan and `008-core-gameplay`/
+loading…", per `019-spa-refresh-button`'s plan and `008-core-gameplay-done`/
 `004-story-creation-done`'s own scope). This feature restyles what exists today (the hub
 menu, the placeholder game landing) and builds the nav/title bar correctly for when
 those screens gain real content later — it does not invent a new player-facing
-story-list UI; that remains `004-story-creation-done`'s and `008-core-gameplay`'s scope.
+story-list UI; that remains `004-story-creation-done`'s and `008-core-gameplay-done`'s scope.
 `/admin` is the one exception: per the 2026-08-30 clarification (FR-013/SC-007), this
 feature *does* build a minimal, read-only admin stories list there (name + published
 status, sourced from the already-existing `GET /api/manage/stories`), specifically so
 "Stories" is a distinct nav destination from "New story" — this is a narrowly-scoped
-addition, not the full story-authoring/publishing UI that `005-story-publishing`/
+addition, not the full story-authoring/publishing UI that `005-story-publishing-done`/
 `012-story-editing-and-review` will eventually build in its place.
 
 ## Constitution Check
@@ -349,7 +349,7 @@ src/frontend/src/
 │   │                                 #   render the minimal stories list (name + published status,
 │   │                                 #   empty state) via storyService.js's listStories (FR-013)
 │   └── GamePage.jsx                  # MODIFY: render under TitleBar instead of NavBar (FR-006);
-│                                     #   remains a content placeholder pending 008-core-gameplay
+│                                     #   remains a content placeholder pending 008-core-gameplay-done
 ├── services/
 │   └── storyService.js               # NEW: listStories(token) → GET /api/manage/stories, mirroring
 │                                     #   accountService.js's existing fetch pattern (FR-013)

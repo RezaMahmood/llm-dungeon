@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import PauseDialog from "../../src/components/Play/PauseDialog.jsx";
 
-describe("PauseDialog (008-core-gameplay, FR-016)", () => {
+describe("PauseDialog (008-core-gameplay-done, FR-016)", () => {
   it("renders where the game was saved", () => {
     render(<PauseDialog locationLabel="the keeper's stairs" onKeepPlaying={vi.fn()} onConfirmExit={vi.fn()} />);
 

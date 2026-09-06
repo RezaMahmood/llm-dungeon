@@ -57,7 +57,7 @@ While test-playing, the administrator can flag any single narrative response as 
 ### Functional Requirements
 
 - **FR-001**: System MUST allow an administrator to start an interactive test-play session against a story's current saved configuration.
-- **FR-002**: Test play MUST generate narrative responses to the administrator's test instructions using the same narrative-generation and content-safety-screening behavior as real gameplay (see `008-core-gameplay`).
+- **FR-002**: Test play MUST generate narrative responses to the administrator's test instructions using the same narrative-generation and content-safety-screening behavior as real gameplay (see `008-core-gameplay-done`).
 - **FR-003**: A test-play session MUST be visibly distinguished from a real player session, so an administrator never mistakes it for actual gameplay.
 - **FR-004**: If the story being tested has completion criteria configured, test play MUST enforce them the same way a real play session would, so the administrator can verify the story's ending behavior.
 - **FR-005**: System MUST allow an administrator to restart a test-play session, discarding its current conversation and starting a fresh one against the story's current configuration.
@@ -67,7 +67,7 @@ While test-playing, the administrator can flag any single narrative response as 
 
 ### Key Entities
 
-- **Test Play Session**: An ephemeral, administrator-only play-through of a story's current saved configuration, used to verify its behavior before publishing; distinct from a Play Session (`008-core-gameplay`), which is a real player's playthrough.
+- **Test Play Session**: An ephemeral, administrator-only play-through of a story's current saved configuration, used to verify its behavior before publishing; distinct from a Play Session (`008-core-gameplay-done`), which is a real player's playthrough.
 - **Test Play Exchange**: A single submitted test instruction and the narrative response it produces during a Test Play Session. This is the unit `017-story-publish-test-play-gate` uses to determine whether a story's publish gate is satisfied.
 - **Flagged Response**: A Test Play Exchange's response that an administrator has marked as a problem to revisit, identifiable within its Test Play Session.
 

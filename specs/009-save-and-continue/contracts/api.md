@@ -4,7 +4,7 @@
 
 Three new endpoints on the existing `game/sessions` route family. All require Entra ID auth
 + `Player` role via the existing `authorize_player` middleware — unchanged, no new
-middleware. `008-core-gameplay`'s three endpoints (`POST /api/game/sessions`,
+middleware. `008-core-gameplay-done`'s three endpoints (`POST /api/game/sessions`,
 `POST .../interactions`, `POST .../resume`) are **unchanged by this feature**, including
 `resume`'s `409 already_active` response (research.md Decision 5).
 

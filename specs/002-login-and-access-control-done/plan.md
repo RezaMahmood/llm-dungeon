@@ -292,12 +292,12 @@ specs/designs/
 
 These endpoints are defined in their respective features but are protected by the token validation middleware from this feature:
 
-**Game-Related** (require Player capability; feature 008-core-gameplay):
+**Game-Related** (require Player capability; feature 008-core-gameplay-done):
 - `POST /api/game/start`
 - `GET /api/game/stories`
 - `POST /api/game/save`
 
-**Admin-Related** (require Administrator capability; features 005-story-publishing, 012-story-editing-and-review):
+**Admin-Related** (require Administrator capability; features 005-story-publishing-done, 012-story-editing-and-review):
 - `POST /api/manage/stories/create`
 - `GET /api/manage/stories`
 - `PUT /api/manage/stories/{id}`

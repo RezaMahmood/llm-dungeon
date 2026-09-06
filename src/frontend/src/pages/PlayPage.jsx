@@ -1,5 +1,5 @@
 /**
- * The play surface (specs/designs/03-play.html, 008-core-gameplay) — wires session
+ * The play surface (specs/designs/03-play.html, 008-core-gameplay-done) — wires session
  * creation's opening narrative and each subsequent free-text/suggested-action submit
  * into the story pane, status panel, and pause-and-exit confirmation. Also renders a
  * resumed session's whole turn history and publishes the checkpoint-save handler

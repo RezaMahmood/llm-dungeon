@@ -11,7 +11,7 @@ authenticated Player (`authorize_player` — new, mirrors `authorize_admin`, see
 `forbidden_access_not_granted()` / `forbidden_insufficient_permission()` shapes as existing
 endpoints on failure (`src/backend/api/utils.py`). Response shapes follow the same
 `json_response`/`error_response` helper conventions as `004-story-creation-done` and
-`005-story-publishing`'s contracts.
+`005-story-publishing-done`'s contracts.
 
 ---
 
@@ -82,7 +82,7 @@ must never learn an unpublished adventure exists, so both cases return the ident
 **Purpose**: Validate a completed setup (adventure, character name, character type) and confirm
 the player may proceed (FR-002, FR-003, FR-004, FR-005). Supersedes the current placeholder
 body in `src/backend/api/game/start.py`. Does **not** create a play session — that remains
-`008-core-gameplay`'s responsibility (see [research.md](../research.md) Decision 4); a 200
+`008-core-gameplay-done`'s responsibility (see [research.md](../research.md) Decision 4); a 200
 response here means "this setup is valid," not "a session now exists."
 
 **Request**:

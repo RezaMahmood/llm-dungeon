@@ -74,5 +74,5 @@ steps validate against the real, deployed Application Insights instance per Prin
   existing `gen_ai.*` span attributes (`gen_ai.prompt`, `gen_ai.response`,
   `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `gen_ai.cost_usd`,
   `gen_ai.latency_ms`) still match `data-model.md`'s Telemetry Attribute Schema / contract §5
-  exactly — no new schema work was needed; this is the precedent 008-core-gameplay's future
+  exactly — no new schema work was needed; this is the precedent 008-core-gameplay-done's future
   LLM call sites should follow.

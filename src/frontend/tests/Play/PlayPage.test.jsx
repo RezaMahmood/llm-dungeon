@@ -65,7 +65,7 @@ function renderPlayPageWithTitleBar(overrides = {}) {
   return { getToken, onExit };
 }
 
-describe("PlayPage (008-core-gameplay)", () => {
+describe("PlayPage (008-core-gameplay-done)", () => {
   beforeEach(() => {
     submitInteraction.mockReset();
     resumeSession.mockReset();

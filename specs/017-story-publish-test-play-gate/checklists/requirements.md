@@ -35,8 +35,8 @@
   project-wide pass to keep each spec to at most two user stories, along with the
   no-assignment constraint on publishing that accompanied it. Content is carried over
   unchanged in substance; FR numbers were renumbered within this spec.
-- `005-story-publishing`'s cross-references to the test-play gate (Design Reference, one
+- `005-story-publishing-done`'s cross-references to the test-play gate (Design Reference, one
   Edge Case, FR-008, SC-004, and one Assumption) were updated in the same pass to point
   here instead of `010-story-test-play`.
-- Depends on `010-story-test-play` (Test Play Exchange) and `005-story-publishing` (the
+- Depends on `010-story-test-play` (Test Play Exchange) and `005-story-publishing-done` (the
   publish action this gate blocks).

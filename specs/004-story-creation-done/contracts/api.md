@@ -161,7 +161,7 @@ List entries are summaries (`id`, `name`, `published`, `createdAt`); full detail
 
 ## GET /api/manage/stories/{storyId}
 
-**Purpose**: Fetch one persisted story's full configuration (needed by the wizard to display what was generated, and by `005-story-publishing`/`012-story-editing-and-review` later).
+**Purpose**: Fetch one persisted story's full configuration (needed by the wizard to display what was generated, and by `005-story-publishing-done`/`012-story-editing-and-review` later).
 
 **Response (200 OK)**:
 ```json

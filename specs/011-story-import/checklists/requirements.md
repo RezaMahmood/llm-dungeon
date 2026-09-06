@@ -34,4 +34,4 @@
 - All items pass. Split out from `003-game-setup-and-authoring` (former US6) as its own
   domain during the spec-set reorganization.
 - Depends on `002-login-and-access-control` (administrator identity) and hands off to
-  `005-story-publishing`. Shares its validation/overwrite mechanic with `012-story-editing-and-review`'s download-and-reupload path.
+  `005-story-publishing-done`. Shares its validation/overwrite mechanic with `012-story-editing-and-review`'s download-and-reupload path.
