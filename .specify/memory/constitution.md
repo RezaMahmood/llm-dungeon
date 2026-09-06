@@ -41,8 +41,9 @@ Source: direct user instruction (2026-09-06), prompted by a concrete failure dur
 Templates requiring follow-up: `.specify/extensions.yml` registers `speckit.git.pull` on
   `before_implement` only, and `.claude/skills/speckit-git-pull/SKILL.md` fast-forwards
   from the branch's own upstream rather than from `origin/main`. Bringing that tooling in
-  line with this rule (running before the planning commands, and syncing the trunk) is a
-  follow-up change, deliberately not bundled into this governance amendment.
+  line with this rule (running before the planning commands, and syncing the trunk) is
+  tracked as issue #260, deliberately not bundled into this governance amendment. Until
+  that lands, this rule is enforced by convention rather than by tooling.
 Deferred/TODO placeholders: none.
 -->
 
