@@ -248,6 +248,19 @@ def test_list_all_returns_every_entry():
     assert {e.email for e in entries} == {EMAIL, "admin@example.com"}
 
 
+def test_list_all_sorts_entries_alphabetically_by_email():
+    service, cosmos, _container = _service_with_container()
+    cosmos.query.return_value = [
+        _entry_dict(email="zed@example.com", id="zed@example.com"),
+        _entry_dict(email="admin@example.com", id="admin@example.com"),
+        _entry_dict(email="mid@example.com", id="mid@example.com"),
+    ]
+
+    entries = service.list_all()
+
+    assert [e.email for e in entries] == ["admin@example.com", "mid@example.com", "zed@example.com"]
+
+
 # --- add_or_merge invites the account's Entra guest user (FR-011, T059) ---
 
 

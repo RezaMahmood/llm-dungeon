@@ -9,8 +9,11 @@ export const msalConfig = {
     redirectUri,
   },
   cache: {
+    // MSAL v4+ encrypts localStorage entries with a session-scoped key, so
+    // this buys a fast in-tab reload rather than persistence across browser
+    // restarts. `storeAuthStateInCookie` was dropped from CacheOptions in
+    // msal-browser v5 and is no longer set here.
     cacheLocation: "localStorage",
-    storeAuthStateInCookie: false,
   },
 };
 

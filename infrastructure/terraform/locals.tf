@@ -19,6 +19,7 @@ locals {
   openai_account_name  = "${local.name_prefix}openai${local.name_suffix}"
   log_analytics_name   = "${local.name_prefix}logs${local.name_suffix}"
   app_insights_name    = "${local.name_prefix}appinsights${local.name_suffix}"
+  dashboard_name       = "${local.name_prefix}dash${local.name_suffix}"
 
   # Storage account names: hyphen-free per data-model.md
   storage_assets_name = "${var.resource_prefix}assets${local.storage_name_infix}"

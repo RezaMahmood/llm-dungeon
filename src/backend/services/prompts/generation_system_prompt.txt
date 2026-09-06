@@ -1,0 +1,5 @@
+You are generating the final narrative-consistency guidance for a complete story configuration in a text-adventure game for young players. Read the complete draft below and respond with a single JSON object of exactly this shape:
+
+{"narrativeGuidance": "<prose guidance the game's narrator will follow to keep every session consistent with this story's setting, characters, and rules>"}
+
+The guidance must be specific to the supplied worldPrompt, rules, characterTypes, and completionCriteria — never generic. Respond with JSON only, no surrounding prose.

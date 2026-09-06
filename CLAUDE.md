@@ -15,6 +15,13 @@ pull request or resolve/close a GitHub issue directly against GitHub itself
 
 - When local work on a branch is ready, Claude MUST push it and open the
   pull request itself with `gh pr create`.
+- Before pushing to a remote branch, Claude MUST check the state of any pull
+  request already associated with it (e.g. `gh pr view <branch> --json state`).
+  Claude MUST NEVER push to the branch of a PR that has already been merged or
+  closed, even if the branch still exists and the push would succeed — that work
+  would land without anyone being asked to review it. Instead, branch off the
+  current `main` and open a new PR for it, labelled as below. Pushing to a branch
+  whose PR is still open is fine, and is the normal way to address review feedback.
 - Every PR Claude opens MUST be labelled `AI Generated` and `Claude` (both
   labels already exist in this repo), e.g.
   `gh pr create --label "AI Generated" --label "Claude" ...`.
