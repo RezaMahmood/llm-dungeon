@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import TitleBar from "../../src/components/Layout/TitleBar.jsx";
+import { PlayTitleProvider, usePublishPlayTitle } from "../../src/context/PlayTitleContext.jsx";
 
 const renderTitleBar = (props = {}) =>
   render(
@@ -23,9 +24,25 @@ const renderTitleBarWithRouting = (props = {}) =>
     </MemoryRouter>,
   );
 
+/** Publishes onSaveCheckpoint through PlayTitleContext, the way PlayPage does. */
+function Publisher({ onSaveCheckpoint }) {
+  usePublishPlayTitle({ storyTitle: "Story", onSaveCheckpoint });
+  return null;
+}
+
+const renderTitleBarWithPublishedCheckpoint = (onSaveCheckpoint) =>
+  render(
+    <MemoryRouter>
+      <PlayTitleProvider>
+        <Publisher onSaveCheckpoint={onSaveCheckpoint} />
+        <TitleBar />
+      </PlayTitleProvider>
+    </MemoryRouter>,
+  );
+
 describe("TitleBar (FR-006)", () => {
   it("renders the compact header content and no primary nav links", () => {
-    renderTitleBar({ storyTitle: "The Lighthouse at Gullwing Cove" });
+    renderTitleBar({ storyTitle: "The Lighthouse at Gullwing Cove", onSaveCheckpoint: vi.fn() });
 
     expect(screen.getByText("The Lighthouse at Gullwing Cove")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /save a checkpoint/i })).toBeInTheDocument();
@@ -83,5 +100,21 @@ describe("TitleBar (FR-006)", () => {
     await user.click(screen.getByRole("button", { name: /pause & exit/i }));
 
     expect(screen.getByText("story select")).toBeInTheDocument();
+  });
+
+  it("hides the Save a checkpoint button when nothing is published (009-save-and-continue)", () => {
+    renderTitleBar({ storyTitle: "Story" });
+
+    expect(screen.queryByRole("button", { name: /save a checkpoint/i })).not.toBeInTheDocument();
+  });
+
+  it("invokes onSaveCheckpoint published via PlayTitleContext", async () => {
+    const user = userEvent.setup();
+    const onSaveCheckpoint = vi.fn();
+    renderTitleBarWithPublishedCheckpoint(onSaveCheckpoint);
+
+    await user.click(screen.getByRole("button", { name: /save a checkpoint/i }));
+
+    expect(onSaveCheckpoint).toHaveBeenCalledOnce();
   });
 });

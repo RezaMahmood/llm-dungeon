@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from backend.models.play_session import PlayerInteraction, PlaySession
+from backend.models.play_session import CheckpointMarker, PlayerInteraction, PlaySession
 from backend.models.player_content_safety_standing import PlayerContentSafetyStanding
 from backend.models.provisioned_account_entry import ProvisionedAccountEntry
 from backend.models.story import CharacterType, CompletionCriteria, Story
@@ -310,3 +310,53 @@ def test_player_content_safety_standing_round_trips_through_dict():
     standing = PlayerContentSafetyStanding(id="oid-1", flaggedCount=3, lockoutUntil="2026-09-05T01:00:00Z")
     restored = PlayerContentSafetyStanding.from_dict(standing.to_dict())
     assert restored == standing
+
+
+# --- CheckpointMarker / PlaySession.checkpoints (009-save-and-continue) ---
+
+
+def test_checkpoint_marker_round_trips_through_dict():
+    marker = CheckpointMarker(label="The keeper's stairs", turnNumber=11, createdAt="2026-09-05T20:12:03Z")
+    restored = CheckpointMarker.from_dict(marker.to_dict())
+    assert restored == marker
+
+
+def test_play_session_round_trips_through_dict_preserving_checkpoints():
+    session = PlaySession(
+        id="session-1",
+        adventureId="story-1",
+        playerId="oid-1",
+        characterName="Wren",
+        characterType="Detective",
+        startedAt="2026-09-05T00:00:00Z",
+        lastInteractionAt="2026-09-05T00:05:00Z",
+        turns=[_opening_turn()],
+        checkpoints=[
+            CheckpointMarker(label="Entrance", turnNumber=0, createdAt="2026-09-05T00:01:00Z"),
+            CheckpointMarker(label="Entrance", turnNumber=0, createdAt="2026-09-05T00:02:00Z"),
+        ],
+    )
+    restored = PlaySession.from_dict(session.to_dict())
+    assert restored == session
+    assert len(restored.checkpoints) == 2
+
+
+def test_play_session_from_dict_with_no_checkpoints_key_loads_as_empty_list():
+    """A session document written before this feature has no `checkpoints` key at all —
+    it must still load rather than raising KeyError (data-model.md)."""
+    session = PlaySession(
+        id="session-1",
+        adventureId="story-1",
+        playerId="oid-1",
+        characterName="Wren",
+        characterType="Detective",
+        startedAt="2026-09-05T00:00:00Z",
+        lastInteractionAt="2026-09-05T00:00:00Z",
+        turns=[_opening_turn()],
+    )
+    legacy_data = session.to_dict()
+    del legacy_data["checkpoints"]
+
+    restored = PlaySession.from_dict(legacy_data)
+
+    assert restored.checkpoints == []

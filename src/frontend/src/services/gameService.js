@@ -51,4 +51,42 @@ export async function resumeSession(token, sessionId) {
   return response.data;
 }
 
-export default { listAdventures, getAdventure, createSession, submitInteraction, resumeSession };
+/** Lists the caller's own in-progress games, newest activity first
+ * (009-save-and-continue, contracts/api.md). */
+export async function listSavedGames(token) {
+  const response = await client.get("/game/sessions", {
+    headers: { "X-Custom-Authorization": `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+/** Returns one of the caller's own sessions in full, including every turn, so the play
+ * surface can be rebuilt exactly as it was left (FR-006). */
+export async function getSession(token, sessionId) {
+  const response = await client.get(`/game/sessions/${sessionId}`, {
+    headers: { "X-Custom-Authorization": `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+/** Records a labelled, timestamped checkpoint marker on the caller's session
+ * (FR-003, FR-005). The label is always generated server-side. */
+export async function saveCheckpoint(token, sessionId) {
+  const response = await client.post(
+    `/game/sessions/${sessionId}/checkpoints`,
+    {},
+    { headers: { "X-Custom-Authorization": `Bearer ${token}` } },
+  );
+  return response.data;
+}
+
+export default {
+  listAdventures,
+  getAdventure,
+  createSession,
+  submitInteraction,
+  resumeSession,
+  listSavedGames,
+  getSession,
+  saveCheckpoint,
+};

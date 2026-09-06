@@ -13,12 +13,13 @@ from azure.core import MatchConditions
 from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosResourceNotFoundError
 
 from backend.config import config
-from backend.models.play_session import PlayerInteraction, PlaySession
+from backend.models.play_session import CheckpointMarker, PlayerInteraction, PlaySession
 from backend.models.story import CharacterType, CompletionCriteria, Story
 from backend.services.llm_service import LLMContentFilteredError, LLMRateLimitError, LLMService
 from backend.services.play_session_service import (
     AdventureNotFoundError,
     AlreadyActiveError,
+    CheckpointUnavailableError,
     ContentSafetyLockoutError,
     ForbiddenError,
     InteractionInProgressError,
@@ -91,7 +92,27 @@ class FakeCosmosService:
             rows = [r for r in rows if r.get("isActiveForPlayer") is True]
         if "c.id != @excludeId" in sql:
             rows = [r for r in rows if r.get("id") != param_map.get("@excludeId")]
+        if "ARRAY_SLICE(c.turns, -1) AS latestTurn" in sql:
+            rows = [_project_saved_game_summary_row(r) for r in rows]
         return rows
+
+
+def _project_saved_game_summary_row(row: dict) -> dict:
+    """Simulates the real Cosmos SQL projection `list_player_sessions` issues
+    (`ARRAY_SLICE(c.turns, -1)`, `ARRAY_LENGTH(...)`), so tests exercise the same
+    lean-row shape production actually receives rather than a full document."""
+    turns = row.get("turns", [])
+    return {
+        "id": row["id"],
+        "adventureId": row["adventureId"],
+        "characterName": row["characterName"],
+        "startedAt": row["startedAt"],
+        "lastInteractionAt": row["lastInteractionAt"],
+        "isActiveForPlayer": row["isActiveForPlayer"],
+        "latestTurn": turns[-1:],
+        "turnCount": len(turns),
+        "checkpointCount": len(row.get("checkpoints", [])),
+    }
 
 
 def _now() -> str:
@@ -848,3 +869,267 @@ def test_bare_player_assertion_does_not_satisfy_condition_without_llm_reporting_
     assert updated.status == "active"
     assert reason is None
     assert updated.satisfiedSuccessConditions == []
+
+
+# --- list_player_sessions (009-save-and-continue, T003) ---
+
+
+def test_list_player_sessions_returns_only_this_players_active_sessions_newest_first():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    older = _existing_session(cosmos, story, lastInteractionAt=_minutes_ago(10))
+    newer = _existing_session(cosmos, story, lastInteractionAt=_minutes_ago(1))
+    _existing_session(cosmos, story, status="concluded", playerId=OTHER_PLAYER_ID)
+    other_players_session = _existing_session(cosmos, story)
+    other_players_session.playerId = OTHER_PLAYER_ID
+    cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).upsert_item(other_players_session.to_dict())
+
+    rows = service.list_player_sessions(PLAYER_ID)
+
+    assert [row["sessionId"] for row in rows] == [newer.id, older.id]
+
+
+def test_list_player_sessions_excludes_concluded_sessions():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    _existing_session(cosmos, story, status="concluded", completionReason={"type": "success", "detail": "x"})
+
+    rows = service.list_player_sessions(PLAYER_ID)
+
+    assert rows == []
+
+
+def test_list_player_sessions_projects_summary_fields_from_latest_turn():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    turns = [
+        PlayerInteraction(
+            turnNumber=0, narrativeText="Start.", suggestedActions=["a"], locationLabel="Entrance", timestamp=_now()
+        ),
+        PlayerInteraction(
+            turnNumber=1,
+            narrativeText="Deeper in.",
+            suggestedActions=["b"],
+            locationLabel="The keeper's stairs",
+            progress={"current": 3, "total": 5},
+            timestamp=_now(),
+        ),
+    ]
+    session = _existing_session(
+        cosmos,
+        story,
+        turns=turns,
+        checkpoints=[CheckpointMarker(label="Entrance", turnNumber=0, createdAt=_now())],
+    )
+
+    [row] = service.list_player_sessions(PLAYER_ID)
+
+    assert row["sessionId"] == session.id
+    assert row["adventureName"] == story.name
+    assert row["locationLabel"] == "The keeper's stairs"
+    assert row["progress"] == {"current": 3, "total": 5}
+    assert row["turnCount"] == 2
+    assert row["checkpointCount"] == 1
+    assert "turns" not in row
+
+
+def test_list_player_sessions_resolves_adventure_names_once_per_distinct_adventure():
+    story_a = _story()
+    story_b = _story()
+    service, cosmos, _llm, _safety = _make_service(story_a)
+    cosmos.get_container(config.STORIES_CONTAINER).upsert_item(story_b.to_dict())
+    original_get_story = service._stories.get_story
+    calls: list[str] = []
+
+    def counting_get_story(story_id):
+        calls.append(story_id)
+        return original_get_story(story_id)
+
+    service._stories.get_story = counting_get_story
+
+    _existing_session(cosmos, story_a, adventureId=story_a.id)
+    _existing_session(cosmos, story_a, adventureId=story_a.id)
+    _existing_session(cosmos, story_b, adventureId=story_b.id)
+
+    rows = service.list_player_sessions(PLAYER_ID)
+
+    assert len(calls) == 2
+    names = {row["adventureId"]: row["adventureName"] for row in rows}
+    assert names == {story_a.id: story_a.name, story_b.id: story_b.name}
+
+
+def test_list_player_sessions_falls_back_to_adventure_label_when_story_unreadable():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    _existing_session(cosmos, story, adventureId="deleted-adventure-id")
+
+    [row] = service.list_player_sessions(PLAYER_ID)
+
+    assert row["adventureName"] == "Adventure"
+
+
+# --- get_session_for_player (009-save-and-continue, T010) ---
+
+
+def test_get_session_for_player_returns_full_turns_oldest_first():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    turns = [
+        PlayerInteraction(turnNumber=0, narrativeText="A", suggestedActions=[], locationLabel="L0", timestamp=_now()),
+        PlayerInteraction(turnNumber=1, narrativeText="B", suggestedActions=[], locationLabel="L1", timestamp=_now()),
+    ]
+    session = _existing_session(cosmos, story, turns=turns)
+
+    fetched = service.get_session_for_player(session.id, PLAYER_ID)
+
+    assert [t.turnNumber for t in fetched.turns] == [0, 1]
+
+
+def test_get_session_for_player_raises_forbidden_for_non_owner():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+
+    with pytest.raises(ForbiddenError):
+        service.get_session_for_player(session.id, OTHER_PLAYER_ID)
+
+
+def test_get_session_for_player_raises_not_found_for_missing_session():
+    story = _story()
+    service, _cosmos, _llm, _safety = _make_service(story)
+
+    with pytest.raises(SessionNotFoundError):
+        service.get_session_for_player("no-such-session", PLAYER_ID)
+
+
+def test_get_session_for_player_returns_concluded_session():
+    """Only the list excludes concluded sessions; the detail read does not."""
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story, status="concluded", completionReason={"type": "success", "detail": "x"})
+
+    fetched = service.get_session_for_player(session.id, PLAYER_ID)
+
+    assert fetched.status == "concluded"
+
+
+# --- record_checkpoint (009-save-and-continue, T023) ---
+
+
+def test_record_checkpoint_labels_from_latest_turn_location():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    turns = [
+        PlayerInteraction(turnNumber=0, narrativeText="A", suggestedActions=[], locationLabel="Entrance", timestamp=_now()),
+        PlayerInteraction(
+            turnNumber=1, narrativeText="B", suggestedActions=[], locationLabel="The keeper's stairs", timestamp=_now()
+        ),
+    ]
+    session = _existing_session(cosmos, story, turns=turns)
+
+    marker = service.record_checkpoint(session.id, PLAYER_ID)
+
+    assert marker.label == "The keeper's stairs"
+    assert marker.turnNumber == 1
+    assert marker.createdAt
+
+
+def test_record_checkpoint_falls_back_to_default_label_when_turn_has_no_location():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    turns = [PlayerInteraction(turnNumber=0, narrativeText="A", suggestedActions=[], locationLabel="", timestamp=_now())]
+    session = _existing_session(cosmos, story, turns=turns)
+
+    marker = service.record_checkpoint(session.id, PLAYER_ID)
+
+    assert marker.label == "Your story"
+
+
+def test_record_checkpoint_leaves_turns_status_summary_and_last_interaction_unchanged():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story, lastInteractionAt=_minutes_ago(5), summary="A brief recap.")
+
+    service.record_checkpoint(session.id, PLAYER_ID)
+
+    stored = PlaySession.from_dict(cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items[session.id])
+    assert len(stored.turns) == len(session.turns)
+    assert stored.status == "active"
+    assert stored.summary == "A brief recap."
+    assert stored.lastInteractionAt == session.lastInteractionAt
+
+
+def test_record_checkpoint_twice_with_no_interaction_between_appends_two_markers_same_turn():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+
+    first = service.record_checkpoint(session.id, PLAYER_ID)
+    second = service.record_checkpoint(session.id, PLAYER_ID)
+
+    stored = PlaySession.from_dict(cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items[session.id])
+    assert len(stored.checkpoints) == 2
+    assert first.turnNumber == second.turnNumber
+
+
+def test_record_checkpoint_raises_forbidden_for_non_owner():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+
+    with pytest.raises(ForbiddenError):
+        service.record_checkpoint(session.id, OTHER_PLAYER_ID)
+
+
+def test_record_checkpoint_raises_not_found_for_missing_session():
+    story = _story()
+    service, _cosmos, _llm, _safety = _make_service(story)
+
+    with pytest.raises(SessionNotFoundError):
+        service.record_checkpoint("no-such-session", PLAYER_ID)
+
+
+def test_record_checkpoint_raises_concluded_for_concluded_session():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story, status="concluded", completionReason={"type": "success", "detail": "x"})
+
+    with pytest.raises(SessionConcludedError):
+        service.record_checkpoint(session.id, PLAYER_ID)
+
+
+def test_record_checkpoint_retries_once_on_etag_conflict_then_succeeds():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+    container = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER)
+    real_replace_item = container.replace_item
+    calls = {"count": 0}
+
+    def flaky_replace_item(item, body, etag=None, match_condition=None):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise CosmosAccessConditionFailedError
+        return real_replace_item(item, body, etag=etag, match_condition=match_condition)
+
+    container.replace_item = flaky_replace_item
+
+    marker = service.record_checkpoint(session.id, PLAYER_ID)
+
+    assert marker is not None
+    assert calls["count"] == 2
+
+
+def test_record_checkpoint_gives_up_after_one_retry():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+    container = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER)
+
+    def always_conflicts(item, body, etag=None, match_condition=None):
+        raise CosmosAccessConditionFailedError
+
+    container.replace_item = always_conflicts
+
+    with pytest.raises(CheckpointUnavailableError):
+        service.record_checkpoint(session.id, PLAYER_ID)

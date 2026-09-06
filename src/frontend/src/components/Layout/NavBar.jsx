@@ -1,9 +1,13 @@
 import { useMsal } from "@azure/msal-react";
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { useRefreshContext } from "../../context/RefreshContext.jsx";
 import { useCapabilities } from "../../hooks/useCapabilities.js";
+import { listSavedGames, saveCheckpoint } from "../../services/gameService.js";
+import { loginRequest } from "../../services/msalConfig.js";
 import RefreshButton from "../Common/RefreshButton.jsx";
+import LogoutSavePrompt from "./LogoutSavePrompt.jsx";
 
 const LINK_STYLE = { padding: "var(--space-2) var(--space-3)" };
 
@@ -36,12 +40,58 @@ export function NavBar() {
   const account = accounts[0];
   const userName = account?.name ?? account?.username ?? "";
 
+  const [activeSessionId, setActiveSessionId] = useState(null);
+  const [promptOpen, setPromptOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [failureMessage, setFailureMessage] = useState(null);
+
   // Exactly one item can match, since every destination has a distinct path (FR-007).
   const current = (path) => (pathname === path ? "page" : undefined);
 
-  const handleSignOut = (event) => {
+  // "In progress" means the server's own active-game flag on an unconcluded session
+  // (research.md Decision 6) — never client state, and a failed lookup must never
+  // block sign-out (FR-004).
+  const handleSignOut = async (event) => {
     event.preventDefault();
+    try {
+      const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
+      const data = await listSavedGames(tokenResponse.accessToken);
+      const active = (data.sessions || []).find((s) => s.status === "active" && s.isActiveForPlayer);
+      if (active) {
+        setActiveSessionId(active.sessionId);
+        setFailureMessage(null);
+        setPromptOpen(true);
+        return;
+      }
+    } catch {
+      // Lookup failed — fall through to a plain sign-out rather than blocking it.
+    }
     instance.logoutRedirect();
+  };
+
+  const handleSaveAndSignOut = async () => {
+    setSaving(true);
+    try {
+      const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
+      await saveCheckpoint(tokenResponse.accessToken, activeSessionId);
+    } catch {
+      setFailureMessage("We couldn't record that checkpoint, but your progress is safe.");
+    } finally {
+      // Reset before redirecting (not just on the failure path) so the prompt can
+      // recover if logoutRedirect() doesn't actually navigate away.
+      setSaving(false);
+      instance.logoutRedirect();
+    }
+  };
+
+  const handleSignOutWithoutSaving = () => {
+    setPromptOpen(false);
+    instance.logoutRedirect();
+  };
+
+  const handleCancelSignOut = () => {
+    setPromptOpen(false);
+    setActiveSessionId(null);
   };
 
   // An admin viewing an admin surface gets the admin bar. A user with only
@@ -50,6 +100,7 @@ export function NavBar() {
   const showAdminVariant = hasAdministrator && isAdminSection(pathname);
 
   return (
+    <>
     <nav className="nav" style={{ gap: 0 }}>
       <span className="nav-brand" style={{ marginRight: "var(--space-5)" }}>
         Lantern
@@ -139,6 +190,16 @@ export function NavBar() {
         </span>
       </span>
     </nav>
+    {promptOpen && (
+      <LogoutSavePrompt
+        saving={saving}
+        failureMessage={failureMessage}
+        onSave={handleSaveAndSignOut}
+        onDontSave={handleSignOutWithoutSaving}
+        onCancel={handleCancelSignOut}
+      />
+    )}
+    </>
   );
 }
 

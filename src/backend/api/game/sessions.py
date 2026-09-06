@@ -15,6 +15,7 @@ from backend.services.player_content_safety_standing_service import describe_loc
 from backend.services.play_session_service import (
     AdventureNotFoundError,
     AlreadyActiveError,
+    CheckpointUnavailableError,
     ContentSafetyLockoutError,
     ForbiddenError,
     InteractionInProgressError,
@@ -168,3 +169,76 @@ def resume_session(
         return error_response(409, "already_active", "This is already your active story.")
 
     return json_response({"status": "active", "sessionId": session.id}, status_code=200)
+
+
+def list_sessions(
+    req: func.HttpRequest,
+    play_session_service: PlaySessionService | None = None,
+    account_provisioning_service: AccountProvisioningService | None = None,
+) -> func.HttpResponse:
+    """GET /api/game/sessions — the caller's own in-progress games (009-save-and-continue,
+    contracts/api.md). Always 200; an empty list is a success, not a 404 (FR-002)."""
+    is_authorized, user_oid, error = authorize_player(req, account_provisioning_service=account_provisioning_service)
+    if not is_authorized:
+        return error
+
+    service = play_session_service or PlaySessionService()
+    sessions = service.list_player_sessions(user_oid)
+    return json_response({"status": "success", "sessions": sessions}, status_code=200)
+
+
+def get_session(
+    req: func.HttpRequest,
+    play_session_service: PlaySessionService | None = None,
+    account_provisioning_service: AccountProvisioningService | None = None,
+) -> func.HttpResponse:
+    """GET /api/game/sessions/{sessionId} — one of the caller's own sessions in full, so
+    the play surface can be rebuilt exactly as they left it (FR-006, contracts/api.md)."""
+    is_authorized, user_oid, error = authorize_player(req, account_provisioning_service=account_provisioning_service)
+    if not is_authorized:
+        return error
+
+    session_id = req.route_params.get("sessionId")
+    service = play_session_service or PlaySessionService()
+    try:
+        detail = service.get_session_detail_for_player(session_id=session_id, player_id=user_oid)
+    except SessionNotFoundError:
+        return error_response(404, "not_found", "Session not found")
+    except ForbiddenError:
+        return forbidden_access_not_granted()
+
+    return json_response({"status": "success", "session": detail}, status_code=200)
+
+
+def create_checkpoint(
+    req: func.HttpRequest,
+    play_session_service: PlaySessionService | None = None,
+    account_provisioning_service: AccountProvisioningService | None = None,
+) -> func.HttpResponse:
+    """POST /api/game/sessions/{sessionId}/checkpoints — records a server-labelled
+    checkpoint marker (009-save-and-continue, FR-003, contracts/api.md). Any client-
+    supplied body is ignored — the label is always generated server-side."""
+    is_authorized, user_oid, error = authorize_player(req, account_provisioning_service=account_provisioning_service)
+    if not is_authorized:
+        return error
+
+    session_id = req.route_params.get("sessionId")
+    service = play_session_service or PlaySessionService()
+    try:
+        marker = service.record_checkpoint(session_id=session_id, player_id=user_oid)
+    except SessionNotFoundError:
+        return error_response(404, "not_found", "Session not found")
+    except ForbiddenError:
+        return forbidden_access_not_granted()
+    except SessionConcludedError:
+        return error_response(409, "session_concluded", "This story has already ended.")
+    except CheckpointUnavailableError:
+        return error_response(503, "checkpoint_unavailable", "Couldn't record that checkpoint.")
+
+    return json_response(
+        {
+            "status": "success",
+            "checkpoint": {"label": marker.label, "turnNumber": marker.turnNumber, "createdAt": marker.createdAt},
+        },
+        status_code=201,
+    )

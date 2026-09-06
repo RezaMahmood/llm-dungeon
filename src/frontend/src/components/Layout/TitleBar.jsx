@@ -26,6 +26,7 @@ export function TitleBar({ storyTitle = "", onSaveCheckpoint, onPauseExit }) {
   const title = storyTitle || published?.storyTitle || "";
   const confirmExit = onPauseExit ?? published?.onPauseExit;
   const handlePauseExit = confirmExit ?? (() => navigate("/menu"));
+  const saveCheckpoint = onSaveCheckpoint ?? published?.onSaveCheckpoint;
 
   const brandStyle = {
     fontFamily: "var(--font-heading)",
@@ -77,9 +78,11 @@ export function TitleBar({ storyTitle = "", onSaveCheckpoint, onPauseExit }) {
         data-nav-slot="trailing-actions"
         style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flex: "none" }}
       >
-        <button className="btn btn-secondary" type="button" onClick={onSaveCheckpoint}>
-          Save a checkpoint
-        </button>
+        {saveCheckpoint && (
+          <button className="btn btn-secondary" type="button" onClick={saveCheckpoint}>
+            Save a checkpoint
+          </button>
+        )}
         <button className="btn btn-primary" type="button" onClick={handlePauseExit}>
           Pause &amp; exit
         </button>

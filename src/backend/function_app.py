@@ -24,7 +24,14 @@ from backend.api.auth.login import login
 from backend.api.auth.logout import logout
 from backend.api.auth.me import me
 from backend.api.game.adventures import get_adventure, list_adventures
-from backend.api.game.sessions import create_session, resume_session, submit_interaction
+from backend.api.game.sessions import (
+    create_checkpoint,
+    create_session,
+    get_session,
+    list_sessions,
+    resume_session,
+    submit_interaction,
+)
 from backend.api.utils import server_error
 from backend.config import config
 from backend.observability.setup import setup_observability
@@ -172,6 +179,21 @@ def game_sessions_interactions(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="game/sessions/{sessionId}/resume", methods=["POST"])
 def game_sessions_resume(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(resume_session)(req)
+
+
+@app.route(route="game/sessions", methods=["GET"])
+def game_sessions_list(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(list_sessions)(req)
+
+
+@app.route(route="game/sessions/{sessionId}", methods=["GET"])
+def game_sessions_get(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(get_session)(req)
+
+
+@app.route(route="game/sessions/{sessionId}/checkpoints", methods=["POST"])
+def game_sessions_checkpoints(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(create_checkpoint)(req)
 
 
 @app.route(route="game/adventures", methods=["GET"])
