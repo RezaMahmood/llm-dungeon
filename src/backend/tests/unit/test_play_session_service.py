@@ -803,6 +803,39 @@ def test_content_filtered_input_is_not_replayed_into_later_prompts():
     assert safety.get_standing(PLAYER_ID).flaggedCount == 1
 
 
+def test_writes_never_send_cosmos_system_metadata_back_as_document_fields():
+    """Every write must be a model document, not a raw read/query result. Cosmos's own
+    `_etag`/`_rid`/`_self`/`_ts` are not ours to persist, and echoing them back is how a
+    write starts depending on server-generated state (Copilot review, PR #237)."""
+    story = _story()
+    service, cosmos, llm, _safety = _make_service(story)
+    container = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER)
+    real_replace_item = container.replace_item
+    written_bodies = []
+
+    def recording_replace_item(item, body, etag=None, match_condition=None):
+        written_bodies.append(body)
+        return real_replace_item(item, body, etag=etag, match_condition=match_condition)
+
+    container.replace_item = recording_replace_item
+
+    # A failed turn exercises the claim-release write...
+    session = _existing_session(cosmos, story)
+    llm.generate_gameplay_turn.side_effect = LLMRateLimitError("rate limited")
+    with pytest.raises(NarrativeUnavailableError):
+        service.submit_interaction(session.id, PLAYER_ID, "look around")
+
+    # ...and creating a second session exercises the deactivation write.
+    llm.generate_gameplay_turn.side_effect = None
+    llm.generate_gameplay_turn.return_value = OPENING_TURN_DATA
+    _clear_creation_rate_limit(cosmos)
+    service.create_session(story.id, "Ash", "Detective", PLAYER_ID)
+
+    assert written_bodies, "expected both write paths to run"
+    for body in written_bodies:
+        assert [key for key in body if key.startswith("_")] == [], body
+
+
 def test_bare_player_assertion_does_not_satisfy_condition_without_llm_reporting_it():
     story = _story(success_conditions=["Find the keeper"])
     service, cosmos, _llm, _safety = _make_service(

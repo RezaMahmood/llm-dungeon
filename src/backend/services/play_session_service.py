@@ -337,9 +337,16 @@ class PlaySessionService:
             item = self._read_item(session_id)
             if item is None:
                 return
-            item["interactionInProgress"] = False
+            # Round-tripped through the model rather than mutating the raw read: Cosmos's
+            # own `_etag`/`_rid`/`_self`/`_ts` travel on the read result and are not ours
+            # to write back as document fields.
+            session = PlaySession.from_dict(item)
+            session.interactionInProgress = False
             self._container().replace_item(
-                item=session_id, body=item, etag=item["_etag"], match_condition=MatchConditions.IfNotModified
+                item=session_id,
+                body=session.to_dict(),
+                etag=item["_etag"],
+                match_condition=MatchConditions.IfNotModified,
             )
         except Exception:  # noqa: BLE001 - must never mask the failure that brought us here
             logger.exception("Could not release the interaction claim on session %s", session_id)
@@ -392,13 +399,19 @@ class PlaySessionService:
         )
         container = self._container()
         for row in rows:
-            row["isActiveForPlayer"] = False
+            # As in _release_claim: write the model's own shape, never the query result,
+            # which carries Cosmos system metadata alongside the document's fields.
+            other = PlaySession.from_dict(row)
+            other.isActiveForPlayer = False
             try:
                 container.replace_item(
-                    item=row["id"], body=row, etag=row["_etag"], match_condition=MatchConditions.IfNotModified
+                    item=other.id,
+                    body=other.to_dict(),
+                    etag=row["_etag"],
+                    match_condition=MatchConditions.IfNotModified,
                 )
             except CosmosAccessConditionFailedError:
-                logger.warning("Concurrent deactivate for session %s; skipping", row["id"])
+                logger.warning("Concurrent deactivate for session %s; skipping", other.id)
 
     def _duration_ceiling_reached(self, story, session: PlaySession) -> bool:
         max_minutes = story.completionCriteria.maxDurationMinutes
