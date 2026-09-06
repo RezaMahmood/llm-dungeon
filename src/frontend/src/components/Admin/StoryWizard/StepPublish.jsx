@@ -1,41 +1,15 @@
-import { useState } from "react";
-
-import { publishStory, unpublishStory } from "../../../services/storyDraftService.js";
+import { usePublishToggle } from "../../../hooks/usePublishToggle.js";
 
 export function StepPublish({ story, token, onStoryChange }) {
-  const [status, setStatus] = useState("idle"); // idle | working | error
-  const [gateMessage, setGateMessage] = useState(null);
-  const [confirmingUnpublish, setConfirmingUnpublish] = useState(false);
-
-  const handlePublish = async () => {
-    setStatus("working");
-    setGateMessage(null);
-    try {
-      const data = await publishStory(token, story.id);
-      onStoryChange?.(data.story);
-      setStatus("idle");
-    } catch (err) {
-      if (err?.response?.status === 409) {
-        setGateMessage(err.response.data?.message || "This story cannot be published yet.");
-        setStatus("idle");
-      } else {
-        setStatus("error");
-      }
-    }
-  };
-
-  const handleConfirmUnpublish = async () => {
-    setStatus("working");
-    try {
-      const data = await unpublishStory(token, story.id);
-      onStoryChange?.(data.story);
-      setStatus("idle");
-      setConfirmingUnpublish(false);
-    } catch {
-      setStatus("error");
-      setConfirmingUnpublish(false);
-    }
-  };
+  const {
+    status,
+    gateMessage,
+    confirmingUnpublish,
+    handlePublish,
+    requestUnpublish,
+    confirmUnpublish,
+    cancelUnpublish,
+  } = usePublishToggle(token, story, onStoryChange);
 
   return (
     <div className="field">
@@ -58,7 +32,7 @@ export function StepPublish({ story, token, onStoryChange }) {
           type="button"
           className="btn btn-secondary"
           disabled={status === "working"}
-          onClick={() => setConfirmingUnpublish(true)}
+          onClick={requestUnpublish}
         >
           Unpublish
         </button>
@@ -87,7 +61,7 @@ export function StepPublish({ story, token, onStoryChange }) {
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => setConfirmingUnpublish(false)}
+                onClick={cancelUnpublish}
                 disabled={status === "working"}
               >
                 Keep it published
@@ -95,7 +69,7 @@ export function StepPublish({ story, token, onStoryChange }) {
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={handleConfirmUnpublish}
+                onClick={confirmUnpublish}
                 disabled={status === "working"}
               >
                 {status === "working" ? "Unpublishing…" : "Unpublish"}
