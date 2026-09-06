@@ -1,36 +1,26 @@
 <!--
 Sync Impact Report
-Version change: 1.13.0 → 2.0.0
+Version change: 2.0.0 → 2.1.0
 Modified principles:
-  - IX. User-Verified Acceptance Before Completion → Playtesting-Driven Quality
-    (Post-Ship Verification, Non-Blocking) - removed as a NON-NEGOTIABLE, blocking gate.
-    A feature is now complete once automated tests pass and CI merges it; human
-    playtesting against the deployed environment still happens, but afterward, on an
-    ongoing basis, feeding fixes into follow-up work rather than blocking completion or
-    merge. Backward-incompatible: previously no feature could be called complete without
-    human sign-off; that requirement is gone.
-  - XI. UI Design Pre-Agreement Before Implementation → Implementer Design Latitude
-    (Non-Blocking) - removed as a NON-NEGOTIABLE, design-time blocking gate. Implementers
-    may proceed to implementation on their own design judgment, within the existing
-    design system/screen contracts (Principle VIII, unaffected); a pre-implementation
-    mockup/sign-off from the requesting user is no longer required or permitted to block
-    implementation. Backward-incompatible: previously implementation could not start
-    without that sign-off.
+  - XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, GitHub Copilot
+    Reviews, Human Merges (NON-NEGOTIABLE) - materially expanded, not redefined. Added an
+    explicit rule that a local AI agent MUST NOT push follow-up commits onto the branch of
+    a pull request that has already been closed or merged; such work MUST go onto a fresh
+    branch behind a new pull request. Backward-compatible: nothing previously permitted by
+    this principle is withdrawn, and the existing push/open-PR authorization, the
+    no-auto-merge and no-merge rules, the Copilot review pass, and the manual human merge
+    are all unchanged.
 Added principles: none
-Removed principles: none (IX and XI redefined in place, not deleted, to avoid
-  renumbering every cross-reference in this document)
+Removed principles: none
 Added sections: none
 Modified sections:
-  - Development Workflow & Quality Gates - replaced the mandatory final user-verified
-    acceptance task bullet and the mandatory UI design agreement/sign-off task bullet
-    with non-blocking equivalents consistent with the redefined Principles IX and XI.
+  - AI Agent / GitHub Handoff Requirements - added a bullet stating the merged/closed-PR
+    rule in operational terms (verify PR state before pushing; branch and open a new PR
+    when the prior PR is no longer open).
 Removed sections: none
-Source: direct user instruction (2026-09-05) - development speed and shipping an MVP are
-  being prioritized over getting implementation and design right on the first attempt;
-  issues are expected to be found and fixed through playtesting rather than prevented by
-  upfront human sign-off gates on implementation and design. Scope of the relaxation
-  (which gates, and that automated test/CI gates stay in place as the safety net) was
-  confirmed via clarifying questions in this session.
+Source: direct user instruction (2026-09-06) - follow-up work landing silently on the
+  branch of an already-merged or closed pull request is invisible to reviewers, so every
+  new push must surface as its own reviewable pull request.
 Templates requiring follow-up: none - dependent templates read this file at runtime and
   are not modified by this command.
 Deferred/TODO placeholders: none.
@@ -269,7 +259,11 @@ dependency-update issues, and fixes) MUST still be performed via GitHub Copilot 
 the Copilot coding agent or Copilot's issue tooling in GitHub), not resolved end-to-end
 by a local AI agent pushing directly to GitHub. A local AI agent MUST NOT merge a pull
 request or resolve/close a GitHub issue itself, even where the tool has the technical
-means to do so. Detailed rules are in the AI Agent / GitHub Handoff Requirements
+means to do so. Every push of new work MUST be visible as its own open pull request:
+a local AI agent MUST NOT push follow-up commits onto the branch of a pull request
+that has already been merged or closed, even where that branch still exists and the
+push would technically succeed. Such work MUST go onto a fresh branch behind a new
+pull request. Detailed rules are in the AI Agent / GitHub Handoff Requirements
 section below.
 
 Rationale: A bot-authored pull request (one opened by an automation identity via a
@@ -283,7 +277,10 @@ Copilot's code review is relatively slow and does not produce a formal approving
 before merge — wiring auto-merge to it would let a pull request merge without anyone
 actually having weighed Copilot's findings. Requiring the requesting user to read
 Copilot's recommendations and merge manually keeps a real decision point in the loop
-while still using Copilot for the GitHub-side review pass.
+while still using Copilot for the GitHub-side review pass. Reusing the branch of an
+already-merged or closed pull request hides the new work: the merged PR is no longer
+part of anyone's review queue, Copilot does not re-review it, and the commits reach
+the repository without ever appearing as something a human was asked to look at.
 
 ## Security & Access Control Requirements
 
@@ -401,6 +398,12 @@ while still using Copilot for the GitHub-side review pass.
   `Claude` (both labels already exist in this repository), MUST NOT include a link to
   the local agent's own session/transcript in the PR description, and MUST NOT enable
   auto-merge on the PR or merge it directly.
+- Before pushing to a remote branch, a local AI agent MUST confirm the state of any
+  pull request associated with that branch (e.g., `gh pr view <branch> --json state`).
+  If the associated pull request is merged or closed, the agent MUST NOT push to that
+  branch; it MUST create a new branch off the current main branch and open a new pull
+  request for the work, labelled as above. Pushing to a branch whose pull request is
+  still open is permitted and is the normal way to address review feedback.
 - Local AI agent tools MUST NOT directly perform any other GitHub-hosted operation: they
   MUST NOT merge a pull request or resolve/close a GitHub issue on their own behalf,
   even where the tool has the technical means to do so (e.g., a `gh` CLI or GitHub API
@@ -654,4 +657,4 @@ with the design-token, visual-rules, interaction-state, or layout/scroll require
 above as a blocking finding. No feature may ship a screen that is not traceable to a
 screen contract above or to a documented amendment extending it.
 
-**Version**: 2.0.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-05
+**Version**: 2.1.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-06
