@@ -5,7 +5,7 @@ import { publishStory, unpublishStory } from "../services/storyDraftService.js";
 /**
  * Shared publish/unpublish call + FR-011 gate-message + FR-013 confirmation
  * state, used by both the wizard's `StepPublish` step and the administrator
- * story list's per-row action (005-story-publishing Phase 5) so there is
+ * story list's per-row action (005-story-publishing-done Phase 5) so there is
  * exactly one implementation of this flow.
  *
  * `token` may be a plain access-token string (the wizard already has one) or

@@ -57,7 +57,7 @@ This guide provides step-by-step validation scenarios confirming story publishin
 
 ## Scenario 4: Unpublishing Does Not Affect Sessions Already In Progress (Acceptance Scenario 3, FR-005, SC-003)
 
-**Prerequisites**: `008-core-gameplay` and `009-save-and-continue` implemented (a player can start and hold an active session).
+**Prerequisites**: `008-core-gameplay-done` and `009-save-and-continue` implemented (a player can start and hold an active session).
 
 **Steps**:
 1. Publish a story (Scenario 2). As a player, start a play session against it.

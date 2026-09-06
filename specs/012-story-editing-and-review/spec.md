@@ -60,7 +60,7 @@ An administrator updates an existing story either conversationally, describing t
 - **FR-004**: System MUST allow an administrator to download an existing story's complete configuration as a file.
 - **FR-005**: System MUST allow an administrator to re-upload an edited configuration file to overwrite the story it came from, subject to the same validation as any other import (see `011-story-import`).
 - **FR-006**: System MUST apply an edit (conversational or re-upload) on top of the story's current saved state, so concurrent edits do not silently discard one another's changes.
-- **FR-007**: Editing a story MUST NOT change its published/unpublished status; that remains governed exclusively by `005-story-publishing`.
+- **FR-007**: Editing a story MUST NOT change its published/unpublished status; that remains governed exclusively by `005-story-publishing-done`.
 - **FR-008**: Each distinct maintenance action (list view, full-configuration view, conversational edit, download, re-upload overwrite) MUST have a corresponding automated test verifying its expected behavior.
 
 ### Key Entities

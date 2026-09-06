@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import StatusPanel from "../../src/components/Play/StatusPanel.jsx";
 
-describe("StatusPanel (008-core-gameplay)", () => {
+describe("StatusPanel (008-core-gameplay-done)", () => {
   it("renders location, goal, and progress from the latest turn", () => {
     render(
       <StatusPanel

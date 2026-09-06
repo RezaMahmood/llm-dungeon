@@ -185,7 +185,7 @@ attributes (`gen_ai.prompt`, `gen_ai.response`, `gen_ai.usage.input_tokens`,
 attribute-based extensibility FR-007 requires — attaching more attributes to a span is
 non-breaking by construction in OTel (no schema migration exists to "break"). This spec's only
 action item here is documenting the existing pattern in `contracts/telemetry-schema.md` as the
-convention future LLM call sites (008-core-gameplay) should follow, satisfying "accounted for
+convention future LLM call sites (008-core-gameplay-done) should follow, satisfying "accounted for
 in the design" without inventing anything new.
 
 **Rationale**: Directly matches spec.md's Assumptions: "does not define the final ...schema in

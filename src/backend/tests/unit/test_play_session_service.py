@@ -1,4 +1,4 @@
-"""Unit tests for PlaySessionService (008-core-gameplay). Cosmos and LLMService are faked/
+"""Unit tests for PlaySessionService (008-core-gameplay-done). Cosmos and LLMService are faked/
 mocked in-memory, matching this repo's other unit tests."""
 
 from __future__ import annotations

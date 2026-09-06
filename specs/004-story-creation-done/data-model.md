@@ -66,7 +66,7 @@ A draft is never directly deleted by an explicit "abandon" action (Assumptions: 
 
 **Definition**: A complete adventure narrative — setting, character types, plot, and completion criteria — along with the guidance needed to keep the LLM's later narration consistent with it (spec.md Key Entities). Created only by successful generation from a complete `StoryDraft`; unpublished by default (FR-006).
 
-**Scope**: Global; visible to administrators immediately, to players only once `005-story-publishing` marks it published.
+**Scope**: Global; visible to administrators immediately, to players only once `005-story-publishing-done` marks it published.
 
 ### Properties
 
@@ -82,9 +82,9 @@ A draft is never directly deleted by an explicit "abandon" action (Assumptions: 
 | `worldPrompt` | string | Yes | The administrator's setting/plot description | Required input to generation |
 | `rules` | string or null | No | The administrator's constraints | Optional input to generation |
 | `characterTypes` | array of Character Type | Yes, min length 1 | See below | FR-008, SC-003 |
-| `completionCriteria` | Completion Criteria | Yes, min 1 success condition | See below | FR-008, SC-003; shape matches `008-core-gameplay`'s Key Entity |
-| `narrativeGuidance` | string | Yes | LLM-generated prose the play-session narrator (`008-core-gameplay`) uses to stay consistent with this story | The "guidance... to keep the LLM's later narration consistent" named in spec.md's Story Key Entity |
-| `published` | boolean | Yes | Defaults to `false` on creation | FR-006; flipped only by `005-story-publishing` |
+| `completionCriteria` | Completion Criteria | Yes, min 1 success condition | See below | FR-008, SC-003; shape matches `008-core-gameplay-done`'s Key Entity |
+| `narrativeGuidance` | string | Yes | LLM-generated prose the play-session narrator (`008-core-gameplay-done`) uses to stay consistent with this story | The "guidance... to keep the LLM's later narration consistent" named in spec.md's Story Key Entity |
+| `published` | boolean | Yes | Defaults to `false` on creation | FR-006; flipped only by `005-story-publishing-done` |
 | `createdBy` | string | Yes | Administrator's `oid` | Audit trail |
 | `createdAt` | ISO 8601 timestamp | Yes | Generation time | Audit trail |
 | `entityType` | string | Yes | Always `"Story"` | Container discriminator |
@@ -110,14 +110,14 @@ Used identically inside `StoryDraft.characterTypes` and `Story.characterTypes`.
 
 ## Shared Structure: Completion Criteria
 
-Used identically inside `StoryDraft.completionCriteria` and `Story.completionCriteria`. Shape matches `008-core-gameplay`'s Key Entity by clarification decision.
+Used identically inside `StoryDraft.completionCriteria` and `Story.completionCriteria`. Shape matches `008-core-gameplay-done`'s Key Entity by clarification decision.
 
 | Property | Type | Required | Rationale |
 |----------|------|----------|-----------|
 | `maxDurationMinutes` | integer or null | No | Optional maximum session duration |
 | `successConditions` | array of string, min length 1 | Yes | At least one win condition (SC-003) |
 | `failureConditions` | array of string | No, may be empty | Optional lose condition(s) |
-| `rule` | `"any"` \| `"all"` \| null | Required only when `len(successConditions) + len(failureConditions) > 1` | How `008-core-gameplay` combines multiple conditions; omitted/null when only one condition total exists (nothing to combine) |
+| `rule` | `"any"` \| `"all"` \| null | Required only when `len(successConditions) + len(failureConditions) > 1` | How `008-core-gameplay-done` combines multiple conditions; omitted/null when only one condition total exists (nothing to combine) |
 
 ---
 

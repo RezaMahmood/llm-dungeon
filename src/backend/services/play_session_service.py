@@ -1,7 +1,7 @@
 """PlaySessionService — session lifecycle (creation, interaction submission, resume),
 cross-player and per-player (FR-015) exclusivity, rate limiting, content-safety lockout
 enforcement, completion-rule evaluation, and 20-turn summarization
-(008-core-gameplay research.md, data-model.md)."""
+(008-core-gameplay-done research.md, data-model.md)."""
 
 from __future__ import annotations
 

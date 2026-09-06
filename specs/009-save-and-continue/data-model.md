@@ -3,7 +3,7 @@
 **Feature**: 009-save-and-continue | **Date**: 2026-09-06 | **Spec**: [spec.md](./spec.md)
 
 This feature adds **no new Cosmos container** and no new top-level document type. It adds
-one embedded structure to the `PlaySession` document `008-core-gameplay` already writes
+one embedded structure to the `PlaySession` document `008-core-gameplay-done` already writes
 (`src/backend/models/play_session.py`, container `playSessions`, partition key `/id`), and
 two read shapes derived from documents that already exist.
 
@@ -100,7 +100,7 @@ confirm the id exists (Principle II, FR-001).
 ## State Transitions
 
 Checkpoint markers introduce no state machine of their own — `PlaySession.status` and
-`isActiveForPlayer` continue to transition exactly as `008-core-gameplay/data-model.md`
+`isActiveForPlayer` continue to transition exactly as `008-core-gameplay-done/data-model.md`
 defines. The two new operations sit alongside those transitions:
 
 ```

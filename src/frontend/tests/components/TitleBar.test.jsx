@@ -91,7 +91,7 @@ describe("TitleBar (FR-006)", () => {
   });
 
   it("returns to story select on Pause & exit when the page supplies no handler yet", async () => {
-    // GamePage doesn't wire onPauseExit until 008-core-gameplay builds real
+    // GamePage doesn't wire onPauseExit until 008-core-gameplay-done builds real
     // pause behavior — until then this must not be a dead button (found in
     // Principle IX final acceptance, Gate 7).
     const user = userEvent.setup();

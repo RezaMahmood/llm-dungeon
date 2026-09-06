@@ -13,7 +13,7 @@ import { usePlayTitle } from "../../context/PlayTitleContext.jsx";
  * restructuring (plan.md Constitution Check, Principle XI).
  *
  * `storyTitle`/`onPauseExit` come either from props or from whatever the mounted
- * page published via `PlayTitleContext` (`008-core-gameplay`'s play surface does
+ * page published via `PlayTitleContext` (`008-core-gameplay-done`'s play surface does
  * the latter). While a page has published an exit handler there is an active play
  * session, so *every* way out of this bar — the exit action and the brand mark
  * alike — has to run through it: FR-016/SC-013 allow no path that leaves an active

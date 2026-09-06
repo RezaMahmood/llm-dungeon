@@ -18,7 +18,7 @@ export async function getAdventure(token, adventureId) {
   return response.data;
 }
 
-/** Creates a play session and returns its opening narrative (008-core-gameplay,
+/** Creates a play session and returns its opening narrative (008-core-gameplay-done,
  * contracts/api.md) — supersedes the retired `startGame`/`POST /game/start`. */
 export async function createSession(token, { adventureId, characterName, characterType }) {
   const response = await client.post(

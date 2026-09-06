@@ -81,7 +81,7 @@ requesting an unpublished or nonexistent id returns 404, same as any other not-f
 | `characterType` | `string` | Echoed back |
 
 Confirms setup is complete and valid; does not itself represent a play session (Decision 4 —
-session creation is `008-core-gameplay`'s responsibility).
+session creation is `008-core-gameplay-done`'s responsibility).
 
 ## Validation Rules Summary (server-side, Constitution Principle II)
 
@@ -99,4 +99,4 @@ session creation is `008-core-gameplay`'s responsibility).
 ## State Transitions
 
 None — no entity in this feature has a lifecycle/state machine. `Story.published` is owned and
-transitioned by `005-story-publishing`, read-only here.
+transitioned by `005-story-publishing-done`, read-only here.

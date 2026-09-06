@@ -2,7 +2,7 @@
  * 3-step adventure/character setup flow (006-adventure-and-character-setup): pick a
  * published adventure, name a character, choose a character type — in that order
  * (FR-003a) — then confirm to start play, which creates a Play Session and hands off
- * into PlayPage (008-core-gameplay). The header for this screen is the compact TitleBar
+ * into PlayPage (008-core-gameplay-done). The header for this screen is the compact TitleBar
  * supplied by AuthenticatedLayout (FR-006 of 019-spa-refresh-button).
  */
 import { useMsal } from "@azure/msal-react";

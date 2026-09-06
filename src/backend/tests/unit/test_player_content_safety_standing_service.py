@@ -1,4 +1,4 @@
-"""Unit tests for PlayerContentSafetyStandingService (008-core-gameplay research.md
+"""Unit tests for PlayerContentSafetyStandingService (008-core-gameplay-done research.md
 Decision 9, FR-013). Cosmos is faked in-memory, matching this repo's other unit tests."""
 
 from __future__ import annotations

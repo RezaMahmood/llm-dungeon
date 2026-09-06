@@ -6,7 +6,7 @@
 
 ## Summary
 
-`008-core-gameplay` already persists a `PlaySession` after every turn and already owns
+`008-core-gameplay-done` already persists a `PlaySession` after every turn and already owns
 single-active-session semantics, but it ships no way to *read a session back* — the play
 surface only ever holds turns it saw created in the same browser session. This feature
 closes that gap and layers the deliberate save affordances on top: a "Stories in progress"

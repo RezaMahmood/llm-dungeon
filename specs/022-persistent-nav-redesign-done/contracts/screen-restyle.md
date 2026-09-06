@@ -14,7 +14,7 @@ contract; this feature has no HTTP API surface.
 | Hub / story select | `/menu` | `02-story-select.html` | No — `MainMenu.jsx`'s existing menu-item logic (`GameMenuItem`/`AdminMenuItem`) is unchanged | Remove ad hoc `<h1>`/logout header (now in `NavBar`); retire `MainMenu.css`; body content stays what exists today (real story list is `004-story-creation-done`/future scope, not this feature's) |
 | Admin wizard | `/admin/stories/new` | `04-admin-wizard.html` | No — draft fetch/save/autosave, `activeStep` state, per-step validation all unchanged (FR-005, FR-012) | Restyle step-tab row and step content per mockup; `NavBar` replaces the page's own header |
 | People (accounts) | `/admin/accounts` | `05-admin-users.html` | No — `AccountForm`/`AccountList`'s data operations and one-at-a-time remove-with-confirmation unchanged (FR-011) | Restyle form/list layout per mockup; `NavBar` replaces the page's own header |
-| Story play | `/game` | `03-play.html` (header only) | No — `GamePage.jsx` remains a content placeholder (008-core-gameplay scope) | Only the header changes, from nothing to `TitleBar`; body content is out of scope until 008 lands |
+| Story play | `/game` | `03-play.html` (header only) | No — `GamePage.jsx` remains a content placeholder (008-core-gameplay-done scope) | Only the header changes, from nothing to `TitleBar`; body content is out of scope until 008 lands |
 | Admin stories list | `/admin` | *(no dedicated mockup)* | Yes — new, read-only (FR-013) | Not one of FR-010's five named screens, but gets `NavBar` via `AuthenticatedLayout`; fetches `GET /api/manage/stories` on mount (via new `storyService.js`) and renders each story's name + published/draft status using existing token-based list/tag styling, or an empty-state message when there are no stories yet. This is the "Stories" nav destination, distinct from "New story" (FR-002) |
 
 ## Behavior contract (applies to every screen above)
@@ -62,7 +62,7 @@ contract; this feature has no HTTP API surface.
   player-facing list. (The admin stories list added at `/admin` per FR-013 is a
   separate, read-only, admin-only view — not the player story-select experience.)
 - Adding edit, publish/unpublish, or delete actions to the admin stories list —
-  read-only per FR-013; those actions are `005-story-publishing`'s/
+  read-only per FR-013; those actions are `005-story-publishing-done`'s/
   `012-story-editing-and-review`'s scope.
 - Building the real story-play experience shown below `03-play.html`'s title bar —
-  `008-core-gameplay`'s scope; this feature adds only the title bar.
+  `008-core-gameplay-done`'s scope; this feature adds only the title bar.

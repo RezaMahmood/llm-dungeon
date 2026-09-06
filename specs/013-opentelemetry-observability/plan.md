@@ -17,7 +17,7 @@ JavaScript SDK — the only Microsoft-supported browser client for this sink, si
 no supported OpenTelemetry browser exporter — configured for W3C distributed-tracing mode so
 frontend spans (page views, unhandled JS exceptions, outbound API calls, including calls that
 never reach the backend) correlate into the same Application Insights trace as the OTel spans
-the backend already emits. No LLM call sites are added by this feature (008-core-gameplay
+the backend already emits. No LLM call sites are added by this feature (008-core-gameplay-done
 does that), but `services/llm_service.py` already emits `gen_ai.*` OTel spans (built during
 006-adventure-and-character-setup) whose attribute shape is treated as the working
 precedent/schema for any future LLM span, satisfying FR-007 without new design work here.

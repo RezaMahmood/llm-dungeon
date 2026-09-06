@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import StoryPane from "../../src/components/Play/StoryPane.jsx";
 
-describe("StoryPane (008-core-gameplay)", () => {
+describe("StoryPane (008-core-gameplay-done)", () => {
   it("renders each turn's narrative, oldest first", () => {
     render(
       <StoryPane

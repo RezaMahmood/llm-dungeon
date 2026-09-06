@@ -31,7 +31,7 @@ const renderPlayPage = () =>
     />,
   );
 
-describe("Autosave disclosure (008-core-gameplay, FR-017, SC-014)", () => {
+describe("Autosave disclosure (008-core-gameplay-done, FR-017, SC-014)", () => {
   beforeEach(() => {
     submitInteraction.mockReset();
   });

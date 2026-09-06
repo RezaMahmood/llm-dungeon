@@ -50,7 +50,7 @@ adds **no dependency, no Cosmos container, and no Terraform change** (research.m
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: The read path `008-core-gameplay` never built, plus the model change both
+**Purpose**: The read path `008-core-gameplay-done` never built, plus the model change both
 stories depend on. US1 cannot list anything and US2 cannot decide whether to prompt on
 sign-out until `GET /api/game/sessions` exists.
 
@@ -147,7 +147,7 @@ screen, so it holds even if US1 has not shipped.
 ## Phase 5: Polish & Cross-Cutting Concerns
 
 - [X] T041 [P] Accessibility pass over the three new surfaces (`StoriesInProgress`, `SavedGameRow`, `LogoutSavePrompt`): keyboard operability with a visible focus indicator, real buttons over clickable divs, 4.5:1 body-copy contrast, and no meaning carried by colour alone (Constitution "Accessibility")
-- [X] T042 [P] Confirm the new surfaces use only the vendored design-token layer and shared component classes — no ad hoc colours or spacing — and that the play surface gained **no** new chrome beyond the already-designed "Save a checkpoint" button (Principle VIII, FR-016 of `008-core-gameplay`)
+- [X] T042 [P] Confirm the new surfaces use only the vendored design-token layer and shared component classes — no ad hoc colours or spacing — and that the play surface gained **no** new chrome beyond the already-designed "Save a checkpoint" button (Principle VIII, FR-016 of `008-core-gameplay-done`)
 - [X] T043 [P] Update `specs/designs/README.md` so `02-story-select.html`'s "stories in progress" section maps to `009-save-and-continue` and `03-play.html`'s checkpoint-save action maps to this feature's FR-003
 - [X] T044 Verify no `infrastructure/terraform/` change is needed and no new Cosmos container was introduced, and that a `PlaySession` document written before this feature still loads (research.md Decision 1, data-model.md)
 - [X] T045 Run the full backend and frontend suites (`pytest` in `src/backend`, `npm test` in `src/frontend`) and confirm no regression against the T001 baseline
@@ -251,7 +251,7 @@ never read one back.
 
 ## Notes
 
-- `008-core-gameplay`'s three existing endpoints are **not modified** by any task here,
+- `008-core-gameplay-done`'s three existing endpoints are **not modified** by any task here,
   including `POST .../resume`'s `409 already_active` — T014/T022 handle that client-side
   (research.md Decision 5)
 - No task touches `infrastructure/terraform/`; checkpoint markers are embedded on the

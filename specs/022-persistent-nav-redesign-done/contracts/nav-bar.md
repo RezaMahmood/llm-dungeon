@@ -124,7 +124,7 @@ the Open Item below):
    scroll-contract rules already governing `/game` (constitution's Layout and scroll
    contract section; this feature does not alter that contract, only the header above it).
 5. **Out of scope for this feature**: `Save a checkpoint`/`Pause & exit`'s actual
-   behavior is `GamePage.jsx`'s and `008-core-gameplay`'s concern — `TitleBar` renders
+   behavior is `GamePage.jsx`'s and `008-core-gameplay-done`'s concern — `TitleBar` renders
    the buttons and calls whatever handlers `GamePage.jsx` supplies (currently
    no-ops/placeholders, matching `GamePage.jsx`'s current placeholder status).
 

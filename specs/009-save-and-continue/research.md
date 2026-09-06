@@ -4,7 +4,7 @@
 
 The spec's five clarifications (Session 2026-09-06) already resolved the behavioural
 questions. What remains is deciding how each resolved behaviour lands on top of the
-`008-core-gameplay` code that shipped in `#237` — which already persists a `PlaySession`
+`008-core-gameplay-done` code that shipped in `#237` — which already persists a `PlaySession`
 after every turn, already owns single-active-session semantics (`isActiveForPlayer`), and
 already renders an (inert) "Save a checkpoint" button in `TitleBar`. No NEEDS
 CLARIFICATION markers remain in Technical Context.

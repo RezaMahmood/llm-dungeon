@@ -9,13 +9,13 @@
 A player who chooses "start a new game" must, in order: (1) pick a published adventure from
 a list, (2) enter a character name, and (3) pick one of that adventure's administrator-defined
 character types — before actual gameplay can begin. This feature adds the player-facing setup
-flow only; the play session itself is out of scope (`008-core-gameplay`).
+flow only; the play session itself is out of scope (`008-core-gameplay-done`).
 
 Technical approach: add a new player-scoped, published-only summary endpoint
 (`GET /api/game/adventures`) and extend the existing `POST /api/game/start` placeholder to
 validate the three setup inputs server-side (adventure exists+published, name non-blank
 ≤50 chars, character type valid for that adventure) and return a `setup complete` confirmation
-— it still does not create a play session (that's `008-core-gameplay`). Both endpoints share a
+— it still does not create a play session (that's `008-core-gameplay-done`). Both endpoints share a
 new `authorize_player` middleware, mirroring the existing `authorize_admin` pattern. The
 3-step flow (adventure → name → character type) is built inside the existing `/game` route
 (`GamePage.jsx`), replacing its placeholder content — no new route. No new persisted entity:
@@ -74,7 +74,7 @@ this reuses the existing `Story`/`CharacterType` models and Cosmos container fro
   user-verification task against the deployed (or most representative available) environment.
   PASS (planned).
 - **X. PII Protection by Design**: Character names are player-chosen fictional labels, not PII,
-  and are stored only in the eventual play-session record (owned by `008-core-gameplay`), not
+  and are stored only in the eventual play-session record (owned by `008-core-gameplay-done`), not
   logged. No PII is introduced by this feature. PASS.
 - **XI. UI Design Pre-Agreement Before Implementation (NON-NEGOTIABLE)**: **GAP, not yet
   satisfied.** `specs/designs/02-story-select.html` covers only the adventure-selection card
@@ -143,7 +143,7 @@ src/frontend/
 **Structure Decision**: Existing web-application split (`src/backend`, `src/frontend`) is
 reused as-is. No new top-level directories; new files land inside the existing `api/game`,
 `services`, and `pages`/`components` trees, following the same file-per-concern pattern as
-`004-story-creation-done` and `005-story-publishing`.
+`004-story-creation-done` and `005-story-publishing-done`.
 
 ## Complexity Tracking
 

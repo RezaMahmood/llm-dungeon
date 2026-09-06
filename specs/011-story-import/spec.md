@@ -46,7 +46,7 @@ An administrator who already has a story configuration file uploads it directly.
 - **FR-004**: System MUST, for an uploaded file that passes validation, let the administrator choose to either create a new story or overwrite an existing one.
 - **FR-005**: System MUST require a title (to be shown to players) when an administrator creates a new story from an uploaded file.
 - **FR-006**: System MUST require explicit confirmation of the overwrite target before replacing an existing story's configuration.
-- **FR-007**: A story newly created via import MUST default to unpublished, so it is not visible to players until an administrator explicitly publishes it (see `005-story-publishing`).
+- **FR-007**: A story newly created via import MUST default to unpublished, so it is not visible to players until an administrator explicitly publishes it (see `005-story-publishing-done`).
 - **FR-008**: Each distinct import outcome (successful new-story import, successful overwrite import, validation rejection, missing-title rejection) MUST have a corresponding automated test verifying its expected behavior.
 
 ### Key Entities
@@ -66,4 +66,4 @@ An administrator who already has a story configuration file uploads it directly.
 
 - Validation covers structural correctness (required fields, correct format) and basic content consistency (e.g., no duplicate character type names); it does not evaluate narrative quality.
 - The file format and schema for a story configuration are defined by whichever process also produces them via guided creation (`004-story-creation-done`), so an exported/downloaded story (see `012-story-editing-and-review`) can always be re-imported here.
-- This spec covers the import mechanism itself; making an imported story visible to players is a separate, explicit action (see `005-story-publishing`).
+- This spec covers the import mechanism itself; making an imported story visible to players is a separate, explicit action (see `005-story-publishing-done`).

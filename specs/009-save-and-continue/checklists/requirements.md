@@ -32,7 +32,7 @@
 ## Notes
 
 - All items pass. Split out from `003-game-setup-and-authoring` (former US2 and US4) as
-  its own persistence-focused domain, separate from `008-core-gameplay`'s moment-to-moment
+  its own persistence-focused domain, separate from `008-core-gameplay-done`'s moment-to-moment
   play loop.
-- Depends on `002-login-and-access-control` (player identity) and `008-core-gameplay`
+- Depends on `002-login-and-access-control` (player identity) and `008-core-gameplay-done`
   (the Play Session being saved/resumed).

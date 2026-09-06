@@ -1,5 +1,5 @@
 /**
- * The play surface rendered inside the real `/game` layout (008-core-gameplay).
+ * The play surface rendered inside the real `/game` layout (008-core-gameplay-done).
  *
  * The other Play tests render `PlayPage` on its own, which cannot see the header
  * `AuthenticatedLayout` supplies — exactly the blind spot that let a second, unconfirmed

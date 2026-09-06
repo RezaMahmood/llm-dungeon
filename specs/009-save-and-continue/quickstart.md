@@ -10,7 +10,7 @@ exact request/response shapes and [data-model.md](./data-model.md) for the
 ## Prerequisites
 
 - Local backend running (`func start` or the repo's standard local-dev command) against the
-  Cosmos DB emulator, with the `playSessions` container `008-core-gameplay` already
+  Cosmos DB emulator, with the `playSessions` container `008-core-gameplay-done` already
   provisions. **No new container is needed for this feature.**
 - At least two published `Story` documents (so a player can hold two in-progress games on
   different adventures — spec Edge Case 4).

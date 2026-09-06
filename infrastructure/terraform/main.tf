@@ -130,7 +130,7 @@ resource "azurerm_cosmosdb_sql_container" "story_drafts" {
 }
 
 resource "azurerm_cosmosdb_sql_container" "play_sessions" {
-  # 008-core-gameplay, data-model.md Storage Model: one document per player-per-
+  # 008-core-gameplay-done, data-model.md Storage Model: one document per player-per-
   # playthrough, holding the full turn history plus completion-tracking state.
   name                  = "playSessions"
   resource_group_name   = data.azurerm_resource_group.rg.name
@@ -141,7 +141,7 @@ resource "azurerm_cosmosdb_sql_container" "play_sessions" {
 }
 
 resource "azurerm_cosmosdb_sql_container" "player_content_safety_standings" {
-  # 008-core-gameplay, research.md Decision 9: a small, cross-session per-player
+  # 008-core-gameplay-done, research.md Decision 9: a small, cross-session per-player
   # record of flagged-submission count and any resulting 1-hour lockout.
   name                  = "playerContentSafetyStandings"
   resource_group_name   = data.azurerm_resource_group.rg.name

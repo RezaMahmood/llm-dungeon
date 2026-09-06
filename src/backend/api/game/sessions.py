@@ -1,5 +1,5 @@
 """Play session endpoints — create a session (superseding game/start's role), submit an
-interaction, and resume a player's own session (008-core-gameplay, contracts/api.md)."""
+interaction, and resume a player's own session (008-core-gameplay-done, contracts/api.md)."""
 
 from __future__ import annotations
 

@@ -9,7 +9,7 @@ import { usePublishToggle } from "../hooks/usePublishToggle.js";
 /**
  * One story row's publish/unpublish action, sharing its call + FR-011
  * gate-message + FR-013 confirmation behavior with the wizard's
- * `StepPublish` via `usePublishToggle` (005-story-publishing Phase 5).
+ * `StepPublish` via `usePublishToggle` (005-story-publishing-done Phase 5).
  */
 function StoryRow({ story, getToken, onStoryChange }) {
   const {

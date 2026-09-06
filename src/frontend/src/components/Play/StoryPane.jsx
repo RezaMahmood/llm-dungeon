@@ -1,6 +1,6 @@
 /**
  * Scrolling narrative history for the play surface (specs/designs/03-play.html,
- * 008-core-gameplay). Renders every turn so far: the narrative text, and — when
+ * 008-core-gameplay-done). Renders every turn so far: the narrative text, and — when
  * present — the player's own input for that turn, oldest first.
  */
 export function StoryPane({ turns }) {
