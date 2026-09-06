@@ -92,7 +92,27 @@ class FakeCosmosService:
             rows = [r for r in rows if r.get("isActiveForPlayer") is True]
         if "c.id != @excludeId" in sql:
             rows = [r for r in rows if r.get("id") != param_map.get("@excludeId")]
+        if "ARRAY_SLICE(c.turns, -1) AS latestTurn" in sql:
+            rows = [_project_saved_game_summary_row(r) for r in rows]
         return rows
+
+
+def _project_saved_game_summary_row(row: dict) -> dict:
+    """Simulates the real Cosmos SQL projection `list_player_sessions` issues
+    (`ARRAY_SLICE(c.turns, -1)`, `ARRAY_LENGTH(...)`), so tests exercise the same
+    lean-row shape production actually receives rather than a full document."""
+    turns = row.get("turns", [])
+    return {
+        "id": row["id"],
+        "adventureId": row["adventureId"],
+        "characterName": row["characterName"],
+        "startedAt": row["startedAt"],
+        "lastInteractionAt": row["lastInteractionAt"],
+        "isActiveForPlayer": row["isActiveForPlayer"],
+        "latestTurn": turns[-1:],
+        "turnCount": len(turns),
+        "checkpointCount": len(row.get("checkpoints", [])),
+    }
 
 
 def _now() -> str:

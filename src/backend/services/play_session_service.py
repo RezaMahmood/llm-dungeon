@@ -389,21 +389,29 @@ class PlaySessionService:
     def list_player_sessions(self, player_id: str) -> list[dict[str, Any]]:
         """The player's own in-progress games, newest activity first (data-model.md
         "Saved Game Summary"). Adventure names are batch-resolved by distinct
-        `adventureId` (research.md Decision 4)."""
+        `adventureId` (research.md Decision 4).
+
+        Backs both the continue screen and the sign-out prompt's active-game check, so
+        it is called on every `/game` visit and every sign-out click — a real hot path,
+        not an occasional one. Projects only the fields a summary row needs (the latest
+        turn via `ARRAY_SLICE`, not the whole `turns` history) rather than reading full
+        session documents just to discard almost all of each one."""
         rows = self._cosmos.query(
             config.PLAY_SESSIONS_CONTAINER,
-            "SELECT * FROM c WHERE c.playerId = @playerId AND c.status = 'active'",
+            "SELECT c.id, c.adventureId, c.characterName, c.startedAt, c.lastInteractionAt, "
+            "c.isActiveForPlayer, ARRAY_SLICE(c.turns, -1) AS latestTurn, "
+            "ARRAY_LENGTH(c.turns) AS turnCount, ARRAY_LENGTH(c.checkpoints) AS checkpointCount "
+            "FROM c WHERE c.playerId = @playerId AND c.status = 'active'",
             params=[{"name": "@playerId", "value": player_id}],
         )
-        sessions = [PlaySession.from_dict(row) for row in rows]
-        sessions.sort(key=lambda s: s.lastInteractionAt, reverse=True)
+        rows.sort(key=lambda row: row["lastInteractionAt"], reverse=True)
 
         names: dict[str, str] = {}
-        for session in sessions:
-            if session.adventureId not in names:
-                names[session.adventureId] = self._resolve_adventure_name(session.adventureId)
+        for row in rows:
+            if row["adventureId"] not in names:
+                names[row["adventureId"]] = self._resolve_adventure_name(row["adventureId"])
 
-        return [self._session_summary(session, names[session.adventureId]) for session in sessions]
+        return [self._session_summary_from_row(row, names[row["adventureId"]]) for row in rows]
 
     def get_session_for_player(self, session_id: str, player_id: str) -> PlaySession:
         """The player's own session in full, for rehydrating the play surface
@@ -488,6 +496,26 @@ class PlaySessionService:
             "lastInteractionAt": session.lastInteractionAt,
             "isActiveForPlayer": session.isActiveForPlayer,
             "checkpointCount": len(session.checkpoints),
+        }
+
+    @staticmethod
+    def _session_summary_from_row(row: dict[str, Any], adventure_name: str) -> dict[str, Any]:
+        """Same shape as `_session_summary`, but built from a projected `list_player_sessions`
+        row instead of a full `PlaySession` (no `turns` to slice — Cosmos already did)."""
+        latest_turns = row.get("latestTurn") or []
+        latest = latest_turns[0] if latest_turns else None
+        return {
+            "sessionId": row["id"],
+            "adventureId": row["adventureId"],
+            "adventureName": adventure_name,
+            "characterName": row["characterName"],
+            "locationLabel": latest.get("locationLabel") if latest else None,
+            "progress": latest.get("progress") if latest else None,
+            "turnCount": row.get("turnCount") or 0,
+            "startedAt": row["startedAt"],
+            "lastInteractionAt": row["lastInteractionAt"],
+            "isActiveForPlayer": row["isActiveForPlayer"],
+            "checkpointCount": row.get("checkpointCount") or 0,
         }
 
     # --- Helpers ---
