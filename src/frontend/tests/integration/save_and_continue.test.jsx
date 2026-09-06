@@ -1,8 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const acquireTokenSilent = vi.fn();
+const logoutRedirect = vi.fn();
 const listAdventures = vi.fn();
 const getAdventure = vi.fn();
 const createSession = vi.fn();
@@ -12,11 +14,15 @@ const resumeSession = vi.fn();
 const submitInteraction = vi.fn();
 const saveCheckpoint = vi.fn();
 
-const mockInstance = { acquireTokenSilent };
+const mockInstance = { acquireTokenSilent, logoutRedirect };
 const mockAccounts = [{ homeAccountId: "home-1", username: "player@example.com" }];
 
 vi.mock("@azure/msal-react", () => ({
   useMsal: () => ({ instance: mockInstance, accounts: mockAccounts }),
+}));
+
+vi.mock("../../src/hooks/useCapabilities.js", () => ({
+  useCapabilities: () => ({ hasPlayer: true, hasAdministrator: false, loading: false, error: null, denied: false, refetch: vi.fn() }),
 }));
 
 vi.mock("../../src/services/gameService.js", () => ({
@@ -30,6 +36,7 @@ vi.mock("../../src/services/gameService.js", () => ({
   saveCheckpoint: (...args) => saveCheckpoint(...args),
 }));
 
+import NavBar from "../../src/components/Layout/NavBar.jsx";
 import GamePage from "../../src/pages/GamePage.jsx";
 
 const SAVED_GAME = {
@@ -124,5 +131,74 @@ describe("Save and continue: list -> Resume -> play (009-save-and-continue)", ()
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't resume this story/i);
     expect(getSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("Save and continue: sign-out round trip (009-save-and-continue, US2 Acceptance Scenarios 3-4)", () => {
+  beforeEach(() => {
+    acquireTokenSilent.mockReset().mockResolvedValue({ accessToken: "tok" });
+    logoutRedirect.mockReset();
+    listAdventures.mockReset().mockResolvedValue({ adventures: [] });
+    getAdventure.mockReset();
+    createSession.mockReset();
+    listSavedGames.mockReset();
+    getSession.mockReset();
+    resumeSession.mockReset();
+    saveCheckpoint.mockReset();
+  });
+
+  it("accepting the prompt records a marker and the resumed game later shows every turn plus the marker", async () => {
+    listSavedGames.mockResolvedValue({
+      sessions: [{ ...SAVED_GAME, status: "active", isActiveForPlayer: true }],
+    });
+    saveCheckpoint.mockResolvedValue({ checkpoint: { label: "The keeper's stairs", turnNumber: 1, createdAt: "now" } });
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <NavBar />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole("link", { name: "Sign out" }));
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: /save and sign out/i }));
+
+    expect(saveCheckpoint).toHaveBeenCalledWith("tok", "session-1");
+
+    // Resuming afterwards shows every turn, plus the newly recorded marker.
+    getSession.mockResolvedValue({
+      status: "success",
+      session: { ...SESSION_DETAIL, checkpoints: [{ label: "The keeper's stairs", turnNumber: 1, createdAt: "now" }] },
+    });
+    render(<GamePage />);
+    await user.click(await screen.findByRole("button", { name: /resume/i }));
+
+    expect(await screen.findByText("You find the stairs.")).toBeInTheDocument();
+    expect(screen.getByText("The door creaks open.")).toBeInTheDocument();
+  });
+
+  it("declining records none and the resumed game shows exactly the same turns", async () => {
+    listSavedGames.mockResolvedValue({
+      sessions: [{ ...SAVED_GAME, status: "active", isActiveForPlayer: true }],
+    });
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <NavBar />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole("link", { name: "Sign out" }));
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: /sign out without saving/i }));
+
+    expect(saveCheckpoint).not.toHaveBeenCalled();
+
+    getSession.mockResolvedValue({ status: "success", session: SESSION_DETAIL });
+    render(<GamePage />);
+    await user.click(await screen.findByRole("button", { name: /resume/i }));
+
+    expect(await screen.findByText("You find the stairs.")).toBeInTheDocument();
+    expect(screen.getByText("The door creaks open.")).toBeInTheDocument();
   });
 });

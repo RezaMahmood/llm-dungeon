@@ -5,16 +5,24 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockUseCapabilities = vi.fn();
 const logoutRedirect = vi.fn();
+const acquireTokenSilent = vi.fn();
+const listSavedGames = vi.fn();
+const saveCheckpoint = vi.fn();
 
 vi.mock("@azure/msal-react", () => ({
   useMsal: () => ({
-    instance: { logoutRedirect },
+    instance: { logoutRedirect, acquireTokenSilent },
     accounts: [{ name: "Ada B.", username: "ada@example.test" }],
   }),
 }));
 
 vi.mock("../../src/hooks/useCapabilities.js", () => ({
   useCapabilities: () => mockUseCapabilities(),
+}));
+
+vi.mock("../../src/services/gameService.js", () => ({
+  listSavedGames: (...args) => listSavedGames(...args),
+  saveCheckpoint: (...args) => saveCheckpoint(...args),
 }));
 
 import { RefreshProvider, usePublishRefresh } from "../../src/context/RefreshContext.jsx";
@@ -41,6 +49,7 @@ const linkNames = () => screen.getAllByRole("link").map((el) => el.textContent.t
 describe("NavBar capability-driven visibility (FR-002, FR-003, FR-008, SC-004)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    acquireTokenSilent.mockResolvedValue({ accessToken: "tok" });
   });
 
   it("shows the admin link set on an admin surface for an admin-only account", () => {
@@ -194,5 +203,136 @@ describe("NavBar current-section indication (FR-007, US4)", () => {
 
     expect(currentItems).toHaveLength(1);
     expect(currentItems[0]).toHaveTextContent(expectedLabel);
+  });
+});
+
+describe("NavBar sign-out save prompt (009-save-and-continue, FR-004, research.md Decision 6)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    acquireTokenSilent.mockResolvedValue({ accessToken: "tok" });
+    mockUseCapabilities.mockReturnValue(capabilities(true, false));
+  });
+
+  it("shows the prompt when a session is active and isActiveForPlayer", async () => {
+    listSavedGames.mockResolvedValue({
+      sessions: [{ sessionId: "s1", status: "active", isActiveForPlayer: true }],
+    });
+    const user = userEvent.setup();
+    renderAt("/menu");
+
+    await user.click(screen.getByRole("link", { name: "Sign out" }));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(logoutRedirect).not.toHaveBeenCalled();
+  });
+
+  it("signs out directly with no prompt when the player has no sessions", async () => {
+    listSavedGames.mockResolvedValue({ sessions: [] });
+    const user = userEvent.setup();
+    renderAt("/menu");
+
+    await user.click(screen.getByRole("link", { name: "Sign out" }));
+
+    await vi.waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("signs out directly when the only session has concluded", async () => {
+    listSavedGames.mockResolvedValue({
+      sessions: [],
+    });
+    const user = userEvent.setup();
+    renderAt("/menu");
+
+    await user.click(screen.getByRole("link", { name: "Sign out" }));
+
+    await vi.waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
+  });
+
+  it("signs out directly when no returned session is active for this player", async () => {
+    listSavedGames.mockResolvedValue({
+      sessions: [{ sessionId: "s1", status: "active", isActiveForPlayer: false }],
+    });
+    const user = userEvent.setup();
+    renderAt("/menu");
+
+    await user.click(screen.getByRole("link", { name: "Sign out" }));
+
+    await vi.waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("falls through to a plain sign-out when the lookup itself fails", async () => {
+    listSavedGames.mockRejectedValue(new Error("network error"));
+    const user = userEvent.setup();
+    renderAt("/menu");
+
+    await user.click(screen.getByRole("link", { name: "Sign out" }));
+
+    await vi.waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("accepting the prompt records a checkpoint then signs out", async () => {
+    listSavedGames.mockResolvedValue({
+      sessions: [{ sessionId: "s1", status: "active", isActiveForPlayer: true }],
+    });
+    saveCheckpoint.mockResolvedValue({ checkpoint: { label: "Entrance", turnNumber: 0, createdAt: "now" } });
+    const user = userEvent.setup();
+    renderAt("/menu");
+
+    await user.click(screen.getByRole("link", { name: "Sign out" }));
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: /save and sign out/i }));
+
+    expect(saveCheckpoint).toHaveBeenCalledWith("tok", "s1");
+    await vi.waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
+  });
+
+  it("declining the prompt signs out with no checkpoint call", async () => {
+    listSavedGames.mockResolvedValue({
+      sessions: [{ sessionId: "s1", status: "active", isActiveForPlayer: true }],
+    });
+    const user = userEvent.setup();
+    renderAt("/menu");
+
+    await user.click(screen.getByRole("link", { name: "Sign out" }));
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: /sign out without saving/i }));
+
+    expect(saveCheckpoint).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
+  });
+
+  it("cancelling the prompt does neither", async () => {
+    listSavedGames.mockResolvedValue({
+      sessions: [{ sessionId: "s1", status: "active", isActiveForPlayer: true }],
+    });
+    const user = userEvent.setup();
+    renderAt("/menu");
+
+    await user.click(screen.getByRole("link", { name: "Sign out" }));
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+    expect(saveCheckpoint).not.toHaveBeenCalled();
+    expect(logoutRedirect).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("a failed checkpoint still completes the sign-out with the failure notice rendered (FR-006a)", async () => {
+    listSavedGames.mockResolvedValue({
+      sessions: [{ sessionId: "s1", status: "active", isActiveForPlayer: true }],
+    });
+    saveCheckpoint.mockRejectedValue(new Error("network error"));
+    const user = userEvent.setup();
+    renderAt("/menu");
+
+    await user.click(screen.getByRole("link", { name: "Sign out" }));
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: /save and sign out/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't record that checkpoint/i);
+    await vi.waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
   });
 });
