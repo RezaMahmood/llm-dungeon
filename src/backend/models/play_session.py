@@ -1,6 +1,6 @@
 """PlaySession and PlayerInteraction — one player's individual playthrough of a published
 Story, persisted so it survives across the independent HTTP requests that make up a play
-session (008-core-gameplay data-model.md)."""
+session (008-core-gameplay-done data-model.md)."""
 
 from __future__ import annotations
 
@@ -46,6 +46,31 @@ class PlayerInteraction:
 
 
 @dataclass
+class CheckpointMarker:
+    """A labelled, timestamped save point recorded by the player (009-save-and-continue).
+    History only — it carries no game state and can never be resumed from."""
+
+    label: str
+    turnNumber: int
+    createdAt: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "label": self.label,
+            "turnNumber": self.turnNumber,
+            "createdAt": self.createdAt,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "CheckpointMarker":
+        return cls(
+            label=data["label"],
+            turnNumber=data["turnNumber"],
+            createdAt=data["createdAt"],
+        )
+
+
+@dataclass
 class PlaySession:
     id: str
     adventureId: str
@@ -64,6 +89,7 @@ class PlaySession:
     endedAt: Optional[str] = None
     summary: Optional[str] = None
     summarizedThroughTurn: int = 0
+    checkpoints: list[CheckpointMarker] = field(default_factory=list)
     entityType: str = field(default="PlaySession")
 
     def to_dict(self) -> dict[str, Any]:
@@ -86,6 +112,7 @@ class PlaySession:
             "endedAt": self.endedAt,
             "summary": self.summary,
             "summarizedThroughTurn": self.summarizedThroughTurn,
+            "checkpoints": [checkpoint.to_dict() for checkpoint in self.checkpoints],
         }
 
     @classmethod
@@ -108,4 +135,5 @@ class PlaySession:
             endedAt=data.get("endedAt"),
             summary=data.get("summary"),
             summarizedThroughTurn=data.get("summarizedThroughTurn", 0),
+            checkpoints=[CheckpointMarker.from_dict(checkpoint) for checkpoint in data.get("checkpoints", [])],
         )

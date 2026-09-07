@@ -30,7 +30,7 @@ Existing fields are unchanged. Two fields are added.
 | `completionCriteria` | CompletionCriteria | — | Authored. In the config file. |
 | `narrativeGuidance` | string (required) | — | **Derived**, regenerated on every content write (research.md §5). Not in the config file. |
 | `published` | bool | — | System-managed. Never written by this feature (FR-007). |
-| `lastPublishedAt` | string \| null | — | System-managed, owned by `005-story-publishing`. |
+| `lastPublishedAt` | string \| null | — | System-managed, owned by `005-story-publishing-done`. |
 | `createdBy` | string (oid) | — | Preserved on edit (FR-009). |
 | `createdAt` | string (ISO-8601 Z) | — | Preserved on edit (FR-009). |
 | `contentUpdatedAt` | string (ISO-8601 Z) | — | **Set to now on every content write** — this is what re-arms the `017` publish gate (FR-009). |

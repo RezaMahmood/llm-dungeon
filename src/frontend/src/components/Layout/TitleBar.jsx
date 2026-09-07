@@ -13,7 +13,7 @@ import { usePlayTitle } from "../../context/PlayTitleContext.jsx";
  * restructuring (plan.md Constitution Check, Principle XI).
  *
  * `storyTitle`/`onPauseExit` come either from props or from whatever the mounted
- * page published via `PlayTitleContext` (`008-core-gameplay`'s play surface does
+ * page published via `PlayTitleContext` (`008-core-gameplay-done`'s play surface does
  * the latter). While a page has published an exit handler there is an active play
  * session, so *every* way out of this bar — the exit action and the brand mark
  * alike — has to run through it: FR-016/SC-013 allow no path that leaves an active
@@ -26,6 +26,7 @@ export function TitleBar({ storyTitle = "", onSaveCheckpoint, onPauseExit }) {
   const title = storyTitle || published?.storyTitle || "";
   const confirmExit = onPauseExit ?? published?.onPauseExit;
   const handlePauseExit = confirmExit ?? (() => navigate("/menu"));
+  const saveCheckpoint = onSaveCheckpoint ?? published?.onSaveCheckpoint;
 
   const brandStyle = {
     fontFamily: "var(--font-heading)",
@@ -77,9 +78,11 @@ export function TitleBar({ storyTitle = "", onSaveCheckpoint, onPauseExit }) {
         data-nav-slot="trailing-actions"
         style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flex: "none" }}
       >
-        <button className="btn btn-secondary" type="button" onClick={onSaveCheckpoint}>
-          Save a checkpoint
-        </button>
+        {saveCheckpoint && (
+          <button className="btn btn-secondary" type="button" onClick={saveCheckpoint}>
+            Save a checkpoint
+          </button>
+        )}
         <button className="btn btn-primary" type="button" onClick={handlePauseExit}>
           Pause &amp; exit
         </button>

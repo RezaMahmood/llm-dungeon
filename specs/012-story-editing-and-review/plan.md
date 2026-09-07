@@ -59,7 +59,7 @@ this feature only re-arms their gate implicitly by stamping `contentUpdatedAt`, 
 
 **Re-evaluated after Phase 1 design (2026-09-06): unchanged — one explicit, justified exception under Principle VIII (FR-012), recorded in Complexity Tracking. No other violations.**
 
-**Re-checked after cross-artifact analysis (2026-09-07)**: the analysis found the configuration viewer to be a screen traceable to no screen contract, which Governance forbids shipping. Resolved by amending the constitution to v2.1.0 with an "Administrator — stories & configuration" screen contract rather than by taking a second exception — see the Governance subsection below. The Principle VIII styling exception is unchanged and remains the only exception this feature carries.
+**Re-checked after cross-artifact analysis (2026-09-07)**: the analysis found the configuration viewer to be a screen traceable to no screen contract, which Governance forbids shipping. Resolved by amending the constitution to v2.3.0 with an "Administrator — stories & configuration" screen contract rather than by taking a second exception — see the Governance subsection below. The Principle VIII styling exception is unchanged and remains the only exception this feature carries.
 
 ### Principle I – Meaningful, Automated Testing (NON-NEGOTIABLE)
 **Status**: ✓ MET — FR-008 enumerates every maintenance action needing a test; quickstart.md's scenario table maps each of the 17 required behaviors (including the rejected stale save, the id-less upload, the unmatched-`id` rejection, and the in-flight-session regression) to a named test file. All tests run locally against the existing in-memory Cosmos and LLM stubs — no live Azure dependency, no manual step.
@@ -103,7 +103,7 @@ this feature only re-arms their gate implicitly by stamping `contentUpdatedAt`, 
 ### Governance – Screen contract traceability & the layout/scroll contract
 **Status**: ✓ MET (as of the 2026-09-07 amendment) — Governance requires every shipped screen to be traceable to a screen contract or a documented amendment extending one, and requires this analysis to treat a contradiction with the layout/scroll contract as blocking. Both are now addressed:
 
-- **Traceability**: constitution v2.1.0 adds the **Administrator — stories & configuration** screen contract, covering this feature's two screens (the story list with status and publish/unpublish entry point, and the read-only configuration viewer with its download). That section now also states explicitly that a contract may exist without a prototype screen when a spec defers visual design, which is exactly FR-012's case; `specs/designs/README.md` points at it. The deferral covers styling only — it does not weaken the contract's required affordances.
+- **Traceability**: constitution v2.3.0 adds the **Administrator — stories & configuration** screen contract, covering this feature's two screens (the story list with status and publish/unpublish entry point, and the read-only configuration viewer with its download). That section now also states explicitly that a contract may exist without a prototype screen when a spec defers visual design, which is exactly FR-012's case; `specs/designs/README.md` points at it. The deferral covers styling only — it does not weaken the contract's required affordances.
 - **Layout/scroll**: the fixed-viewport shell (contract rule 1) is a *play-surface* rule in this codebase — `src/frontend/src/index.css` deliberately carries no page-wide `overflow: hidden`, with a recorded reason (it clipped the wizard's growing World & setting step). The viewer therefore does not introduce a page-level scroll rule; instead its `<pre>` sits in its own keyboard-focusable `overflow: auto` container, so a long configuration scrolls inside the screen rather than breaking the page horizontally (see Constraints, task T020).
 
 ### Security & Access Control / PII & Data Protection / Observability sections
@@ -131,7 +131,7 @@ specs/012-story-editing-and-review/
 **Structure Decision**: The existing web-application layout (`src/backend/` Python Azure
 Functions + `src/frontend/` React SPA). This feature adds one backend module, two frontend
 pages/components, and modifies the story model/service/API established by
-`004-story-creation-done` and `005-story-publishing`. No new container, no new service
+`004-story-creation-done` and `005-story-publishing-done`. No new container, no new service
 boundary.
 
 ```text
@@ -210,7 +210,7 @@ src/frontend/
 ## Complexity Tracking
 
 > Filled because the Constitution Check records one explicit exception (Principle VIII).
-> Screen-contract traceability was resolved by amending the constitution (v2.1.0), not by a
+> Screen-contract traceability was resolved by amending the constitution (v2.3.0), not by a
 > second exception, so it is not tracked here.
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |

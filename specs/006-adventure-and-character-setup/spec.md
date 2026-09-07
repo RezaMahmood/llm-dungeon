@@ -16,7 +16,7 @@
 
 ### Session 2026-08-29
 
-- Q: If a published adventure ends up with zero administrator-defined character types, what should happen when a player tries to select it during setup? → A: Cannot be published without ≥1 type — 005-story-publishing must block publishing an adventure with no character types, so this can never occur at setup time.
+- Q: If a published adventure ends up with zero administrator-defined character types, what should happen when a player tries to select it during setup? → A: Cannot be published without ≥1 type — 005-story-publishing-done must block publishing an adventure with no character types, so this can never occur at setup time.
 - Q: If a player changes their adventure selection after already picking a character type, should their previously chosen character type carry forward or reset? → A: Reset the character type — types are scoped per adventure, so a prior selection is not guaranteed valid for the newly chosen adventure. Character name is unaffected by an adventure change.
 - Q: Beyond rejecting a blank/whitespace-only name, what limit (if any) should apply to character name length? → A: Cap at 50 characters.
 - Q: Must a player pick an adventure before choosing a character name and type, or can all three be filled in any order on one screen? → A: Adventure first, then name/type — the character-type choices shown depend on the adventure, so adventure selection is the first step and name/type entry follows.
@@ -27,13 +27,13 @@
 
 A player choosing to start a new game first picks which published adventure to play from a list, then gives their character a name and picks one of the character types the administrator defined for that adventure. Only after all three choices are made can the player actually enter the game.
 
-**Why this priority**: This is the required setup step between "player wants to start a new game" and "player is playing" (the play loop itself is covered by `008-core-gameplay`). Without it, a player has no way to choose what and who they're playing as.
+**Why this priority**: This is the required setup step between "player wants to start a new game" and "player is playing" (the play loop itself is covered by `008-core-gameplay-done`). Without it, a player has no way to choose what and who they're playing as.
 
 **Independent Test**: With one published adventure that defines at least two character types, select the adventure, enter a character name, choose a character type, and verify play only begins after all three are supplied — and that the chosen name/type are reflected in the resulting session.
 
 **Acceptance Scenarios**:
 
-1. **Given** a player has chosen "start a new game," **When** they view the list of available adventures, **Then** only published adventures are shown (see `005-story-publishing`), each distinguishable by name.
+1. **Given** a player has chosen "start a new game," **When** they view the list of available adventures, **Then** only published adventures are shown (see `005-story-publishing-done`), each distinguishable by name.
 2. **Given** a player has not yet selected an adventure, **When** they view the setup flow, **Then** character name entry and character type selection are not available until an adventure has been chosen first.
 3. **Given** a player has selected an adventure, **When** they proceed to set up their character, **Then** they are prompted for a character name and shown the set of character types defined for that specific adventure.
 4. **Given** a player has selected an adventure but has not yet supplied both a character name and a character type, **When** they attempt to start playing, **Then** the system prevents play from starting and indicates what is still missing.
@@ -80,6 +80,6 @@ A player choosing to start a new game first picks which published adventure to p
 ## Assumptions
 
 - Character types are defined per adventure by the administrator (as part of that adventure's configuration), not as a single global list shared across all adventures.
-- This spec covers only setup; the resulting play session itself, including how completion criteria end it, is defined in `008-core-gameplay`.
-- The adventure list shown here is exactly the set of published stories as governed by `005-story-publishing`; this spec does not alter or duplicate that publishing logic.
-- Every published adventure has at least one character type defined; `005-story-publishing` is responsible for blocking publication of an adventure with zero character types, so this spec's setup flow never has to handle a published adventure with no types to choose from.
+- This spec covers only setup; the resulting play session itself, including how completion criteria end it, is defined in `008-core-gameplay-done`.
+- The adventure list shown here is exactly the set of published stories as governed by `005-story-publishing-done`; this spec does not alter or duplicate that publishing logic.
+- Every published adventure has at least one character type defined; `005-story-publishing-done` is responsible for blocking publication of an adventure with zero character types, so this spec's setup flow never has to handle a published adventure with no types to choose from.

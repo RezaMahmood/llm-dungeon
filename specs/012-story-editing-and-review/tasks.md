@@ -271,6 +271,6 @@ Task: "Add the get_story_configuration handler in src/backend/api/admin/stories.
 - Per Principle IX, **no blocking human-acceptance gate** applies to this feature; T045 is
   informational only
 - This feature's two screens are traceable to the **Administrator — stories & configuration**
-  screen contract added in constitution v2.1.0 (2026-09-07); FR-012 defers their styling, not
+  screen contract added in constitution v2.3.0 (2026-09-07); FR-012 defers their styling, not
   their required affordances or the accessibility bar
 - Commit after each task or logical group; stop at either checkpoint to validate a story

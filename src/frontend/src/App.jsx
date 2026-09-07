@@ -4,6 +4,7 @@ import { Navigate, Route, BrowserRouter as Router, Routes } from "react-router-d
 
 import AuthProvider from "./components/Auth/AuthProvider.jsx";
 import ProtectedRoute from "./components/Auth/ProtectedRoute.jsx";
+import VersionBadge from "./components/Common/VersionBadge.jsx";
 import LoginScreen from "./components/Login/LoginScreen.jsx";
 import MainMenu from "./components/Menu/MainMenu.jsx";
 import { CapabilitiesProvider } from "./context/CapabilitiesContext.jsx";
@@ -111,6 +112,9 @@ export function App() {
           </CapabilitiesProvider>
         </Router>
       </AuthProvider>
+      {/* Outside the router and AuthProvider: it needs neither, so it renders
+          on the login screen the same way it does on every other page (#255). */}
+      <VersionBadge />
     </ErrorBoundary>
   );
 }

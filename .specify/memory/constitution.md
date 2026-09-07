@@ -1,6 +1,6 @@
 <!--
 Sync Impact Report
-Version change: 2.0.0 → 2.1.0
+Version change: 2.2.0 -> 2.3.0
 Modified principles: none
 Added principles: none
 Removed principles: none
@@ -21,44 +21,57 @@ Source: 012-story-editing-and-review's cross-artifact analysis (2026-09-07) foun
   read-only configuration viewer to be a new screen traceable to no screen contract,
   which Governance forbids shipping. The requesting user chose to extend the screen
   contracts rather than take an exception. This is additive guidance only - no existing
-  contract, principle, or requirement changes meaning, hence MINOR.
+  contract, principle, or requirement changes meaning, hence MINOR. This amendment was
+  authored in parallel with the 2.1.0 -> 2.2.0 amendment below on a separate branch and
+  is folded in here, on top of 2.2.0, when that branch caught up with `origin/main`.
 Templates requiring follow-up: none - dependent templates read this file at runtime and
   are not modified by this command.
 Deferred/TODO placeholders: none.
 
-Previous report (1.13.0 → 2.0.0)
+Previous report (2.1.0 -> 2.2.0)
 Modified principles:
-  - IX. User-Verified Acceptance Before Completion → Playtesting-Driven Quality
-    (Post-Ship Verification, Non-Blocking) - removed as a NON-NEGOTIABLE, blocking gate.
-    A feature is now complete once automated tests pass and CI merges it; human
-    playtesting against the deployed environment still happens, but afterward, on an
-    ongoing basis, feeding fixes into follow-up work rather than blocking completion or
-    merge. Backward-incompatible: previously no feature could be called complete without
-    human sign-off; that requirement is gone.
-  - XI. UI Design Pre-Agreement Before Implementation → Implementer Design Latitude
-    (Non-Blocking) - removed as a NON-NEGOTIABLE, design-time blocking gate. Implementers
-    may proceed to implementation on their own design judgment, within the existing
-    design system/screen contracts (Principle VIII, unaffected); a pre-implementation
-    mockup/sign-off from the requesting user is no longer required or permitted to block
-    implementation. Backward-incompatible: previously implementation could not start
-    without that sign-off.
+  - XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, GitHub Copilot
+    Reviews, Human Merges (NON-NEGOTIABLE) - materially expanded, not redefined. Added a
+    sync-before-work rule: before any development or spec-related work begins on a feature
+    branch - planning (plan, tasks, clarify, analyze) included, not implementation alone -
+    that branch MUST be brought up to date with `origin/main`, and a divergence MUST be
+    resolved or reported rather than worked around. Where an artifact then states that
+    code already exists, that statement MUST match the synced tree or `origin/main`, never
+    an unmerged local branch, another worktree, or a stale local `main`. Identifiers an
+    artifact proposes to create are expressly exempt - a plan is expected to name code
+    that does not exist yet - and a dependency on unmerged work MUST be named as such.
+    Backward-compatible: nothing previously permitted is withdrawn, and the existing
+    push/open-PR authorization, no-auto-merge and no-merge rules, the merged/closed-PR
+    push prohibition, the Copilot review pass, and the manual human merge are all
+    unchanged.
 Added principles: none
-Removed principles: none (IX and XI redefined in place, not deleted, to avoid
-  renumbering every cross-reference in this document)
+Removed principles: none
 Added sections: none
 Modified sections:
-  - Development Workflow & Quality Gates - replaced the mandatory final user-verified
-    acceptance task bullet and the mandatory UI design agreement/sign-off task bullet
-    with non-blocking equivalents consistent with the redefined Principles IX and XI.
+  - AI Agent / GitHub Handoff Requirements - added a bullet stating the rule operationally
+    (fetch and fast-forward/merge `origin/main` before spec-related work; read existing
+    code from the synced tree or `git show origin/main:<path>`, never from another branch
+    or worktree).
+  - Development Workflow & Quality Gates - added a bullet making a claim that code already
+    exists, where it is absent from `origin/main` and not declared as a named unmerged
+    dependency, a blocking cross-artifact consistency analysis finding. Proposed
+    identifiers are explicitly not findings.
 Removed sections: none
-Source: direct user instruction (2026-09-05) - development speed and shipping an MVP are
-  being prioritized over getting implementation and design right on the first attempt;
-  issues are expected to be found and fixed through playtesting rather than prevented by
-  upfront human sign-off gates on implementation and design. Scope of the relaxation
-  (which gates, and that automated test/CI gates stay in place as the safety net) was
-  confirmed via clarifying questions in this session.
-Templates requiring follow-up: none - dependent templates read this file at runtime and
-  are not modified by this command.
+Source: direct user instruction (2026-09-06), prompted by a concrete failure during
+  010-story-test-play planning. The plan was written by reading the then-unmerged local
+  `008-core-gameplay` branch, and asserted a service method `list_saved_games()` that does
+  not exist; the real method on `origin/main` is `list_player_sessions()`. The error was
+  caught only when the artifacts were re-verified against `origin/main` after that work
+  merged. The project's existing `speckit.git.pull` hook did not prevent it: it runs only
+  on `before_implement`, fast-forwards a feature branch from its own upstream rather than
+  from the trunk, and skips silently when a branch has no upstream - which was the case
+  here. Nothing in the constitution required syncing before planning.
+Templates requiring follow-up: `.specify/extensions.yml` registers `speckit.git.pull` on
+  `before_implement` only, and `.claude/skills/speckit-git-pull/SKILL.md` fast-forwards
+  from the branch's own upstream rather than from `origin/main`. Bringing that tooling in
+  line with this rule (running before the planning commands, and syncing the trunk) is
+  tracked as issue #260, deliberately not bundled into this governance amendment. Until
+  that lands, this rule is enforced by convention rather than by tooling.
 Deferred/TODO placeholders: none.
 -->
 
@@ -295,7 +308,22 @@ dependency-update issues, and fixes) MUST still be performed via GitHub Copilot 
 the Copilot coding agent or Copilot's issue tooling in GitHub), not resolved end-to-end
 by a local AI agent pushing directly to GitHub. A local AI agent MUST NOT merge a pull
 request or resolve/close a GitHub issue itself, even where the tool has the technical
-means to do so. Detailed rules are in the AI Agent / GitHub Handoff Requirements
+means to do so. Work MUST start from a synced tree: before any development or
+spec-related work begins on a feature branch — planning (plan, tasks, clarify, analyze)
+included, not implementation alone — that branch MUST be brought up to date with
+`origin/main`, and a divergence MUST be resolved or reported rather than worked around.
+Where an artifact then states that code already exists — a module path, a class or
+function name, a constant, a field, an endpoint, or a configuration value — that statement
+MUST match the synced tree or `origin/main` itself, never an unmerged local branch,
+another worktree's checkout, or a stale local `main`. Identifiers an artifact proposes to
+create are expressly exempt: a plan is expected to name files, symbols, and fields that do
+not exist yet, and MUST simply make clear which it proposes and which it claims already
+exist. A dependency on work that has not yet merged MUST be named explicitly rather than
+described as if it had already landed. Every push of new work MUST be visible as its own
+open pull request: a local AI agent MUST NOT push follow-up commits onto the branch of a
+pull request that has already been merged or closed, even where that branch still exists
+and the push would technically succeed. Such work MUST go onto a fresh branch behind a new
+pull request. Detailed rules are in the AI Agent / GitHub Handoff Requirements
 section below.
 
 Rationale: A bot-authored pull request (one opened by an automation identity via a
@@ -309,7 +337,23 @@ Copilot's code review is relatively slow and does not produce a formal approving
 before merge — wiring auto-merge to it would let a pull request merge without anyone
 actually having weighed Copilot's findings. Requiring the requesting user to read
 Copilot's recommendations and merge manually keeps a real decision point in the loop
-while still using Copilot for the GitHub-side review pass.
+while still using Copilot for the GitHub-side review pass. Reusing the branch of an
+already-merged or closed pull request hides the new work: the merged PR is no longer
+part of anyone's review queue, Copilot does not re-review it, and the commits reach
+the repository without ever appearing as something a human was asked to look at.
+
+Rationale for the sync-before-work rule: a local AI agent can read any branch or
+worktree the machine happens to hold, and code read from an unmerged branch looks exactly
+like code that already exists. A plan built that way asserts identifiers that are not on
+the trunk — a defect that survives review precisely because the artifact reads as
+authoritative. Syncing first is the root prevention: once the branch carries `origin/main`,
+reading the working tree *is* reading the trunk, and the failure cannot arise. The project
+already had a pull step, but only as a pre-implementation hook that fast-forwards a
+feature branch from its own upstream — it does not run before planning, does not sync with
+the trunk, and skips silently on a branch with no upstream, so it did not prevent this.
+Exempting proposed identifiers keeps the rule from blocking the ordinary business of a
+plan, which is to describe code that does not exist yet; naming an unmerged dependency
+keeps that legitimate case available without disguising it as fact.
 
 ## Security & Access Control Requirements
 
@@ -423,10 +467,26 @@ while still using Copilot for the GitHub-side review pass.
   and automated tests, all spec-related work (intake, specify, clarify, plan, tasks,
   analyze) via this project's Spec Kit workflow, and — once that work is ready — pushing
   the branch and opening the pull request for it.
+- Before a local AI agent begins spec-related work on a branch — writing or updating
+  `plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md`, or `tasks.md`,
+  not only implementing — it MUST sync that branch with `origin/main` (e.g. `git fetch
+  origin`, then fast-forward or merge `origin/main` into the branch), and MUST report a
+  divergence it cannot fast-forward rather than forcing or working around it. Existing
+  code an artifact describes MUST then be read from that synced tree, or from
+  `origin/main` directly (e.g. `git show origin/main:<path>`) — never from a different
+  local branch or another worktree's checkout. This applies to identifiers the artifact
+  says already exist; identifiers it proposes to create are exempt, and a dependency on
+  unmerged work MUST be named as such.
 - When a local AI agent opens a pull request, it MUST label it `AI Generated` and
   `Claude` (both labels already exist in this repository), MUST NOT include a link to
   the local agent's own session/transcript in the PR description, and MUST NOT enable
   auto-merge on the PR or merge it directly.
+- Before pushing to a remote branch, a local AI agent MUST confirm the state of any
+  pull request associated with that branch (e.g., `gh pr view <branch> --json state`).
+  If the associated pull request is merged or closed, the agent MUST NOT push to that
+  branch; it MUST create a new branch off the current main branch and open a new pull
+  request for the work, labelled as above. Pushing to a branch whose pull request is
+  still open is permitted and is the normal way to address review feedback.
 - Local AI agent tools MUST NOT directly perform any other GitHub-hosted operation: they
   MUST NOT merge a pull request or resolve/close a GitHub issue on their own behalf,
   even where the tool has the technical means to do so (e.g., a `gh` CLI or GitHub API
@@ -474,6 +534,13 @@ while still using Copilot for the GitHub-side review pass.
   sufficient for a feature to be considered complete and mergeable; human playtesting
   against the deployed environment happens afterward, on an ongoing basis, per
   Principle IX, and MUST NOT be used to block merge or hold a feature open.
+- Spec-related work MUST begin from a branch synced with `origin/main`, not from an
+  unmerged local branch, another worktree, or a stale local `main`, per Principle XIII.
+  A cross-artifact consistency analysis MUST treat as a blocking finding any statement
+  that code already exists — a module path, symbol, constant, field, or endpoint — where
+  that code is absent from `origin/main` and is not declared as a named, not-yet-merged
+  dependency. Identifiers the artifact proposes to create are not findings; a plan naming
+  code it intends to add is doing its job.
 - Issues, pull request descriptions/comments, and commit messages MUST NOT include PII
   (Principle X, PII & Data Protection Requirements) — reference affected records
   indirectly instead.
@@ -593,7 +660,7 @@ restyle these states locally.
 7. Player-facing surfaces MUST NOT use shaming language, artificial time pressure, or
    punitive UI patterns. This governs tone and interface pressure tactics only — it does
    not remove the game's own configured success/failure outcomes (see
-   `008-core-gameplay`), which remain a legitimate, narratively-framed part of gameplay.
+   `008-core-gameplay-done`), which remain a legitimate, narratively-framed part of gameplay.
 
 ### Layout and scroll contract
 
@@ -636,7 +703,7 @@ relaxes.
   six-step, administrator-facing flow whose steps (name & cover, world & setting, tone
   & reading level, session length, test play, publish & assign) are reachable in any
   order; the adventure's core premise and its content-safety configuration are required
-  fields. A story MUST NOT be publishable (see `005-story-publishing`) until it has
+  fields. A story MUST NOT be publishable (see `005-story-publishing-done`) until it has
   completed a test play.
 - **Administrator — people** (`specs/designs/05-admin-users.html`) — add a new Player or
   Administrator by email; existing accounts are listed with their role(s), and removed
@@ -704,4 +771,4 @@ with the design-token, visual-rules, interaction-state, or layout/scroll require
 above as a blocking finding. No feature may ship a screen that is not traceable to a
 screen contract above or to a documented amendment extending it.
 
-**Version**: 2.1.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-07
+**Version**: 2.3.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-07

@@ -16,7 +16,6 @@ export function AdminStoryConfigurationPage() {
   const account = msalAccounts[0];
   const accountKey = account?.homeAccountId ?? account?.username ?? null;
 
-  const [token, setToken] = useState(null);
   const [configurationText, setConfigurationText] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,7 +25,6 @@ export function AdminStoryConfigurationPage() {
     setError(null);
     try {
       const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
-      setToken(tokenResponse.accessToken);
       const text = await getStoryConfiguration(tokenResponse.accessToken, storyId);
       setConfigurationText(text);
     } catch (err) {

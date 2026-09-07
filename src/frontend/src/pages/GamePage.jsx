@@ -2,7 +2,7 @@
  * 3-step adventure/character setup flow (006-adventure-and-character-setup): pick a
  * published adventure, name a character, choose a character type — in that order
  * (FR-003a) — then confirm to start play, which creates a Play Session and hands off
- * into PlayPage (008-core-gameplay). The header for this screen is the compact TitleBar
+ * into PlayPage (008-core-gameplay-done). The header for this screen is the compact TitleBar
  * supplied by AuthenticatedLayout (FR-006 of 019-spa-refresh-button).
  */
 import { useMsal } from "@azure/msal-react";
@@ -11,7 +11,8 @@ import { useCallback, useEffect, useState } from "react";
 import AdventureList from "../components/GameSetup/AdventureList.jsx";
 import CharacterNameStep, { MAX_CHARACTER_NAME_LENGTH } from "../components/GameSetup/CharacterNameStep.jsx";
 import CharacterTypeStep from "../components/GameSetup/CharacterTypeStep.jsx";
-import { createSession, getAdventure, listAdventures } from "../services/gameService.js";
+import StoriesInProgress from "../components/GameSetup/StoriesInProgress.jsx";
+import { createSession, getAdventure, getSession, listAdventures, listSavedGames, resumeSession } from "../services/gameService.js";
 import { loginRequest } from "../services/msalConfig.js";
 import PlayPage from "./PlayPage.jsx";
 
@@ -44,10 +45,36 @@ export function GamePage() {
   const [submitting, setSubmitting] = useState(false);
   const [session, setSession] = useState(null);
 
+  const [savedGames, setSavedGames] = useState([]);
+  const [savedGamesLoading, setSavedGamesLoading] = useState(true);
+  const [savedGamesError, setSavedGamesError] = useState(null);
+  const [resumeError, setResumeError] = useState(null);
+  const [checkpointExitNotice, setCheckpointExitNotice] = useState(null);
+
   const getToken = useCallback(async () => {
     const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
     return tokenResponse.accessToken;
   }, [instance, account]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setSavedGamesLoading(true);
+      setSavedGamesError(null);
+      try {
+        const token = await getToken();
+        const data = await listSavedGames(token);
+        if (!cancelled) setSavedGames(data.sessions || []);
+      } catch (err) {
+        if (!cancelled) setSavedGamesError(err);
+      } finally {
+        if (!cancelled) setSavedGamesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [getToken]);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,7 +143,12 @@ export function GamePage() {
     try {
       const token = await getToken();
       const data = await createSession(token, { adventureId, characterName: characterName.trim(), characterType });
-      setSession(data);
+      const selectedAdventure = (adventures || []).find((a) => a.id === adventureId);
+      setSession({
+        sessionId: data.sessionId,
+        storyName: selectedAdventure?.name || "Adventure",
+        initialTurns: [data.narrative],
+      });
     } catch (err) {
       if (err.response?.status === 423) {
         setFieldErrors({ adventureId: err.response.data?.message || "You're temporarily locked out. Please try again later." });
@@ -128,17 +160,47 @@ export function GamePage() {
     }
   };
 
+  // Only calls resume when the row isn't already the player's active game
+  // (research.md Decision 5); a stale row's 409 already_active is treated as success.
+  const handleResume = async (savedGame) => {
+    setResumeError(null);
+    try {
+      const token = await getToken();
+      if (!savedGame.isActiveForPlayer) {
+        try {
+          await resumeSession(token, savedGame.sessionId);
+        } catch (err) {
+          if (!(err.response?.status === 409 && err.response?.data?.error === "already_active")) {
+            throw err;
+          }
+        }
+      }
+      const data = await getSession(token, savedGame.sessionId);
+      setSession({
+        sessionId: data.session.sessionId,
+        storyName: data.session.adventureName,
+        initialTurns: data.session.turns,
+      });
+    } catch {
+      setResumeError("Couldn't resume this story. Please try again.");
+    }
+  };
+
   const step1Done = Boolean(adventureId);
 
   if (session) {
-    const selectedAdventure = (adventures || []).find((a) => a.id === adventureId);
     return (
       <PlayPage
         sessionId={session.sessionId}
-        storyName={selectedAdventure?.name || "Adventure"}
-        initialNarrative={session.narrative}
+        storyName={session.storyName}
+        initialTurns={session.initialTurns}
         getToken={getToken}
-        onExit={() => setSession(null)}
+        onExit={(checkpointFailureMessage) => {
+          // PlayPage unmounts as soon as this runs, so a failed exit-save's notice
+          // (FR-006a) has to be shown here, once we're back on the stories screen.
+          setCheckpointExitNotice(checkpointFailureMessage || null);
+          setSession(null);
+        }}
       />
     );
   }
@@ -148,7 +210,24 @@ export function GamePage() {
       <h1 style={{ margin: 0, fontSize: "36px" }}>Set up your game</h1>
       <hr className="hr" style={{ margin: "22px 0 32px" }} />
 
-      <section aria-labelledby="step1-heading">
+      <StoriesInProgress
+        sessions={savedGames}
+        loading={savedGamesLoading}
+        error={savedGamesError}
+        onResume={handleResume}
+      />
+      {resumeError && (
+        <p role="alert" style={{ fontSize: "12px", color: "var(--color-accent-700)", margin: "8px 0 32px" }}>
+          {resumeError}
+        </p>
+      )}
+      {checkpointExitNotice && (
+        <p role="status" className="text-muted" style={{ fontSize: "13px", margin: "8px 0 32px" }}>
+          {checkpointExitNotice}
+        </p>
+      )}
+
+      <section aria-labelledby="step1-heading" style={{ marginTop: "40px" }}>
         <h2 id="step1-heading" style={{ fontSize: "16px", margin: "0 0 12px" }}>
           01 — Choose an adventure
         </h2>

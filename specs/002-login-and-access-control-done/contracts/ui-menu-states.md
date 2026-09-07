@@ -22,7 +22,7 @@ This contract defines the UI behavior for all capability-based menu permutations
 
 **Label**: "Start or Continue Game" or "Adventure" (exact wording per application design)
 
-**Destination**: Story/Adventure selection screen (feature 005-story-publishing)
+**Destination**: Story/Adventure selection screen (feature 005-story-publishing-done)
 
 **Requirements**:
 - Show ONLY to users with Player capability (`has_player: true`)
@@ -38,7 +38,7 @@ This contract defines the UI behavior for all capability-based menu permutations
 
 **Label**: "Administration" or "Story Admin" (exact wording per application design)
 
-**Destination**: Story authoring/administration page (feature 012-story-editing-and-review or 005-story-publishing)
+**Destination**: Story authoring/administration page (feature 012-story-editing-and-review or 005-story-publishing-done)
 
 **Requirements**:
 - Show ONLY to users with Administrator capability (`has_administrator: true`)

@@ -35,4 +35,4 @@
   `003-game-setup-and-authoring` (US5), which described the same capability at different
   levels of detail — no content was lost, only de-duplicated.
 - Depends on `002-login-and-access-control` (administrator identity) and hands off to
-  `005-story-publishing` (making a created story visible to players).
+  `005-story-publishing-done` (making a created story visible to players).

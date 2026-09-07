@@ -8,7 +8,7 @@
 `NEEDS CLARIFICATION` markers remain in Technical Context)
 
 All decisions below were taken against the code as it exists on `main` today
-(`004-story-creation-done`, `005-story-publishing`, `008-core-gameplay` are implemented;
+(`004-story-creation-done`, `005-story-publishing-done`, `008-core-gameplay-done` are implemented;
 `010-story-test-play`, `011-story-import`, `017-story-publish-test-play-gate` are spec-only).
 
 ---
@@ -244,7 +244,7 @@ mechanism: `StoryService.can_publish` already gates on
 `lastTestPlayedAt >= contentUpdatedAt`, so bumping `contentUpdatedAt` re-arms the gate.
 
 **Rationale**: FR-007 (published status untouched), FR-009 (audit trail + reset), and `017`
-FR-003/FR-004 are all satisfied by the fields `005-story-publishing` already added. Storing
+FR-003/FR-004 are all satisfied by the fields `005-story-publishing-done` already added. Storing
 `oid` rather than an email keeps Principle X satisfied and matches `createdBy`.
 
 ---
@@ -308,7 +308,7 @@ cover two separate Governance obligations, both now closed.
 
 - *Screen-contract traceability*. Governance forbids shipping a screen traceable to no screen
   contract, and the viewer was one. Rather than stack a second exception, the constitution was
-  amended to **v2.1.0** with an "Administrator — stories & configuration" contract, and that
+  amended to **v2.3.0** with an "Administrator — stories & configuration" contract, and that
   section now explicitly allows a contract to exist without a prototype screen where a spec
   defers visual design. The contract fixes the screens' purpose, affordances, and entry points;
   FR-012 defers only how they look.

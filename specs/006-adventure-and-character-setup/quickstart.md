@@ -13,7 +13,7 @@ See [contracts/api.md](./contracts/api.md) for exact request/response shapes and
   with a Cosmos `Stories` container reachable.
 - At least one seeded `Story` with `published: true` and ≥2 `characterTypes` (per the spec's
   Independent Test scenario). Use the existing admin story-creation + publish flow
-  (`004-story-creation-done` / `005-story-publishing`) to produce one, or seed directly via
+  (`004-story-creation-done` / `005-story-publishing-done`) to produce one, or seed directly via
   `StoryService`.
 - A test account with the `Player` role in the account-provisioning allow-list
   (`003-account-provisioning`).
@@ -66,7 +66,7 @@ Run the frontend dev server against the backend from the steps above, signed in 
    blocked and the missing item(s) are identified to the player (FR-004, FR-005).
 8. Supply all three (adventure, valid name, character type) and confirm → confirm setup
    succeeds (per contracts/api.md's 200 response); full play-session behavior beyond this point
-   is `008-core-gameplay`'s scope, not verified here.
+   is `008-core-gameplay-done`'s scope, not verified here.
 
 ## Expected Outcome
 

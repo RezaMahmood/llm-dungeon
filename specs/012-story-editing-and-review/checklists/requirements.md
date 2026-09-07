@@ -34,9 +34,9 @@
 - All items pass. Split out from `003-game-setup-and-authoring` (former US8) as its own
   domain during the spec-set reorganization.
 - Depends on `004-story-creation-done` (stories to edit, and the wizard reopened in edit
-  mode) and on `005-story-publishing`'s existing publish/unpublish actions, which FR-011
-  surfaces from the story list — editing itself still never changes the published flag
-  (FR-007).
+  mode) and on `005-story-publishing-done`'s existing publish/unpublish actions, which
+  FR-011 surfaces from the story list — editing itself still never changes the published
+  flag (FR-007).
 - Revisited 2026-09-06 after planning: the re-upload path conforms to `011-story-import`'s
   validation and overwrite requirements, but because `011` has no plan, the shared mechanism
   (file format, validator, import endpoint) is **built here** — see `plan.md`'s Sequencing

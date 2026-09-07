@@ -1,6 +1,6 @@
 """PlayerContentSafetyStandingService — tracks each player's cross-session
 content-safety-flagged submission count and any resulting 1-hour lockout
-(008-core-gameplay research.md Decision 9, FR-013)."""
+(008-core-gameplay-done research.md Decision 9, FR-013)."""
 
 from __future__ import annotations
 

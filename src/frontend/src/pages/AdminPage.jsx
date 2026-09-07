@@ -9,9 +9,9 @@ import { listStories } from "../services/storyDraftService.js";
 
 /**
  * The admin "Stories" destination — every story with its published status, a View
- * affordance into the read-only configuration viewer, and publish/unpublish from the row
- * (FR-001, FR-011, SC-001, SC-007). Editing (Edit link, upload) belongs to
- * 012-story-editing-and-review User Story 2.
+ * affordance into the read-only configuration viewer, an Edit affordance into the wizard,
+ * publish/unpublish from the row, and the configuration upload entry point (FR-001,
+ * FR-005, FR-011, SC-001, SC-007).
  */
 export function AdminPage() {
   const { instance, accounts: msalAccounts } = useMsal();
@@ -19,33 +19,39 @@ export function AdminPage() {
   const accountKey = account?.homeAccountId ?? account?.username ?? null;
 
   const [stories, setStories] = useState([]);
-  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Resolved lazily, per call, rather than cached in state — so a click made before the
+  // first `refresh()` settles (or long after the token would have expired) always sends a
+  // fresh token instead of racing a `null` one.
+  const getToken = useCallback(async () => {
+    const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
+    return tokenResponse.accessToken;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- accountKey is the stable dependency
+  }, [instance, accountKey]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
-      setToken(tokenResponse.accessToken);
-      const data = await listStories(tokenResponse.accessToken);
+      const token = await getToken();
+      const data = await listStories(token);
       setStories(data.stories || []);
     } catch (err) {
       setError(err);
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- accountKey is the stable dependency
-  }, [instance, accountKey]);
+  }, [getToken]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  const handleStoryChange = (updatedStory) => {
-    setStories((current) => current.map((story) => (story.id === updatedStory.id ? { ...story, ...updatedStory } : story)));
-  };
+  const handleStoryChange = useCallback((updatedStory) => {
+    setStories((current) => current.map((story) => (story.id === updatedStory.id ? updatedStory : story)));
+  }, []);
 
   return (
     <div style={{ maxWidth: "1020px", padding: "var(--space-6) var(--space-4) 64px" }}>
@@ -64,7 +70,7 @@ export function AdminPage() {
       </div>
       <hr className="hr" />
 
-      <StoryConfigUpload token={token} onImported={refresh} />
+      <StoryConfigUpload token={getToken} onImported={refresh} />
       <hr className="hr" />
 
       {loading && <p className="text-muted">Loading stories…</p>}
@@ -111,7 +117,7 @@ export function AdminPage() {
                     <Link to={`/admin/stories/${story.id}/edit`} className="btn btn-secondary">
                       Edit
                     </Link>
-                    <StoryPublishActions story={story} token={token} onStoryChange={handleStoryChange} />
+                    <StoryPublishActions story={story} token={getToken} onStoryChange={handleStoryChange} />
                   </div>
                 </td>
               </tr>

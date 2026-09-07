@@ -16,7 +16,7 @@ $ARGUMENTS
 ```
 
 If non-empty, this names a single spec to check — either a bare feature folder name
-(`005-story-publishing`), a `specs/`-relative path, or an absolute/relative filesystem path.
+(`005-story-publishing-done`), a `specs/`-relative path, or an absolute/relative filesystem path.
 If empty, check every feature folder under `specs/`.
 
 ## Goal

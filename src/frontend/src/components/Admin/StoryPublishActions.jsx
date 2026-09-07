@@ -1,47 +1,28 @@
-import { useState } from "react";
-
-import { publishStory, unpublishStory } from "../../services/storyDraftService.js";
+import { usePublishToggle } from "../../hooks/usePublishToggle.js";
 
 /**
  * Publish/unpublish for one story plus its confirmation dialog — shared by the story
  * wizard's terminal step and each row of the admin story list (FR-011,
  * research.md §11), so both entry points enforce the identical `005` FR-010 precondition
  * and gate explanation rather than a parallel reimplementation (Principle VIII).
+ *
+ * `token` may be a plain access-token string (the wizard already has one by the time this
+ * renders) or an async function returning one (the story list resolves it lazily per click
+ * via `usePublishToggle`, so a click is never sent with a stale or missing token).
  */
 export function StoryPublishActions({ story, token, onStoryChange }) {
-  const [status, setStatus] = useState("idle"); // idle | working | error
-  const [gateMessage, setGateMessage] = useState(null);
-  const [confirmingUnpublish, setConfirmingUnpublish] = useState(false);
+  const {
+    status,
+    gateMessage,
+    confirmingUnpublish,
+    handlePublish,
+    requestUnpublish,
+    confirmUnpublish,
+    cancelUnpublish,
+  } = usePublishToggle(token, story, onStoryChange);
 
-  const handlePublish = async () => {
-    setStatus("working");
-    setGateMessage(null);
-    try {
-      const data = await publishStory(token, story.id);
-      onStoryChange?.(data.story);
-      setStatus("idle");
-    } catch (err) {
-      if (err?.response?.status === 409) {
-        setGateMessage(err.response.data?.message || "This story cannot be published yet.");
-        setStatus("idle");
-      } else {
-        setStatus("error");
-      }
-    }
-  };
-
-  const handleConfirmUnpublish = async () => {
-    setStatus("working");
-    try {
-      const data = await unpublishStory(token, story.id);
-      onStoryChange?.(data.story);
-      setStatus("idle");
-      setConfirmingUnpublish(false);
-    } catch {
-      setStatus("error");
-      setConfirmingUnpublish(false);
-    }
-  };
+  const storyLabel = story.name || "this story";
+  const dialogTitleId = `unpublish-dialog-title-${story.id}`;
 
   return (
     <div className="field">
@@ -64,7 +45,7 @@ export function StoryPublishActions({ story, token, onStoryChange }) {
           type="button"
           className="btn btn-secondary"
           disabled={status === "working"}
-          onClick={() => setConfirmingUnpublish(true)}
+          onClick={requestUnpublish}
         >
           Unpublish
         </button>
@@ -84,8 +65,10 @@ export function StoryPublishActions({ story, token, onStoryChange }) {
 
       {confirmingUnpublish && (
         <div className="dialog-backdrop">
-          <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="unpublish-dialog-title">
-            <div className="dialog-title" id="unpublish-dialog-title">Unpublish this story?</div>
+          <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={dialogTitleId}>
+            <div className="dialog-title" id={dialogTitleId}>
+              Unpublish &ldquo;{storyLabel}&rdquo;?
+            </div>
             <div className="dialog-body">
               Are you sure? Unpublishing removes this story from every player&rsquo;s adventure list.
             </div>
@@ -93,7 +76,7 @@ export function StoryPublishActions({ story, token, onStoryChange }) {
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => setConfirmingUnpublish(false)}
+                onClick={cancelUnpublish}
                 disabled={status === "working"}
               >
                 Keep it published
@@ -101,7 +84,7 @@ export function StoryPublishActions({ story, token, onStoryChange }) {
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={handleConfirmUnpublish}
+                onClick={confirmUnpublish}
                 disabled={status === "working"}
               >
                 {status === "working" ? "Unpublishing…" : "Unpublish"}

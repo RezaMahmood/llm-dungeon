@@ -63,6 +63,14 @@ One `.nav` bar, same markup on every signed-in surface.
   these two screens until a prototype is drawn.
 - **Suggested actions** on 03 are required, not decorative — a player who cannot spell must
   still be able to progress.
+- **Stories in progress (02, section 2):** built by `009-save-and-continue` — the ordinal
+  rows, "chapter · last played · location" meta line, progress bars, and Resume action map
+  to `StoriesInProgress`/`SavedGameRow`. Resume skips the `POST .../resume` call entirely
+  when the row is already the player's active game (FR-001a).
+- **Checkpoint save (03):** the header's "Save a checkpoint" button — inert in
+  `008-core-gameplay-done` — is wired up by `009-save-and-continue` (FR-003): it records a
+  server-labelled, timestamped marker and shows a brief visible confirmation, with no new
+  chrome added to this screen.
 - No inline classes were invented beyond three utilities in each page's `<style>`
   (`.ovnum`, `.rowhov`, `.storyscroll`); everything else is a design-system class or a
   token-based inline style.

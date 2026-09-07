@@ -25,13 +25,13 @@ const renderPlayPage = () =>
     <PlayPage
       sessionId="session-1"
       storyName="The Lighthouse at Gullwing Cove"
-      initialNarrative={OPENING_NARRATIVE}
+      initialTurns={[OPENING_NARRATIVE]}
       getToken={vi.fn().mockResolvedValue("tok")}
       onExit={vi.fn()}
     />,
   );
 
-describe("Autosave disclosure (008-core-gameplay, FR-017, SC-014)", () => {
+describe("Autosave disclosure (008-core-gameplay-done, FR-017, SC-014)", () => {
   beforeEach(() => {
     submitInteraction.mockReset();
   });

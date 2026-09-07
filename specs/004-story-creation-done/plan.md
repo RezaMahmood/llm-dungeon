@@ -8,7 +8,7 @@
 
 Give a signed-in Administrator a four-step wizard (name & cover, world & setting, tone & reading level, session length — reachable in any order, per the Clarifications and `specs/designs/04-admin-wizard.html`) in which they describe a story idea in plain language, are asked guiding questions to fill in the gaps, and define character types and completion criteria through dedicated fields. The moment the minimum required detail exists (a non-empty setting/plot description, at least one character type, at least one success condition), the backend calls the Azure AI Foundry deployed model to generate the story's narrative-consistency guidance and persists a complete, unpublished `Story` document — with no separate manual save step. Abandoning a session before that point leaves nothing persisted, guaranteed by a Cosmos TTL on the in-progress draft rather than application cleanup code.
 
-**This is the first feature to make a real LLM call.** No prior spec (`002`, `003`) exercises `007-azure-infrastructure-provisioning`'s Azure AI Foundry resource, so this plan also stands up the shared LLM-calling and OpenTelemetry-observability infrastructure (Constitution Principle VI) that later features (`008-core-gameplay`, `010-story-test-play`, `011-story-import`) are expected to reuse rather than reinvent.
+**This is the first feature to make a real LLM call.** No prior spec (`002`, `003`) exercises `007-azure-infrastructure-provisioning`'s Azure AI Foundry resource, so this plan also stands up the shared LLM-calling and OpenTelemetry-observability infrastructure (Constitution Principle VI) that later features (`008-core-gameplay-done`, `010-story-test-play`, `011-story-import`) are expected to reuse rather than reinvent.
 
 ## Technical Context
 

@@ -160,7 +160,7 @@ destinations FR-002 now explicitly requires.
   existing stories and finding nothing was judged confusing enough to fix now rather
   than defer.
 - *Build a full story-management view (edit/publish/delete actions) at `/admin`*:
-  rejected — out of scope; `005-story-publishing`/`012-story-editing-and-review` own
+  rejected — out of scope; `005-story-publishing-done`/`012-story-editing-and-review` own
   those actions. This feature's list is read-only.
 
 ## 7. Testing approach

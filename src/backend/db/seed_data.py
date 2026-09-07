@@ -28,7 +28,7 @@ TEST_USERS = [
     {"label": "Dual-role", "roles": ["Player", "Administrator"]},
 ]
 
-# 008-core-gameplay Phase 1 (T002): every container this backend uses locally against the
+# 008-core-gameplay-done Phase 1 (T002): every container this backend uses locally against the
 # Cosmos DB emulator, each with the partition key its Terraform resource declares
 # (infrastructure/terraform/main.tf). provisionedAccountEntries is keyed by `/email`, not
 # `/id`, so that an entry can be looked up before a first sign-in binds an oid — creating
@@ -57,7 +57,7 @@ def ensure_containers(cosmos: CosmosService | None = None) -> None:
 
 
 def seed_stories(cosmos: CosmosService | None = None) -> list[str]:
-    """Two additional published stories for 008-core-gameplay's quickstart scenarios: one
+    """Two additional published stories for 008-core-gameplay-done's quickstart scenarios: one
     with a short `maxDurationMinutes` (Scenario 3), one with an easily-triggered
     `successConditions` entry plus a second condition usable for `rule: "any"`/`"all"`
     variants (Scenario 4)."""

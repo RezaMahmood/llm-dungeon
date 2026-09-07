@@ -1,5 +1,5 @@
 """Integration tests for POST /api/game/sessions, POST .../interactions, and
-POST .../resume (008-core-gameplay, contracts/api.md). Cosmos and LLMService are faked/
+POST .../resume (008-core-gameplay-done, contracts/api.md). Cosmos and LLMService are faked/
 mocked in-memory, matching this repo's other integration tests."""
 
 from __future__ import annotations

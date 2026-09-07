@@ -1,5 +1,5 @@
 /**
- * The play surface rendered inside the real `/game` layout (008-core-gameplay).
+ * The play surface rendered inside the real `/game` layout (008-core-gameplay-done).
  *
  * The other Play tests render `PlayPage` on its own, which cannot see the header
  * `AuthenticatedLayout` supplies — exactly the blind spot that let a second, unconfirmed
@@ -64,7 +64,7 @@ function renderPlaySurface() {
               <PlayPage
                 sessionId="session-1"
                 storyName={STORY_NAME}
-                initialNarrative={OPENING_NARRATIVE}
+                initialTurns={[OPENING_NARRATIVE]}
                 getToken={vi.fn().mockResolvedValue("tok")}
                 onExit={onExit}
               />

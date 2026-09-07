@@ -1,5 +1,5 @@
 """PlayerContentSafetyStanding — a per-player, cross-session record of accumulated
-content-safety-flagged submissions and any resulting lockout (008-core-gameplay
+content-safety-flagged submissions and any resulting lockout (008-core-gameplay-done
 data-model.md, FR-013)."""
 
 from __future__ import annotations

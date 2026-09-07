@@ -20,18 +20,19 @@ export function PlayTitleProvider({ children }) {
 }
 
 /**
- * Called by the play page with its title and exit handler. Publishes them while mounted
- * and clears them on unmount, so navigating away returns the header to its plain state.
- * `onPauseExit` must be referentially stable (wrap it in `useCallback`).
+ * Called by the play page with its title, pause-and-exit handler, and (009-save-and-
+ * continue) its checkpoint-save handler. Publishes them while mounted and clears them on
+ * unmount, so navigating away returns the header to its plain state. `onPauseExit` and
+ * `onSaveCheckpoint` must both be referentially stable (wrap them in `useCallback`).
  */
-export function usePublishPlayTitle({ storyTitle, onPauseExit }) {
+export function usePublishPlayTitle({ storyTitle, onPauseExit, onSaveCheckpoint }) {
   const ctx = useContext(PlayTitleContext);
   const setValue = ctx?.setValue;
 
   useEffect(() => {
-    setValue?.({ storyTitle, onPauseExit });
+    setValue?.({ storyTitle, onPauseExit, onSaveCheckpoint });
     return () => setValue?.(null);
-  }, [setValue, storyTitle, onPauseExit]);
+  }, [setValue, storyTitle, onPauseExit, onSaveCheckpoint]);
 }
 
 /** Called by `TitleBar` to read what the play page published, if anything. */

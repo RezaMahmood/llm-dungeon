@@ -80,7 +80,7 @@ An administrator who already has a story configuration file uploads it directly.
 - **FR-004**: System MUST route an uploaded file that passes validation by the story id inside the file, which is the sole identifier of the story it refers to; there MUST NOT be a separate create-new-versus-overwrite chooser (revised 2026-09-06). Specifically: no id in the file MUST create a new story; an id matching an existing story MUST overwrite (upsert) that story; and an id matching no existing story MUST be rejected with a specific reason, persisting nothing — not under the id in the file, and not under a newly generated one.
 - **FR-005**: System MUST require a title (to be shown to players) when an uploaded file with no story id creates a new story.
 - **FR-006**: System MUST require explicit confirmation of the overwrite target before replacing an existing story's configuration.
-- **FR-007**: A story newly created via import MUST default to unpublished, so it is not visible to players until an administrator explicitly publishes it (see `005-story-publishing`).
+- **FR-007**: A story newly created via import MUST default to unpublished, so it is not visible to players until an administrator explicitly publishes it (see `005-story-publishing-done`).
 - **FR-008**: Each distinct import outcome (successful new-story import from an id-less file, successful overwrite import of an id-matched story, unmatched-id rejection, validation rejection, missing-title rejection, missing-overwrite-confirmation rejection) MUST have a corresponding automated test verifying its expected behavior.
 
 ### Key Entities
@@ -101,4 +101,4 @@ An administrator who already has a story configuration file uploads it directly.
 - Validation covers structural correctness (required fields, correct format) and basic content consistency (e.g., no duplicate character type names); it does not evaluate narrative quality.
 - The file format and schema for a story configuration are defined by whichever process also produces them — in practice `012-story-editing-and-review`'s download of a story created via guided creation (`004-story-creation-done`) — so an exported/downloaded story can always be re-imported here.
 - Routing is decided entirely by the file's story id (FR-004, revised 2026-09-06); the administrator is never asked to pick create-versus-overwrite, and the system never guesses a target by matching titles or content.
-- This spec covers the import mechanism itself; making an imported story visible to players is a separate, explicit action (see `005-story-publishing`).
+- This spec covers the import mechanism itself; making an imported story visible to players is a separate, explicit action (see `005-story-publishing-done`).

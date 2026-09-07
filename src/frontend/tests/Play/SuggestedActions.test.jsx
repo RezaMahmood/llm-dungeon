@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import SuggestedActions from "../../src/components/Play/SuggestedActions.jsx";
 
-describe("SuggestedActions (008-core-gameplay)", () => {
+describe("SuggestedActions (008-core-gameplay-done)", () => {
   it("renders each suggested action and submits on click", async () => {
     const onSelect = vi.fn();
     const user = userEvent.setup();

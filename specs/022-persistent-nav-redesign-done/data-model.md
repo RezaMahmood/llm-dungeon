@@ -61,7 +61,7 @@ change is introduced.
 never an error state (FR-013, Edge Cases).
 
 **State transitions**: None from this feature's perspective — publishing/unpublishing
-a story is `005-story-publishing`'s scope; this list simply re-fetches on mount and
+a story is `005-story-publishing-done`'s scope; this list simply re-fetches on mount and
 reflects whatever `list_summaries()` currently returns.
 
 ## Relationship to existing data

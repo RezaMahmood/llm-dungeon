@@ -6,7 +6,7 @@
 
 ## Summary
 
-Give a `Story` document an explicit `published` boolean (already defined by `004-story-creation-done`'s data model, defaulting to `false`) and add the two administrator-facing actions that flip it: `publish` and `unpublish`, each idempotent, each reachable from both the story-authoring wizard's new "Publish & assign" step and (once built) `012-story-editing-and-review`'s story list. Publishing is blocked unless a test-play gate (owned by `017-story-publish-test-play-gate`) is satisfied; this plan adds the two Story fields that gate reads (`contentUpdatedAt`, `lastTestPlayedAt`) and the read-side check itself, without building 017's own tracking UI/logic. A successful publish also stamps `lastPublishedAt`, retained across a later unpublish (FR-012). Unpublishing requires a client-side confirmation step only (FR-013) — no new server-side precondition beyond the existing "story exists" check.
+Give a `Story` document an explicit `published` boolean (already defined by `004-story-creation-done`'s data model, defaulting to `false`) and add the two administrator-facing actions that flip it: `publish` and `unpublish`, each idempotent, each reachable from both the story-authoring wizard's new "Publish & assign" step and the administrator story list (which already exists at `src/frontend/src/pages/AdminPage.jsx`). Publishing is blocked unless a test-play gate (owned by `017-story-publish-test-play-gate`) is satisfied; this plan adds the two Story fields that gate reads (`contentUpdatedAt`, `lastTestPlayedAt`) and the read-side check itself, without building 017's own tracking UI/logic. A successful publish also stamps `lastPublishedAt`, retained across a later unpublish (FR-012). Unpublishing requires a client-side confirmation step only (FR-013) — no new server-side precondition beyond the existing "story exists" check.
 
 **Sequencing note**: `004-story-creation-done` (the `Story` model, `story_service.py`, the admin story endpoints at `src/backend/api/admin/stories.py`, and the wizard shell) is now implemented in code. This plan's contracts and file list were originally written against `004`'s planned shapes (`data-model.md`/`contracts/api.md`); verified against the actual code during `/speckit-tasks`, the only drift is that the admin story endpoints live at `src/backend/api/admin/stories.py` (URL prefix `manage/stories`, per `function_app.py`'s route registration), not `src/backend/api/manage/stories.py` as originally assumed — `tasks.md` uses the correct path.
 
@@ -28,7 +28,7 @@ Give a `Story` document an explicit `published` boolean (already defined by `004
 
 **Constraints**: No per-player/per-group targeting capability (FR-009, explicit exclusion); no scheduled/future-dated publishing (Assumptions); the test-play gate (FR-008) is read-only from this feature's side — `017-story-publish-test-play-gate` owns writing `lastTestPlayedAt`, and until that feature ships, every publish attempt is correctly blocked (the field is always null), which is the safe and spec-correct interim state rather than a workaround
 
-**Scale/Scope**: Same small administrator population as `003-account-provisioning-done`/`004-story-creation-done`; one new wizard step tab, two new API endpoints, one new reusable frontend action (usable from the wizard now and from `012`'s story list once it exists)
+**Scale/Scope**: Same small administrator population as `003-account-provisioning-done`/`004-story-creation-done`; one new wizard step tab, two new API endpoints, one reusable frontend publish/unpublish action shared by the wizard step and the existing administrator story list's per-row control
 
 ## Constitution Check
 
@@ -44,7 +44,7 @@ Give a `Story` document an explicit `published` boolean (already defined by `004
 **Status**: ✓ MET — No new language, framework, or hosting model; extends the existing Python/Azure Functions + React stack.
 
 ### Principle IV – Simplicity Over Premature Scale (YAGNI)
-**Status**: ✓ MET — This plan does not build `017`'s test-play tracking UI or `012`'s story list; it adds only the two data fields (`contentUpdatedAt`, `lastTestPlayedAt`) those future features need to read/write, and a read-side gate check against them. No speculative assignment/targeting model is built (FR-009 explicitly excludes it).
+**Status**: ✓ MET — This plan does not build `017`'s test-play tracking UI, and it does not build `012`'s full story-list/editing screen — it adds the per-row publish/unpublish action to the administrator story list that already exists (FR-010), which `012` later extends rather than replaces. It adds only the two data fields (`contentUpdatedAt`, `lastTestPlayedAt`) those future features need to read/write, and a read-side gate check against them. No speculative assignment/targeting model is built (FR-009 explicitly excludes it).
 
 ### Principle V – Continuous Integration Gate
 **Status**: ✓ MET — New/changed tests run in the existing pytest (backend) and Vitest (frontend) suites already wired into CI.
@@ -58,14 +58,14 @@ Give a `Story` document an explicit `published` boolean (already defined by `004
 ### Principle VIII – UI Design System & Accessibility Compliance (NON-NEGOTIABLE)
 **Status**: ✓ MET — The new "Publish & assign" wizard step tab reuses the existing step-tab shell and design-token primitives (`.btn*`, `.field`) established by `004-story-creation-done`'s `AdminStoryWizardPage.jsx`; the unpublish confirmation (FR-013) uses the design system's existing dialog/confirmation primitive rather than a one-off modal. No new colors, fonts, or spacing values are introduced.
 
-### Principle IX – User-Verified Acceptance Before Completion (NON-NEGOTIABLE)
-**Status**: ✓ MET — This feature's task list (final Polish phase) will end with an explicit final acceptance task verified by the requesting user/product owner against the deployed environment, per the constitution's standing requirement.
+### Principle IX – Playtesting-Driven Quality (Post-Ship Verification, Non-Blocking)
+**Status**: ✓ MET — **Revised 2026-09-06**: the constitution was relaxed to v2.0.0, renaming this principle and making user verification explicitly *non-blocking* — a feature is complete once its automated tests pass and it merges through the CI gate. This plan was originally written against the previous "User-Verified Acceptance Before Completion (NON-NEGOTIABLE)" wording, and `tasks.md`'s T018 reflects that older gate (it was satisfied on 2026-09-05 regardless). No acceptance sign-off task is required for the Phase 5 convergence work; design and flow issues are expected to surface through playtesting and are fixed as follow-up work.
 
 ### Principle X – PII Protection by Design (NON-NEGOTIABLE)
 **Status**: ✓ MET — Per FR-012, `lastPublishedAt` records only a timestamp, explicitly with **no** administrator-identity attribution; no PII is introduced by this feature.
 
-### Principle XI – UI Design Pre-Agreement Before Implementation (NON-NEGOTIABLE)
-**Status**: ✓ MET (by task, not by this document alone) — This feature adds user-facing UI (`StepPublish.jsx`'s publish/blocked-explanation UI and unpublish confirmation dialog). Per Principle XI, `tasks.md` MUST include (and does include, as of `/speckit-analyze` remediation) an explicit UI design agreement/sign-off task, sequenced before all implementation tasks, requiring the requesting user/product owner to confirm the design against `specs/designs/04-admin-wizard.html` (steps 05–06) before implementation begins — a design artifact existing in `specs/designs/` is not itself sufficient to satisfy this principle.
+### Principle XI – Implementer Design Latitude (Non-Blocking)
+**Status**: ✓ MET — **Revised 2026-09-06**: the constitution was relaxed to v2.0.0, replacing the former "UI Design Pre-Agreement Before Implementation (NON-NEGOTIABLE)" with implementer design latitude: a pre-implementation design sign-off is NOT required and MUST NOT be used to block implementation. `tasks.md`'s Phase 0 (T000) reflects the older gate and is retained as completed history; it does **not** gate the Phase 5 convergence work, which proceeds directly to implementation using the existing design system. Principle VIII still binds every new control (the story list's per-row publish/unpublish action included) to this project's design-token layer, interaction states, and accessibility bar.
 
 ### Principle XII – Right-Sized Scope — Not Enterprise-Grade (NON-NEGOTIABLE)
 **Status**: ✓ MET — No new environment, identity federation, role hierarchy, or scaling infrastructure is introduced; publish/unpublish is a single boolean flip plus a timestamp, gated by the existing `authorize_admin` allow-list check already used elsewhere.
@@ -128,8 +128,12 @@ src/frontend/
 │   │                                             #   blocked-explanation text (FR-011), unpublish
 │   │                                             #   button + confirmation dialog (FR-013)
 │   ├── pages/
-│   │   └── AdminStoryWizardPage.jsx             # MODIFY (as introduced by 004): add the fifth/sixth
-│   │                                             #   step tab wiring to StepPublish
+│   │   ├── AdminStoryWizardPage.jsx             # MODIFY (as introduced by 004): add the fifth/sixth
+│   │   │                                         #   step tab wiring to StepPublish
+│   │   └── AdminPage.jsx                        # MODIFY (as introduced by 004, Phase 5): add the
+│   │                                             #   per-row publish/unpublish action, FR-011
+│   │                                             #   explanatory text, FR-013 confirmation, and
+│   │                                             #   FR-016 in-place row update to the story list
 │   └── services/
 │       └── storyDraftService.js                 # MODIFY (as introduced by 004): add publishStory,
 │                                                 #   unpublishStory calls
@@ -138,11 +142,42 @@ src/frontend/
     │   └── StoryWizard/
     │       └── StepPublish.test.jsx             # NEW
     └── integration/
-        └── admin_story_publish_flow.test.jsx    # NEW: publish blocked → (simulated gate satisfied) →
-                                                  #   publish succeeds → unpublish with confirmation
+        ├── admin_story_publish_flow.test.jsx    # NEW: publish blocked → (simulated gate satisfied) →
+        │                                         #   publish succeeds → unpublish with confirmation
+        └── admin_stories_list.test.jsx          # MODIFY (as introduced by 004, Phase 5): list-side
+                                                  #   publish/unpublish coverage (FR-007)
 ```
 
-Note: `012-story-editing-and-review`'s story-list entry point for this same publish/unpublish action (FR-010) is not built by this plan — that screen does not exist yet (per spec.md's Design Reference note) and is `012`'s own scope; it will call the same `publish`/`unpublish` endpoints this plan adds.
+Note: FR-010's story-list entry point **is** built by this plan (revised 2026-09-06 — see the Scope Revision below). It is added to the administrator story list that already exists at `src/frontend/src/pages/AdminPage.jsx`, calling the same `publish`/`unpublish` endpoints and reusing the same frontend action as the wizard step, so there is exactly one publish path. `012-story-editing-and-review` extends that list with its own editing/review capabilities rather than building a second story-list screen or a second publish path.
+
+## Scope Revision (2026-09-06)
+
+The `/speckit-clarify` session of 2026-09-06 moved FR-010's story-list entry point **into this
+feature's scope**; it had previously been deferred to `012-story-editing-and-review`. Two facts
+drove the change: the administrator story list already exists (`src/frontend/src/pages/AdminPage.jsx`,
+rendering each story's name and published status), and `012` is not yet started, so leaving FR-010 to
+it would ship this feature with a stated requirement unmet and no way to publish an already-generated
+story outside the creation wizard.
+
+What this does **not** change: no backend, endpoint, data-model, or contract change is required — the
+`publish`/`unpublish` endpoints, the FR-008 gate, and `storyDraftService`'s `publishStory`/`unpublishStory`
+were all delivered in Phases 1–4 and already satisfy FR-015 server-side (both re-read the story from
+storage and evaluate the gate against stored state, trusting nothing the client's view was showing).
+The remaining work is confined to the frontend list UI and its tests.
+
+Sequencing: this revision is delivered as `tasks.md`'s **Phase 5: Convergence** (T019–T024), which runs
+after Phase 4 and depends on Phase 3's endpoints and service actions already being in place. It is
+additive — no Phase 1–4 task is re-opened, and no already-shipped behavior changes.
+
+Newly in scope (spec FR-010, FR-011, FR-013, FR-014, FR-015, FR-016, US1/AC4, SC-005):
+
+- a per-row, single-story publish/unpublish control in the existing story list (no multi-select, no bulk);
+- the same FR-013 confirmation before unpublishing, and the same FR-011 explanatory text on a
+  gate-blocked publish, both shared with `StepPublish.jsx` rather than reimplemented;
+- an in-place row update from the response, with no full list reload and no staleness/conflict error.
+
+Still out of scope and owned by other features: `012`'s editing, full-configuration view, download and
+re-upload capabilities; `017-story-publish-test-play-gate`'s writing of `lastTestPlayedAt`.
 
 ## Post-Design Constitution Check
 

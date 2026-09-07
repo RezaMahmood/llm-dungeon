@@ -798,7 +798,7 @@
   - Add link to Login & Access Control feature docs
   - Update architecture diagram to show login flow
   - Document feature dependencies (requires 007-azure-infrastructure-provisioning)
-  - Document feature that depend on this (008-core-gameplay, 005-story-publishing, etc.)
+  - Document feature that depend on this (008-core-gameplay-done, 005-story-publishing-done, etc.)
 
 ---
 

@@ -10,6 +10,10 @@ import { importStoryConfiguration } from "../../services/storyDraftService.js";
  * component never rejects a file the server would accept, and never invents a rejection
  * reason the server would not also give (contracts/api.md → Validation runs on both
  * sides; research.md §7).
+ *
+ * `token` may be a plain access-token string or an async function returning one, resolved
+ * lazily at submit time — matching `usePublishToggle`'s pattern — so a click is never sent
+ * with a stale or missing token.
  */
 function preflightValidate(parsed) {
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
@@ -79,7 +83,8 @@ export function StoryConfigUpload({ token, onImported }) {
     setStatus("working");
     setErrorMessage(null);
     try {
-      const data = await importStoryConfiguration(token, body);
+      const resolvedToken = typeof token === "function" ? await token() : token;
+      const data = await importStoryConfiguration(resolvedToken, body);
       setStatus("idle");
       reset();
       onImported?.(data);
