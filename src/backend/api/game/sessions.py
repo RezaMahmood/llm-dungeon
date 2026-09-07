@@ -27,6 +27,7 @@ from backend.services.play_session_service import (
     SessionConcludedError,
     SessionInactiveError,
     SessionNotFoundError,
+    StoryUnpublishedError,
 )
 
 logger = logging.getLogger("game.sessions")
@@ -48,6 +49,28 @@ def _narrative_dict(turn) -> dict:
         "goalLabel": turn.goalLabel,
         "progress": turn.progress,
     }
+
+
+def _story_deleted_response() -> func.HttpResponse:
+    return json_response(
+        {
+            "error": "story_deleted",
+            "message": "Story has been deleted. You can no longer continue this story.",
+            "promptReturnToList": True,
+        },
+        status_code=404,
+    )
+
+
+def _story_unpublished_response() -> func.HttpResponse:
+    return json_response(
+        {
+            "error": "story_unpublished",
+            "message": "Story has been unpublished. You can no longer continue this story.",
+            "promptReturnToList": True,
+        },
+        status_code=409,
+    )
 
 
 def _lockout_response(exc: ContentSafetyLockoutError) -> func.HttpResponse:
@@ -123,10 +146,10 @@ def submit_interaction(
         return _lockout_response(exc)
     except InvalidInputError:
         return error_response(400, "invalid_input", "Type an action to continue.")
-    except SessionNotFoundError:
-        return error_response(404, "not_found", "Session not found")
-    except AdventureNotFoundError:
-        return error_response(404, "not_found", "Adventure not found")
+    except (SessionNotFoundError, AdventureNotFoundError):
+        return _story_deleted_response()
+    except StoryUnpublishedError:
+        return _story_unpublished_response()
     except ForbiddenError:
         return forbidden_access_not_granted()
     except SessionInactiveError:
@@ -159,8 +182,10 @@ def resume_session(
     service = play_session_service or PlaySessionService()
     try:
         session = service.resume_session(session_id=session_id, player_id=user_oid)
-    except SessionNotFoundError:
-        return error_response(404, "not_found", "Session not found")
+    except (SessionNotFoundError, AdventureNotFoundError):
+        return _story_deleted_response()
+    except StoryUnpublishedError:
+        return _story_unpublished_response()
     except ForbiddenError:
         return forbidden_access_not_granted()
     except SessionConcludedError:
@@ -202,8 +227,10 @@ def get_session(
     service = play_session_service or PlaySessionService()
     try:
         detail = service.get_session_detail_for_player(session_id=session_id, player_id=user_oid)
-    except SessionNotFoundError:
-        return error_response(404, "not_found", "Session not found")
+    except (SessionNotFoundError, AdventureNotFoundError):
+        return _story_deleted_response()
+    except StoryUnpublishedError:
+        return _story_unpublished_response()
     except ForbiddenError:
         return forbidden_access_not_granted()
 

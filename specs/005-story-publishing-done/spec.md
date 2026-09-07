@@ -12,6 +12,8 @@
 
 **Design Reference**: [specs/designs/04-admin-wizard.html](../designs/04-admin-wizard.html), steps 05–06 (test play, publish & assign) (see [specs/designs/README.md](../designs/README.md)). The test-play gate is now specified in `017-story-publish-test-play-gate` (split out of `010-story-test-play` on 2026-08-29) and referenced below (FR-008). The screen's "assign" label has no separate functional requirement — publishing makes a story available to all players, with no targeting/assignment capability (see Assumptions). The publish/unpublish action is also reachable from the administrator's story list, which already exists and already shows each story's published/unpublished status; this feature adds the per-row publish/unpublish action to it (see FR-010, FR-014, FR-016). That list screen is not part of the design reference prototype, and `012-story-editing-and-review` extends it further rather than replacing it.
 
+**Amended by `025-story-delete`**: FR-005, Acceptance Scenario 3, and SC-003 below are superseded — unpublishing now also ends a player's ability to continue an in-progress session (discovered on their next request, session preserved and greyed out in their list), not just new sessions from starting. See `025-story-delete` for the current, authoritative behavior.
+
 ## Clarifications
 
 ### Session 2026-08-29
@@ -43,7 +45,7 @@ An administrator controls whether a given story is visible to players by explici
 
 1. **Given** a newly created or newly edited story, **When** it has not yet been published, **Then** it does not appear in the list of adventures a player can select.
 2. **Given** an administrator publishes a story, **When** publishing completes, **Then** the story appears in the player-facing adventure list.
-3. **Given** an administrator chooses to unpublish a previously published story, **When** they confirm the client-side "are you sure?" prompt, **Then** players can no longer start new games against it, but any play sessions already in progress for it are unaffected.
+3. **Given** an administrator chooses to unpublish a previously published story, **When** they confirm the client-side "are you sure?" prompt, **Then** players can no longer start new games against it, and any play sessions already in progress for it become non-continuable (see `025-story-delete`).
 4. **Given** an administrator viewing the story list, **When** they use a story's own row action to publish (or, after confirming, unpublish) it, **Then** the action is applied to that one story and its row updates in place to show the new published status, without leaving the list or reloading it.
 
 ---
@@ -65,7 +67,7 @@ An administrator controls whether a given story is visible to players by explici
 - **FR-002**: System MUST keep an unpublished story unavailable to players in every player-facing context (adventure list, direct access) until an administrator explicitly publishes it.
 - **FR-003**: System MUST allow an administrator to publish a story, making it visible and selectable in the player-facing adventure list.
 - **FR-004**: System MUST allow an administrator to unpublish a previously published story, removing it from the player-facing adventure list.
-- **FR-005**: Unpublishing a story MUST NOT end or otherwise affect any play session already in progress against it; it MUST only prevent new sessions from starting.
+- **FR-005**: Unpublishing a story prevents new sessions from starting and also prevents any play session already in progress against it from being continued, without deleting or otherwise mutating that session (see `025-story-delete`).
 - **FR-006**: Publishing an already-published story, and unpublishing an already-unpublished story, MUST both succeed without error (idempotent).
 - **FR-007**: Each distinct publishing outcome (publish an unpublished story, unpublish a published story, redundant publish, redundant unpublish, unpublish with active sessions in progress) MUST have a corresponding automated test verifying its expected behavior.
 - **FR-008**: The publish action MUST be blocked unless the story has a qualifying completed test play recorded since its content was last saved (see `017-story-publish-test-play-gate`).
@@ -89,7 +91,7 @@ An administrator controls whether a given story is visible to players by explici
 
 - **SC-001**: 100% of unpublished stories are absent from the player-facing adventure list in testing.
 - **SC-002**: Publishing a story makes it appear in the player-facing adventure list with no other change to its content.
-- **SC-003**: 100% of play sessions already in progress against a story continue uninterrupted after that story is unpublished, in testing.
+- **SC-003**: 100% of play sessions already in progress against a story are preserved (no data loss) but become non-continuable after that story is unpublished, in testing (see `025-story-delete`).
 - **SC-004**: 100% of publish attempts against a story with no qualifying test play since its last content change are blocked in testing (see `017-story-publish-test-play-gate`).
 - **SC-005**: An administrator can publish or unpublish any story directly from the story list in a single row action (plus the FR-013 confirmation for unpublish), without navigating into the story wizard.
 

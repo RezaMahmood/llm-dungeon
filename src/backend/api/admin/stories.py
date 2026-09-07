@@ -21,6 +21,7 @@ from backend.services.story_draft_service import (
     StoryDraftService,
     WrongDraftModeError,
 )
+from backend.services.play_session_service import PlaySessionService
 from backend.services.story_service import (
     PUBLISH_GATE_NOT_SATISFIED,
     ConfirmationRequiredError,
@@ -233,6 +234,29 @@ def unpublish_story(
         return error_response(404, "not_found", "Story not found")
 
     return json_response({"status": "success", "story": result.to_dict()}, status_code=200)
+
+
+def delete_story(
+    req: func.HttpRequest,
+    story_service: StoryService | None = None,
+    play_session_service: PlaySessionService | None = None,
+) -> func.HttpResponse:
+    """Permanently delete a story (FR-003) and cascade-delete every in-progress
+    `PlaySession` referencing it (FR-004), composed at this handler level rather than
+    inside `StoryService` to avoid a circular import (research.md Decision 6)."""
+    is_authorized, _user_oid, error = authorize_admin(req)
+    if not is_authorized:
+        return error
+
+    story_id = req.route_params.get("storyId")
+    stories = story_service or StoryService()
+    if not stories.delete_story(story_id):
+        return error_response(404, "not_found", "Story not found")
+
+    sessions = play_session_service or PlaySessionService()
+    sessions.delete_active_sessions_for_adventure(story_id)
+
+    return json_response({"status": "deleted", "storyId": story_id}, status_code=200)
 
 
 def get_story_configuration(

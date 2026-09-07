@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import StoryConfigUpload from "../components/Admin/StoryConfigUpload.jsx";
+import StoryDeleteAction from "../components/Admin/StoryDeleteAction.jsx";
 import StoryPublishActions from "../components/Admin/StoryPublishActions.jsx";
 import { loginRequest } from "../services/msalConfig.js";
 import { listStories } from "../services/storyDraftService.js";
@@ -51,6 +52,10 @@ export function AdminPage() {
 
   const handleStoryChange = useCallback((updatedStory) => {
     setStories((current) => current.map((story) => (story.id === updatedStory.id ? updatedStory : story)));
+  }, []);
+
+  const handleStoryDeleted = useCallback((deletedStoryId) => {
+    setStories((current) => current.filter((story) => story.id !== deletedStoryId));
   }, []);
 
   return (
@@ -118,6 +123,7 @@ export function AdminPage() {
                       Edit
                     </Link>
                     <StoryPublishActions story={story} token={getToken} onStoryChange={handleStoryChange} />
+                    <StoryDeleteAction story={story} token={getToken} onDeleted={handleStoryDeleted} />
                   </div>
                 </td>
               </tr>

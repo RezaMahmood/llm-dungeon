@@ -228,3 +228,115 @@ describe("Save and continue: sign-out round trip (009-save-and-continue, US2 Acc
     expect(screen.getByText("The door creaks open.")).toBeInTheDocument();
   });
 });
+
+// Resuming is the *first* thing a player does after leaving a game, so it — not
+// submitting a turn — is where they normally first meet a story that became
+// unavailable while the row sat on their screen. Both calls `handleResume` makes can
+// report it, and each reason gets its own specific message rather than the shared
+// generic one (025-story-delete FR-007, FR-008, contracts/api.md Validation Rules).
+describe("Resuming a story that became unavailable (025-story-delete FR-007, FR-008)", () => {
+  const DELETED = {
+    response: {
+      status: 404,
+      data: {
+        error: "story_deleted",
+        message: "Story has been deleted. You can no longer continue this story.",
+        promptReturnToList: true,
+      },
+    },
+  };
+  const UNPUBLISHED = {
+    response: {
+      status: 409,
+      data: {
+        error: "story_unpublished",
+        message: "Story has been unpublished. You can no longer continue this story.",
+        promptReturnToList: true,
+      },
+    },
+  };
+
+  beforeEach(() => {
+    acquireTokenSilent.mockReset().mockResolvedValue({ accessToken: "tok" });
+    listAdventures.mockReset().mockResolvedValue({ adventures: [] });
+    getAdventure.mockReset();
+    createSession.mockReset();
+    listSavedGames.mockReset().mockResolvedValue({ sessions: [SAVED_GAME] });
+    getSession.mockReset().mockResolvedValue({ status: "success", session: SESSION_DETAIL });
+    resumeSession.mockReset();
+    saveCheckpoint.mockReset();
+  });
+
+  it("shows the specific deleted notice and drops the row when resume reports story_deleted", async () => {
+    resumeSession.mockRejectedValue(DELETED);
+    const user = userEvent.setup();
+    render(<GamePage />);
+
+    await user.click(await screen.findByRole("button", { name: /resume/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/story has been deleted/i);
+    expect(screen.getByRole("alert")).not.toHaveTextContent(/couldn't resume this story/i);
+    // The session was permanently removed along with its story (FR-004, FR-010), so
+    // the row goes with it rather than offering a Resume that can only fail again.
+    expect(screen.queryByRole("button", { name: /^resume$/i })).not.toBeInTheDocument();
+    // The row's title span renders the adventure and character together, so match on
+    // a substring rather than the bare adventure name.
+    expect(screen.queryByText(/Gullwing Cove/)).not.toBeInTheDocument();
+    // Never hands off to the play surface.
+    expect(getSession).not.toHaveBeenCalled();
+  });
+
+  it("shows the specific unpublished notice and greys the row when resume reports story_unpublished", async () => {
+    resumeSession.mockRejectedValue(UNPUBLISHED);
+    const user = userEvent.setup();
+    render(<GamePage />);
+
+    await user.click(await screen.findByRole("button", { name: /resume/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/story has been unpublished/i);
+    expect(screen.getByRole("alert")).not.toHaveTextContent(/couldn't resume this story/i);
+    // Unpublish never deletes the session (FR-005) — the row stays, marked
+    // non-continuable exactly as the next list load would render it (FR-009).
+    expect(screen.getByText(/Gullwing Cove/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /unavailable/i })).toBeDisabled();
+    expect(getSession).not.toHaveBeenCalled();
+  });
+
+  it("reports story_deleted the same way when it comes from the session fetch rather than resume", async () => {
+    // `handleResume` calls resume and getSession inside one try — a story deleted
+    // between the two must not fall through to the generic message either.
+    resumeSession.mockResolvedValue({ status: "active", sessionId: "session-1" });
+    getSession.mockRejectedValue(DELETED);
+    const user = userEvent.setup();
+    render(<GamePage />);
+
+    await user.click(await screen.findByRole("button", { name: /resume/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/story has been deleted/i);
+    expect(screen.queryByRole("button", { name: /^resume$/i })).not.toBeInTheDocument();
+  });
+
+  it("reports story_unpublished the same way when it comes from the session fetch rather than resume", async () => {
+    resumeSession.mockResolvedValue({ status: "active", sessionId: "session-1" });
+    getSession.mockRejectedValue(UNPUBLISHED);
+    const user = userEvent.setup();
+    render(<GamePage />);
+
+    await user.click(await screen.findByRole("button", { name: /resume/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/story has been unpublished/i);
+    expect(screen.getByRole("button", { name: /unavailable/i })).toBeDisabled();
+  });
+
+  it("still shows the generic message for a failure that is neither", async () => {
+    resumeSession.mockRejectedValue({ response: { status: 409, data: { error: "session_concluded" } } });
+    const user = userEvent.setup();
+    render(<GamePage />);
+
+    await user.click(await screen.findByRole("button", { name: /resume/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't resume this story/i);
+    // The row is untouched — only the two story-unavailable reasons change it.
+    expect(screen.getByRole("button", { name: /^resume$/i })).toBeInTheDocument();
+  });
+});

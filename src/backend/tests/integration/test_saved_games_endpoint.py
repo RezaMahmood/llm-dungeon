@@ -379,3 +379,69 @@ def test_resuming_never_rewinds_a_checkpointed_session(request_factory):
     turn_numbers = [t["turnNumber"] for t in body["turns"]]
     assert turn_numbers == [0, 1, 2]
     assert body["checkpoints"][0]["turnNumber"] == checkpointed_turn_number
+
+
+# --- Story deleted / unpublished (025-story-delete FR-007, FR-008, T016) ---
+
+
+def test_get_session_against_deleted_story_returns_404_story_deleted(request_factory):
+    story = _story()
+    service, cosmos = _service(story)
+    session = _existing_session(cosmos, story)
+    del cosmos.get_container(config.STORIES_CONTAINER).items[story.id]
+
+    response = _get(request_factory, service, session.id)
+
+    assert response.status_code == 404
+    body = json.loads(response.get_body())
+    assert body["error"] == "story_deleted"
+    assert body["promptReturnToList"] is True
+
+
+def test_get_session_against_unpublished_story_returns_409_story_unpublished(request_factory):
+    story = _story()
+    service, cosmos = _service(story)
+    session = _existing_session(cosmos, story)
+    cosmos.get_container(config.STORIES_CONTAINER).items[story.id]["published"] = False
+
+    response = _get(request_factory, service, session.id)
+
+    assert response.status_code == 409
+    body = json.loads(response.get_body())
+    assert body["error"] == "story_unpublished"
+    assert body["promptReturnToList"] is True
+
+
+def test_get_session_against_unpublished_story_still_succeeds_for_a_concluded_session(request_factory):
+    story = _story()
+    service, cosmos = _service(story)
+    session = _existing_session(cosmos, story, status="concluded", completionReason={"type": "success", "detail": "x"})
+    cosmos.get_container(config.STORIES_CONTAINER).items[story.id]["published"] = False
+
+    response = _get(request_factory, service, session.id)
+
+    assert response.status_code == 200
+
+
+# --- list_sessions `available` field (025-story-delete FR-009, FR-011) ---
+
+
+def test_list_sessions_marks_row_unavailable_when_story_unpublished(request_factory):
+    story = _story()
+    service, cosmos = _service(story)
+    _existing_session(cosmos, story)
+    cosmos.get_container(config.STORIES_CONTAINER).items[story.id]["published"] = False
+
+    response = _list(request_factory, service)
+
+    assert json.loads(response.get_body())["sessions"][0]["available"] is False
+
+
+def test_list_sessions_marks_row_available_when_story_published(request_factory):
+    story = _story()
+    service, cosmos = _service(story)
+    _existing_session(cosmos, story)
+
+    response = _list(request_factory, service)
+
+    assert json.loads(response.get_body())["sessions"][0]["available"] is True

@@ -537,3 +537,50 @@ def test_import_configuration_raises_story_not_found_for_unmatched_id():
         service.import_configuration(
             _configuration(id="missing"), admin_oid="admin-oid", confirm_overwrite_story_id="missing", title=None
         )
+
+
+# --- delete_story (025-story-delete FR-003, FR-013) ---
+
+
+def test_delete_story_removes_existing_story():
+    story = _story(id="story-1")
+    cosmos = MagicMock()
+    cosmos.get_container.return_value.read_item.return_value = story.to_dict()
+    service = StoryService(cosmos_service=cosmos)
+
+    result = service.delete_story(story.id)
+
+    assert result is True
+    service._container().delete_item.assert_called_once_with(item=story.id, partition_key=story.id)
+
+
+def test_delete_story_returns_false_for_nonexistent_story():
+    cosmos = MagicMock()
+    cosmos.get_container.return_value.delete_item.side_effect = CosmosResourceNotFoundError
+    service = StoryService(cosmos_service=cosmos)
+
+    assert service.delete_story("missing") is False
+
+
+def test_delete_story_succeeds_regardless_of_published_state_true():
+    story = _story(id="story-1", published=True)
+    cosmos = MagicMock()
+    service = StoryService(cosmos_service=cosmos)
+
+    assert service.delete_story(story.id) is True
+
+
+def test_delete_story_succeeds_regardless_of_published_state_false():
+    story = _story(id="story-1", published=False)
+    cosmos = MagicMock()
+    service = StoryService(cosmos_service=cosmos)
+
+    assert service.delete_story(story.id) is True
+
+
+def test_deleting_an_already_deleted_story_returns_false():
+    cosmos = MagicMock()
+    service = StoryService(cosmos_service=cosmos)
+    cosmos.get_container.return_value.delete_item.side_effect = CosmosResourceNotFoundError
+
+    assert service.delete_story("story-1") is False
