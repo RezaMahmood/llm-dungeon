@@ -37,6 +37,6 @@
     "semantic-release": "^25.0.9",
     "semantic-release-monorepo": "^8.0.2",
     "vite": "^8.2.2",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.0"
   }
 }
