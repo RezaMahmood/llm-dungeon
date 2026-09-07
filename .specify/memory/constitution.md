@@ -1,5 +1,44 @@
 <!--
 Sync Impact Report
+Version change: 2.3.0 -> 3.0.0
+Modified principles:
+  - XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, GitHub Copilot
+    Reviews, Human Merges (NON-NEGOTIABLE) - removed the requirement that GitHub issue
+    resolution (bug reports, dependency-update issues, and fixes) MUST be performed via
+    GitHub Copilot. A local AI agent MAY now resolve an issue end-to-end - writing the
+    fix, pushing the branch, and opening the pull request - the same as any other local
+    development work; GitHub Copilot's role is the PR review pass, not a required
+    intermediary for issue resolution. The narrower prohibition on a local AI agent
+    itself merging a pull request or closing a GitHub issue (a GitHub-side action,
+    distinct from writing the fix) is unchanged. Backward-incompatible: this withdraws a
+    previously NON-NEGOTIABLE restriction, hence MAJOR.
+Added principles: none
+Removed principles: none
+Added sections: none
+Modified sections:
+  - AI Agent / GitHub Handoff Requirements - removed the bullet requiring GitHub issue
+    resolution to be assigned to or driven by GitHub Copilot; clarified the remaining
+    "MUST NOT merge a pull request or close a GitHub issue" bullet to state that
+    resolving the issue (fix, push, PR) is ordinary local work and not restricted by it.
+  - Development Workflow & Quality Gates - removed the clause requiring GitHub issue
+    resolution to go via GitHub Copilot from the bullet summarizing the AI agent
+    push/PR/review/merge flow.
+Removed sections: none
+Source: direct user instruction (2026-09-07). The user asked to resolve issue #260,
+  which itself (correctly, per the then-current constitution) declined to be resolved by
+  a local agent and named GitHub Copilot as the required path for issue resolution. On
+  review the user judged that restriction wrong - GitHub Copilot's role in this project
+  is PR code review, not issue resolution - and directed that it be removed so a local
+  AI agent can resolve issues (including #260 itself) the same way it does any other
+  local development work, subject to the unchanged no-merge/no-auto-merge/labelling
+  rules.
+Templates requiring follow-up: CLAUDE.md carries a mirrored copy of the old
+  Copilot-only issue-resolution rule (Git / PR workflow section) and needs the matching
+  edit; not a Spec Kit template, so out of this command's scope, but tracked here so it
+  is not missed.
+Deferred/TODO placeholders: none.
+
+Previous report (2.2.0 -> 2.3.0)
 Version change: 2.2.0 -> 2.3.0
 Modified principles: none
 Added principles: none
@@ -303,12 +342,14 @@ reviews the pull request and posts its findings as review comments/recommendatio
 Copilot code review does not produce a formal approving review or perform the merge on
 a clean pass. The requesting user or product owner MUST review Copilot's
 recommendations together with the required CI/status checks and code-quality gate, and
-then merge the pull request manually. GitHub issue resolution (bug reports,
-dependency-update issues, and fixes) MUST still be performed via GitHub Copilot (e.g.,
-the Copilot coding agent or Copilot's issue tooling in GitHub), not resolved end-to-end
-by a local AI agent pushing directly to GitHub. A local AI agent MUST NOT merge a pull
-request or resolve/close a GitHub issue itself, even where the tool has the technical
-means to do so. Work MUST start from a synced tree: before any development or
+then merge the pull request manually. A local AI agent MAY resolve a GitHub issue
+end-to-end — writing the fix, pushing the branch, and opening the pull request itself —
+the same as any other local development work; GitHub Copilot's role is the PR review
+pass described above, not a required intermediary for issue resolution. A local AI agent
+MUST NOT merge a pull request or close a GitHub issue directly itself (e.g., via `gh
+issue close`), even where the tool has the technical means to do so — an issue is closed
+by its resolving pull request merging, or manually by the requesting user. Work MUST
+start from a synced tree: before any development or
 spec-related work begins on a feature branch — planning (plan, tasks, clarify, analyze)
 included, not implementation alone — that branch MUST be brought up to date with
 `origin/main`, and a divergence MUST be resolved or reported rather than worked around.
@@ -488,9 +529,11 @@ keeps that legitimate case available without disguising it as fact.
   request for the work, labelled as above. Pushing to a branch whose pull request is
   still open is permitted and is the normal way to address review feedback.
 - Local AI agent tools MUST NOT directly perform any other GitHub-hosted operation: they
-  MUST NOT merge a pull request or resolve/close a GitHub issue on their own behalf,
+  MUST NOT merge a pull request or close a GitHub issue directly on their own behalf,
   even where the tool has the technical means to do so (e.g., a `gh` CLI or GitHub API
-  credential).
+  credential). Resolving the issue — writing the fix, pushing the branch, and opening
+  the pull request — is ordinary local development work and is not restricted by this
+  bullet; only the GitHub-side close/merge action is.
 - Once a local AI agent has pushed a branch and opened its pull request, GitHub Copilot
   reviews the pull request and posts its findings as review comments/recommendations;
   its required CI/status checks and code-quality gate run as usual, mirroring the
@@ -499,9 +542,6 @@ keeps that legitimate case available without disguising it as fact.
   produce a formal approving review or perform the merge. The requesting user or
   product owner MUST read Copilot's recommendations and the status of the required
   checks, then merge the pull request manually once satisfied.
-- GitHub issue resolution for bugs, dependency updates, and fixes MUST be assigned to or
-  driven by GitHub Copilot (e.g., the Copilot coding agent), not resolved end-to-end by a
-  local AI agent pushing directly to GitHub.
 - This division applies to GitHub-hosted actions only. It does not change where code is
   written or tested (Principle I, Environments & Deployment Pipeline) — only who is
   authorized to create and monitor the GitHub-side artifacts (PRs and issues) that carry
@@ -549,13 +589,12 @@ keeps that legitimate case available without disguising it as fact.
   design judgment within the constraints of Principle VIII and the UI Design System
   Requirements below. A task list MAY still include an optional, non-blocking design
   walkthrough at the author's discretion.
-- A local AI agent completing local work pushes the branch and opens its own pull
-  request (labelled, auto-merge NOT enabled), per Principle XIII and the AI Agent /
-  GitHub Handoff Requirements above. GitHub Copilot reviews the PR and posts its
-  findings as recommendations, and GitHub issue resolution (bugs, dependency updates,
-  and fixes) MUST be performed via GitHub Copilot, not directly by the local AI agent.
-  Merging is a manual step: the requesting user or product owner reviews Copilot's
-  recommendations and the required checks, then merges the pull request themselves.
+- A local AI agent completing local work — including resolving a GitHub issue —
+  pushes the branch and opens its own pull request (labelled, auto-merge NOT enabled),
+  per Principle XIII and the AI Agent / GitHub Handoff Requirements above. GitHub
+  Copilot reviews the PR and posts its findings as recommendations. Merging is a manual
+  step: the requesting user or product owner reviews Copilot's recommendations and the
+  required checks, then merges the pull request themselves.
 - Feature work MUST happen inside that feature's own git worktree, running inside that
   worktree's own isolated devcontainer (started via `bin/wt <branch>`) — never directly in
   the primary checkout, and a worktree's container MUST NOT be shared with another
@@ -771,4 +810,4 @@ with the design-token, visual-rules, interaction-state, or layout/scroll require
 above as a blocking finding. No feature may ship a screen that is not traceable to a
 screen contract above or to a documented amendment extending it.
 
-**Version**: 2.3.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-07
+**Version**: 3.0.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-07
