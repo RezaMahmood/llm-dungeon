@@ -267,6 +267,12 @@ def test_generate_action_persists_a_story_only_when_explicitly_called(request_fa
             story_service=story_service,
         )
     assert story_response.status_code == 200
+    # 012-story-editing-and-review T015: contentVersion/lastUpdatedBy are exposed for
+    # visibility and tests only — the FR-006 staleness check runs server-side, so a fresh
+    # story reads contentVersion 1 and no lastUpdatedBy yet.
+    story_body = json.loads(story_response.get_body())["story"]
+    assert story_body["contentVersion"] == 1
+    assert story_body["lastUpdatedBy"] is None
 
 
 def test_generate_action_rejects_incomplete_draft(request_factory):

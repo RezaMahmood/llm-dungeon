@@ -85,6 +85,8 @@ class Story:
     published: bool = False
     lastPublishedAt: Optional[str] = None
     lastTestPlayedAt: Optional[str] = None
+    lastUpdatedBy: Optional[str] = None
+    contentVersion: int = 1
     entityType: str = field(default="Story")
 
     def __post_init__(self) -> None:
@@ -115,6 +117,8 @@ class Story:
             "createdAt": self.createdAt,
             "contentUpdatedAt": self.contentUpdatedAt,
             "lastTestPlayedAt": self.lastTestPlayedAt,
+            "lastUpdatedBy": self.lastUpdatedBy,
+            "contentVersion": self.contentVersion,
             "entityType": self.entityType,
         }
 
@@ -141,4 +145,8 @@ class Story:
             # without this, every pre-existing story would raise KeyError on the next read.
             contentUpdatedAt=data.get("contentUpdatedAt", data["createdAt"]),
             lastTestPlayedAt=data.get("lastTestPlayedAt"),
+            # Both fall back for Story rows persisted before this feature existed
+            # (data-model.md → Story), matching the contentUpdatedAt precedent above.
+            lastUpdatedBy=data.get("lastUpdatedBy"),
+            contentVersion=data.get("contentVersion", 1),
         )

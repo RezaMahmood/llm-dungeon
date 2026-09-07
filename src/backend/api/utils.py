@@ -19,6 +19,22 @@ def json_response(body: dict, status_code: int) -> func.HttpResponse:
     )
 
 
+def raw_json_response(body: str, status_code: int) -> func.HttpResponse:
+    """Returns `body` verbatim as the response — used only where the exact bytes matter
+    (the story configuration file viewer/download, 012-story-editing-and-review FR-002),
+    so the client's raw-text fetch reproduces exactly what was serialized server-side."""
+    return func.HttpResponse(
+        body,
+        status_code=status_code,
+        mimetype="application/json",
+        charset="utf-8",
+        headers={
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
 def error_response(status_code: int, error: str, message: str) -> func.HttpResponse:
     return json_response({"error": error, "message": message}, status_code)
 

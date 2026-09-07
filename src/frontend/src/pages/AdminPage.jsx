@@ -2,16 +2,16 @@ import { useMsal } from "@azure/msal-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import StoryConfigUpload from "../components/Admin/StoryConfigUpload.jsx";
+import StoryPublishActions from "../components/Admin/StoryPublishActions.jsx";
 import { loginRequest } from "../services/msalConfig.js";
 import { listStories } from "../services/storyDraftService.js";
 
 /**
- * The admin "Stories" destination — a minimal, read-only list of the stories
- * that exist, so "Stories" and "New story" are distinct places to go
- * (FR-002, FR-013, SC-007).
- *
- * Editing, publishing and deleting stories are deliberately not here; those
- * belong to 005-story-publishing / 012-story-editing-and-review.
+ * The admin "Stories" destination — every story with its published status, a View
+ * affordance into the read-only configuration viewer, and publish/unpublish from the row
+ * (FR-001, FR-011, SC-001, SC-007). Editing (Edit link, upload) belongs to
+ * 012-story-editing-and-review User Story 2.
  */
 export function AdminPage() {
   const { instance, accounts: msalAccounts } = useMsal();
@@ -19,6 +19,7 @@ export function AdminPage() {
   const accountKey = account?.homeAccountId ?? account?.username ?? null;
 
   const [stories, setStories] = useState([]);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -27,6 +28,7 @@ export function AdminPage() {
     setError(null);
     try {
       const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
+      setToken(tokenResponse.accessToken);
       const data = await listStories(tokenResponse.accessToken);
       setStories(data.stories || []);
     } catch (err) {
@@ -40,6 +42,10 @@ export function AdminPage() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const handleStoryChange = (updatedStory) => {
+    setStories((current) => current.map((story) => (story.id === updatedStory.id ? { ...story, ...updatedStory } : story)));
+  };
 
   return (
     <div style={{ maxWidth: "1020px", padding: "var(--space-6) var(--space-4) 64px" }}>
@@ -56,6 +62,9 @@ export function AdminPage() {
           New story
         </Link>
       </div>
+      <hr className="hr" />
+
+      <StoryConfigUpload token={token} onImported={refresh} />
       <hr className="hr" />
 
       {loading && <p className="text-muted">Loading stories…</p>}
@@ -81,6 +90,7 @@ export function AdminPage() {
             <tr>
               <th scope="col">Story</th>
               <th scope="col">Status</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -90,8 +100,19 @@ export function AdminPage() {
                 <td>
                   {/* Status pairs color with text, never color alone (Accessibility). */}
                   <span className={story.published ? "tag tag-accent" : "tag tag-neutral"}>
-                    {story.published ? "Published" : "Draft"}
+                    {story.published ? "Published" : "Unpublished"}
                   </span>
+                </td>
+                <td>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", alignItems: "center" }}>
+                    <Link to={`/admin/stories/${story.id}`} className="btn btn-secondary">
+                      View
+                    </Link>
+                    <Link to={`/admin/stories/${story.id}/edit`} className="btn btn-secondary">
+                      Edit
+                    </Link>
+                    <StoryPublishActions story={story} token={token} onStoryChange={handleStoryChange} />
+                  </div>
                 </td>
               </tr>
             ))}

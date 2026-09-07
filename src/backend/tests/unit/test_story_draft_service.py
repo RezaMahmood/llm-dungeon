@@ -14,11 +14,15 @@ from backend.models.story_draft import StoryDraft
 from backend.services.llm_service import LLMOutputError, LLMRateLimitError
 from backend.services.story_draft_service import (
     DraftIncompleteError,
+    DraftNotFoundError,
     DraftValidationError,
     GenerationFailedError,
     LLMRateLimitedError,
     StoryDraftService,
+    WrongDraftModeError,
 )
+from backend.services.story_service import StaleStoryError
+from backend.tests.conftest import _make_story
 
 CREATED_BY = "oid-1"
 
@@ -276,3 +280,135 @@ def test_rate_limited_exchange_raises_without_persisting():
         service.post_message("draft-1", "hello")
 
     container.upsert_item.assert_not_called()
+
+
+# --- create_edit_draft / save_draft_to_story (012-story-editing-and-review) ---
+
+
+def test_create_edit_draft_seeds_authored_fields_and_source_pinning():
+    service, cosmos, _llm, _stories = _service()
+    container = cosmos.get_container.return_value
+    story = _make_story(
+        id="story-1",
+        name="The Sunken Library",
+        worldPrompt="A flooded library.",
+        characterTypes=[CharacterType(name="Archivist")],
+        completionCriteria=CompletionCriteria(successConditions=["Recover the ledger"]),
+        contentVersion=4,
+    )
+
+    draft = service.create_edit_draft(story, "admin-oid")
+
+    assert draft.sourceStoryId == "story-1"
+    assert draft.baseContentVersion == 4
+    assert draft.name == "The Sunken Library"
+    assert draft.worldPrompt == "A flooded library."
+    assert draft.characterTypes == [CharacterType(name="Archivist")]
+    assert draft.createdBy == "admin-oid"
+    container.upsert_item.assert_called_once_with(draft.to_dict())
+
+
+def _edit_draft(source_story_id="story-1", base_content_version=1, draft_id="draft-1"):
+    return StoryDraft(
+        id=draft_id,
+        createdBy=CREATED_BY,
+        name="The Lighthouse at Gullwing Cove",
+        worldPrompt="A lighthouse...",
+        characterTypes=[CharacterType(name="Curious Cousin")],
+        completionCriteria=CompletionCriteria(successConditions=["Find the keeper"]),
+        sourceStoryId=source_story_id,
+        baseContentVersion=base_content_version,
+    )
+
+
+def test_save_draft_to_story_applies_and_deletes_the_draft():
+    service, cosmos, llm, stories = _service()
+    container = cosmos.get_container.return_value
+    draft = _edit_draft(base_content_version=2)
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+    story = _make_story(id="story-1", contentVersion=2)
+    stories.get_story.return_value = story
+    stories.regenerate_narrative_guidance.return_value = "Fresh guidance."
+    updated_story = _make_story(id="story-1", contentVersion=3)
+    stories.apply_content_write.return_value = updated_story
+
+    result = service.save_draft_to_story("draft-1", "admin-oid")
+
+    assert result is updated_story
+    stories.apply_content_write.assert_called_once()
+    args, kwargs = stories.apply_content_write.call_args
+    assert args[0] is story
+    assert args[2] == "admin-oid"
+    assert args[3] == "Fresh guidance."
+    container.delete_item.assert_called_once_with(item="draft-1", partition_key="draft-1")
+
+
+def test_save_draft_to_story_rejects_a_creation_draft():
+    service, cosmos, _llm, _stories = _service()
+    container = cosmos.get_container.return_value
+    draft = StoryDraft(id="draft-1", createdBy=CREATED_BY)
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+
+    with pytest.raises(WrongDraftModeError):
+        service.save_draft_to_story("draft-1", "admin-oid")
+
+
+def test_save_draft_to_story_returns_none_for_missing_draft():
+    service, _cosmos, _llm, _stories = _service()
+
+    assert service.save_draft_to_story("nope", "admin-oid") is None
+
+
+def test_save_draft_to_story_raises_not_found_when_source_story_is_gone():
+    service, cosmos, _llm, stories = _service()
+    container = cosmos.get_container.return_value
+    draft = _edit_draft()
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+    stories.get_story.return_value = None
+
+    with pytest.raises(DraftNotFoundError):
+        service.save_draft_to_story("draft-1", "admin-oid")
+
+
+def test_save_draft_to_story_rejects_stale_base_content_version_and_leaves_draft_intact():
+    service, cosmos, _llm, stories = _service()
+    container = cosmos.get_container.return_value
+    draft = _edit_draft(base_content_version=1)
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+    stories.get_story.return_value = _make_story(id="story-1", contentVersion=2)
+
+    with pytest.raises(StaleStoryError):
+        service.save_draft_to_story("draft-1", "admin-oid")
+
+    stories.apply_content_write.assert_not_called()
+    container.delete_item.assert_not_called()
+
+
+def test_save_draft_to_story_rejects_incomplete_draft():
+    service, cosmos, _llm, stories = _service()
+    container = cosmos.get_container.return_value
+    draft = StoryDraft(id="draft-1", createdBy=CREATED_BY, sourceStoryId="story-1", baseContentVersion=1)
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+
+    with pytest.raises(DraftIncompleteError):
+        service.save_draft_to_story("draft-1", "admin-oid")
+
+    stories.apply_content_write.assert_not_called()
+
+
+def test_generate_story_rejects_an_edit_draft():
+    service, cosmos, llm, _stories = _service()
+    container = cosmos.get_container.return_value
+    draft = _edit_draft()
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+
+    with pytest.raises(WrongDraftModeError):
+        service.generate_story("draft-1")
+
+    llm.generate_story_config.assert_not_called()

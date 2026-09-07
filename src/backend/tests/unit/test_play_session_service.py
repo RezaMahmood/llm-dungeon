@@ -3,6 +3,7 @@ mocked in-memory, matching this repo's other unit tests."""
 
 from __future__ import annotations
 
+import dataclasses
 import datetime
 import json
 import uuid
@@ -848,3 +849,53 @@ def test_bare_player_assertion_does_not_satisfy_condition_without_llm_reporting_
     assert updated.status == "active"
     assert reason is None
     assert updated.satisfiedSuccessConditions == []
+
+
+# --- FR-010 regression (012-story-editing-and-review): no per-session configuration
+# snapshot — an edit reaches an in-flight or resumed session on its next turn
+# (research.md §9; quickstart.md scenarios 14, 15). This MUST PASS as written: the
+# behavior already holds in the shipped code, so a red run here means a regression, not
+# an outstanding implementation task.
+
+
+def test_in_flight_session_narrates_from_the_edited_configuration_on_its_next_turn():
+    story = _story()
+    service, cosmos, llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+
+    # Simulate 012's content write landing mid-session: the story document changes, but
+    # PlaySession/PlaySessionService hold no copy of it.
+    story.worldPrompt = "The lighthouse has since been rebuilt as a lively tearoom."
+    cosmos.get_container(config.STORIES_CONTAINER).upsert_item(story.to_dict())
+
+    service.submit_interaction(session.id, PLAYER_ID, "look around")
+
+    called_story = llm.generate_gameplay_turn.call_args.args[0]
+    assert called_story.worldPrompt == "The lighthouse has since been rebuilt as a lively tearoom."
+
+
+def test_resumed_session_narrates_from_the_configuration_current_when_it_resumes():
+    """A session saved before an edit and resumed after it (009-save-and-continue) must
+    narrate from the story as it is now, not as it was when the session began."""
+    story = _story()
+    service, cosmos, llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story, isActiveForPlayer=False)
+
+    # The edit happens while the session is away (not active for this player).
+    story.worldPrompt = "The lighthouse has since been rebuilt as a lively tearoom."
+    cosmos.get_container(config.STORIES_CONTAINER).upsert_item(story.to_dict())
+
+    service.resume_session(session.id, PLAYER_ID)
+    _clear_rate_limit(cosmos, session.id)
+    service.submit_interaction(session.id, PLAYER_ID, "look around")
+
+    called_story = llm.generate_gameplay_turn.call_args.args[0]
+    assert called_story.worldPrompt == "The lighthouse has since been rebuilt as a lively tearoom."
+
+
+def test_play_session_model_holds_no_configuration_snapshot():
+    """Static guardrail against reintroducing a per-session configuration copy: every
+    PlaySession field name, not just current behavior."""
+    session_fields = {f.name for f in dataclasses.fields(PlaySession)}
+    forbidden = {"worldPrompt", "characterTypes", "completionCriteria", "narrativeGuidance", "configuration", "story"}
+    assert not (session_fields & forbidden)

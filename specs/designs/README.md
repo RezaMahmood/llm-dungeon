@@ -51,6 +51,16 @@ One `.nav` bar, same markup on every signed-in surface.
   by email, and an account that has never completed sign-in shows a status of "Pending first
   sign-in" (sign-off recorded in `014-account-listing`'s tasks.md T001; not depicted in this
   static mockup).
+- **No prototype screen for `012-story-editing-and-review`:** its administrator story list and
+  read-only story-configuration viewer are deliberately absent here. Per that spec's FR-012 and
+  the user decision of 2026-09-06, both ship as plain, unstyled pages built only from
+  design-system classes and token-based styles — no mockup is expected, and their absence from
+  this reference is not an omission to be fixed before implementation. Visual styling is
+  follow-up work; the accessibility bar still applies in full. The wizard those screens link to
+  is 04, unchanged. Their **behavioral** contract is not absent: constitution v2.1.0 adds an
+  "Administrator — stories & configuration" screen contract (a contract without a prototype,
+  which that section now explicitly permits), and that text is the acceptance reference for
+  these two screens until a prototype is drawn.
 - **Suggested actions** on 03 are required, not decorative — a player who cannot spell must
   still be able to progress.
 - No inline classes were invented beyond three utilities in each page's `<style>`

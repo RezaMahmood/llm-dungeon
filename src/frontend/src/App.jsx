@@ -16,6 +16,7 @@ import { PageViewTracker } from "./observability/appInsights.js";
 const AdminAccountsPage = lazy(() => import("./pages/AdminAccountsPage.jsx"));
 const AdminPage = lazy(() => import("./pages/AdminPage.jsx"));
 const AdminStoryWizardPage = lazy(() => import("./pages/AdminStoryWizardPage.jsx"));
+const AdminStoryConfigurationPage = lazy(() => import("./pages/AdminStoryConfigurationPage.jsx"));
 const GamePage = lazy(() => import("./pages/GamePage.jsx"));
 
 function PageFallback() {
@@ -82,6 +83,22 @@ export function App() {
                 />
                 <Route
                   path="/admin/stories/new"
+                  element={
+                    <ProtectedRoute capability="Administrator">
+                      <AdminStoryWizardPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/stories/:storyId"
+                  element={
+                    <ProtectedRoute capability="Administrator">
+                      <AdminStoryConfigurationPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/stories/:storyId/edit"
                   element={
                     <ProtectedRoute capability="Administrator">
                       <AdminStoryWizardPage />

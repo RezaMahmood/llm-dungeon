@@ -185,6 +185,45 @@ def test_story_from_dict_defaults_content_updated_at_to_created_at_for_pre_exist
     assert story.contentUpdatedAt == "2026-08-29T20:04:00Z"
 
 
+def test_story_defaults_content_version_and_last_updated_by_for_pre_existing_rows():
+    """012-story-editing-and-review data-model.md → Story: rows persisted before
+    contentVersion/lastUpdatedBy existed must still load, reading contentVersion as 1 and
+    lastUpdatedBy as None (back-compat, mirroring the contentUpdatedAt precedent)."""
+    data = {
+        "id": "story-1",
+        "worldPrompt": "A half-abandoned lighthouse...",
+        "characterTypes": [{"name": "Curious Cousin", "description": None}],
+        "completionCriteria": {"successConditions": ["Find the keeper"], "maxDurationMinutes": None, "failureConditions": [], "rule": None},
+        "narrativeGuidance": "Keep it eerie but never actually dangerous.",
+        "createdBy": "oid-1",
+        "createdAt": "2026-08-29T20:04:00Z",
+    }
+
+    story = Story.from_dict(data)
+
+    assert story.contentVersion == 1
+    assert story.lastUpdatedBy is None
+
+
+def test_story_round_trips_content_version_and_last_updated_by():
+    story = Story(
+        id="story-1",
+        worldPrompt="A half-abandoned lighthouse...",
+        characterTypes=[CharacterType(name="Curious Cousin")],
+        completionCriteria=_completion_criteria(),
+        narrativeGuidance="Keep it eerie but never actually dangerous.",
+        createdBy="oid-1",
+        createdAt="2026-08-29T20:04:00Z",
+        contentUpdatedAt="2026-08-29T20:04:00Z",
+        lastUpdatedBy="admin-oid",
+        contentVersion=4,
+    )
+    restored = Story.from_dict(story.to_dict())
+    assert restored == story
+    assert restored.contentVersion == 4
+    assert restored.lastUpdatedBy == "admin-oid"
+
+
 # --- StoryDraft ---
 
 
@@ -223,6 +262,23 @@ def test_story_draft_round_trips_through_dict():
     )
     restored = StoryDraft.from_dict(draft.to_dict())
     assert restored == draft
+
+
+def test_story_draft_defaults_source_story_id_and_base_content_version_to_none():
+    """A creation draft (012 data-model.md → StoryDraft) carries neither field."""
+    draft = StoryDraft(id="draft-1", createdBy="oid-1")
+    assert draft.sourceStoryId is None
+    assert draft.baseContentVersion is None
+    restored = StoryDraft.from_dict(draft.to_dict())
+    assert restored == draft
+
+
+def test_story_draft_round_trips_source_story_id_and_base_content_version():
+    draft = StoryDraft(id="draft-1", createdBy="oid-1", sourceStoryId="story-1", baseContentVersion=4)
+    restored = StoryDraft.from_dict(draft.to_dict())
+    assert restored == draft
+    assert restored.sourceStoryId == "story-1"
+    assert restored.baseContentVersion == 4
 
 
 def test_story_creation_exchange_rejects_invalid_role():

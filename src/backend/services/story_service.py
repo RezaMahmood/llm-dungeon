@@ -7,14 +7,54 @@ import logging
 import uuid
 from typing import Any, Optional
 
-from azure.cosmos.exceptions import CosmosResourceNotFoundError
+from azure.core import MatchConditions
+from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosResourceNotFoundError
 
 from backend.config import config
 from backend.models.story import Story
 from backend.models.story_draft import StoryDraft
 from backend.services.cosmos_service import CosmosService
+from backend.services.llm_service import LLMOutputError, LLMRateLimitError, LLMService
+from backend.services.story_config_file import StoryConfiguration
 
 logger = logging.getLogger("story_service")
+
+
+class StaleStoryError(RuntimeError):
+    """FR-006: a content write was attempted against a `Story` whose `contentVersion` has
+    since moved on. The caller maps this to `409 stale_story`; nothing is written."""
+
+
+class WriteConflictError(RuntimeError):
+    """A concurrent write won the Cosmos `_etag` precondition race twice in a row
+    (contracts/api.md → Write conflicts). The caller maps this to `409 write_conflict`;
+    nothing is written."""
+
+
+class StoryNotFoundError(RuntimeError):
+    """The import endpoint's file `id` matches no existing story (research.md §7's routing
+    table). The caller maps this to `404 story_not_found`."""
+
+
+class ContentGenerationFailedError(RuntimeError):
+    """`narrativeGuidance` regeneration (research.md §5) failed or returned invalid output
+    on a content write. The caller maps this to `502 generation_failed`; the story is left
+    unchanged."""
+
+
+class ContentGenerationRateLimitedError(RuntimeError):
+    """`narrativeGuidance` regeneration was rate-limited after retries were exhausted. The
+    caller maps this to `429 rate_limited`; the story is left unchanged."""
+
+
+class ConfirmationRequiredError(RuntimeError):
+    """An id-carrying import was posted without a matching `confirmOverwriteStoryId`
+    (`011` FR-006). The caller maps this to `422 confirmation_required`."""
+
+
+class TitleRequiredError(RuntimeError):
+    """An id-less import was posted without a `title` (`011` FR-005). The caller maps this
+    to `422 title_required`."""
 
 
 class _PublishGateNotSatisfied:
@@ -33,11 +73,49 @@ def _now() -> str:
 
 
 class StoryService:
-    def __init__(self, cosmos_service: Optional[CosmosService] = None) -> None:
+    def __init__(
+        self,
+        cosmos_service: Optional[CosmosService] = None,
+        llm_service: Optional[LLMService] = None,
+    ) -> None:
         self._cosmos = cosmos_service or CosmosService()
+        self._llm = llm_service or LLMService()
 
     def _container(self):
         return self._cosmos.get_container(config.STORIES_CONTAINER)
+
+    def _read_item(self, story_id: str) -> Optional[dict[str, Any]]:
+        try:
+            return self._container().read_item(item=story_id, partition_key=story_id)
+        except CosmosResourceNotFoundError:
+            return None
+
+    def regenerate_narrative_guidance(self, configuration: StoryConfiguration, name: Optional[str]) -> str:
+        """Reuses the creation path's generation call (research.md §5) — the caller
+        provides `configuration` plus the `name` that will actually be persisted (a
+        new-story import's `title` may differ from the file's own `name`)."""
+        draft_like = {
+            "name": name,
+            "coverImageUrl": configuration.coverImageUrl,
+            "tone": configuration.tone,
+            "readingLevel": configuration.readingLevel,
+            "sessionLengthMinutes": configuration.sessionLengthMinutes,
+            "chapters": configuration.chapters,
+            "worldPrompt": configuration.worldPrompt,
+            "rules": configuration.rules,
+            "characterTypes": [ct.to_dict() for ct in configuration.characterTypes],
+            "completionCriteria": configuration.completionCriteria.to_dict(),
+        }
+        try:
+            generation = self._llm.generate_story_config(draft_like)
+            narrative_guidance = generation["narrativeGuidance"]
+            if not narrative_guidance:
+                raise LLMOutputError("narrativeGuidance was empty")
+        except LLMRateLimitError as exc:
+            raise ContentGenerationRateLimitedError(str(exc)) from exc
+        except LLMOutputError as exc:
+            raise ContentGenerationFailedError(str(exc)) from exc
+        return narrative_guidance
 
     def create_story(self, draft: StoryDraft, narrative_guidance: str) -> Story:
         """Persist a complete `Story` from a draft that just met the Completeness Rule,
@@ -107,6 +185,129 @@ class StoryService:
         story.published = False
         self._container().upsert_item(story.to_dict())
         return story
+
+    def _replaced_story(
+        self, story: Story, configuration: StoryConfiguration, admin_oid: str, narrative_guidance: str
+    ) -> Story:
+        """The Content write operation (data-model.md → Content write): preserve the
+        system-managed identity/publish fields, replace the authored set wholesale,
+        regenerate narrativeGuidance, and stamp the audit trail."""
+        return Story(
+            id=story.id,
+            name=configuration.name,
+            coverImageUrl=configuration.coverImageUrl,
+            tone=configuration.tone,
+            readingLevel=configuration.readingLevel,
+            sessionLengthMinutes=configuration.sessionLengthMinutes,
+            chapters=configuration.chapters,
+            worldPrompt=configuration.worldPrompt,
+            rules=configuration.rules,
+            characterTypes=configuration.characterTypes,
+            completionCriteria=configuration.completionCriteria,
+            narrativeGuidance=narrative_guidance,
+            published=story.published,
+            lastPublishedAt=story.lastPublishedAt,
+            createdBy=story.createdBy,
+            createdAt=story.createdAt,
+            contentUpdatedAt=_now(),
+            lastTestPlayedAt=story.lastTestPlayedAt,
+            lastUpdatedBy=admin_oid,
+            contentVersion=story.contentVersion + 1,
+        )
+
+    def apply_content_write(
+        self,
+        story: Story,
+        configuration: StoryConfiguration,
+        admin_oid: str,
+        narrative_guidance: str,
+        *,
+        exempt_from_staleness: bool = False,
+    ) -> Story:
+        """Apply a content write against `story.id` (wizard edit save, or an id-matched
+        overwrite import), guarded by the Cosmos `_etag` (research.md §6). Each attempt
+        re-reads the row fresh — closing the read-check-write window rather than trusting
+        the caller's possibly-stale `story` — and checks its `contentVersion` against the
+        version `story` was read at: a mismatch is genuine staleness (`StaleStoryError`,
+        unless `exempt_from_staleness` — the import path, which never carries a version
+        check). A matching version but a failed precondition means a concurrent
+        publish/unpublish landed with a fresh `_etag`; the write is retried once against
+        that fresh row, preserving its `published` state. A second precondition failure
+        raises `WriteConflictError` (contracts/api.md → Write conflicts)."""
+        expected_version = story.contentVersion
+        max_attempts = 2
+        for attempt in range(1, max_attempts + 1):
+            item = self._read_item(story.id)
+            if item is None:
+                raise StoryNotFoundError()
+            current = Story.from_dict(item)
+            if not exempt_from_staleness and current.contentVersion != expected_version:
+                raise StaleStoryError()
+
+            updated = self._replaced_story(current, configuration, admin_oid, narrative_guidance)
+            try:
+                self._container().replace_item(
+                    item=updated.id,
+                    body=updated.to_dict(),
+                    etag=item["_etag"],
+                    match_condition=MatchConditions.IfNotModified,
+                )
+                return updated
+            except CosmosAccessConditionFailedError:
+                if attempt >= max_attempts:
+                    raise WriteConflictError() from None
+
+    def import_configuration(
+        self,
+        configuration: StoryConfiguration,
+        admin_oid: str,
+        confirm_overwrite_story_id: Optional[str],
+        title: Optional[str],
+    ) -> tuple[str, Story]:
+        """Route an uploaded `StoryConfiguration` per research.md §7's table. Returns
+        `("updated" | "created", story)`. Raises `StoryNotFoundError` for an id that
+        matches nothing (`011` FR-004 as revised — never re-minted under a fresh id),
+        `ConfirmationRequiredError`/`TitleRequiredError` for the missing-confirmation/
+        missing-title cases (research.md §7's routing table)."""
+        if configuration.id:
+            if confirm_overwrite_story_id != configuration.id:
+                raise ConfirmationRequiredError()
+            story = self.get_story(configuration.id)
+            if story is None:
+                raise StoryNotFoundError()
+            narrative_guidance = self.regenerate_narrative_guidance(configuration, configuration.name)
+            updated = self.apply_content_write(
+                story, configuration, admin_oid, narrative_guidance, exempt_from_staleness=True
+            )
+            return "updated", updated
+
+        if not title:
+            raise TitleRequiredError()
+
+        narrative_guidance = self.regenerate_narrative_guidance(configuration, title)
+        created_at = _now()
+        story = Story(
+            id=str(uuid.uuid4()),
+            name=title,
+            coverImageUrl=configuration.coverImageUrl,
+            tone=configuration.tone,
+            readingLevel=configuration.readingLevel,
+            sessionLengthMinutes=configuration.sessionLengthMinutes,
+            chapters=configuration.chapters,
+            worldPrompt=configuration.worldPrompt,
+            rules=configuration.rules,
+            characterTypes=configuration.characterTypes,
+            completionCriteria=configuration.completionCriteria,
+            narrativeGuidance=narrative_guidance,
+            published=False,
+            createdBy=admin_oid,
+            createdAt=created_at,
+            contentUpdatedAt=created_at,
+            lastUpdatedBy=None,
+            contentVersion=1,
+        )
+        self._container().upsert_item(story.to_dict())
+        return "created", story
 
     def list_published_summaries(self) -> list[dict[str, Any]]:
         """Player-facing `AdventureSummary` shape (006-adventure-and-character-setup

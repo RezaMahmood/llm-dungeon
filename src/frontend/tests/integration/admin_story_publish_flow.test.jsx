@@ -1,5 +1,6 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitForElementToBeRemoved, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const acquireTokenSilent = vi.fn();
@@ -7,6 +8,7 @@ const createDraft = vi.fn();
 const generateStory = vi.fn();
 const publishStory = vi.fn();
 const unpublishStory = vi.fn();
+const listStories = vi.fn();
 
 const mockInstance = { acquireTokenSilent };
 const mockAccounts = [{ homeAccountId: "home-1", username: "admin@example.com" }];
@@ -20,8 +22,10 @@ vi.mock("../../src/services/storyDraftService.js", () => ({
   generateStory: (...args) => generateStory(...args),
   publishStory: (...args) => publishStory(...args),
   unpublishStory: (...args) => unpublishStory(...args),
+  listStories: (...args) => listStories(...args),
 }));
 
+import AdminPage from "../../src/pages/AdminPage.jsx";
 import AdminStoryWizardPage from "../../src/pages/AdminStoryWizardPage.jsx";
 
 const READY_DRAFT = {
@@ -64,6 +68,7 @@ describe("Admin story publish flow: generate -> blocked publish -> publish -> un
     generateStory.mockReset();
     publishStory.mockReset();
     unpublishStory.mockReset();
+    listStories.mockReset();
   });
 
   it("walks the full publish/unpublish lifecycle (quickstart.md Scenarios 1-3)", async () => {
@@ -112,5 +117,59 @@ describe("Admin story publish flow: generate -> blocked publish -> publish -> un
     });
     await userEvent.click(screen.getByRole("button", { name: /^publish$/i }));
     expect(await screen.findByText(/^published$/i)).toBeInTheDocument();
+  });
+});
+
+describe("Publish/unpublish from the story list (012 FR-011, research.md §11)", () => {
+  beforeEach(() => {
+    acquireTokenSilent.mockReset().mockResolvedValue({ accessToken: "tok" });
+    publishStory.mockReset();
+    unpublishStory.mockReset();
+    listStories.mockReset();
+  });
+
+  const renderList = () =>
+    render(
+      <MemoryRouter initialEntries={["/admin"]}>
+        <AdminPage />
+      </MemoryRouter>,
+    );
+
+  it("hits the same endpoints, gate explanation, and confirmation as the wizard step", async () => {
+    listStories.mockResolvedValue({
+      stories: [{ id: "story-1", name: "The Lighthouse", published: false, createdAt: "2026-08-01T00:00:00Z" }],
+    });
+    renderList();
+    await waitForElementToBeRemoved(() => screen.queryByText(/loading stories/i));
+
+    // The same 409 gate explanation as the wizard's StepPublish.
+    publishStory.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: { error: "test_play_required", message: "This story must be test-played since its last content change before it can be published." },
+      },
+    });
+    await userEvent.click(screen.getByRole("button", { name: /^publish$/i }));
+    expect(await screen.findByText(/must be test-played/i)).toBeInTheDocument();
+    expect(publishStory).toHaveBeenCalledWith("tok", "story-1");
+
+    // Unpublish still requires confirmation from the list (005 FR-013).
+    publishStory.mockResolvedValueOnce({
+      status: "success",
+      story: { id: "story-1", name: "The Lighthouse", published: true, lastPublishedAt: "2026-08-30T14:22:00Z" },
+    });
+    await userEvent.click(screen.getByRole("button", { name: /^publish$/i }));
+    await screen.findByRole("button", { name: /^unpublish$/i });
+
+    await userEvent.click(screen.getByRole("button", { name: /^unpublish$/i }));
+    const dialog = screen.getByRole("dialog");
+    expect(unpublishStory).not.toHaveBeenCalled();
+
+    unpublishStory.mockResolvedValueOnce({
+      status: "success",
+      story: { id: "story-1", name: "The Lighthouse", published: false },
+    });
+    await userEvent.click(within(dialog).getByRole("button", { name: /^unpublish$/i }));
+    expect(unpublishStory).toHaveBeenCalledWith("tok", "story-1");
   });
 });
