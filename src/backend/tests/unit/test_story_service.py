@@ -94,6 +94,85 @@ def test_get_story_returns_none_when_not_found():
     assert service.get_story("missing") is None
 
 
+def test_get_story_name_returns_name_via_projected_query():
+    cosmos = MagicMock()
+    cosmos.query.return_value = [{"name": "The Lighthouse at Gullwing Cove"}]
+    service = StoryService(cosmos_service=cosmos)
+
+    name = service.get_story_name("story-1")
+
+    assert name == "The Lighthouse at Gullwing Cove"
+    call_args, call_kwargs = cosmos.query.call_args
+    assert "SELECT c.name" in call_args[1]
+    assert call_kwargs["partition_key"] == "story-1"
+
+
+def test_get_story_name_returns_none_when_not_found():
+    cosmos = MagicMock()
+    cosmos.query.return_value = []
+    service = StoryService(cosmos_service=cosmos)
+
+    assert service.get_story_name("missing") is None
+
+
+def test_get_story_name_returns_none_when_row_is_missing_the_name_field():
+    """A row without `name` must fall back to `None` (the caller's cue to show
+    "Adventure") rather than raising KeyError."""
+    cosmos = MagicMock()
+    cosmos.query.return_value = [{}]
+    service = StoryService(cosmos_service=cosmos)
+
+    assert service.get_story_name("story-1") is None
+
+
+def test_get_adventure_summary_returns_projected_fields_only():
+    cosmos = MagicMock()
+    cosmos.query.return_value = [
+        {
+            "id": "story-1",
+            "name": "The Lighthouse at Gullwing Cove",
+            "published": True,
+            "characterTypes": [{"name": "Curious Cousin", "description": None}],
+        }
+    ]
+    service = StoryService(cosmos_service=cosmos)
+
+    summary = service.get_adventure_summary("story-1")
+
+    assert summary == {
+        "id": "story-1",
+        "name": "The Lighthouse at Gullwing Cove",
+        "published": True,
+        "characterTypes": [{"name": "Curious Cousin", "description": None}],
+    }
+    call_args, call_kwargs = cosmos.query.call_args
+    assert "c.worldPrompt" not in call_args[1]
+    assert "c.narrativeGuidance" not in call_args[1]
+    assert call_kwargs["partition_key"] == "story-1"
+
+
+def test_get_adventure_summary_returns_none_when_not_found():
+    cosmos = MagicMock()
+    cosmos.query.return_value = []
+    service = StoryService(cosmos_service=cosmos)
+
+    assert service.get_adventure_summary("missing") is None
+
+
+def test_get_adventure_summary_defaults_published_to_false_for_a_legacy_row():
+    """A row without `published` (Story.from_dict()'s own default) must not raise
+    KeyError, and must default to `False` rather than truthy-by-presence."""
+    cosmos = MagicMock()
+    cosmos.query.return_value = [
+        {"id": "story-1", "name": "The Lighthouse at Gullwing Cove", "characterTypes": []}
+    ]
+    service = StoryService(cosmos_service=cosmos)
+
+    summary = service.get_adventure_summary("story-1")
+
+    assert summary["published"] is False
+
+
 def _service_with(story: Story, cosmos=None) -> StoryService:
     cosmos = cosmos or MagicMock()
     cosmos.get_container.return_value.read_item.return_value = story.to_dict()

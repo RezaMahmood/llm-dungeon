@@ -42,18 +42,18 @@ def get_adventure(
 
     adventure_id = req.route_params.get("adventureId")
     service = story_service or StoryService()
-    story = service.get_story(adventure_id) if adventure_id else None
+    story = service.get_adventure_summary(adventure_id) if adventure_id else None
 
-    if story is None or not story.published:
+    if story is None or not story["published"]:
         return error_response(404, "not_found", NOT_FOUND_MESSAGE)
 
     return json_response(
         {
             "status": "success",
             "adventure": {
-                "id": story.id,
-                "name": story.name,
-                "characterTypes": [ct.to_dict() for ct in story.characterTypes],
+                "id": story["id"],
+                "name": story["name"],
+                "characterTypes": story["characterTypes"],
             },
         },
         status_code=200,

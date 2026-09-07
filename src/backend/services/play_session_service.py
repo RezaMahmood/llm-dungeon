@@ -477,9 +477,11 @@ class PlaySessionService:
 
     def _resolve_adventure_name(self, adventure_id: str) -> str:
         """`"Adventure"` when the story can no longer be read (research.md Decision 4) —
-        a player resuming a game they already started must never lose the row over it."""
-        story = self._stories.get_story(adventure_id)
-        return story.name if story is not None else "Adventure"
+        a player resuming a game they already started must never lose the row over it.
+        Uses `get_story_name`'s projected query rather than `get_story`'s full point read,
+        since this only ever needs the name (issue #257)."""
+        name = self._stories.get_story_name(adventure_id)
+        return name if name is not None else "Adventure"
 
     @staticmethod
     def _session_summary(session: PlaySession, adventure_name: str) -> dict[str, Any]:
