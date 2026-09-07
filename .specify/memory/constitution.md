@@ -1,6 +1,26 @@
 <!--
 Sync Impact Report
-Version change: 2.3.0 -> 3.0.0
+Version change: 3.0.0 -> 3.1.0
+Modified principles: none
+Added principles: XIV. Spec Artifacts and Code Stay Clean — Git Is the History
+Removed principles: none
+Added sections: none
+Modified sections: none
+Source: direct user instruction (2026-09-07) — spec artifacts (spec/plan/research/
+  tasks/etc.) and source code comments must rely on git history rather than in-file
+  narrative; a short line of current rationale is fine, but multi-line narrative
+  explaining why a decision was made or reversed is not, and a superseding decision
+  overwrites the old one with a very short note instead of retaining the old
+  explanation. Extends the same restraint to code comments: no narrating what code
+  does, no restating spec-documented behavior, no changelog-in-comments. Additive-only
+  new principle, hence MINOR. This amendment was authored in parallel with the
+  2.3.0 -> 3.0.0 amendment below on a separate branch and is folded in here, on top of
+  3.0.0, now that this branch has caught up with `origin/main`.
+Templates requiring follow-up: none - dependent templates read this file at runtime and
+  are not modified by this command.
+Deferred/TODO placeholders: none.
+
+Previous report (2.3.0 -> 3.0.0)
 Modified principles:
   - XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, GitHub Copilot
     Reviews, Human Merges (NON-NEGOTIABLE) - removed the requirement that GitHub issue
@@ -394,6 +414,34 @@ the trunk, and skips silently on a branch with no upstream, so it did not preven
 Exempting proposed identifiers keeps the rule from blocking the ordinary business of a
 plan, which is to describe code that does not exist yet; naming an unmerged dependency
 keeps that legitimate case available without disguising it as fact.
+
+### XIV. Spec Artifacts and Code Stay Clean — Git Is the History
+A feature's spec-related artifacts (`spec.md`, `plan.md`, `research.md`, `data-model.md`,
+`quickstart.md`, `tasks.md`, and any other file under that feature's `specs/` folder,
+excluding this constitution's own Sync Impact Report) rely on git history, not narrative
+prose, to record why a decision was made or later changed. A line or two of rationale
+next to a decision is fine. Multiple lines of narrative explaining why a decision was
+made or reversed are NOT permitted in these files — that belongs in the commit message
+or PR description, not the artifact. When a decision supersedes an earlier one, the
+artifact MUST be edited in place to reflect the new decision, with only a very short
+note marking the change (e.g. "Supersedes: <old approach>, in <15 words> why") — not a
+retained explanation of the old decision alongside the new.
+
+The same restraint applies to source code comments. A comment MAY note a short,
+non-obvious reason for a line of code (e.g. a workaround for a specific external
+constraint) but MUST NOT narrate what the code does, restate implementation detail the
+governing spec already documents, or explain the history of how the implementation
+arrived at its current form — no changelog-in-comments, no "previously this did X,
+changed to Y because Z". That detail belongs in the feature's spec/plan (current
+behavior) and git history (why it changed), not in a block comment at the call site.
+
+Rationale: Spec artifacts are working documents read repeatedly during a feature's life;
+narrative justifying past reversals bloats them and makes the current, authoritative
+decision harder to find. Git history already preserves that reasoning at the commit
+that made it, so the artifact itself should show only what is true now, briefly why.
+The same applies to code: a spec is the intended place to document what a feature does
+and why, so a comment repeating that or narrating its edit history is duplicated,
+drifts out of sync with the spec as the code evolves, and clutters the code itself.
 
 ## Security & Access Control Requirements
 
@@ -809,4 +857,4 @@ with the design-token, visual-rules, interaction-state, or layout/scroll require
 above as a blocking finding. No feature may ship a screen that is not traceable to a
 screen contract above or to a documented amendment extending it.
 
-**Version**: 3.0.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-07
+**Version**: 3.1.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-07
