@@ -427,14 +427,17 @@ class PlaySessionService:
         )
         rows.sort(key=lambda row: row["lastInteractionAt"], reverse=True)
 
+        # One `get_adventure_summary` read per distinct adventureId gives both `name`
+        # and `published` together (025-story-delete PR #274 review) — this loop
+        # previously issued two separate Cosmos reads per adventure (name, then
+        # availability) on what the docstring above already calls a real hot path.
         names: dict[str, str] = {}
         available: dict[str, bool] = {}
         for row in rows:
             adventure_id = row["adventureId"]
-            if adventure_id not in names:
-                names[adventure_id] = self._resolve_adventure_name(adventure_id)
-            if adventure_id not in available:
-                available[adventure_id] = self._resolve_adventure_available(adventure_id)
+            if adventure_id in names:
+                continue
+            names[adventure_id], available[adventure_id] = self._resolve_adventure_summary(adventure_id)
 
         return [
             self._session_summary_from_row(row, names[row["adventureId"]], available[row["adventureId"]])
@@ -532,22 +535,32 @@ class PlaySessionService:
         """`"Adventure"` when the story can no longer be read (research.md Decision 4) —
         a player resuming a game they already started must never lose the row over it.
         Uses `get_story_name`'s projected query rather than `get_story`'s full point read,
-        since this only ever needs the name (issue #257)."""
+        since this only ever needs the name (issue #257). Only `get_session_detail_for_player`
+        calls this alone — a single-session lookup where the story's own availability was
+        already confirmed by `_check_story_available` moments earlier, so there is no second
+        field to batch it with. `list_player_sessions`'s per-adventure hot-path loop uses
+        `_resolve_adventure_summary` below instead, to avoid this same duplication there."""
         name = self._stories.get_story_name(adventure_id)
         return name if name is not None else "Adventure"
 
-    def _resolve_adventure_available(self, adventure_id: str) -> bool:
-        """025-story-delete FR-009/FR-011, research.md Decision 5: `Story.published`,
-        read fresh on every call so a re-publish is reflected on the very next list load
-        with no separate restore step. Defaults to UNAVAILABLE when the story can no
-        longer be read at all — a missing story is exactly the condition
-        `_check_story_available` treats as `AdventureNotFoundError` (story_deleted) on
-        the very next turn/resume/detail request, so showing the row as available here
-        would invite a Resume that is guaranteed to fail; this deliberately differs from
-        `_resolve_adventure_name`'s own fallback, since a missing *name* is cosmetic but
-        a missing *availability* is misleading."""
+    def _resolve_adventure_summary(self, adventure_id: str) -> tuple[str, bool]:
+        """`(name, available)` from a single `get_adventure_summary` read (025-story-delete
+        PR #274 review) — `list_player_sessions`'s hot path previously issued two separate
+        Cosmos reads per distinct adventureId (name, then published) where one already
+        carries both fields. `available` (FR-009/FR-011, research.md Decision 5) is
+        `Story.published`, read fresh on every call so a re-publish is reflected on the very
+        next list load with no separate restore step. Both fields fall back the same way
+        `_resolve_adventure_name` and the former `_resolve_adventure_available` did when the
+        story can no longer be read at all: `"Adventure"` for the name (cosmetic — a player
+        resuming a game they already started must never lose the row over it), `False` for
+        availability (not cosmetic — `_check_story_available` would raise
+        `AdventureNotFoundError`/story_deleted on this session's very next use, so showing it
+        as available here would invite a Resume that is guaranteed to fail)."""
         summary = self._stories.get_adventure_summary(adventure_id)
-        return summary["published"] if summary is not None else False
+        if summary is None:
+            return "Adventure", False
+        name = summary["name"] if summary["name"] is not None else "Adventure"
+        return name, summary["published"]
 
     @staticmethod
     def _session_summary(session: PlaySession, adventure_name: str) -> dict[str, Any]:

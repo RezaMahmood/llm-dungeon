@@ -999,18 +999,21 @@ def test_list_player_sessions_projects_summary_fields_from_latest_turn():
 
 
 def test_list_player_sessions_resolves_adventure_names_once_per_distinct_adventure():
+    """PR #274 review: `list_player_sessions` batches name *and* availability through a
+    single `get_adventure_summary` read per distinct adventureId (not two separate reads
+    per adventure, one for the name and one for `published`)."""
     story_a = _story()
     story_b = _story()
     service, cosmos, _llm, _safety = _make_service(story_a)
     cosmos.get_container(config.STORIES_CONTAINER).upsert_item(story_b.to_dict())
-    original_get_story_name = service._stories.get_story_name
+    original_get_adventure_summary = service._stories.get_adventure_summary
     calls: list[str] = []
 
-    def counting_get_story_name(story_id):
+    def counting_get_adventure_summary(story_id):
         calls.append(story_id)
-        return original_get_story_name(story_id)
+        return original_get_adventure_summary(story_id)
 
-    service._stories.get_story_name = counting_get_story_name
+    service._stories.get_adventure_summary = counting_get_adventure_summary
 
     _existing_session(cosmos, story_a, adventureId=story_a.id)
     _existing_session(cosmos, story_a, adventureId=story_a.id)
@@ -1365,3 +1368,19 @@ def test_list_player_sessions_reflects_republish_with_no_other_change():
     rows = service.list_player_sessions(PLAYER_ID)
 
     assert rows[0]["available"] is True
+
+
+def test_list_player_sessions_does_not_use_the_separate_name_only_lookup():
+    """PR #274 review: this hot path must resolve name and availability from one
+    `get_adventure_summary` read per adventure, not `get_adventure_summary` plus a
+    second, separate `get_story_name` call."""
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    calls: list[str] = []
+    service._stories.get_story_name = lambda story_id: calls.append(story_id)
+    _existing_session(cosmos, story)
+
+    rows = service.list_player_sessions(PLAYER_ID)
+
+    assert calls == []
+    assert rows[0]["adventureName"] == story.name
