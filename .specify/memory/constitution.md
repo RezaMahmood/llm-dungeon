@@ -32,10 +32,9 @@ Source: direct user instruction (2026-09-07). The user asked to resolve issue #2
   AI agent can resolve issues (including #260 itself) the same way it does any other
   local development work, subject to the unchanged no-merge/no-auto-merge/labelling
   rules.
-Templates requiring follow-up: CLAUDE.md carries a mirrored copy of the old
-  Copilot-only issue-resolution rule (Git / PR workflow section) and needs the matching
-  edit; not a Spec Kit template, so out of this command's scope, but tracked here so it
-  is not missed.
+Templates requiring follow-up: CLAUDE.md carried a mirrored copy of the old
+  Copilot-only issue-resolution rule (Git / PR workflow section); that edit landed in the
+  same pull request as this amendment (#272), so there is no outstanding follow-up here.
 Deferred/TODO placeholders: none.
 
 Previous report (2.2.0 -> 2.3.0)
