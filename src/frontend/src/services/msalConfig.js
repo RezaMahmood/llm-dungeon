@@ -1,6 +1,14 @@
 const tenantId = import.meta.env.VITE_AZURE_TENANT_ID;
 const clientId = import.meta.env.VITE_AZURE_APP_ID;
-const redirectUri = import.meta.env.VITE_AZURE_REDIRECT_URI || window.location.origin + "/";
+// MSAL v5 requires a dedicated "redirect bridge" page (redirect.html) rather
+// than the app's own index page: Entra ID sends Cross-Origin-Opener-Policy
+// headers, so MSAL can no longer read the popup/iframe's location directly
+// and instead relies on that page calling broadcastResponseToMainFrame() to
+// hand the auth response back over the BroadcastChannel API. Pointing this at
+// "/" (the full SPA) leaves that call never made, which breaks loginPopup/
+// acquireTokenSilent and surfaces as a Cross-Origin Read Blocking (CORB)
+// warning in devtools. See https://aka.ms/msaljs/redirect-bridge.
+const redirectUri = import.meta.env.VITE_AZURE_REDIRECT_URI || window.location.origin + "/redirect.html";
 
 export const msalConfig = {
   auth: {
