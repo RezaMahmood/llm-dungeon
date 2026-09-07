@@ -1,3 +1,5 @@
+import { resolve } from "path";
+
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
@@ -8,6 +10,12 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      // MSAL v5's redirect bridge (see msalConfig.js) needs its own HTML entry
+      // so it's emitted as a standalone page rather than bundled into index.html.
+      input: {
+        main: resolve(import.meta.dirname, "index.html"),
+        redirect: resolve(import.meta.dirname, "redirect.html"),
+      },
       output: {
         // Vendor libraries change far less often than app code — splitting them
         // into their own chunks means a routine app deploy doesn't invalidate the
