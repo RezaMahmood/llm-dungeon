@@ -33,6 +33,7 @@ from backend.api.game.sessions import (
     submit_interaction,
 )
 from backend.api.utils import server_error
+from backend.api.version import get_version
 from backend.config import config
 from backend.observability.setup import setup_observability
 from backend.services.account_provisioning_service import AccountProvisioningService
@@ -204,6 +205,13 @@ def game_adventures_list(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="game/adventures/{adventureId}", methods=["GET"])
 def game_adventures_get(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(get_adventure)(req)
+
+
+@app.route(route="version", methods=["GET"])
+def version(req: func.HttpRequest) -> func.HttpResponse:
+    # Anonymous by design (see api/version.py) — the version badge is on every
+    # page, login screen included, so this answers before any token exists.
+    return _guarded(get_version)(req)
 
 
 @app.route(route="manage/accounts", methods=["POST"])
