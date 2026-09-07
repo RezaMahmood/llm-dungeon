@@ -445,16 +445,25 @@ class PlaySessionService:
         """Cascade for a story delete (025-story-delete FR-004, research.md Decision 2):
         permanently remove every in-progress (`status == 'active'`) session for
         `adventure_id`, regardless of which player owns it. Concluded sessions are left
-        untouched — they are history, not "in progress." Returns the count removed."""
+        untouched — they are history, not "in progress." Returns the count actually
+        removed. Idempotent per row: a session that vanishes between the query and its
+        own delete (e.g. the player's own next turn racing this cascade, or a second
+        concurrent delete attempt) is skipped rather than raising, so one such race
+        never 500s the admin delete endpoint after the story itself is already gone."""
         rows = self._cosmos.query(
             config.PLAY_SESSIONS_CONTAINER,
             "SELECT c.id FROM c WHERE c.adventureId = @adventureId AND c.status = 'active'",
             params=[{"name": "@adventureId", "value": adventure_id}],
         )
         container = self._container()
+        removed = 0
         for row in rows:
-            container.delete_item(item=row["id"], partition_key=row["id"])
-        return len(rows)
+            try:
+                container.delete_item(item=row["id"], partition_key=row["id"])
+                removed += 1
+            except CosmosResourceNotFoundError:
+                continue
+        return removed
 
     def get_session_for_player(self, session_id: str, player_id: str) -> PlaySession:
         """The player's own session in full, for rehydrating the play surface
@@ -530,10 +539,15 @@ class PlaySessionService:
     def _resolve_adventure_available(self, adventure_id: str) -> bool:
         """025-story-delete FR-009/FR-011, research.md Decision 5: `Story.published`,
         read fresh on every call so a re-publish is reflected on the very next list load
-        with no separate restore step. Defaults to available when the story can no longer
-        be read — matching `_resolve_adventure_name`'s own fallback reasoning."""
+        with no separate restore step. Defaults to UNAVAILABLE when the story can no
+        longer be read at all — a missing story is exactly the condition
+        `_check_story_available` treats as `AdventureNotFoundError` (story_deleted) on
+        the very next turn/resume/detail request, so showing the row as available here
+        would invite a Resume that is guaranteed to fail; this deliberately differs from
+        `_resolve_adventure_name`'s own fallback, since a missing *name* is cosmetic but
+        a missing *availability* is misleading."""
         summary = self._stories.get_adventure_summary(adventure_id)
-        return summary["published"] if summary is not None else True
+        return summary["published"] if summary is not None else False
 
     @staticmethod
     def _session_summary(session: PlaySession, adventure_name: str) -> dict[str, Any]:

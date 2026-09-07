@@ -1033,6 +1033,22 @@ def test_list_player_sessions_falls_back_to_adventure_label_when_story_unreadabl
     assert row["adventureName"] == "Adventure"
 
 
+def test_list_player_sessions_marks_unavailable_when_story_unreadable():
+    """025-story-delete PR #274 review: a session whose story can no longer be read at
+    all (e.g. a narrow cascade-delete race) must default `available` to False, not
+    True — the very next turn/resume/detail request against it would raise
+    `AdventureNotFoundError` (story_deleted), so showing it as available would invite a
+    Resume that is guaranteed to fail. This deliberately differs from the adventure-name
+    fallback above: a missing name is cosmetic, a misleading availability is not."""
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    _existing_session(cosmos, story, adventureId="deleted-adventure-id")
+
+    [row] = service.list_player_sessions(PLAYER_ID)
+
+    assert row["available"] is False
+
+
 # --- get_session_for_player (009-save-and-continue, T010) ---
 
 
@@ -1241,6 +1257,34 @@ def test_delete_active_sessions_for_adventure_leaves_other_adventures_sessions_u
     container = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER)
     assert removed == 0
     assert other_session.id in container.items
+
+
+def test_delete_active_sessions_for_adventure_is_idempotent_per_row(monkeypatch):
+    """PR #274 review: a session that vanishes between the query and its own
+    delete_item call (e.g. the player's own next turn racing this cascade, or a second
+    concurrent delete attempt on the same story) must not 500 the whole operation —
+    it's simply skipped and not counted, rather than propagating
+    CosmosResourceNotFoundError."""
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session_a = _existing_session(cosmos, story, playerId=PLAYER_ID)
+    session_b = _existing_session(cosmos, story, playerId=OTHER_PLAYER_ID)
+    container = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER)
+
+    real_delete_item = container.delete_item
+
+    def delete_item_racing_session_a(item, partition_key):
+        if item == session_a.id:
+            del container.items[session_a.id]
+        return real_delete_item(item, partition_key)
+
+    monkeypatch.setattr(container, "delete_item", delete_item_racing_session_a)
+
+    removed = service.delete_active_sessions_for_adventure(story.id)
+
+    assert removed == 1
+    assert session_a.id not in container.items
+    assert session_b.id not in container.items
 
 
 # --- Story-unpublished check (025-story-delete FR-005, FR-007, FR-008, T014) ---
