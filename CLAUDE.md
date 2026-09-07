@@ -10,10 +10,8 @@ Per the constitution's Principle XIII (AI Agent Division of Labor), Claude
 Code performs local development and spec-related work — including
 resolving a GitHub issue end-to-end (writing the fix, pushing, and opening
 the PR) — and also pushes and opens the pull request once that work is
-ready. Claude MUST NOT merge a pull request or close a GitHub issue
-directly against GitHub itself: GitHub Copilot's role is limited to
-reviewing the PR, and merging (which closes the issue it fixes) is a
-manual step for the requesting user.
+ready. Claude MUST NOT merge a pull request or close a GitHub issue directly against GitHub itself.
+GitHub Copilot's role is PR code review; the requesting user merges pull requests (and closes issues if needed).
 
 - When local work on a branch is ready, Claude MUST push it and open the
   pull request itself with `gh pr create`.

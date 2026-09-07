@@ -36,7 +36,7 @@ It can also be run manually (`/speckit-trunk-sync`) at any time.
 1. **Resolve current branch**: Run `git rev-parse --abbrev-ref HEAD` from the current working directory.
    - If this reports `HEAD` (detached HEAD, not a branch — e.g. a manual mid-rebase or checked-out-tag state), **STOP**. Report that there is no branch to sync and ask the user to check out a branch first; do not attempt a merge with nothing to advance.
 
-2. **Never sync on `main`/`master` as a target**: If the current branch is `main` or `master`, take no action, and report `On {branch} — not a feature branch, so there is nothing to sync here.` This hook only syncs feature branches; keeping `main` itself in sync is outside its scope. (When run automatically as a pre-hook this is a routine no-op; when run manually via `/speckit-trunk-sync` it is simply the answer to the sync request.)
+2. **Never sync on `main`/`master` as a side effect of this hook**: If the current branch is `main` or `master`, do not error; report `On {branch} — skipping automatic trunk sync (not a feature branch).` This hook only syncs feature branches; keeping `main` itself in sync is outside its scope.
 
 3. **Check for uncommitted changes first**: Run `git status --porcelain`.
    - If it reports anything, **STOP**. Do not stash, commit, or discard anything on the user's behalf. Report the dirty files and ask the user to commit or stash before continuing.
