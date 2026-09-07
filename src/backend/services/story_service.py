@@ -150,6 +150,40 @@ class StoryService:
             return None
         return Story.from_dict(item)
 
+    def get_story_name(self, story_id: str) -> Optional[str]:
+        """Just `name`, for callers that only need it for display (e.g. resolving a saved
+        game's adventure name) — a projected query rather than `get_story`'s full point
+        read of `worldPrompt`/`narrativeGuidance`/`chapters`/`rules`/etc."""
+        rows = self._cosmos.query(
+            config.STORIES_CONTAINER,
+            "SELECT c.name FROM c WHERE c.id = @id",
+            params=[{"name": "@id", "value": story_id}],
+            partition_key=story_id,
+        )
+        return rows[0].get("name") if rows else None
+
+    def get_adventure_summary(self, story_id: str) -> Optional[dict[str, Any]]:
+        """`id`, `name`, `published`, `characterTypes` only, for the player-facing
+        adventure-detail endpoint — which never needs `worldPrompt`/`narrativeGuidance`/
+        `rules`/`completionCriteria` — rather than `get_story`'s full point read.
+        `published` defaults to `False` for a legacy row missing the field, matching
+        `Story.from_dict`'s own default."""
+        rows = self._cosmos.query(
+            config.STORIES_CONTAINER,
+            "SELECT c.id, c.name, c.published, c.characterTypes FROM c WHERE c.id = @id",
+            params=[{"name": "@id", "value": story_id}],
+            partition_key=story_id,
+        )
+        if not rows:
+            return None
+        row = rows[0]
+        return {
+            "id": row.get("id"),
+            "name": row.get("name"),
+            "published": row.get("published", False),
+            "characterTypes": row.get("characterTypes", []),
+        }
+
     def list_summaries(self) -> list[dict[str, Any]]:
         """Summary shape only (`id`, `name`, `published`, `lastPublishedAt`, `createdAt`) —
         full detail is fetched via `get_story` (contracts/api.md)."""

@@ -93,8 +93,14 @@ class FakeCosmosService:
             rows = [r for r in rows if r.get("isActiveForPlayer") is True]
         if "c.id != @excludeId" in sql:
             rows = [r for r in rows if r.get("id") != param_map.get("@excludeId")]
+        if "c.id = @id" in sql:
+            rows = [r for r in rows if r.get("id") == param_map.get("@id")]
         if "ARRAY_SLICE(c.turns, -1) AS latestTurn" in sql:
             rows = [_project_saved_game_summary_row(r) for r in rows]
+        if "SELECT c.name FROM c WHERE c.id = @id" in sql:
+            rows = [{"name": r["name"]} for r in rows]
+        if "SELECT c.id, c.name, c.published, c.characterTypes FROM c WHERE c.id = @id" in sql:
+            rows = [{"id": r["id"], "name": r["name"], "published": r["published"], "characterTypes": r["characterTypes"]} for r in rows]
         return rows
 
 
@@ -989,14 +995,14 @@ def test_list_player_sessions_resolves_adventure_names_once_per_distinct_adventu
     story_b = _story()
     service, cosmos, _llm, _safety = _make_service(story_a)
     cosmos.get_container(config.STORIES_CONTAINER).upsert_item(story_b.to_dict())
-    original_get_story = service._stories.get_story
+    original_get_story_name = service._stories.get_story_name
     calls: list[str] = []
 
-    def counting_get_story(story_id):
+    def counting_get_story_name(story_id):
         calls.append(story_id)
-        return original_get_story(story_id)
+        return original_get_story_name(story_id)
 
-    service._stories.get_story = counting_get_story
+    service._stories.get_story_name = counting_get_story_name
 
     _existing_session(cosmos, story_a, adventureId=story_a.id)
     _existing_session(cosmos, story_a, adventureId=story_a.id)

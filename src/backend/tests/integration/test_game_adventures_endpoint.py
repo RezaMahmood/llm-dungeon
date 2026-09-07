@@ -99,7 +99,14 @@ def test_get_adventure_returns_character_types_for_published_story(request_facto
     cosmos = MagicMock()
     story_service = StoryService(cosmos_service=cosmos)
     story = _published_story()
-    cosmos.get_container.return_value.read_item.return_value = story.to_dict()
+    cosmos.query.return_value = [
+        {
+            "id": story.id,
+            "name": story.name,
+            "published": story.published,
+            "characterTypes": [ct.to_dict() for ct in story.characterTypes],
+        }
+    ]
     req = request_factory(method="GET", url="/api/game/adventures/story-1", route_params={"adventureId": "story-1"}, token="valid-token")
 
     with _patched_auth():
@@ -118,7 +125,14 @@ def test_get_adventure_returns_404_for_unpublished_story(request_factory):
     story_service = StoryService(cosmos_service=cosmos)
     story = _published_story()
     story.published = False
-    cosmos.get_container.return_value.read_item.return_value = story.to_dict()
+    cosmos.query.return_value = [
+        {
+            "id": story.id,
+            "name": story.name,
+            "published": story.published,
+            "characterTypes": [ct.to_dict() for ct in story.characterTypes],
+        }
+    ]
     req = request_factory(method="GET", url="/api/game/adventures/story-1", route_params={"adventureId": "story-1"}, token="valid-token")
 
     with _patched_auth():
@@ -128,10 +142,8 @@ def test_get_adventure_returns_404_for_unpublished_story(request_factory):
 
 
 def test_get_adventure_returns_404_for_nonexistent_story(request_factory):
-    from azure.cosmos.exceptions import CosmosResourceNotFoundError
-
     cosmos = MagicMock()
-    cosmos.get_container.return_value.read_item.side_effect = CosmosResourceNotFoundError
+    cosmos.query.return_value = []
     story_service = StoryService(cosmos_service=cosmos)
     req = request_factory(method="GET", url="/api/game/adventures/missing", route_params={"adventureId": "missing"}, token="valid-token")
 
