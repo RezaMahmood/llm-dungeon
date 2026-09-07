@@ -621,3 +621,68 @@ def test_success_condition_completion_returns_matched_detail(request_factory):
     assert body["status"] == "concluded"
     assert body["completionReason"]["type"] == "success"
     assert body["completionReason"]["detail"] == "the player says the word lighthouse"
+
+
+# --- Story deleted / unpublished (025-story-delete FR-007, FR-008, T016) ---
+
+
+def test_submit_interaction_against_deleted_story_returns_404_story_deleted(request_factory):
+    story = _story()
+    service, cosmos, _llm, _safety = _service(story, llm_turn_data=_turn_data())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    _clear_rate_limit(cosmos, created["sessionId"])
+    del cosmos.get_container(config.STORIES_CONTAINER).items[story.id]
+
+    response = _interact(request_factory, service, created["sessionId"], {"input": "look around"})
+
+    assert response.status_code == 404
+    body = json.loads(response.get_body())
+    assert body["error"] == "story_deleted"
+    assert body["promptReturnToList"] is True
+
+
+def test_submit_interaction_against_unpublished_story_returns_409_story_unpublished(request_factory):
+    story = _story()
+    service, cosmos, _llm, _safety = _service(story, llm_turn_data=_turn_data())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    _clear_rate_limit(cosmos, created["sessionId"])
+    cosmos.get_container(config.STORIES_CONTAINER).items[story.id]["published"] = False
+
+    response = _interact(request_factory, service, created["sessionId"], {"input": "look around"})
+
+    assert response.status_code == 409
+    body = json.loads(response.get_body())
+    assert body["error"] == "story_unpublished"
+    assert body["promptReturnToList"] is True
+
+
+def test_resume_against_deleted_story_returns_404_story_deleted(request_factory):
+    story = _story()
+    service, cosmos, _llm, _safety = _service(story)
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    session_id = created["sessionId"]
+    cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items[session_id]["isActiveForPlayer"] = False
+    del cosmos.get_container(config.STORIES_CONTAINER).items[story.id]
+
+    response = _resume(request_factory, service, session_id)
+
+    assert response.status_code == 404
+    body = json.loads(response.get_body())
+    assert body["error"] == "story_deleted"
+    assert body["promptReturnToList"] is True
+
+
+def test_resume_against_unpublished_story_returns_409_story_unpublished(request_factory):
+    story = _story()
+    service, cosmos, _llm, _safety = _service(story)
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    session_id = created["sessionId"]
+    cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items[session_id]["isActiveForPlayer"] = False
+    cosmos.get_container(config.STORIES_CONTAINER).items[story.id]["published"] = False
+
+    response = _resume(request_factory, service, session_id)
+
+    assert response.status_code == 409
+    body = json.loads(response.get_body())
+    assert body["error"] == "story_unpublished"
+    assert body["promptReturnToList"] is True

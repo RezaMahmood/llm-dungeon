@@ -82,4 +82,44 @@ describe("StoriesInProgress (009-save-and-continue, FR-001, FR-002)", () => {
 
     expect(onResume).toHaveBeenCalledWith(SESSION_A);
   });
+
+  // --- 025-story-delete (FR-009, FR-011, SC-005): availability ---
+
+  it("renders a row with available: false greyed out and non-continuable", async () => {
+    const onResume = vi.fn();
+    const user = userEvent.setup();
+    const unavailableSession = { ...SESSION_A, available: false };
+    render(<StoriesInProgress sessions={[unavailableSession]} loading={false} error={null} onResume={onResume} />);
+
+    expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(0);
+    const resumeButton = screen.queryByRole("button", { name: /^resume$/i });
+    expect(resumeButton).not.toBeInTheDocument();
+
+    const unavailableButton = screen.getByRole("button", { name: /unavailable/i });
+    expect(unavailableButton).toBeDisabled();
+    await user.click(unavailableButton);
+    expect(onResume).not.toHaveBeenCalled();
+  });
+
+  it("renders a row with available: true (or the field absent) normally", () => {
+    render(<StoriesInProgress sessions={[SESSION_A]} loading={false} error={null} onResume={() => {}} />);
+
+    expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^resume$/i })).toBeEnabled();
+  });
+
+  it("restores the normal row when available flips back to true, with no other state change", () => {
+    const unavailableSession = { ...SESSION_A, available: false };
+    const { rerender } = render(
+      <StoriesInProgress sessions={[unavailableSession]} loading={false} error={null} onResume={() => {}} />,
+    );
+    expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(0);
+
+    const restoredSession = { ...SESSION_A, available: true };
+    rerender(<StoriesInProgress sessions={[restoredSession]} loading={false} error={null} onResume={() => {}} />);
+
+    expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^resume$/i })).toBeEnabled();
+    expect(screen.getByText(/The Lighthouse at Gullwing Cove/)).toBeInTheDocument();
+  });
 });
