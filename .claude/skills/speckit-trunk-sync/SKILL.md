@@ -35,7 +35,7 @@ It can also be run manually (`/speckit-trunk-sync`) at any time.
 
 1. **Resolve current branch**: Run `git rev-parse --abbrev-ref HEAD` from the current working directory.
 
-2. **Never sync on `main`/`master` as a side effect of this hook**: If the current branch is `main` or `master`, skip silently and report `On {branch} — skipping automatic trunk sync (not a feature branch).` This hook only syncs feature branches; keeping `main` itself in sync is outside its scope.
+2. **Never sync on `main`/`master` as a side effect of this hook**: If the current branch is `main` or `master`, do not error; report `On {branch} — skipping automatic trunk sync (not a feature branch).` This hook only syncs feature branches; keeping `main` itself in sync is outside its scope.
 
 3. **Check for uncommitted changes first**: Run `git status --porcelain`.
    - If it reports anything, **STOP**. Do not stash, commit, or discard anything on the user's behalf. Report the dirty files and ask the user to commit or stash before continuing.
