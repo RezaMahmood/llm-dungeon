@@ -11,8 +11,9 @@ Code performs local development and spec-related work — including
 resolving a GitHub issue end-to-end (writing the fix, pushing, and opening
 the PR) — and also pushes and opens the pull request once that work is
 ready. Claude MUST NOT merge a pull request or close a GitHub issue
-directly against GitHub itself — those steps go to GitHub Copilot (review)
-and the requesting user (manual merge).
+directly against GitHub itself: GitHub Copilot's role is limited to
+reviewing the PR, and merging (which closes the issue it fixes) is a
+manual step for the requesting user.
 
 - When local work on a branch is ready, Claude MUST push it and open the
   pull request itself with `gh pr create`.
