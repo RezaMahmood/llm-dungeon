@@ -1,4 +1,4 @@
-import { render, screen, waitForElementToBeRemoved, within } from "@testing-library/react";
+import { render, screen, waitFor, waitForElementToBeRemoved, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -37,6 +37,11 @@ const waitForLoad = () => waitForElementToBeRemoved(() => screen.queryByText(/lo
 
 const rowFor = (name) => screen.getByText(name).closest("tr");
 
+// Status now renders twice per row by design (012-story-editing-and-review): the status
+// tag, plus the shared StoryPublishActions control's own "Status: …" line. Scope to the
+// tag specifically rather than an ambiguous text match.
+const statusTag = (row) => row.querySelector(".tag");
+
 describe("Admin stories list publish/unpublish (FR-007, FR-010, FR-011, FR-013, FR-014, FR-016)", () => {
   beforeEach(() => {
     acquireTokenSilent.mockReset().mockResolvedValue({ accessToken: "tok" });
@@ -61,7 +66,7 @@ describe("Admin stories list publish/unpublish (FR-007, FR-010, FR-011, FR-013, 
     const row = rowFor("The Lighthouse");
     await user.click(within(row).getByRole("button", { name: /^publish$/i }));
 
-    expect(await within(row).findByText("Published")).toBeInTheDocument();
+    await waitFor(() => expect(statusTag(row)).toHaveTextContent("Published"));
     expect(publishStory).toHaveBeenCalledWith("tok", "s1");
     expect(listStories).toHaveBeenCalledTimes(1);
   });
@@ -82,7 +87,7 @@ describe("Admin stories list publish/unpublish (FR-007, FR-010, FR-011, FR-013, 
     await user.click(within(row).getByRole("button", { name: /^publish$/i }));
 
     expect(await within(row).findByText(/must be test-played/i)).toBeInTheDocument();
-    expect(within(row).getByText("Draft")).toBeInTheDocument();
+    expect(statusTag(row)).toHaveTextContent("Unpublished");
   });
 
   it("requires confirmation before unpublishing and does not call unpublishStory until confirmed", async () => {
@@ -116,7 +121,7 @@ describe("Admin stories list publish/unpublish (FR-007, FR-010, FR-011, FR-013, 
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(unpublishStory).not.toHaveBeenCalled();
-    expect(within(rowFor("The Lighthouse")).getByText("Published")).toBeInTheDocument();
+    expect(statusTag(rowFor("The Lighthouse"))).toHaveTextContent("Published");
   });
 
   it("confirming unpublishes and updates just that row in place", async () => {
@@ -138,7 +143,7 @@ describe("Admin stories list publish/unpublish (FR-007, FR-010, FR-011, FR-013, 
     await user.click(within(dialog).getByRole("button", { name: /^unpublish$/i }));
 
     expect(unpublishStory).toHaveBeenCalledWith("tok", "s1");
-    expect(await within(rowFor("The Lighthouse")).findByText("Draft")).toBeInTheDocument();
+    await waitFor(() => expect(statusTag(rowFor("The Lighthouse"))).toHaveTextContent("Unpublished"));
     expect(listStories).toHaveBeenCalledTimes(1);
   });
 
@@ -157,13 +162,13 @@ describe("Admin stories list publish/unpublish (FR-007, FR-010, FR-011, FR-013, 
 
     const row = rowFor("The Lighthouse");
     await user.click(within(row).getByRole("button", { name: /^publish$/i }));
-    expect(await within(row).findByText("Published")).toBeInTheDocument();
+    await waitFor(() => expect(statusTag(row)).toHaveTextContent("Published"));
 
     // Re-publishing an already-published story is a no-op success, and the
     // row still only shows one Unpublish control afterward.
     await user.click(within(row).getByRole("button", { name: /^unpublish$/i }));
     await user.click(screen.getByRole("button", { name: /keep it published/i }));
-    expect(within(row).getByText("Published")).toBeInTheDocument();
+    expect(statusTag(row)).toHaveTextContent("Published");
   });
 
   it("only updates the acted-on row when several stories are listed", async () => {
@@ -185,7 +190,7 @@ describe("Admin stories list publish/unpublish (FR-007, FR-010, FR-011, FR-013, 
     const row1 = rowFor("The Lighthouse");
     await user.click(within(row1).getByRole("button", { name: /^publish$/i }));
 
-    expect(await within(row1).findByText("Published")).toBeInTheDocument();
-    expect(within(rowFor("Cavern of Echoes")).getByText("Draft")).toBeInTheDocument();
+    await waitFor(() => expect(statusTag(row1)).toHaveTextContent("Published"));
+    expect(statusTag(rowFor("Cavern of Echoes"))).toHaveTextContent("Unpublished");
   });
 });

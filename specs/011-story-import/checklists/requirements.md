@@ -35,3 +35,6 @@
   domain during the spec-set reorganization.
 - Depends on `002-login-and-access-control` (administrator identity) and hands off to
   `005-story-publishing-done`. Shares its validation/overwrite mechanic with `012-story-editing-and-review`'s download-and-reupload path.
+- Revisited 2026-09-06: FR-004 was revised (routing by the file's story id, no create-versus-overwrite
+  chooser) and the shared mechanism is being built by `012-story-editing-and-review` — see this spec's
+  Delivery Status section. Re-checked against the checklist above: all items still pass.

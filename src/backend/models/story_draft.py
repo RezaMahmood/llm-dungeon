@@ -60,6 +60,10 @@ class StoryDraft:
     updatedAt: str = field(default_factory=_now)
     ttl: int = DRAFT_TTL_SECONDS
     entityType: str = field(default="StoryDraft")
+    # None => creation draft (generates a new Story). Set => edit draft, bound to that
+    # Story and pinned to the contentVersion it was seeded from (data-model.md → StoryDraft).
+    sourceStoryId: Optional[str] = None
+    baseContentVersion: Optional[int] = None
 
     def is_complete(self) -> bool:
         """The Completeness Rule (data-model.md) — generation triggers on the write that
@@ -96,6 +100,8 @@ class StoryDraft:
             "updatedAt": self.updatedAt,
             "ttl": self.ttl,
             "entityType": self.entityType,
+            "sourceStoryId": self.sourceStoryId,
+            "baseContentVersion": self.baseContentVersion,
         }
 
     @classmethod
@@ -118,4 +124,6 @@ class StoryDraft:
             createdAt=data.get("createdAt", _now()),
             updatedAt=data.get("updatedAt", _now()),
             ttl=data.get("ttl", DRAFT_TTL_SECONDS),
+            sourceStoryId=data.get("sourceStoryId"),
+            baseContentVersion=data.get("baseContentVersion"),
         )

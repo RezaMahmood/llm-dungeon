@@ -1,6 +1,34 @@
 <!--
 Sync Impact Report
-Version change: 2.1.0 -> 2.2.0
+Version change: 2.2.0 -> 2.3.0
+Modified principles: none
+Added principles: none
+Removed principles: none
+Added sections: none
+Modified sections:
+  - Screen contracts - added a sixth contract, "Administrator - stories &
+    configuration", covering the administrator story list (published status, publish/
+    unpublish entry point per 005-story-publishing FR-010, and the entry point for
+    uploading a story configuration file per 011-story-import FR-001) and the read-only
+    story configuration viewer introduced by 012-story-editing-and-review. Also
+    corrected the stale "five screens" count in the section preamble to six (06-game-setup.html has
+    been in specs/designs/ since 006-adventure-and-character-setup), and stated
+    explicitly that a screen contract MAY exist without a prototype screen when a spec
+    defers visual design, in which case the contract text is the sole acceptance
+    reference for that screen.
+Removed sections: none
+Source: 012-story-editing-and-review's cross-artifact analysis (2026-09-07) found its
+  read-only configuration viewer to be a new screen traceable to no screen contract,
+  which Governance forbids shipping. The requesting user chose to extend the screen
+  contracts rather than take an exception. This is additive guidance only - no existing
+  contract, principle, or requirement changes meaning, hence MINOR. This amendment was
+  authored in parallel with the 2.1.0 -> 2.2.0 amendment below on a separate branch and
+  is folded in here, on top of 2.2.0, when that branch caught up with `origin/main`.
+Templates requiring follow-up: none - dependent templates read this file at runtime and
+  are not modified by this command.
+Deferred/TODO placeholders: none.
+
+Previous report (2.1.0 -> 2.2.0)
 Modified principles:
   - XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, GitHub Copilot
     Reviews, Human Merges (NON-NEGOTIABLE) - materially expanded, not redefined. Added a
@@ -647,9 +675,17 @@ restyle these states locally.
 ### Screen contracts
 
 The prototype at `specs/designs/` is the acceptance reference for these screens' layout
-and copy; this constitution wins on rules where the two disagree. It contains five
+and copy; this constitution wins on rules where the two disagree. It contains six
 screens, a shared vendored stylesheet, and a README mapping each screen to the spec(s)
 that govern its behavior (see `specs/designs/README.md`).
+
+A screen contract MAY exist without a corresponding prototype screen where the governing
+spec explicitly defers visual design (recording that deferral as an exception in its
+plan's Constitution Check). For such a screen the contract text below is the sole
+acceptance reference: it fixes the screen's purpose, its required affordances, and its
+entry points, while layout and copy are the implementer's within the design-token,
+interaction-state, and accessibility requirements above — none of which the deferral
+relaxes.
 
 - **Login** (`specs/designs/01-login.html`) — Microsoft identity sign-in only,
   consistent with Principle II: no password field, no local accounts, no alternate
@@ -674,6 +710,22 @@ that govern its behavior (see `specs/designs/README.md`).
   one at a time, always behind a confirmation dialog (no bulk removal). Accounts are
   Microsoft identities only — no password field, consistent with Principle II. See
   `003-account-provisioning-done`.
+- **Administrator — stories & configuration** (no prototype screen; see the paragraph
+  above) — the administrator's story list shows every story with its published/
+  unpublished status conveyed as text, not color alone, and is one of the two required
+  entry points for publish/unpublish (`005-story-publishing` FR-010), enforcing the same
+  preconditions and confirmation as the authoring wizard's publish step by rendering the
+  same shared control, never a screen-specific reimplementation. Each row reaches that
+  story's read-only configuration viewer in one action. The list is also the entry point
+  for uploading a story configuration file (`011-story-import` FR-001,
+  `012-story-editing-and-review` FR-005): the upload control confirms the named overwrite
+  target for a file that carries a story id, and prompts for a title for one that does
+  not. The viewer renders the story's complete configuration file exactly as the download
+  produces it, with the download action alongside it, and it is read-only — every edit
+  goes through the authoring wizard (04) or a re-upload. Introduced by
+  `012-story-editing-and-review`, whose FR-012 defers these two screens' visual design
+  to follow-up work; that deferral is recorded as an explicit exception in that
+  feature's plan and covers styling only.
 
 ### Save and session behaviour
 
@@ -719,4 +771,4 @@ with the design-token, visual-rules, interaction-state, or layout/scroll require
 above as a blocking finding. No feature may ship a screen that is not traceable to a
 screen contract above or to a documented amendment extending it.
 
-**Version**: 2.2.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-06
+**Version**: 2.3.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-07

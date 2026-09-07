@@ -48,10 +48,34 @@ describe("Admin stories list (FR-013, SC-007)", () => {
     await waitForLoad();
 
     expect(screen.getByText("The Lighthouse")).toBeInTheDocument();
-    expect(screen.getByText("Published")).toBeInTheDocument();
     expect(screen.getByText("Cavern of Echoes")).toBeInTheDocument();
-    expect(screen.getByText("Draft")).toBeInTheDocument();
+    // Status is rendered twice per row by design (the status tag, plus the shared
+    // StoryPublishActions control) — assert the tag specifically, by its class.
+    expect(document.querySelector(".tag-accent")).toHaveTextContent("Published");
+    expect(document.querySelector(".tag-neutral")).toHaveTextContent("Unpublished");
     expect(listStories).toHaveBeenCalledWith("tok");
+  });
+
+  it("gives every row a View affordance that navigates straight to its configuration view (FR-001, SC-001)", async () => {
+    listStories.mockResolvedValue({
+      stories: [{ id: "s1", name: "The Lighthouse", published: true, createdAt: "2026-08-01T00:00:00Z" }],
+    });
+
+    renderPage();
+    await waitForLoad();
+
+    expect(screen.getByRole("link", { name: /^view$/i })).toHaveAttribute("href", "/admin/stories/s1");
+  });
+
+  it("gives every row an Edit affordance pointing at the wizard's edit route (FR-005)", async () => {
+    listStories.mockResolvedValue({
+      stories: [{ id: "s1", name: "The Lighthouse", published: true, createdAt: "2026-08-01T00:00:00Z" }],
+    });
+
+    renderPage();
+    await waitForLoad();
+
+    expect(screen.getByRole("link", { name: /^edit$/i })).toHaveAttribute("href", "/admin/stories/s1/edit");
   });
 
   it("shows an empty state, not an error, when no stories exist yet", async () => {
@@ -102,5 +126,30 @@ describe("Admin stories list (FR-013, SC-007)", () => {
     await waitForLoad();
 
     expect(screen.getByText("Untitled story")).toBeInTheDocument();
+  });
+
+  // --- Accessibility (T043, FR-012 — the styling exception does not extend here) ---
+
+  it("every row control is reachable by role and accessible name, and status reads as text", async () => {
+    listStories.mockResolvedValue({
+      stories: [
+        { id: "s1", name: "The Lighthouse", published: true, createdAt: "2026-08-01T00:00:00Z" },
+        { id: "s2", name: "Cavern of Echoes", published: false, createdAt: "2026-08-02T00:00:00Z" },
+      ],
+    });
+
+    renderPage();
+    await waitForLoad();
+
+    expect(screen.getByRole("heading", { name: "Stories" })).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    // Every row exposes View, Edit, and the shared publish/unpublish control by role.
+    expect(screen.getAllByRole("link", { name: /^view$/i })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /^edit$/i })).toHaveLength(2);
+    expect(screen.getByRole("button", { name: /^publish$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^unpublish$/i })).toBeInTheDocument();
+    // Status is text content, not conveyed by color alone.
+    expect(document.querySelector(".tag-accent").textContent).toBe("Published");
+    expect(document.querySelector(".tag-neutral").textContent).toBe("Unpublished");
   });
 });

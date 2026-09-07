@@ -1,5 +1,6 @@
 import { useMsal } from "@azure/msal-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 
 import StepNameCover from "../components/Admin/StoryWizard/StepNameCover.jsx";
 import StepPublish from "../components/Admin/StoryWizard/StepPublish.jsx";
@@ -9,7 +10,17 @@ import StepWorldSetting from "../components/Admin/StoryWizard/StepWorldSetting.j
 import { usePublishRefresh } from "../context/RefreshContext.jsx";
 import { useUnsavedChangesWarning } from "../hooks/useUnsavedChangesWarning.js";
 import { loginRequest } from "../services/msalConfig.js";
-import { createDraft, generateStory, getDraft, patchDraft, postMessage } from "../services/storyDraftService.js";
+import {
+  createDraft,
+  createEditDraft,
+  generateStory,
+  getDraft,
+  patchDraft,
+  postMessage,
+  saveDraftToStory,
+} from "../services/storyDraftService.js";
+
+const STALE_STORY_MESSAGE = "This story changed since you opened it. Reload it and reapply your change.";
 
 // Which draft this browser session is currently building. Without this, leaving
 // the wizard via the nav bar and coming back would start a brand-new blank
@@ -117,6 +128,8 @@ const STEPS = [
 ];
 
 export function AdminStoryWizardPage() {
+  const { storyId } = useParams();
+  const isEditMode = Boolean(storyId);
   const { instance, accounts: msalAccounts } = useMsal();
   const account = msalAccounts[0];
   const accountKey = account?.homeAccountId ?? account?.username ?? null;
@@ -129,7 +142,7 @@ export function AdminStoryWizardPage() {
   const [refreshError, setRefreshError] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
   const refreshingRef = useRef(false);
-  const [generateStatus, setGenerateStatus] = useState("idle"); // idle | generating | error
+  const [generateStatus, setGenerateStatus] = useState("idle"); // idle | generating | error | stale
   const [fieldErrors, setFieldErrors] = useState({}); // { [fieldKey]: message }
 
   useUnsavedChangesWarning(isDirty);
@@ -140,6 +153,16 @@ export function AdminStoryWizardPage() {
       const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
       if (cancelled) return;
       setToken(tokenResponse.accessToken);
+
+      // Edit mode (FR-003): open a fresh edit draft seeded from the story every time
+      // this route is entered — there is nothing to resume from sessionStorage, since
+      // the draft is bound to `storyId`, not to this browser session.
+      if (isEditMode) {
+        const data = await createEditDraft(tokenResponse.accessToken, storyId);
+        if (cancelled) return;
+        setDraft(data.draft);
+        return;
+      }
 
       // Resume the draft this session was already building, so navigating away
       // via the nav bar and back does not discard saved progress (FR-005).
@@ -169,11 +192,11 @@ export function AdminStoryWizardPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- accountKey is the stable dependency
-  }, [instance, accountKey]);
+  }, [instance, accountKey, isEditMode, storyId]);
 
   const applyWriteResult = useCallback((data) => {
-    if (data.status === "generated") {
-      // The draft became a story — there is nothing left to resume.
+    if (data.status === "generated" || data.status === "saved") {
+      // The draft became (or was applied back to) a story — there is nothing left to resume.
       writeActiveDraftId(null);
       setStory(data.story);
       setDraft(null);
@@ -249,14 +272,28 @@ export function AdminStoryWizardPage() {
     }
   }, [token, draft, applyWriteResult]);
 
+  // Edit mode's terminal action (FR-003, FR-006): applies the draft back to its source
+  // story. A stale save (FR-006) shows the reload-and-reapply message instead of a
+  // generic error, since the fix is specific — reload the story and reapply the change.
+  const handleSaveChanges = useCallback(async () => {
+    setGenerateStatus("generating");
+    try {
+      const data = await saveDraftToStory(token, draft.id);
+      applyWriteResult(data);
+      setGenerateStatus("idle");
+    } catch (err) {
+      setGenerateStatus(err?.response?.status === 409 ? "stale" : "error");
+    }
+  }, [token, draft, applyWriteResult]);
+
   if (story) {
     return (
       <div style={{ padding: "var(--space-6)" }}>
         <div style={{ fontSize: "12px", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-accent-700)" }}>
-          Story generated
+          {isEditMode ? "Story saved" : "Story generated"}
         </div>
         <h1>{story.name || "Untitled story"}</h1>
-        <p className="text-muted">Generated and saved.</p>
+        <p className="text-muted">{isEditMode ? "Changes saved." : "Generated and saved."}</p>
         <h3>Narrative guidance</h3>
         <p>{story.narrativeGuidance}</p>
 
@@ -270,7 +307,7 @@ export function AdminStoryWizardPage() {
   if (!draft) {
     return (
       <div style={{ padding: "var(--space-6)" }}>
-        <p className="text-muted">Starting a new story…</p>
+        <p className="text-muted">{isEditMode ? "Loading story…" : "Starting a new story…"}</p>
       </div>
     );
   }
@@ -280,7 +317,7 @@ export function AdminStoryWizardPage() {
 
   return (
     <div style={{ maxWidth: "1080px", padding: "var(--space-6) var(--space-4) 64px" }}>
-      <h1>New story</h1>
+      <h1>{isEditMode ? "Edit story" : "New story"}</h1>
       {refreshError && (
         <p role="alert" className="text-muted">
           Couldn&rsquo;t refresh the draft. Showing the last loaded version.
@@ -357,19 +394,32 @@ export function AdminStoryWizardPage() {
           type="button"
           className="btn btn-primary"
           disabled={!isReadyToGenerate(draft) || generateStatus === "generating"}
-          onClick={handleGenerate}
+          onClick={isEditMode ? handleSaveChanges : handleGenerate}
         >
-          {generateStatus === "generating" ? "Generating…" : "Generate story"}
+          {isEditMode
+            ? generateStatus === "generating"
+              ? "Saving…"
+              : "Save changes"
+            : generateStatus === "generating"
+              ? "Generating…"
+              : "Generate story"}
         </button>
         <span className="text-muted" style={{ fontSize: "13px" }}>
           {isReadyToGenerate(draft)
-            ? "Ready — this saves the story and leaves the wizard."
+            ? isEditMode
+              ? "Ready — this saves your changes to the story."
+              : "Ready — this saves the story and leaves the wizard."
             : `Still needs ${missingRequirements(draft).join(", ")}.`}
         </span>
       </div>
       {generateStatus === "error" && (
         <div role="alert" className="text-muted" style={{ marginTop: "8px" }}>
-          Could not generate the story. Please try again.
+          {isEditMode ? "Could not save this story. Please try again." : "Could not generate the story. Please try again."}
+        </div>
+      )}
+      {generateStatus === "stale" && (
+        <div role="alert" className="text-muted" style={{ marginTop: "8px" }}>
+          {STALE_STORY_MESSAGE}
         </div>
       )}
     </div>

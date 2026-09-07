@@ -11,13 +11,17 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from backend.api.admin.accounts import add_account, list_accounts, remove_account
 from backend.api.admin.stories import (
     create_draft,
+    create_edit_draft,
     generate_story_from_draft,
     get_draft,
     get_story,
+    get_story_configuration,
+    import_story,
     list_stories,
     patch_draft,
     post_message,
     publish_story,
+    save_draft,
     unpublish_story,
 )
 from backend.api.auth.login import login
@@ -165,6 +169,26 @@ def admin_stories_publish(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="manage/stories/{storyId}/unpublish", methods=["POST"])
 def admin_stories_unpublish(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(unpublish_story)(req)
+
+
+@app.route(route="manage/stories/{storyId}/configuration", methods=["GET"])
+def admin_stories_get_configuration(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(get_story_configuration)(req)
+
+
+@app.route(route="manage/stories/{storyId}/edit-drafts", methods=["POST"])
+def admin_stories_create_edit_draft(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(create_edit_draft)(req)
+
+
+@app.route(route="manage/stories/drafts/{draftId}/save", methods=["POST"])
+def admin_story_drafts_save(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(save_draft)(req)
+
+
+@app.route(route="manage/stories/import", methods=["POST"])
+def admin_stories_import(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(import_story)(req)
 
 
 @app.route(route="game/sessions", methods=["POST"])

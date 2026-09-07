@@ -7,6 +7,8 @@ import logging
 import azure.functions as func
 import pytest
 from opentelemetry import trace
+
+from backend.models.story import CharacterType, CompletionCriteria, Story
 from opentelemetry._logs import set_logger_provider
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.sdk._logs import LoggerProvider
@@ -62,3 +64,26 @@ def make_request(
 @pytest.fixture
 def request_factory():
     return make_request
+
+
+def _make_story(**overrides) -> Story:
+    """Builds a valid `Story` for tests, with sensible defaults for every required field.
+    Promoted from test_story_service.py's local `_story(**overrides)` helper so every test
+    module builds a `Story` the same way (012-story-editing-and-review tasks.md T002)."""
+    defaults = dict(
+        id="story-1",
+        worldPrompt="A half-abandoned lighthouse...",
+        characterTypes=[CharacterType(name="Curious Cousin")],
+        completionCriteria=CompletionCriteria(successConditions=["Find the keeper"]),
+        narrativeGuidance="Keep it eerie but safe.",
+        createdBy="admin-oid",
+        createdAt="2026-08-30T00:00:00Z",
+        contentUpdatedAt="2026-08-30T00:00:00Z",
+    )
+    defaults.update(overrides)
+    return Story(**defaults)
+
+
+@pytest.fixture
+def _story():
+    return _make_story

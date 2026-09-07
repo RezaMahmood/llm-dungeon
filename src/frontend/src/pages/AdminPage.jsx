@@ -2,119 +2,16 @@ import { useMsal } from "@azure/msal-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import StoryConfigUpload from "../components/Admin/StoryConfigUpload.jsx";
+import StoryPublishActions from "../components/Admin/StoryPublishActions.jsx";
 import { loginRequest } from "../services/msalConfig.js";
 import { listStories } from "../services/storyDraftService.js";
-import { usePublishToggle } from "../hooks/usePublishToggle.js";
 
 /**
- * One story row's publish/unpublish action, sharing its call + FR-011
- * gate-message + FR-013 confirmation behavior with the wizard's
- * `StepPublish` via `usePublishToggle` (005-story-publishing-done Phase 5).
- */
-function StoryRow({ story, getToken, onStoryChange }) {
-  const {
-    status,
-    gateMessage,
-    confirmingUnpublish,
-    handlePublish,
-    requestUnpublish,
-    confirmUnpublish,
-    cancelUnpublish,
-  } = usePublishToggle(getToken, story, onStoryChange);
-
-  const storyLabel = story.name || "this story";
-
-  return (
-    <tr>
-      <td>{story.name || "Untitled story"}</td>
-      <td>
-        {/* Status pairs color with text, never color alone (Accessibility). */}
-        <span className={story.published ? "tag tag-accent" : "tag tag-neutral"}>
-          {story.published ? "Published" : "Draft"}
-        </span>
-      </td>
-      <td>
-        {!story.published && (
-          <button
-            type="button"
-            className="btn btn-secondary"
-            disabled={status === "working"}
-            onClick={handlePublish}
-          >
-            {status === "working" ? "Publishing…" : "Publish"}
-          </button>
-        )}
-
-        {story.published && (
-          <button
-            type="button"
-            className="btn btn-secondary"
-            disabled={status === "working"}
-            onClick={requestUnpublish}
-          >
-            Unpublish
-          </button>
-        )}
-
-        {gateMessage && (
-          <div role="alert" className="text-muted" style={{ marginTop: "4px" }}>
-            {gateMessage}
-          </div>
-        )}
-
-        {status === "error" && (
-          <div role="alert" className="text-muted" style={{ marginTop: "4px" }}>
-            Could not update this story's published state. Please try again.
-          </div>
-        )}
-
-        {confirmingUnpublish && (
-          <div className="dialog-backdrop">
-            <div
-              className="dialog"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={`unpublish-dialog-title-${story.id}`}
-            >
-              <div className="dialog-title" id={`unpublish-dialog-title-${story.id}`}>
-                Unpublish &ldquo;{storyLabel}&rdquo;?
-              </div>
-              <div className="dialog-body">
-                Are you sure? Unpublishing removes this story from every player&rsquo;s adventure list.
-              </div>
-              <div className="dialog-actions">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={cancelUnpublish}
-                  disabled={status === "working"}
-                >
-                  Keep it published
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={confirmUnpublish}
-                  disabled={status === "working"}
-                >
-                  {status === "working" ? "Unpublishing…" : "Unpublish"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </td>
-    </tr>
-  );
-}
-
-/**
- * The admin "Stories" destination — a list of the stories that exist, with a
- * per-row publish/unpublish action (FR-010, FR-013, FR-014), so "Stories"
- * and "New story" are distinct places to go (FR-002, SC-007).
- *
- * Editing, the full-configuration view, and deleting stories are
- * deliberately not here; those belong to 012-story-editing-and-review.
+ * The admin "Stories" destination — every story with its published status, a View
+ * affordance into the read-only configuration viewer, an Edit affordance into the wizard,
+ * publish/unpublish from the row, and the configuration upload entry point (FR-001,
+ * FR-005, FR-011, SC-001, SC-007).
  */
 export function AdminPage() {
   const { instance, accounts: msalAccounts } = useMsal();
@@ -125,6 +22,9 @@ export function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Resolved lazily, per call, rather than cached in state — so a click made before the
+  // first `refresh()` settles (or long after the token would have expired) always sends a
+  // fresh token instead of racing a `null` one.
   const getToken = useCallback(async () => {
     const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
     return tokenResponse.accessToken;
@@ -150,7 +50,7 @@ export function AdminPage() {
   }, [refresh]);
 
   const handleStoryChange = useCallback((updatedStory) => {
-    setStories((prev) => prev.map((s) => (s.id === updatedStory.id ? updatedStory : s)));
+    setStories((current) => current.map((story) => (story.id === updatedStory.id ? updatedStory : story)));
   }, []);
 
   return (
@@ -168,6 +68,9 @@ export function AdminPage() {
           New story
         </Link>
       </div>
+      <hr className="hr" />
+
+      <StoryConfigUpload token={getToken} onImported={refresh} />
       <hr className="hr" />
 
       {loading && <p className="text-muted">Loading stories…</p>}
@@ -198,7 +101,26 @@ export function AdminPage() {
           </thead>
           <tbody>
             {stories.map((story) => (
-              <StoryRow key={story.id} story={story} getToken={getToken} onStoryChange={handleStoryChange} />
+              <tr key={story.id}>
+                <td>{story.name || "Untitled story"}</td>
+                <td>
+                  {/* Status pairs color with text, never color alone (Accessibility). */}
+                  <span className={story.published ? "tag tag-accent" : "tag tag-neutral"}>
+                    {story.published ? "Published" : "Unpublished"}
+                  </span>
+                </td>
+                <td>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", alignItems: "center" }}>
+                    <Link to={`/admin/stories/${story.id}`} className="btn btn-secondary">
+                      View
+                    </Link>
+                    <Link to={`/admin/stories/${story.id}/edit`} className="btn btn-secondary">
+                      Edit
+                    </Link>
+                    <StoryPublishActions story={story} token={getToken} onStoryChange={handleStoryChange} />
+                  </div>
+                </td>
+              </tr>
             ))}
           </tbody>
         </table>
