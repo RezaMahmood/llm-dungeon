@@ -1,6 +1,6 @@
 import { useMsal } from "@azure/msal-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import StepNameCover from "../components/Admin/StoryWizard/StepNameCover.jsx";
 import StepPublish from "../components/Admin/StoryWizard/StepPublish.jsx";
@@ -306,6 +306,13 @@ export function AdminStoryWizardPage() {
             <p className="text-muted">Every player starts here — download the configuration file to edit it.</p>
           </>
         )}
+
+        <hr className="hr" style={{ margin: "24px 0" }} />
+        <h3>Test play</h3>
+        <p className="text-muted">Play through this draft before publishing it.</p>
+        <Link className="btn btn-secondary" to={`/admin/stories/${story.id}/test-play`}>
+          Start test play
+        </Link>
 
         <hr className="hr" style={{ margin: "24px 0" }} />
         <h3>Publish & assign</h3>

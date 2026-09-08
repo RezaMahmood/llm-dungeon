@@ -61,6 +61,13 @@ One `.nav` bar, same markup on every signed-in surface.
   "Administrator — stories & configuration" screen contract (a contract without a prototype,
   which that section now explicitly permits), and that text is the acceptance reference for
   these two screens until a prototype is drawn.
+- **Test play (04, step 05):** the "Flag this reply" button is deliberately not implemented —
+  `010-story-test-play` specifies no in-session flagging; a problem found while testing is fixed
+  by editing the story afterwards through the wizard. "Restart test" is implemented, but aborts
+  rather than resets: after a warning, the session is deleted and the administrator returns to
+  the edit story page. A session that reaches one of the story's endings offers Publish (with
+  confirmation) and Edit instead. That screen's visual design is deferred per `010` FR-011.
+
 - **Suggested actions** on 03 are required, not decorative — a player who cannot spell must
   still be able to progress.
 - **Stories in progress (02, section 2):** built by `009-save-and-continue` — the ordinal

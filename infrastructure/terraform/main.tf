@@ -140,6 +140,17 @@ resource "azurerm_cosmosdb_sql_container" "play_sessions" {
   partition_key_version = 2
 }
 
+resource "azurerm_cosmosdb_sql_container" "test_play_sessions" {
+  # 010-story-test-play, data-model.md: administrator test-play sessions live in their
+  # own container so no player route can reach them by id (FR-009).
+  name                  = "testPlaySessions"
+  resource_group_name   = data.azurerm_resource_group.rg.name
+  account_name          = azurerm_cosmosdb_account.cosmos.name
+  database_name         = azurerm_cosmosdb_sql_database.db.name
+  partition_key_paths   = ["/id"]
+  partition_key_version = 2
+}
+
 resource "azurerm_cosmosdb_sql_container" "player_content_safety_standings" {
   # 008-core-gameplay-done, research.md Decision 9: a small, cross-session per-player
   # record of flagged-submission count and any resulting 1-hour lockout.

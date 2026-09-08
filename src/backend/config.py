@@ -26,6 +26,7 @@ class Config:
     STORY_DRAFTS_CONTAINER = "storyDrafts"
     STORIES_CONTAINER = "stories"
     PLAY_SESSIONS_CONTAINER = "playSessions"
+    TEST_PLAY_SESSIONS_CONTAINER = "testPlaySessions"
     PLAYER_CONTENT_SAFETY_STANDINGS_CONTAINER = "playerContentSafetyStandings"
     SEED_ADMIN_EMAIL = os.environ.get("SEED_ADMIN_EMAIL", "")
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "")

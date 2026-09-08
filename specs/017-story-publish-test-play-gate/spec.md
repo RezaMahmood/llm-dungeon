@@ -40,7 +40,7 @@ The publish action (see `005-story-publishing-done`) is blocked until the story 
 
 ### Functional Requirements
 
-- **FR-001**: System MUST track, per story, whether at least one test-play exchange (a submitted test instruction and its resulting response, per `010-story-test-play`) has occurred since that story's content was last saved.
+- **FR-001**: System MUST track, per story, whether at least one test-play exchange (a submitted test instruction and its resulting response, per `010-story-test-play`) has occurred since that story's content was last saved. Tracking MUST be based on the exchange having occurred, not on the test-play session being retained — deleting a session (`010-story-test-play` FR-005, FR-010) MUST NOT reset this status.
 - **FR-002**: The publish action defined in `005-story-publishing-done` MUST be blocked, with a clear explanation, unless the story has at least one test-play exchange recorded since its content was last saved.
 - **FR-003**: Saving a change to a story's content MUST reset its recorded test-play status, so a previously satisfied publish gate does not carry over to changed content.
 - **FR-004**: The test-play gate applies only to the publish action; it MUST NOT block or otherwise affect edits to a story that is already published (see `012-story-editing-and-review`).

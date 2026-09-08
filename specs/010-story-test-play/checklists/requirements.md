@@ -31,20 +31,11 @@
 
 ## Notes
 
-- All items pass. No [NEEDS CLARIFICATION] markers were needed — "completed a test
-  play" was given a reasonable, testable default (one qualifying exchange since the
-  last content save, not a full playthrough), and the assignment question was resolved
-  directly by explicit user instruction (no assignment capability; publish = available
-  to all).
-- Reconciles two gaps flagged in `specs/designs/README.md`: the test-play interaction
-  itself (now specified here) and the "Publish & assign" ambiguity (resolved: no
-  assignment feature exists, per FR-012 and the corresponding Assumption).
-- `005-story-publishing-done` was updated alongside this spec to add the publish-blocking
-  requirement (its new FR-008) and cross-reference this spec; `specs/designs/README.md`'s
-  Gaps section was updated to reflect both resolutions.
-- 2026-08-29: Split former User Story 3 ("A Story Cannot Be Published Without a Completed
-  Test Play") out into `017-story-publish-test-play-gate`, as part of a project-wide pass
-  to keep each spec to at most two user stories. `005-story-publishing-done` and
-  `specs/designs/README.md`'s cross-references were updated to point at the new spec.
-  This spec's remaining content (test play itself, flagging) is unaffected. All items
-  re-checked and still pass.
+- All items pass. No [NEEDS CLARIFICATION] markers were needed.
+- The design prototype's "Flag this reply" button is deliberately unimplemented; that is
+  recorded in `specs/designs/README.md` rather than left as an unexplained divergence.
+- This spec's FR-007 depends on an amendment to `005-story-publishing-done` FR-013
+  (publish now confirms, as unpublish already did), which applies to that feature's two
+  existing publish entry points as well as this feature's new one.
+- FR-011 defers this screen's visual design; the plan MUST record that as an explicit
+  Principle VIII exception in its Constitution Check.

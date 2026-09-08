@@ -25,6 +25,12 @@ from backend.api.admin.stories import (
     suggest_world_prompt,
     unpublish_story,
 )
+from backend.api.admin.test_play import (
+    delete_test_play_session,
+    get_test_play_session,
+    start_test_play,
+    submit_test_play_interaction,
+)
 from backend.api.auth.login import login
 from backend.api.auth.logout import logout
 from backend.api.auth.me import me
@@ -195,6 +201,26 @@ def admin_story_drafts_save(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="manage/stories/import", methods=["POST"])
 def admin_stories_import(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(import_story)(req)
+
+
+@app.route(route="manage/stories/{storyId}/test-play", methods=["POST"])
+def admin_stories_test_play(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(start_test_play)(req)
+
+
+@app.route(route="manage/test-play-sessions/{sessionId}/interactions", methods=["POST"])
+def admin_test_play_sessions_interactions(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(submit_test_play_interaction)(req)
+
+
+@app.route(route="manage/test-play-sessions/{sessionId}", methods=["DELETE"])
+def admin_test_play_sessions_delete(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(delete_test_play_session)(req)
+
+
+@app.route(route="manage/test-play-sessions/{sessionId}", methods=["GET"])
+def admin_test_play_sessions_get(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(get_test_play_session)(req)
 
 
 @app.route(route="game/sessions", methods=["POST"])

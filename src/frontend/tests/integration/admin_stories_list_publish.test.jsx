@@ -65,10 +65,28 @@ describe("Admin stories list publish/unpublish (FR-007, FR-010, FR-011, FR-013, 
 
     const row = rowFor("The Lighthouse");
     await user.click(within(row).getByRole("button", { name: /^publish$/i }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^publish$/i }));
 
     await waitFor(() => expect(statusTag(row)).toHaveTextContent("Published"));
     expect(publishStory).toHaveBeenCalledWith("tok", "s1");
     expect(listStories).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires confirmation before publishing and does not call publishStory until confirmed", async () => {
+    const user = userEvent.setup();
+    listStories.mockResolvedValue({
+      stories: [{ id: "s1", name: "The Lighthouse", published: false }],
+    });
+
+    renderPage();
+    await waitForLoad();
+
+    const row = rowFor("The Lighthouse");
+    await user.click(within(row).getByRole("button", { name: /^publish$/i }));
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(publishStory).not.toHaveBeenCalled();
   });
 
   it("shows the FR-011 explanatory text and leaves the row unchanged on a 409", async () => {
@@ -85,6 +103,8 @@ describe("Admin stories list publish/unpublish (FR-007, FR-010, FR-011, FR-013, 
 
     const row = rowFor("The Lighthouse");
     await user.click(within(row).getByRole("button", { name: /^publish$/i }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^publish$/i }));
 
     expect(await within(row).findByText(/must be test-played/i)).toBeInTheDocument();
     expect(statusTag(row)).toHaveTextContent("Unpublished");
@@ -162,6 +182,8 @@ describe("Admin stories list publish/unpublish (FR-007, FR-010, FR-011, FR-013, 
 
     const row = rowFor("The Lighthouse");
     await user.click(within(row).getByRole("button", { name: /^publish$/i }));
+    let dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^publish$/i }));
     await waitFor(() => expect(statusTag(row)).toHaveTextContent("Published"));
 
     // Re-publishing an already-published story is a no-op success, and the
@@ -189,6 +211,8 @@ describe("Admin stories list publish/unpublish (FR-007, FR-010, FR-011, FR-013, 
 
     const row1 = rowFor("The Lighthouse");
     await user.click(within(row1).getByRole("button", { name: /^publish$/i }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^publish$/i }));
 
     await waitFor(() => expect(statusTag(row1)).toHaveTextContent("Published"));
     expect(statusTag(rowFor("Cavern of Echoes"))).toHaveTextContent("Unpublished");

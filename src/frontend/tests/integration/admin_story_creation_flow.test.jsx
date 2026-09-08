@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const acquireTokenSilent = vi.fn();
@@ -49,7 +50,7 @@ describe("Admin story creation: empty draft through generated, unpublished story
 
   it("starts a blank draft, answers the guiding question, fills in the dedicated fields, and only generates on the explicit action (#33)", async () => {
     createDraft.mockResolvedValueOnce({ draft: EMPTY_DRAFT });
-    render(<AdminStoryWizardPage />);
+    render(<MemoryRouter><AdminStoryWizardPage /></MemoryRouter>);
 
     // Wait for the loaded wizard specifically — the loading placeholder ("Starting a
     // new story…") also matches a plain /new story/i query, which can race against it.
@@ -186,7 +187,7 @@ describe("Admin story creation: empty draft through generated, unpublished story
         completionCriteria: { maxDurationMinutes: null, successConditions: ["Find the keeper"], failureConditions: [], rule: null },
       },
     });
-    render(<AdminStoryWizardPage />);
+    render(<MemoryRouter><AdminStoryWizardPage /></MemoryRouter>);
     await userEvent.click(await screen.findByRole("tab", { name: /world & setting/i }));
 
     // The backend rejects this write (e.g. a stale rule value after some other edit) with

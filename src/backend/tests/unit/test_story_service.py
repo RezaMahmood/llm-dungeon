@@ -281,6 +281,39 @@ def test_unpublish_returns_none_for_missing_story():
     assert service.unpublish("missing") is None
 
 
+# --- record_test_play (010-story-test-play FR-004, FR-010) ---
+
+
+def test_record_test_play_sets_last_test_played_at_and_leaves_content_updated_at_unchanged():
+    story = _story(contentUpdatedAt="2026-08-30T09:00:00Z", lastTestPlayedAt=None)
+    service = _service_with(story)
+
+    result = service.record_test_play(story.id)
+
+    assert result.lastTestPlayedAt is not None
+    assert result.contentUpdatedAt == "2026-08-30T09:00:00Z"
+    service._container().upsert_item.assert_called_once_with(result.to_dict())
+
+
+def test_record_test_play_flips_can_publish_from_false_to_true():
+    story = _story(contentUpdatedAt="2026-08-30T09:00:00Z", lastTestPlayedAt=None)
+    service = _service_with(story)
+
+    assert service.can_publish(story) is False
+
+    result = service.record_test_play(story.id)
+
+    assert service.can_publish(result) is True
+
+
+def test_record_test_play_returns_none_for_missing_story():
+    cosmos = MagicMock()
+    cosmos.get_container.return_value.read_item.side_effect = CosmosResourceNotFoundError
+    service = StoryService(cosmos_service=cosmos)
+
+    assert service.record_test_play("missing") is None
+
+
 def test_list_published_summaries_returns_adventure_summary_shape():
     """006-adventure-and-character-setup FR-001/FR-006: only published==true rows, in the
     AdventureSummary shape (data-model.md), never the admin `published`/`createdAt` fields."""
