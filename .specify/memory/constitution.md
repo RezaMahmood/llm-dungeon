@@ -1,6 +1,38 @@
 <!--
 Sync Impact Report
-Version change: 3.0.0 -> 3.1.0
+Version change: 3.1.0 -> 4.0.0
+Modified principles:
+  - XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, GitHub Copilot
+    Reviews, Human Merges (NON-NEGOTIABLE) - a local AI agent MAY now close a GitHub
+    issue directly (e.g. `gh issue close`), where the requesting user has asked it to
+    close that issue and the agent has verified the resolving work is merged to
+    `origin/main`. Closing on its own initiative, or on unmerged work, remains
+    prohibited. The prohibition on a local AI agent merging a pull request or enabling
+    auto-merge is UNCHANGED and stays non-negotiable. Backward-incompatible: this
+    withdraws a previously NON-NEGOTIABLE restriction, hence MAJOR.
+Added principles: none
+Removed principles: none
+Added sections: none
+Modified sections:
+  - AI Agent / GitHub Handoff Requirements - the "MUST NOT merge a pull request or close
+    a GitHub issue" bullet now covers merging only; a new bullet states the two
+    conditions under which an agent may close an issue and requires it to state what it
+    verified. The "This division applies to GitHub-hosted actions only" bullet notes the
+    close/merge asymmetry.
+  - Development Workflow & Quality Gates - the bullet summarizing the AI agent
+    push/PR/review/merge flow notes that the agent may close the originating issue on
+    request once the merge is on `origin/main`.
+Removed sections: none
+Source: direct user instruction (2026-09-08), prompted by issue #227: its fix had
+  already merged in PR #276, the agent verified that and declined to close the issue
+  under the then-current rule, and the user judged the restriction wrong for a close that
+  only records an already-merged, already-reviewed decision.
+Templates requiring follow-up: CLAUDE.md carries a mirrored copy of this rule (Git / PR
+  workflow section); that edit lands in the same pull request as this amendment, so there
+  is no outstanding follow-up.
+Deferred/TODO placeholders: none.
+
+Previous report (3.0.0 -> 3.1.0)
 Modified principles: none
 Added principles: XIV. Spec Artifacts and Code Stay Clean — Git Is the History
 Removed principles: none
@@ -365,10 +397,14 @@ then merge the pull request manually. A local AI agent MAY resolve a GitHub issu
 end-to-end — writing the fix, pushing the branch, and opening the pull request itself —
 the same as any other local development work; GitHub Copilot's role is the PR review
 pass described above, not a required intermediary for issue resolution. A local AI agent
-MUST NOT merge a pull request or close a GitHub issue directly itself (e.g., via `gh
-issue close`), even where the tool has the technical means to do so — an issue is closed
-by its resolving pull request merging, or manually by the requesting user. Work MUST
-start from a synced tree: before any development or
+MUST NOT merge a pull request itself and MUST NOT enable auto-merge on one, even where
+the tool has the technical means to do so — merging stays a manual action for the
+requesting user or product owner. A local AI agent MAY close a GitHub issue directly
+(e.g., via `gh issue close`), but only where the requesting user has asked it to close
+that issue and the agent has verified that the work resolving it is merged to
+`origin/main`. Absent that request, an issue is closed by its resolving pull request
+merging or manually by the requesting user; an agent MUST NOT close an issue on its own
+initiative. Work MUST start from a synced tree: before any development or
 spec-related work begins on a feature branch — planning (plan, tasks, clarify, analyze)
 included, not implementation alone — that branch MUST be brought up to date with
 `origin/main`, and a divergence MUST be resolved or reported rather than worked around.
@@ -397,7 +433,12 @@ Copilot's code review is relatively slow and does not produce a formal approving
 before merge — wiring auto-merge to it would let a pull request merge without anyone
 actually having weighed Copilot's findings. Requiring the requesting user to read
 Copilot's recommendations and merge manually keeps a real decision point in the loop
-while still using Copilot for the GitHub-side review pass. Reusing the branch of an
+while still using Copilot for the GitHub-side review pass. Closing an issue is a
+different action from merging and is not gated the same way: a close only records a
+decision a human already took when they merged the change, so a local AI agent may
+perform it on request once it has confirmed the fix is on the trunk. Merging stays
+manual because that is where the decision to accept a change is actually made.
+Reusing the branch of an
 already-merged or closed pull request hides the new work: the merged PR is no longer
 part of anyone's review queue, Copilot does not re-review it, and the commits reach
 the repository without ever appearing as something a human was asked to look at.
@@ -575,12 +616,17 @@ drifts out of sync with the spec as the code evolves, and clutters the code itse
   branch; it MUST create a new branch off the current main branch and open a new pull
   request for the work, labelled as above. Pushing to a branch whose pull request is
   still open is permitted and is the normal way to address review feedback.
-- Local AI agent tools MUST NOT directly perform any other GitHub-hosted operation: they
-  MUST NOT merge a pull request or close a GitHub issue directly on their own behalf,
-  even where the tool has the technical means to do so (e.g., a `gh` CLI or GitHub API
-  credential). Resolving the issue — writing the fix, pushing the branch, and opening
-  the pull request — is ordinary local development work and is not restricted by this
-  bullet; only the GitHub-side close/merge action is.
+- Local AI agent tools MUST NOT merge a pull request on their own behalf, even where the
+  tool has the technical means to do so (e.g., a `gh` CLI or GitHub API credential).
+  Resolving the issue — writing the fix, pushing the branch, and opening the pull
+  request — is ordinary local development work and is not restricted by this bullet;
+  only the GitHub-side merge action is.
+- A local AI agent MAY close a GitHub issue directly (e.g., `gh issue close`) where both
+  conditions hold: the requesting user has asked it to close that issue, and the agent
+  has verified that the work resolving it is merged to `origin/main` — not merely present
+  on a local branch, in a worktree, or in an open pull request. The agent MUST state what
+  it verified when it closes an issue. Where either condition fails, it MUST leave the
+  issue open and say why.
 - Once a local AI agent has pushed a branch and opened its pull request, GitHub Copilot
   reviews the pull request and posts its findings as review comments/recommendations;
   its required CI/status checks and code-quality gate run as usual, mirroring the
@@ -593,7 +639,9 @@ drifts out of sync with the spec as the code evolves, and clutters the code itse
   written or tested (Principle I, Environments & Deployment Pipeline) — only who is
   authorized to create and monitor the GitHub-side artifacts (PRs and issues) that carry
   that work, and it makes clear that merging a pull request is a manual action for the
-  requesting user or product owner, not something either AI agent performs.
+  requesting user or product owner, not something either AI agent performs, while closing
+  an issue is an action a local AI agent MAY perform on request under the conditions
+  above.
 - Any exception (e.g., an emergency fix where GitHub Copilot is unavailable) MUST be
   explicitly called out by the person directing the work and is not a default local AI
   agent behavior.
@@ -641,7 +689,9 @@ drifts out of sync with the spec as the code evolves, and clutters the code itse
   per Principle XIII and the AI Agent / GitHub Handoff Requirements above. GitHub
   Copilot reviews the PR and posts its findings as recommendations. Merging is a manual
   step: the requesting user or product owner reviews Copilot's recommendations and the
-  required checks, then merges the pull request themselves.
+  required checks, then merges the pull request themselves. Once that merge is on
+  `origin/main`, the local AI agent MAY close the originating issue if the requesting
+  user asks it to.
 - Feature work MUST happen inside that feature's own git worktree, running inside that
   worktree's own isolated devcontainer (started via `bin/wt <branch>`) — never directly in
   the primary checkout, and a worktree's container MUST NOT be shared with another
@@ -857,4 +907,4 @@ with the design-token, visual-rules, interaction-state, or layout/scroll require
 above as a blocking finding. No feature may ship a screen that is not traceable to a
 screen contract above or to a documented amendment extending it.
 
-**Version**: 3.1.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-07
+**Version**: 4.0.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-08
