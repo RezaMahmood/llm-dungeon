@@ -94,8 +94,10 @@ class StoryDraftService:
 
     def create_draft(self, created_by: str, idea: Optional[str] = None) -> StoryDraft:
         """Start a new session (FR-001), optionally seeded with a plain-language idea
-        immediately turned into a suggested world prompt."""
+        immediately turned into a suggested world prompt. A blank or whitespace-only
+        `idea` starts a blank draft rather than spending a Foundry call on nothing."""
         draft = StoryDraft(id=str(uuid.uuid4()), createdBy=created_by)
+        idea = (idea or "").strip()
         if idea:
             self._apply_world_prompt_suggestion(draft, idea)
         draft.touch()
@@ -108,7 +110,14 @@ class StoryDraftService:
         nothing but `worldPrompt` is written. Returns `None` if the draft doesn't exist
         (expired TTL or never existed). Never generates a Story — the administrator
         triggers that explicitly via `generate_story` once the Completeness Rule is met,
-        so asking for a suggestion never itself navigates them away (#33)."""
+        so asking for a suggestion never itself navigates them away (#33). Raises
+        `DraftValidationError` for a blank or whitespace-only idea — rejected before the
+        Foundry call, so an empty request can neither spend tokens nor overwrite a
+        `worldPrompt` the administrator already has."""
+        idea = (idea or "").strip()
+        if not idea:
+            raise DraftValidationError("idea: describe your story idea before asking for a world prompt")
+
         draft = self.get_draft(draft_id)
         if draft is None:
             return None

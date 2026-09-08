@@ -99,6 +99,11 @@ If `idea` was supplied, the Foundry world-prompt call has already written the su
 
 **Response (200 OK)**: Same shape as `PATCH` above (`{"status":"success","draft":...,"readyToGenerate":...}`) — never the `"generated"` shape; a `429` if the Foundry call is rate-limited (#33).
 
+**Response (422 Unprocessable Entity)** — `idea` missing, empty, or whitespace-only. Rejected before the Foundry call, so an empty request can neither spend tokens nor overwrite a `worldPrompt` the administrator already has:
+```json
+{ "error": "invalid_field", "message": "idea: describe your story idea before asking for a world prompt" }
+```
+
 ---
 
 ## POST /api/manage/stories/drafts/{draftId}/generate

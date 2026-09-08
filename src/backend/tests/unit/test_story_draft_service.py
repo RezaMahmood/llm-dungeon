@@ -114,6 +114,30 @@ def test_world_prompt_suggestion_is_one_pass_and_writes_only_world_prompt():
     assert result_draft.rules == "Nobody gets hurt."
 
 
+def test_blank_idea_is_rejected_before_the_foundry_call():
+    """A whitespace-only idea can neither spend tokens nor overwrite an existing prompt."""
+    service, cosmos, llm, _stories = _service()
+    container = cosmos.get_container.return_value
+    draft = StoryDraft(id="draft-1", createdBy=CREATED_BY, worldPrompt="It is 1908.")
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+
+    with pytest.raises(DraftValidationError):
+        service.suggest_world_prompt("draft-1", "   ")
+
+    llm.suggest_world_prompt.assert_not_called()
+    container.upsert_item.assert_not_called()
+
+
+def test_blank_idea_starts_a_blank_draft_without_a_foundry_call():
+    service, _cosmos, llm, _stories = _service()
+
+    draft = service.create_draft(created_by=CREATED_BY, idea="   ")
+
+    llm.suggest_world_prompt.assert_not_called()
+    assert draft.worldPrompt is None
+
+
 def test_empty_world_prompt_suggestion_leaves_the_existing_world_prompt_alone():
     service, cosmos, llm, _stories = _service()
     container = cosmos.get_container.return_value

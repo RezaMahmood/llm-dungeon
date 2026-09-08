@@ -18,11 +18,24 @@ describe("IdeaPanel", () => {
     expect(input).toHaveValue("");
   });
 
-  it("does not send an empty idea", async () => {
+  it("submits the trimmed idea, matching what the empty check validated", async () => {
     const onSuggestWorldPrompt = vi.fn().mockResolvedValue(undefined);
     render(<IdeaPanel onSuggestWorldPrompt={onSuggestWorldPrompt} />);
 
+    await userEvent.type(screen.getByPlaceholderText(/describe your idea/i), "  A lighthouse.  ");
     await userEvent.click(screen.getByRole("button", { name: /suggest world prompt/i }));
+
+    expect(onSuggestWorldPrompt).toHaveBeenCalledWith("A lighthouse.");
+  });
+
+  it("does not send an empty or whitespace-only idea", async () => {
+    const onSuggestWorldPrompt = vi.fn().mockResolvedValue(undefined);
+    render(<IdeaPanel onSuggestWorldPrompt={onSuggestWorldPrompt} />);
+
+    const button = screen.getByRole("button", { name: /suggest world prompt/i });
+    await userEvent.click(button);
+    await userEvent.type(screen.getByPlaceholderText(/describe your idea/i), "   ");
+    await userEvent.click(button);
 
     expect(onSuggestWorldPrompt).not.toHaveBeenCalled();
   });

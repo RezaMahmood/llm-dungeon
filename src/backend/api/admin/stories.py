@@ -135,6 +135,8 @@ def suggest_world_prompt(
     service = story_draft_service or StoryDraftService()
     try:
         draft = service.suggest_world_prompt(draft_id, idea)
+    except DraftValidationError as exc:
+        return error_response(422, "invalid_field", str(exc))
     except LLMRateLimitedError:
         return error_response(429, "rate_limited", RATE_LIMITED_MESSAGE)
 

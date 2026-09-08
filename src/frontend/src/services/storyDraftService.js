@@ -23,8 +23,9 @@ export async function patchDraft(token, draftId, updates) {
   return response.data;
 }
 
-// One pass over the idea (#227): the response's draft carries the suggested worldPrompt,
-// and nothing else about the draft changes.
+// One pass over the idea (#227): the response's draft carries the suggested worldPrompt.
+// It is the only authored field the call writes — the draft's bookkeeping (updatedAt, and
+// the TTL refresh every draft write performs) still moves, as it does on any other write.
 export async function suggestWorldPrompt(token, draftId, idea) {
   const response = await client.post(`/manage/stories/drafts/${draftId}/world-prompt`, { idea }, authHeaders(token));
   return response.data;

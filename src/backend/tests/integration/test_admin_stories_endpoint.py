@@ -122,6 +122,27 @@ def test_idea_is_turned_into_a_world_prompt_in_one_pass(request_factory):
     assert body["readyToGenerate"] is False
 
 
+def test_world_prompt_suggestion_rejects_a_blank_idea(request_factory):
+    draft_service, _stories, llm, _cosmos = _services()
+    with _patched_authorize_admin():
+        create_response = create_draft(_authorized(request_factory, method="POST", url="/api/manage/stories/drafts"), story_draft_service=draft_service)
+    draft_id = json.loads(create_response.get_body())["draft"]["id"]
+
+    req = _authorized(
+        request_factory,
+        method="POST",
+        url=f"/api/manage/stories/drafts/{draft_id}/world-prompt",
+        body=json.dumps({}).encode(),
+        route_params={"draftId": draft_id},
+    )
+    with _patched_authorize_admin():
+        response = suggest_world_prompt(req, story_draft_service=draft_service)
+
+    assert response.status_code == 422
+    assert json.loads(response.get_body())["error"] == "invalid_field"
+    llm.suggest_world_prompt.assert_not_called()
+
+
 # --- Eliciting character types and completion criteria via PATCH ---
 
 

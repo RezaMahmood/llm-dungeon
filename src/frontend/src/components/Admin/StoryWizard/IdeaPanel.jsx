@@ -9,11 +9,12 @@ export function IdeaPanel({ onSuggestWorldPrompt }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!idea.trim()) return;
+    const trimmed = idea.trim();
+    if (!trimmed) return;
 
     setStatus("suggesting");
     try {
-      await onSuggestWorldPrompt(idea);
+      await onSuggestWorldPrompt(trimmed);
       setIdea("");
       setStatus("idle");
     } catch {
