@@ -53,3 +53,6 @@ jobs:
 
       - name: Run non-testable-change detection fixture tests
         run: npm run test:non-testable-detection
+
+      - name: Run always-ready warm-window schedule tests
+        run: npm run test:always-ready-window

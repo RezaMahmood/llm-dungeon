@@ -238,6 +238,18 @@ resource "azurerm_function_app_flex_consumption" "functions" {
   instance_memory_in_mb  = 2048
   maximum_instance_count = 100
 
+  # Warm instance for HTTP triggers, so requests during development hours don't
+  # pay a cold start. Only the initial value: functions-always-ready-schedule.yml
+  # switches it on and off from here on (ignore_changes below).
+  dynamic "always_ready" {
+    for_each = var.functions_always_ready_instance_count > 0 ? [1] : []
+
+    content {
+      name           = "http"
+      instance_count = var.functions_always_ready_instance_count
+    }
+  }
+
   https_only                    = true
   virtual_network_subnet_id     = azurerm_subnet.functions.id
   public_network_access_enabled = true # ingress stays public HTTPS (FR-014 documented exception); egress to backends is forced through the VNet below
@@ -302,6 +314,9 @@ resource "azurerm_function_app_flex_consumption" "functions" {
       # Auto-added by Azure when Application Insights is linked; not
       # Terraform-managed, and Azure just re-adds it after every apply.
       tags["hidden-link: /app-insights-resource-id"],
+      # functions-always-ready-schedule.yml scales this to 0 outside the
+      # warm windows, which Terraform would otherwise revert on every apply.
+      always_ready,
     ]
   }
 }
