@@ -45,7 +45,8 @@ export function AdminStoryTestPlayPage() {
   const getToken = useCallback(async () => {
     const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
     return tokenResponse.accessToken;
-  }, [instance, account]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- accountKey is the stable dependency
+  }, [instance, accountKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,7 +69,6 @@ export function AdminStoryTestPlayPage() {
       } catch (err) {
         if (!cancelled) setLoadError(err);
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps -- accountKey is the stable dependency
     })();
     return () => {
       cancelled = true;
