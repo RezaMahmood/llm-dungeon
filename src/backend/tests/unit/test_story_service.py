@@ -732,6 +732,34 @@ def test_generating_content_maps_a_failed_call_to_generation_failed(failure):
         service.derived_content(_configuration(), "The Sunken Library")
 
 
+def test_ensure_starting_point_raises_not_found_when_the_story_is_deleted_before_the_write():
+    """Deleted between the read and the replace: the same not-found the story's own
+    absence produces, not a 500 (Copilot review, PR #279)."""
+    story = _story(id="story-1", startingPoint=None)
+    service, cosmos, _llm = _service_with_etag(story)
+    cosmos.get_container("stories").replace_item = MagicMock(side_effect=CosmosResourceNotFoundError)
+
+    with pytest.raises(StoryNotFoundError):
+        service.ensure_starting_point(story)
+
+
+def test_ensure_starting_point_raises_not_found_when_the_race_winner_deleted_the_story():
+    from azure.cosmos.exceptions import CosmosAccessConditionFailedError
+
+    story = _story(id="story-1", startingPoint=None)
+    service, cosmos, _llm = _service_with_etag(story)
+    container = cosmos.get_container("stories")
+
+    def _delete_and_lose(*args, **kwargs):  # noqa: ARG001
+        del container.items["story-1"]
+        raise CosmosAccessConditionFailedError
+
+    container.replace_item = _delete_and_lose
+
+    with pytest.raises(StoryNotFoundError):
+        service.ensure_starting_point(story)
+
+
 def test_ensure_starting_point_raises_not_found_for_a_deleted_story():
     story = _story(id="story-1", startingPoint=None)
     service, cosmos, _llm = _service_with_etag(story)

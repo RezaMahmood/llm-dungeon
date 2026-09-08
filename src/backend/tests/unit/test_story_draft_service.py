@@ -11,7 +11,7 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 from backend.models.story import CharacterType, CompletionCriteria
 from backend.models.story_draft import StoryDraft
-from backend.services.llm_service import LLMOutputError, LLMRateLimitError
+from backend.services.llm_service import LLMContentFilteredError, LLMOutputError, LLMRateLimitError
 from backend.services.story_draft_service import (
     DraftIncompleteError,
     DraftNotFoundError,
@@ -209,14 +209,18 @@ def test_generate_story_succeeds_once_complete():
     container.delete_item.assert_called_once_with(item="draft-1", partition_key="draft-1")
 
 
-def test_generate_story_leaves_the_draft_intact_when_the_opening_scene_fails():
+@pytest.mark.parametrize("failure", [LLMOutputError("bad json"), LLMContentFilteredError("blocked")])
+def test_generate_story_leaves_the_draft_intact_when_the_opening_scene_fails(failure):
+    """A content-filtered opening scene is a failed generation like any other — the draft
+    survives for another attempt rather than the call raising through (Copilot review,
+    PR #279)."""
     service, cosmos, llm, stories = _service()
     container = cosmos.get_container.return_value
     draft = _complete_draft()
     container.read_item.side_effect = None
     container.read_item.return_value = draft.to_dict()
     llm.generate_story_config.return_value = {"narrativeGuidance": "Keep it eerie but safe."}
-    llm.generate_starting_point.side_effect = LLMOutputError("bad json")
+    llm.generate_starting_point.side_effect = failure
 
     with pytest.raises(GenerationFailedError):
         service.generate_story("draft-1")

@@ -220,10 +220,16 @@ class StoryService:
                 etag=item["_etag"],
                 match_condition=MatchConditions.IfNotModified,
             )
+        except CosmosResourceNotFoundError as exc:
+            # Deleted between the read above and this write — the caller turns this into
+            # the same not-found response the story's own absence would have produced.
+            raise StoryNotFoundError() from exc
         except CosmosAccessConditionFailedError:
             logger.warning("Starting-point backfill lost an etag race", extra={"story_id": story.id})
             winner = self._read_item(story.id)
-            if winner and winner.get("startingPoint"):
+            if winner is None:
+                raise StoryNotFoundError() from None
+            if winner.get("startingPoint"):
                 story.startingPoint = StartingPoint.from_dict(winner["startingPoint"])
         return story
 

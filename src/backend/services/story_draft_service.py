@@ -17,7 +17,12 @@ from backend.config import config
 from backend.models.story import CharacterType, CompletionCriteria, StartingPoint, Story
 from backend.models.story_draft import StoryDraft
 from backend.services.cosmos_service import CosmosService
-from backend.services.llm_service import LLMOutputError, LLMRateLimitError, LLMService
+from backend.services.llm_service import (
+    LLMContentFilteredError,
+    LLMOutputError,
+    LLMRateLimitError,
+    LLMService,
+)
 from backend.services.story_config_file import StoryConfiguration
 from backend.services.story_service import StaleStoryError, StoryService
 
@@ -239,7 +244,9 @@ class StoryDraftService:
         except LLMRateLimitError as exc:
             logger.warning("Story generation rate-limited for draft %s: %s", draft.id, exc)
             raise LLMRateLimitedError(str(exc)) from exc
-        except (LLMOutputError, ValueError, KeyError) as exc:
+        except (LLMOutputError, LLMContentFilteredError, ValueError, KeyError) as exc:
+            # A content-filtered generation is a failed generation like any other here —
+            # the draft is left intact for another attempt, never an unhandled 500.
             logger.warning("Story generation failed for draft %s: %s", draft.id, exc)
             raise GenerationFailedError(str(exc)) from exc
 
