@@ -224,16 +224,44 @@ def test_starting_point_round_trips_through_dict():
     "overrides",
     [
         {"narrativeText": ""},
+        {"narrativeText": "   "},
+        {"narrativeText": 42},
         {"suggestedActions": []},
+        {"suggestedActions": "Walk up"},
+        {"suggestedActions": ["Walk up", "  "]},
         {"locationLabel": ""},
+        {"locationLabel": None},
+        {"goalLabel": 7},
+        {"progress": {"current": 1}},
+        {"progress": {"current": 1, "total": "five"}},
+        {"progress": {"current": 1, "total": 5, "extra": 2}},
+        {"progress": []},
     ],
 )
-def test_starting_point_rejects_a_missing_required_field(overrides):
+def test_starting_point_rejects_content_it_could_not_render(overrides):
+    """It is replayed verbatim as turn 0 with nothing left to repair it, so blank text, a
+    bare string where a list belongs, or a progress pair the bar can't read is refused
+    here — the one place both a generation call and an uploaded file pass through
+    (Copilot review, PR #279)."""
     fields = dict(narrativeText="Fog rolls off the cove.", suggestedActions=["Walk up"], locationLabel="Cove path")
     fields.update(overrides)
 
     with pytest.raises(ValueError):
         StartingPoint(**fields)
+
+
+def test_starting_point_trims_its_text_and_drops_a_blank_goal_label():
+    starting_point = StartingPoint(
+        narrativeText="  Fog rolls off the cove.  ",
+        suggestedActions=["  Walk up  "],
+        locationLabel=" Cove path ",
+        goalLabel="   ",
+    )
+
+    assert starting_point.narrativeText == "Fog rolls off the cove."
+    assert starting_point.suggestedActions == ["Walk up"]
+    assert starting_point.locationLabel == "Cove path"
+    assert starting_point.goalLabel is None
 
 
 def test_story_round_trips_its_starting_point():

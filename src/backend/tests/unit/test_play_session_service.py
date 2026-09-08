@@ -740,6 +740,24 @@ def test_create_session_blank_adventure_id_is_a_field_error_not_a_404():
     llm.generate_starting_point.assert_not_called()
 
 
+def test_create_session_reports_not_found_when_the_story_is_deleted_mid_backfill():
+    """The adventure can be deleted between the published check and the backfill write;
+    that is a 404, not a 500 (Copilot review, PR #279)."""
+    story = _story(starting_point=None)
+    service, cosmos, llm, _safety = _make_service(story)
+
+    def _delete_then_generate(*args, **kwargs):  # noqa: ARG001
+        del cosmos.get_container(config.STORIES_CONTAINER).items[story.id]
+        return STARTING_POINT.to_dict()
+
+    llm.generate_starting_point.side_effect = _delete_then_generate
+
+    with pytest.raises(AdventureNotFoundError):
+        service.create_session(story.id, "Wren", "Curious Cousin", PLAYER_ID)
+
+    assert cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items == {}
+
+
 def test_create_session_content_filtered_backfill_is_narrative_unavailable_not_a_strike():
     """A backfilled opening scene has no player input, so a filtered one is the adventure's
     own content — it must not count against the player (FR-013)."""

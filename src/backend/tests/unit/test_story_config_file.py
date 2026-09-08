@@ -170,6 +170,29 @@ def test_parse_carries_narrative_guidance_and_starting_point_through():
     assert config.startingPoint.progress == {"current": 1, "total": 5}
 
 
+def test_parse_rejects_a_non_string_narrative_guidance():
+    payload = {
+        "worldPrompt": "A flooded library.",
+        "characterTypes": [{"name": "Archivist"}],
+        "completionCriteria": {"successConditions": ["Recover the ledger"]},
+        "narrativeGuidance": {"prose": "oops"},
+    }
+
+    with pytest.raises(InvalidStoryConfigurationError, match="narrativeGuidance"):
+        parse(payload)
+
+
+def test_parse_treats_whitespace_only_narrative_guidance_as_regenerate():
+    payload = {
+        "worldPrompt": "A flooded library.",
+        "characterTypes": [{"name": "Archivist"}],
+        "completionCriteria": {"successConditions": ["Recover the ledger"]},
+        "narrativeGuidance": "   ",
+    }
+
+    assert parse(payload).narrativeGuidance is None
+
+
 def test_parse_treats_absent_or_blank_derived_fields_as_regenerate():
     payload = {
         "worldPrompt": "A flooded library.",
@@ -193,6 +216,15 @@ def test_parse_treats_absent_or_blank_derived_fields_as_regenerate():
         {"narrativeText": "Water laps.", "locationLabel": "Steps"},
         {"narrativeText": "Water laps.", "suggestedActions": [], "locationLabel": "Steps"},
         {"narrativeText": "Water laps.", "suggestedActions": ["Wade in"], "locationLabel": ""},
+        {"narrativeText": "   ", "suggestedActions": ["Wade in"], "locationLabel": "Steps"},
+        {"narrativeText": "Water laps.", "suggestedActions": "Wade in", "locationLabel": "Steps"},
+        {"narrativeText": "Water laps.", "suggestedActions": ["Wade in"], "locationLabel": "Steps", "goalLabel": 3},
+        {
+            "narrativeText": "Water laps.",
+            "suggestedActions": ["Wade in"],
+            "locationLabel": "Steps",
+            "progress": {"current": 1, "total": "five"},
+        },
     ],
 )
 def test_parse_rejects_an_incomplete_starting_point(starting_point):

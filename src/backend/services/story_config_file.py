@@ -155,25 +155,30 @@ def parse(payload: Any) -> StoryConfiguration:
         rules=payload.get("rules"),
         characterTypes=character_types,
         completionCriteria=completion_criteria,
-        narrativeGuidance=payload.get("narrativeGuidance") or None,
+        narrativeGuidance=_parse_narrative_guidance(payload.get("narrativeGuidance")),
         startingPoint=_parse_starting_point(payload.get("startingPoint")),
     )
+
+
+def _parse_narrative_guidance(raw: Any) -> Optional[str]:
+    """Absent, null, or blank means "regenerate it" (research.md §5); anything present is
+    persisted verbatim as the narrator's anchor, so it has to be real text."""
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        raise InvalidStoryConfigurationError("narrativeGuidance: must be a string")
+    return raw.strip() or None
 
 
 def _parse_starting_point(raw: Any) -> Optional[StartingPoint]:
     """The story's fixed opening scene (#271). Absent or null means "regenerate it";
     a present object must be complete, since it is replayed verbatim as every session's
-    turn 0 and is never repaired at play time."""
+    turn 0 and is never repaired at play time. `StartingPoint` itself owns the field rules
+    (models/story.py) — this only maps them onto the file's error shape."""
     if raw is None:
         return None
     if not isinstance(raw, dict):
         raise InvalidStoryConfigurationError("startingPoint: must be an object")
-    actions = raw.get("suggestedActions")
-    if not isinstance(actions, list) or not all(isinstance(action, str) and action for action in actions):
-        raise InvalidStoryConfigurationError("startingPoint.suggestedActions: must be a list of non-empty strings")
-    for text_field in ("narrativeText", "locationLabel"):
-        if not isinstance(raw.get(text_field), str):
-            raise InvalidStoryConfigurationError(f"startingPoint.{text_field}: must be a string")
     try:
         return StartingPoint.from_dict(raw)
     except (ValueError, KeyError, TypeError) as exc:

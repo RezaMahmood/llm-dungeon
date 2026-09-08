@@ -116,6 +116,11 @@ Added 2026-09-08 (#271). Embedded in `Story.startingPoint`; carries exactly the 
 Written without reference to any character name or type — it is identical for every player
 of the story.
 
+Validated wherever it is built — a generation call's output and an uploaded configuration
+file alike: the three text fields must be non-blank strings, `goalLabel` a string or null,
+and `progress` exactly `{"current": int, "total": int}` or null. Nothing repairs it at play
+time, so a `StartingPoint` that fails any of these is never persisted.
+
 ---
 
 ## Shared Structure: Character Type

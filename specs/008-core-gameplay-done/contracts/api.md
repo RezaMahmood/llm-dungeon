@@ -48,7 +48,8 @@ for this; it's an internal side effect.
 
 **Response (400 Bad Request)** — same `invalid_setup` shape as existing `start.py`.
 
-**Response (404 Not Found)** — adventure doesn't exist or isn't published.
+**Response (404 Not Found)** — adventure doesn't exist or isn't published, including one
+deleted between that check and a `startingPoint` backfill write (#271).
 
 **Response (429 Too Many Requests)** — the player started a session less than
 `MIN_SESSION_CREATION_INTERVAL_SECONDS` ago (FR-005). Starting an adventure is a rare,

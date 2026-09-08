@@ -15,7 +15,12 @@ from backend.config import config
 from backend.models.story import ADMIN_EDITABLE_DERIVED_FIELDS, StartingPoint, Story
 from backend.models.story_draft import StoryDraft
 from backend.services.cosmos_service import CosmosService
-from backend.services.llm_service import LLMOutputError, LLMRateLimitError, LLMService
+from backend.services.llm_service import (
+    LLMContentFilteredError,
+    LLMOutputError,
+    LLMRateLimitError,
+    LLMService,
+)
 from backend.services.story_config_file import StoryConfiguration
 
 logger = logging.getLogger("story_service")
@@ -175,7 +180,7 @@ class StoryService:
                 raise LLMOutputError("narrativeGuidance was empty")
         except LLMRateLimitError as exc:
             raise ContentGenerationRateLimitedError(str(exc)) from exc
-        except LLMOutputError as exc:
+        except (LLMOutputError, LLMContentFilteredError) as exc:
             raise ContentGenerationFailedError(str(exc)) from exc
         return narrative_guidance
 
@@ -184,14 +189,16 @@ class StoryService:
             return StartingPoint.from_dict(self._llm.generate_starting_point(draft_like, narrative_guidance))
         except LLMRateLimitError as exc:
             raise ContentGenerationRateLimitedError(str(exc)) from exc
-        except (LLMOutputError, ValueError, KeyError) as exc:
+        except (LLMOutputError, LLMContentFilteredError, ValueError, KeyError) as exc:
+            # A content-filtered generation is a failed generation like any other here —
+            # the admin write paths map it to 502, never an unhandled 500.
             raise ContentGenerationFailedError(str(exc)) from exc
 
     def ensure_starting_point(self, story: Story) -> Story:
         """Backfill for a `Story` persisted before `startingPoint` existed (#271): generate
         one from the story's own content and write it back, so this costs one LLM call for
-        that story's first session and none thereafter. A lost `_etag` race leaves the row
-        to the writer that won — the returned story still carries a usable opening."""
+        that story's first session and none thereafter. A lost `_etag` race adopts the
+        winner's opening, so concurrent first sessions still converge on one turn 0."""
         if story.startingPoint:
             return story
 
@@ -215,6 +222,9 @@ class StoryService:
             )
         except CosmosAccessConditionFailedError:
             logger.warning("Starting-point backfill lost an etag race", extra={"story_id": story.id})
+            winner = self._read_item(story.id)
+            if winner and winner.get("startingPoint"):
+                story.startingPoint = StartingPoint.from_dict(winner["startingPoint"])
         return story
 
     def create_story(self, draft: StoryDraft, narrative_guidance: str, starting_point: StartingPoint) -> Story:

@@ -10,9 +10,11 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 from backend.models.story import CharacterType, CompletionCriteria, Story
 from backend.models.story_draft import StoryDraft
+from backend.services.llm_service import LLMContentFilteredError, LLMOutputError
 from backend.services.story_service import (
     PUBLISH_GATE_NOT_SATISFIED,
     ConfirmationRequiredError,
+    ContentGenerationFailedError,
     DerivedContent,
     StaleStoryError,
     StoryNotFoundError,
@@ -685,7 +687,26 @@ def test_ensure_starting_point_yields_to_a_backfill_that_landed_first():
     assert cosmos.get_container("stories").items["story-1"]["startingPoint"]["narrativeText"] == "The winning opening."
 
 
-def test_ensure_starting_point_still_returns_an_opening_when_the_write_loses_its_race():
+def test_ensure_starting_point_adopts_the_winners_opening_when_the_write_loses_its_race():
+    """Two first sessions racing must still converge on one turn 0 for the story
+    (Copilot review, PR #279)."""
+    from azure.cosmos.exceptions import CosmosAccessConditionFailedError
+
+    story = _story(id="story-1", startingPoint=None)
+    service, cosmos, _llm = _service_with_etag(story)
+    container = cosmos.get_container("stories")
+
+    def _lose_the_race(*args, **kwargs):  # noqa: ARG001
+        winner = _story(id="story-1", startingPoint=_starting_point(narrativeText="The winning opening."))
+        container.items["story-1"] = winner.to_dict() | {"_etag": "etag-winner"}
+        raise CosmosAccessConditionFailedError
+
+    container.replace_item = _lose_the_race
+
+    assert service.ensure_starting_point(story).startingPoint.narrativeText == "The winning opening."
+
+
+def test_ensure_starting_point_keeps_its_own_opening_when_the_race_winner_wrote_none():
     from azure.cosmos.exceptions import CosmosAccessConditionFailedError
 
     story = _story(id="story-1", startingPoint=None)
@@ -693,6 +714,22 @@ def test_ensure_starting_point_still_returns_an_opening_when_the_write_loses_its
     cosmos.get_container("stories").replace_item = MagicMock(side_effect=CosmosAccessConditionFailedError)
 
     assert service.ensure_starting_point(story).startingPoint.narrativeText == "A fresh opening."
+
+
+@pytest.mark.parametrize("failure", [LLMContentFilteredError("blocked"), LLMOutputError("bad json")])
+def test_generating_content_maps_a_failed_call_to_generation_failed(failure):
+    """A content-filtered generation is a failed generation like any other on an admin
+    write — never an unhandled 500 (Copilot review, PR #279)."""
+    llm = _generating_llm()
+    llm.generate_starting_point.side_effect = failure
+    service = StoryService(cosmos_service=_EtagCosmosService(), llm_service=llm)
+
+    with pytest.raises(ContentGenerationFailedError):
+        service.derived_content(_configuration(), "The Sunken Library")
+
+    llm.generate_story_config.side_effect = failure
+    with pytest.raises(ContentGenerationFailedError):
+        service.derived_content(_configuration(), "The Sunken Library")
 
 
 def test_ensure_starting_point_raises_not_found_for_a_deleted_story():

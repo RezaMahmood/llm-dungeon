@@ -70,6 +70,25 @@ class CompletionCriteria:
         )
 
 
+def _required_text(field_name: str, value: Any) -> str:
+    """Rendered straight to players, so it must be real text — never blank, never a
+    number or object that only looks like one once JSON has been decoded."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} must be a non-empty string")
+    return value.strip()
+
+
+def _validated_progress(value: Any) -> dict[str, int]:
+    """`{"current": int, "total": int}` — the play surface's progress bar reads both as
+    numbers, so a malformed pair is rejected rather than persisted."""
+    if not isinstance(value, dict) or set(value) != {"current", "total"}:
+        raise ValueError("progress must have exactly the keys current and total")
+    for key in ("current", "total"):
+        if not isinstance(value[key], int) or isinstance(value[key], bool):
+            raise ValueError(f"progress.{key} must be an integer")
+    return {"current": value["current"], "total": value["total"]}
+
+
 @dataclass
 class StartingPoint:
     """The story's fixed opening — generated once at story-creation time and replayed
@@ -84,12 +103,20 @@ class StartingPoint:
     progress: Optional[dict[str, int]] = None
 
     def __post_init__(self) -> None:
-        if not self.narrativeText:
-            raise ValueError("narrativeText is required")
-        if not self.suggestedActions:
+        # Validated here rather than at each entry point: this is the one shape both a
+        # generation call's output and an uploaded configuration file have to satisfy,
+        # and it is replayed verbatim as turn 0 with nothing left to repair it.
+        self.narrativeText = _required_text("narrativeText", self.narrativeText)
+        self.locationLabel = _required_text("locationLabel", self.locationLabel)
+        if not isinstance(self.suggestedActions, list) or not self.suggestedActions:
             raise ValueError("suggestedActions must have at least one entry")
-        if not self.locationLabel:
-            raise ValueError("locationLabel is required")
+        self.suggestedActions = [_required_text("suggestedActions", action) for action in self.suggestedActions]
+        if self.goalLabel is not None:
+            if not isinstance(self.goalLabel, str):
+                raise ValueError("goalLabel must be a string")
+            self.goalLabel = self.goalLabel.strip() or None
+        if self.progress is not None:
+            self.progress = _validated_progress(self.progress)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -103,9 +130,11 @@ class StartingPoint:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "StartingPoint":
         return cls(
-            narrativeText=data["narrativeText"],
-            suggestedActions=list(data.get("suggestedActions", [])),
-            locationLabel=data["locationLabel"],
+            narrativeText=data.get("narrativeText"),
+            # Not coerced with list(): a bare string would otherwise become a list of
+            # single characters and pass validation as a set of one-letter actions.
+            suggestedActions=data.get("suggestedActions"),
+            locationLabel=data.get("locationLabel"),
             goalLabel=data.get("goalLabel"),
             progress=data.get("progress"),
         )

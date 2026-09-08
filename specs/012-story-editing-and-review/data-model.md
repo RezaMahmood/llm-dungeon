@@ -135,8 +135,8 @@ trusts none of it.
 | `rules` | string \| null | no | |
 | `characterTypes` | CharacterType[] | yes | ≥1; each needs a non-empty `name`; names unique case-insensitively (`011` Edge Cases). |
 | `completionCriteria` | CompletionCriteria | yes | ≥1 `successConditions`; `rule` ∈ {`any`,`all`} required when >1 condition in total. |
-| `narrativeGuidance` | string \| null | no | Absent, null, or empty ⇒ regenerate it on the write; otherwise persisted verbatim (#270). |
-| `startingPoint` | StartingPoint \| null | no | Absent or null ⇒ regenerate it from the resulting `narrativeGuidance`; otherwise persisted verbatim (#271). A present object must be complete — it is replayed as every session's turn 0 and is never repaired at play time — so a partial one is `invalid_configuration` naming `startingPoint`. |
+| `narrativeGuidance` | string \| null | no | Absent, null, or blank ⇒ regenerate it on the write; otherwise persisted verbatim (#270). A non-string is `invalid_configuration` naming the field. |
+| `startingPoint` | StartingPoint \| null | no | Absent or null ⇒ regenerate it from the resulting `narrativeGuidance`; otherwise persisted verbatim (#271). A present object must satisfy every `StartingPoint` rule (`004-story-creation-done` data-model.md) — it is replayed as every session's turn 0 and is never repaired at play time — so a partial or malformed one is `invalid_configuration` naming `startingPoint`. |
 
 **Serialization contract** (FR-002, FR-004, SC-001): keys are emitted in exactly the table's
 order, `indent=2`, `ensure_ascii=False`, one trailing newline. `id` is emitted first and only

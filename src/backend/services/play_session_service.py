@@ -25,6 +25,7 @@ from backend.services.player_content_safety_standing_service import (
 from backend.services.story_service import (
     ContentGenerationFailedError,
     ContentGenerationRateLimitedError,
+    StoryNotFoundError,
     StoryService,
 )
 
@@ -207,7 +208,10 @@ class PlaySessionService:
 
         try:
             story = self._stories.ensure_starting_point(story)
-        except (ContentGenerationFailedError, ContentGenerationRateLimitedError, LLMContentFilteredError) as exc:
+        except StoryNotFoundError as exc:
+            # The adventure was deleted between the read above and the backfill write.
+            raise AdventureNotFoundError() from exc
+        except (ContentGenerationFailedError, ContentGenerationRateLimitedError) as exc:
             # Only reachable for a story persisted before `startingPoint` existed (#271).
             # The failure is in the adventure's own content, not the player's doing, so it
             # must not count toward their safety standing (FR-013).
