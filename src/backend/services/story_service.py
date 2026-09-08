@@ -220,6 +220,16 @@ class StoryService:
         self._container().upsert_item(story.to_dict())
         return story
 
+    def delete_story(self, story_id: str) -> bool:
+        """Permanently remove `story_id` (025-story-delete FR-003) — a hard delete, not a
+        flag, unlike `unpublish` above (research.md Decision 1). Returns `False` for a
+        story id that never existed or was already deleted, `True` on success."""
+        try:
+            self._container().delete_item(item=story_id, partition_key=story_id)
+        except CosmosResourceNotFoundError:
+            return False
+        return True
+
     def _replaced_story(
         self, story: Story, configuration: StoryConfiguration, admin_oid: str, narrative_guidance: str
     ) -> Story:

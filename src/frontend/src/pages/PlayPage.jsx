@@ -101,6 +101,16 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
         setNotice({ type: "lockout", message: body?.message || "You're temporarily locked out." });
       } else if (responseStatus === 409 && body?.error === "session_concluded") {
         setStatus("concluded");
+      } else if (responseStatus === 404 && body?.error === "story_deleted") {
+        setNotice({
+          type: "story_deleted",
+          message: body?.message || "Story has been deleted. You can no longer continue this story.",
+        });
+      } else if (responseStatus === 409 && body?.error === "story_unpublished") {
+        setNotice({
+          type: "story_unpublished",
+          message: body?.message || "Story has been unpublished. You can no longer continue this story.",
+        });
       } else {
         setNotice({ type: "error", message: "Something went wrong. Please try again." });
         setInputValue(input);
@@ -147,6 +157,15 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
                   </p>
                   <button type="button" className="btn btn-primary" onClick={handleResume}>
                     Resume this story
+                  </button>
+                </div>
+              ) : notice?.type === "story_deleted" || notice?.type === "story_unpublished" ? (
+                <div>
+                  <p role="alert" className="text-muted" style={{ margin: "0 0 10px" }}>
+                    {notice.message}
+                  </p>
+                  <button type="button" className="btn btn-primary" onClick={() => onExit()}>
+                    Return to your story list
                   </button>
                 </div>
               ) : (

@@ -32,6 +32,7 @@ from backend.services.play_session_service import (
     SessionConcludedError,
     SessionInactiveError,
     SessionNotFoundError,
+    StoryUnpublishedError,
 )
 from backend.services.player_content_safety_standing_service import PlayerContentSafetyStandingService
 
@@ -74,6 +75,11 @@ class FakeContainer:
         self.items[item] = body
         return body
 
+    def delete_item(self, item, partition_key):  # noqa: ARG002
+        if item not in self.items:
+            raise CosmosResourceNotFoundError
+        del self.items[item]
+
 
 class FakeCosmosService:
     def __init__(self) -> None:
@@ -93,6 +99,8 @@ class FakeCosmosService:
             rows = [r for r in rows if r.get("isActiveForPlayer") is True]
         if "c.id != @excludeId" in sql:
             rows = [r for r in rows if r.get("id") != param_map.get("@excludeId")]
+        if "c.adventureId = @adventureId" in sql:
+            rows = [r for r in rows if r.get("adventureId") == param_map.get("@adventureId")]
         if "c.id = @id" in sql:
             rows = [r for r in rows if r.get("id") == param_map.get("@id")]
         if "ARRAY_SLICE(c.turns, -1) AS latestTurn" in sql:
@@ -991,18 +999,21 @@ def test_list_player_sessions_projects_summary_fields_from_latest_turn():
 
 
 def test_list_player_sessions_resolves_adventure_names_once_per_distinct_adventure():
+    """PR #274 review: `list_player_sessions` batches name *and* availability through a
+    single `get_adventure_summary` read per distinct adventureId (not two separate reads
+    per adventure, one for the name and one for `published`)."""
     story_a = _story()
     story_b = _story()
     service, cosmos, _llm, _safety = _make_service(story_a)
     cosmos.get_container(config.STORIES_CONTAINER).upsert_item(story_b.to_dict())
-    original_get_story_name = service._stories.get_story_name
+    original_get_adventure_summary = service._stories.get_adventure_summary
     calls: list[str] = []
 
-    def counting_get_story_name(story_id):
+    def counting_get_adventure_summary(story_id):
         calls.append(story_id)
-        return original_get_story_name(story_id)
+        return original_get_adventure_summary(story_id)
 
-    service._stories.get_story_name = counting_get_story_name
+    service._stories.get_adventure_summary = counting_get_adventure_summary
 
     _existing_session(cosmos, story_a, adventureId=story_a.id)
     _existing_session(cosmos, story_a, adventureId=story_a.id)
@@ -1023,6 +1034,22 @@ def test_list_player_sessions_falls_back_to_adventure_label_when_story_unreadabl
     [row] = service.list_player_sessions(PLAYER_ID)
 
     assert row["adventureName"] == "Adventure"
+
+
+def test_list_player_sessions_marks_unavailable_when_story_unreadable():
+    """025-story-delete PR #274 review: a session whose story can no longer be read at
+    all (e.g. a narrow cascade-delete race) must default `available` to False, not
+    True — the very next turn/resume/detail request against it would raise
+    `AdventureNotFoundError` (story_deleted), so showing it as available would invite a
+    Resume that is guaranteed to fail. This deliberately differs from the adventure-name
+    fallback above: a missing name is cosmetic, a misleading availability is not."""
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    _existing_session(cosmos, story, adventureId="deleted-adventure-id")
+
+    [row] = service.list_player_sessions(PLAYER_ID)
+
+    assert row["available"] is False
 
 
 # --- get_session_for_player (009-save-and-continue, T010) ---
@@ -1190,3 +1217,170 @@ def test_record_checkpoint_gives_up_after_one_retry():
 
     with pytest.raises(CheckpointUnavailableError):
         service.record_checkpoint(session.id, PLAYER_ID)
+
+
+# --- delete_active_sessions_for_adventure (025-story-delete FR-004, T013) ---
+
+
+def test_delete_active_sessions_for_adventure_removes_active_sessions_across_players():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session_a = _existing_session(cosmos, story, playerId=PLAYER_ID)
+    session_b = _existing_session(cosmos, story, playerId=OTHER_PLAYER_ID)
+
+    removed = service.delete_active_sessions_for_adventure(story.id)
+
+    container = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER)
+    assert removed == 2
+    assert session_a.id not in container.items
+    assert session_b.id not in container.items
+
+
+def test_delete_active_sessions_for_adventure_leaves_concluded_sessions_untouched():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    concluded = _existing_session(cosmos, story, status="concluded", completionReason={"type": "success", "detail": "x"})
+
+    removed = service.delete_active_sessions_for_adventure(story.id)
+
+    container = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER)
+    assert removed == 0
+    assert concluded.id in container.items
+
+
+def test_delete_active_sessions_for_adventure_leaves_other_adventures_sessions_untouched():
+    story = _story()
+    other_story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    cosmos.get_container(config.STORIES_CONTAINER).upsert_item(other_story.to_dict())
+    other_session = _existing_session(cosmos, other_story)
+
+    removed = service.delete_active_sessions_for_adventure(story.id)
+
+    container = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER)
+    assert removed == 0
+    assert other_session.id in container.items
+
+
+def test_delete_active_sessions_for_adventure_is_idempotent_per_row(monkeypatch):
+    """PR #274 review: a session that vanishes between the query and its own
+    delete_item call (e.g. the player's own next turn racing this cascade, or a second
+    concurrent delete attempt on the same story) must not 500 the whole operation —
+    it's simply skipped and not counted, rather than propagating
+    CosmosResourceNotFoundError."""
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session_a = _existing_session(cosmos, story, playerId=PLAYER_ID)
+    session_b = _existing_session(cosmos, story, playerId=OTHER_PLAYER_ID)
+    container = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER)
+
+    real_delete_item = container.delete_item
+
+    def delete_item_racing_session_a(item, partition_key):
+        if item == session_a.id:
+            del container.items[session_a.id]
+        return real_delete_item(item, partition_key)
+
+    monkeypatch.setattr(container, "delete_item", delete_item_racing_session_a)
+
+    removed = service.delete_active_sessions_for_adventure(story.id)
+
+    assert removed == 1
+    assert session_a.id not in container.items
+    assert session_b.id not in container.items
+
+
+# --- Story-unpublished check (025-story-delete FR-005, FR-007, FR-008, T014) ---
+
+
+def test_submit_interaction_against_unpublished_story_raises_story_unpublished_and_leaves_session_unchanged():
+    story = _story(published=False)
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+    before = dict(cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items[session.id])
+
+    with pytest.raises(StoryUnpublishedError):
+        service.submit_interaction(session.id, PLAYER_ID, "look around")
+
+    after = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items[session.id]
+    assert after == before
+
+
+def test_submit_interaction_proceeds_normally_once_story_is_republished():
+    story = _story(published=False)
+    service, cosmos, _llm, _safety = _make_service(story, llm_turn_data=_turn_data())
+    session = _existing_session(cosmos, story)
+
+    cosmos.get_container(config.STORIES_CONTAINER).items[story.id]["published"] = True
+
+    updated, _completion = service.submit_interaction(session.id, PLAYER_ID, "look around")
+
+    assert len(updated.turns) == 2
+
+
+def test_resume_session_against_unpublished_story_raises_story_unpublished():
+    story = _story(published=False)
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story, isActiveForPlayer=False)
+
+    with pytest.raises(StoryUnpublishedError):
+        service.resume_session(session.id, PLAYER_ID)
+
+
+def test_get_session_detail_for_player_against_unpublished_story_raises_story_unpublished():
+    story = _story(published=False)
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+
+    with pytest.raises(StoryUnpublishedError):
+        service.get_session_detail_for_player(session.id, PLAYER_ID)
+
+
+# --- list_player_sessions `available` field (025-story-delete FR-009, FR-011, T015) ---
+
+
+def test_list_player_sessions_marks_published_story_session_as_available():
+    story = _story(published=True)
+    service, cosmos, _llm, _safety = _make_service(story)
+    _existing_session(cosmos, story)
+
+    rows = service.list_player_sessions(PLAYER_ID)
+
+    assert rows[0]["available"] is True
+
+
+def test_list_player_sessions_marks_unpublished_story_session_as_unavailable():
+    story = _story(published=False)
+    service, cosmos, _llm, _safety = _make_service(story)
+    _existing_session(cosmos, story)
+
+    rows = service.list_player_sessions(PLAYER_ID)
+
+    assert rows[0]["available"] is False
+
+
+def test_list_player_sessions_reflects_republish_with_no_other_change():
+    story = _story(published=False)
+    service, cosmos, _llm, _safety = _make_service(story)
+    _existing_session(cosmos, story)
+
+    cosmos.get_container(config.STORIES_CONTAINER).items[story.id]["published"] = True
+    rows = service.list_player_sessions(PLAYER_ID)
+
+    assert rows[0]["available"] is True
+
+
+def test_list_player_sessions_does_not_use_the_separate_name_only_lookup():
+    """PR #274 review: this hot path must resolve name and availability from one
+    `get_adventure_summary` read per adventure, not `get_adventure_summary` plus a
+    second, separate `get_story_name` call."""
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    calls: list[str] = []
+    service._stories.get_story_name = lambda story_id: calls.append(story_id)
+    _existing_session(cosmos, story)
+
+    rows = service.list_player_sessions(PLAYER_ID)
+
+    assert calls == []
+    assert rows[0]["adventureName"] == story.name

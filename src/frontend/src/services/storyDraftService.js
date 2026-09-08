@@ -55,6 +55,11 @@ export async function unpublishStory(token, storyId) {
   return response.data;
 }
 
+export async function deleteStory(token, storyId) {
+  const response = await client.delete(`/manage/stories/${storyId}`, authHeaders(token));
+  return response.data;
+}
+
 // Requests the raw response text rather than a parsed object (axios's default JSON
 // parse would discard the exact bytes) — the viewer and the download both reuse this
 // same string, which is what makes them byte-identical by construction (FR-002, SC-001).
@@ -91,6 +96,7 @@ export default {
   getStory,
   publishStory,
   unpublishStory,
+  deleteStory,
   getStoryConfiguration,
   createEditDraft,
   saveDraftToStory,

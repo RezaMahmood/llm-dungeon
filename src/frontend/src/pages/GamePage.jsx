@@ -181,8 +181,30 @@ export function GamePage() {
         storyName: data.session.adventureName,
         initialTurns: data.session.turns,
       });
-    } catch {
-      setResumeError("Couldn't resume this story. Please try again.");
+    } catch (err) {
+      // 025-story-delete FR-007/FR-008: both calls above report a story that became
+      // unavailable while this row sat on screen, and each reason gets its own
+      // specific message rather than the generic one below (contracts/api.md). The
+      // player is already on their in-progress-games list here, so the response's
+      // `promptReturnToList` needs no extra control — they are where it points.
+      const responseStatus = err.response?.status;
+      const body = err.response?.data;
+      if (responseStatus === 404 && body?.error === "story_deleted") {
+        setResumeError(body?.message || "Story has been deleted. You can no longer continue this story.");
+        // The session was permanently removed along with its story (FR-004, FR-010),
+        // so the row goes too rather than offering a Resume that can only fail again.
+        setSavedGames((prev) => prev.filter((game) => game.sessionId !== savedGame.sessionId));
+      } else if (responseStatus === 409 && body?.error === "story_unpublished") {
+        setResumeError(body?.message || "Story has been unpublished. You can no longer continue this story.");
+        // Unpublish never touches the session (FR-005) — the row stays, marked
+        // non-continuable exactly as the next list load would render it (FR-009), and
+        // reverts on its own once the story is re-published (FR-011).
+        setSavedGames((prev) =>
+          prev.map((game) => (game.sessionId === savedGame.sessionId ? { ...game, available: false } : game)),
+        );
+      } else {
+        setResumeError("Couldn't resume this story. Please try again.");
+      }
     }
   };
 

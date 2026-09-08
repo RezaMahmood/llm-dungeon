@@ -12,6 +12,10 @@ function formatLastPlayed(iso) {
 
 export function SavedGameRow({ session, ordinal, onResume }) {
   const { adventureName, characterName, locationLabel, progress, isActiveForPlayer, checkpointCount } = session;
+  // Absent `available` (pre-025 fixture data / a session whose story was never
+  // unpublished) defaults to available, matching the backend's own default (FR-009,
+  // FR-011).
+  const available = session.available !== false;
 
   const metaParts = [
     progress ? `Chapter ${progress.current}` : null,
@@ -29,6 +33,7 @@ export function SavedGameRow({ session, ordinal, onResume }) {
         alignItems: "center",
         padding: "22px 12px",
         borderBottom: "1px solid var(--color-divider)",
+        opacity: available ? 1 : 0.5,
       }}
     >
       <div className="ovnum" style={{ fontSize: "40px", color: "var(--color-accent)" }}>
@@ -48,6 +53,11 @@ export function SavedGameRow({ session, ordinal, onResume }) {
           {checkpointCount > 0 && (
             <span className="tag tag-neutral" style={{ fontSize: "11px" }}>
               Saved
+            </span>
+          )}
+          {!available && (
+            <span className="tag tag-neutral text-muted" style={{ fontSize: "11px" }}>
+              Unavailable
             </span>
           )}
         </div>
@@ -71,14 +81,20 @@ export function SavedGameRow({ session, ordinal, onResume }) {
           </div>
         )}
       </div>
-      <button
-        type="button"
-        className={isActiveForPlayer ? "btn btn-primary" : "btn btn-secondary"}
-        style={{ padding: "12px 18px" }}
-        onClick={() => onResume(session)}
-      >
-        Resume
-      </button>
+      {available ? (
+        <button
+          type="button"
+          className={isActiveForPlayer ? "btn btn-primary" : "btn btn-secondary"}
+          style={{ padding: "12px 18px" }}
+          onClick={() => onResume(session)}
+        >
+          Resume
+        </button>
+      ) : (
+        <button type="button" className="btn btn-secondary" style={{ padding: "12px 18px" }} disabled>
+          Unavailable
+        </button>
+      )}
     </div>
   );
 }

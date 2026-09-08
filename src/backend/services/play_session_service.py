@@ -82,6 +82,14 @@ class AdventureNotFoundError(Exception):
     pass
 
 
+class StoryUnpublishedError(Exception):
+    """025-story-delete FR-005/FR-008: the session's story still exists but is currently
+    unpublished. Unlike a delete, the session itself is never touched — this is checked
+    fresh on every relevant request (research.md Decision 3, 4)."""
+
+    pass
+
+
 class NarrativeUnavailableError(Exception):
     pass
 
@@ -249,6 +257,7 @@ class PlaySessionService:
             raise RateLimitedError()
         if session.interactionInProgress:
             raise InteractionInProgressError()
+        story = self._check_story_available(session)
 
         session.interactionInProgress = True
         try:
@@ -259,7 +268,7 @@ class PlaySessionService:
             raise InteractionInProgressError() from exc
 
         try:
-            return self._generate_and_persist_turn(session, player_id, trimmed_input, claimed["_etag"])
+            return self._generate_and_persist_turn(story, session, player_id, trimmed_input, claimed["_etag"])
         except Exception:
             # Only the turn's own write clears `interactionInProgress`, so any failure
             # between the claim above and that write would leave the session rejecting
@@ -267,16 +276,27 @@ class PlaySessionService:
             self._release_claim(session.id)
             raise
 
-    def _generate_and_persist_turn(
-        self, session: PlaySession, player_id: str, trimmed_input: str, etag: str
-    ) -> tuple[PlaySession, Optional[dict]]:
+    def _check_story_available(self, session: PlaySession):
+        """025-story-delete FR-005/FR-007/FR-008: raises `AdventureNotFoundError` if the
+        session's story is gone (a delete's cascade normally removes the session itself
+        first, so this is the narrow race where a request is already in flight) or
+        `StoryUnpublishedError` if it still exists but is currently unpublished. A
+        concluded session is exempt (data-model.md Validation Rules) — its outcome never
+        changes based on its story's later published/deleted state. Never mutates
+        `session`. Returns the story on success (or `None` for an exempt concluded
+        session), for the caller to reuse."""
+        if session.status == "concluded":
+            return None
         story = self._stories.get_story(session.adventureId)
         if story is None:
-            # The adventure was deleted after this session started (published is only
-            # re-checked at creation). There is nothing to narrate from, so say so
-            # plainly rather than crashing on the completion criteria below.
             raise AdventureNotFoundError()
+        if not story.published:
+            raise StoryUnpublishedError()
+        return story
 
+    def _generate_and_persist_turn(
+        self, story, session: PlaySession, player_id: str, trimmed_input: str, etag: str
+    ) -> tuple[PlaySession, Optional[dict]]:
         now = _now()
         completion_reason: Optional[dict[str, Any]] = None
 
@@ -376,6 +396,7 @@ class PlaySessionService:
             raise SessionConcludedError()
         if session.isActiveForPlayer:
             raise AlreadyActiveError()
+        self._check_story_available(session)
 
         session.isActiveForPlayer = True
         self._container().replace_item(
@@ -406,12 +427,46 @@ class PlaySessionService:
         )
         rows.sort(key=lambda row: row["lastInteractionAt"], reverse=True)
 
+        # One `get_adventure_summary` read per distinct adventureId gives both `name`
+        # and `published` together (025-story-delete PR #274 review) — this loop
+        # previously issued two separate Cosmos reads per adventure (name, then
+        # availability) on what the docstring above already calls a real hot path.
         names: dict[str, str] = {}
+        available: dict[str, bool] = {}
         for row in rows:
-            if row["adventureId"] not in names:
-                names[row["adventureId"]] = self._resolve_adventure_name(row["adventureId"])
+            adventure_id = row["adventureId"]
+            if adventure_id in names:
+                continue
+            names[adventure_id], available[adventure_id] = self._resolve_adventure_summary(adventure_id)
 
-        return [self._session_summary_from_row(row, names[row["adventureId"]]) for row in rows]
+        return [
+            self._session_summary_from_row(row, names[row["adventureId"]], available[row["adventureId"]])
+            for row in rows
+        ]
+
+    def delete_active_sessions_for_adventure(self, adventure_id: str) -> int:
+        """Cascade for a story delete (025-story-delete FR-004, research.md Decision 2):
+        permanently remove every in-progress (`status == 'active'`) session for
+        `adventure_id`, regardless of which player owns it. Concluded sessions are left
+        untouched — they are history, not "in progress." Returns the count actually
+        removed. Idempotent per row: a session that vanishes between the query and its
+        own delete (e.g. the player's own next turn racing this cascade, or a second
+        concurrent delete attempt) is skipped rather than raising, so one such race
+        never 500s the admin delete endpoint after the story itself is already gone."""
+        rows = self._cosmos.query(
+            config.PLAY_SESSIONS_CONTAINER,
+            "SELECT c.id FROM c WHERE c.adventureId = @adventureId AND c.status = 'active'",
+            params=[{"name": "@adventureId", "value": adventure_id}],
+        )
+        container = self._container()
+        removed = 0
+        for row in rows:
+            try:
+                container.delete_item(item=row["id"], partition_key=row["id"])
+                removed += 1
+            except CosmosResourceNotFoundError:
+                continue
+        return removed
 
     def get_session_for_player(self, session_id: str, player_id: str) -> PlaySession:
         """The player's own session in full, for rehydrating the play surface
@@ -430,6 +485,7 @@ class PlaySessionService:
         checkpoint — sufficient to rebuild the play surface exactly as the player left it
         (FR-006, contracts/api.md)."""
         session = self.get_session_for_player(session_id, player_id)
+        self._check_story_available(session)
         summary = self._session_summary(session, self._resolve_adventure_name(session.adventureId))
         summary["characterType"] = session.characterType
         summary["status"] = session.status
@@ -479,9 +535,32 @@ class PlaySessionService:
         """`"Adventure"` when the story can no longer be read (research.md Decision 4) —
         a player resuming a game they already started must never lose the row over it.
         Uses `get_story_name`'s projected query rather than `get_story`'s full point read,
-        since this only ever needs the name (issue #257)."""
+        since this only ever needs the name (issue #257). Only `get_session_detail_for_player`
+        calls this alone — a single-session lookup where the story's own availability was
+        already confirmed by `_check_story_available` moments earlier, so there is no second
+        field to batch it with. `list_player_sessions`'s per-adventure hot-path loop uses
+        `_resolve_adventure_summary` below instead, to avoid this same duplication there."""
         name = self._stories.get_story_name(adventure_id)
         return name if name is not None else "Adventure"
+
+    def _resolve_adventure_summary(self, adventure_id: str) -> tuple[str, bool]:
+        """`(name, available)` from a single `get_adventure_summary` read (025-story-delete
+        PR #274 review) — `list_player_sessions`'s hot path previously issued two separate
+        Cosmos reads per distinct adventureId (name, then published) where one already
+        carries both fields. `available` (FR-009/FR-011, research.md Decision 5) is
+        `Story.published`, read fresh on every call so a re-publish is reflected on the very
+        next list load with no separate restore step. Both fields fall back the same way
+        `_resolve_adventure_name` and the former `_resolve_adventure_available` did when the
+        story can no longer be read at all: `"Adventure"` for the name (cosmetic — a player
+        resuming a game they already started must never lose the row over it), `False` for
+        availability (not cosmetic — `_check_story_available` would raise
+        `AdventureNotFoundError`/story_deleted on this session's very next use, so showing it
+        as available here would invite a Resume that is guaranteed to fail)."""
+        summary = self._stories.get_adventure_summary(adventure_id)
+        if summary is None:
+            return "Adventure", False
+        name = summary["name"] if summary["name"] is not None else "Adventure"
+        return name, summary["published"]
 
     @staticmethod
     def _session_summary(session: PlaySession, adventure_name: str) -> dict[str, Any]:
@@ -501,9 +580,11 @@ class PlaySessionService:
         }
 
     @staticmethod
-    def _session_summary_from_row(row: dict[str, Any], adventure_name: str) -> dict[str, Any]:
+    def _session_summary_from_row(row: dict[str, Any], adventure_name: str, available: bool) -> dict[str, Any]:
         """Same shape as `_session_summary`, but built from a projected `list_player_sessions`
-        row instead of a full `PlaySession` (no `turns` to slice — Cosmos already did)."""
+        row instead of a full `PlaySession` (no `turns` to slice — Cosmos already did).
+        `available` (025-story-delete FR-009) is computed live from the story's current
+        `published` state, never stored on the session itself."""
         latest_turns = row.get("latestTurn") or []
         latest = latest_turns[0] if latest_turns else None
         return {
@@ -518,6 +599,7 @@ class PlaySessionService:
             "lastInteractionAt": row["lastInteractionAt"],
             "isActiveForPlayer": row["isActiveForPlayer"],
             "checkpointCount": row.get("checkpointCount") or 0,
+            "available": available,
         }
 
     # --- Helpers ---

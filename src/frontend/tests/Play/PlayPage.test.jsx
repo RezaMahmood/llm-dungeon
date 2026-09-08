@@ -150,6 +150,56 @@ describe("PlayPage (008-core-gameplay-done)", () => {
     expect(screen.getByLabelText(/what do you do next/i)).toBeDisabled();
   });
 
+  // --- 025-story-delete (FR-007, FR-008): story deleted / unpublished ---
+
+  it("shows the specific deleted notice with a return-to-list action on a 404 story_deleted", async () => {
+    submitInteraction.mockRejectedValue({
+      response: {
+        status: 404,
+        data: {
+          error: "story_deleted",
+          message: "Story has been deleted. You can no longer continue this story.",
+          promptReturnToList: true,
+        },
+      },
+    });
+    const user = userEvent.setup();
+    const { onExit } = renderPlayPage();
+
+    await user.type(screen.getByLabelText(/what do you do next/i), "look around");
+    await user.click(screen.getByRole("button", { name: /^go$/i }));
+
+    expect(await screen.findByText(/story has been deleted/i)).toBeInTheDocument();
+    expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /return to your story list/i }));
+    expect(onExit).toHaveBeenCalled();
+  });
+
+  it("shows the specific unpublished notice with a return-to-list action on a 409 story_unpublished", async () => {
+    submitInteraction.mockRejectedValue({
+      response: {
+        status: 409,
+        data: {
+          error: "story_unpublished",
+          message: "Story has been unpublished. You can no longer continue this story.",
+          promptReturnToList: true,
+        },
+      },
+    });
+    const user = userEvent.setup();
+    const { onExit } = renderPlayPage();
+
+    await user.type(screen.getByLabelText(/what do you do next/i), "look around");
+    await user.click(screen.getByRole("button", { name: /^go$/i }));
+
+    expect(await screen.findByText(/story has been unpublished/i)).toBeInTheDocument();
+    expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /return to your story list/i }));
+    expect(onExit).toHaveBeenCalled();
+  });
+
   // --- 009-save-and-continue (T013): resumed history ---
 
   it("renders every prior turn from initialTurns, and the status panel reflects the latest one", () => {

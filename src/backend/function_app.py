@@ -12,6 +12,7 @@ from backend.api.admin.accounts import add_account, list_accounts, remove_accoun
 from backend.api.admin.stories import (
     create_draft,
     create_edit_draft,
+    delete_story,
     generate_story_from_draft,
     get_draft,
     get_story,
@@ -169,6 +170,11 @@ def admin_stories_publish(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="manage/stories/{storyId}/unpublish", methods=["POST"])
 def admin_stories_unpublish(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(unpublish_story)(req)
+
+
+@app.route(route="manage/stories/{storyId}", methods=["DELETE"])
+def admin_stories_delete(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(delete_story)(req)
 
 
 @app.route(route="manage/stories/{storyId}/configuration", methods=["GET"])
