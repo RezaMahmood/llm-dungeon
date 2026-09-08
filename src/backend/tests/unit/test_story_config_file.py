@@ -37,6 +37,8 @@ def test_serialize_emits_fixed_key_order_with_id_first(_story):
         "rules",
         "characterTypes",
         "completionCriteria",
+        "narrativeGuidance",
+        "startingPoint",
     ]
 
 
@@ -74,7 +76,6 @@ def test_serialize_excludes_every_system_managed_field(_story):
         "lastTestPlayedAt",
         "contentVersion",
         "entityType",
-        "narrativeGuidance",
     ):
         assert excluded not in parsed
 
@@ -123,10 +124,121 @@ def test_parse_ignores_known_system_managed_keys():
         "completionCriteria": {"successConditions": ["Recover the ledger"]},
         "published": True,
         "createdBy": "someone",
-        "narrativeGuidance": "stale guidance",
     }
     config = parse(payload)
     assert config.worldPrompt == "A flooded library."
+
+
+# --- narrativeGuidance and startingPoint round-trip as authored content (#270, #271) ---
+
+
+def test_serialize_emits_narrative_guidance_and_starting_point(_story, _starting_point):
+    story = _story(narrativeGuidance="Keep it eerie.", startingPoint=_starting_point(narrativeText="Fog rolls in."))
+
+    parsed = json.loads(serialize(story))
+
+    assert parsed["narrativeGuidance"] == "Keep it eerie."
+    assert parsed["startingPoint"]["narrativeText"] == "Fog rolls in."
+    assert parsed["startingPoint"]["suggestedActions"] == ["Walk to the lighthouse", "Search the shoreline"]
+
+
+def test_serialize_emits_a_null_starting_point_for_a_story_without_one(_story):
+    parsed = json.loads(serialize(_story(startingPoint=None)))
+
+    assert parsed["startingPoint"] is None
+
+
+def test_parse_carries_narrative_guidance_and_starting_point_through():
+    payload = {
+        "worldPrompt": "A flooded library.",
+        "characterTypes": [{"name": "Archivist"}],
+        "completionCriteria": {"successConditions": ["Recover the ledger"]},
+        "narrativeGuidance": "Edited guidance.",
+        "startingPoint": {
+            "narrativeText": "Water laps at the lowest shelves.",
+            "suggestedActions": ["Wade in", "Call out"],
+            "locationLabel": "Library steps",
+            "goalLabel": "Recover the ledger",
+            "progress": {"current": 1, "total": 5},
+        },
+    }
+
+    config = parse(payload)
+
+    assert config.narrativeGuidance == "Edited guidance."
+    assert config.startingPoint.narrativeText == "Water laps at the lowest shelves."
+    assert config.startingPoint.progress == {"current": 1, "total": 5}
+
+
+def test_parse_rejects_a_non_string_narrative_guidance():
+    payload = {
+        "worldPrompt": "A flooded library.",
+        "characterTypes": [{"name": "Archivist"}],
+        "completionCriteria": {"successConditions": ["Recover the ledger"]},
+        "narrativeGuidance": {"prose": "oops"},
+    }
+
+    with pytest.raises(InvalidStoryConfigurationError, match="narrativeGuidance"):
+        parse(payload)
+
+
+def test_parse_treats_whitespace_only_narrative_guidance_as_regenerate():
+    payload = {
+        "worldPrompt": "A flooded library.",
+        "characterTypes": [{"name": "Archivist"}],
+        "completionCriteria": {"successConditions": ["Recover the ledger"]},
+        "narrativeGuidance": "   ",
+    }
+
+    assert parse(payload).narrativeGuidance is None
+
+
+def test_parse_treats_absent_or_blank_derived_fields_as_regenerate():
+    payload = {
+        "worldPrompt": "A flooded library.",
+        "characterTypes": [{"name": "Archivist"}],
+        "completionCriteria": {"successConditions": ["Recover the ledger"]},
+        "narrativeGuidance": "",
+        "startingPoint": None,
+    }
+
+    config = parse(payload)
+
+    assert config.narrativeGuidance is None
+    assert config.startingPoint is None
+
+
+@pytest.mark.parametrize(
+    "starting_point",
+    [
+        "not an object",
+        {"suggestedActions": ["Wade in"], "locationLabel": "Steps"},
+        {"narrativeText": "Water laps.", "locationLabel": "Steps"},
+        {"narrativeText": "Water laps.", "suggestedActions": [], "locationLabel": "Steps"},
+        {"narrativeText": "Water laps.", "suggestedActions": ["Wade in"], "locationLabel": ""},
+        {"narrativeText": "   ", "suggestedActions": ["Wade in"], "locationLabel": "Steps"},
+        {"narrativeText": "Water laps.", "suggestedActions": "Wade in", "locationLabel": "Steps"},
+        {"narrativeText": "Water laps.", "suggestedActions": ["Wade in"], "locationLabel": "Steps", "goalLabel": 3},
+        {
+            "narrativeText": "Water laps.",
+            "suggestedActions": ["Wade in"],
+            "locationLabel": "Steps",
+            "progress": {"current": 1, "total": "five"},
+        },
+    ],
+)
+def test_parse_rejects_an_incomplete_starting_point(starting_point):
+    """A supplied opening scene is replayed verbatim as turn 0, so it is never accepted
+    half-formed (#271)."""
+    payload = {
+        "worldPrompt": "A flooded library.",
+        "characterTypes": [{"name": "Archivist"}],
+        "completionCriteria": {"successConditions": ["Recover the ledger"]},
+        "startingPoint": starting_point,
+    }
+
+    with pytest.raises(InvalidStoryConfigurationError, match="startingPoint"):
+        parse(payload)
 
 
 def test_parse_rejects_empty_world_prompt():

@@ -20,8 +20,8 @@ combined via an any/all rule) are satisfied.
 
 Technical approach: a new `PlaySession` entity persisted in a new `playSessions` Cosmos
 container (one document per playthrough), a new `POST /api/game/sessions` endpoint that
-creates a session and generates its opening narrative (superseding
-`POST /api/game/start`'s role), a new `POST /api/game/sessions/{sessionId}/interactions`
+creates a session whose turn 0 is the story's fixed starting point (revised 2026-09-08,
+#271; superseding `POST /api/game/start`'s role), a new `POST /api/game/sessions/{sessionId}/interactions`
 endpoint that generates each subsequent turn, and a new
 `POST /api/game/sessions/{sessionId}/resume` endpoint that reactivates a session the
 player previously left for another (FR-015). Both interaction-bearing endpoints reuse the

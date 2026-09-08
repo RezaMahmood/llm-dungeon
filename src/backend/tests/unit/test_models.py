@@ -8,7 +8,7 @@ import pytest
 from backend.models.play_session import CheckpointMarker, PlayerInteraction, PlaySession
 from backend.models.player_content_safety_standing import PlayerContentSafetyStanding
 from backend.models.provisioned_account_entry import ProvisionedAccountEntry
-from backend.models.story import CharacterType, CompletionCriteria, Story
+from backend.models.story import CharacterType, CompletionCriteria, StartingPoint, Story
 from backend.models.story_draft import StoryDraft
 
 
@@ -203,6 +203,124 @@ def test_story_defaults_content_version_and_last_updated_by_for_pre_existing_row
 
     assert story.contentVersion == 1
     assert story.lastUpdatedBy is None
+
+
+# --- StartingPoint (#271) ---
+
+
+def test_starting_point_round_trips_through_dict():
+    starting_point = StartingPoint(
+        narrativeText="Fog rolls off the cove.",
+        suggestedActions=["Walk up", "Search the shore"],
+        locationLabel="Cove path",
+        goalLabel="Light the lamp",
+        progress={"current": 1, "total": 5},
+    )
+
+    assert StartingPoint.from_dict(starting_point.to_dict()) == starting_point
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"narrativeText": ""},
+        {"narrativeText": "   "},
+        {"narrativeText": 42},
+        {"suggestedActions": []},
+        {"suggestedActions": "Walk up"},
+        {"suggestedActions": ["Walk up", "  "]},
+        {"locationLabel": ""},
+        {"locationLabel": None},
+        {"goalLabel": 7},
+        {"progress": {"current": 1}},
+        {"progress": {"current": 1, "total": "five"}},
+        {"progress": {"current": 1, "total": 5, "extra": 2}},
+        {"progress": []},
+    ],
+)
+def test_starting_point_rejects_content_it_could_not_render(overrides):
+    """It is replayed verbatim as turn 0 with nothing left to repair it, so blank text, a
+    bare string where a list belongs, or a progress pair the bar can't read is refused
+    here — the one place both a generation call and an uploaded file pass through
+    (Copilot review, PR #279)."""
+    fields = dict(narrativeText="Fog rolls off the cove.", suggestedActions=["Walk up"], locationLabel="Cove path")
+    fields.update(overrides)
+
+    with pytest.raises(ValueError):
+        StartingPoint(**fields)
+
+
+def test_starting_point_trims_its_text_and_drops_a_blank_goal_label():
+    starting_point = StartingPoint(
+        narrativeText="  Fog rolls off the cove.  ",
+        suggestedActions=["  Walk up  "],
+        locationLabel=" Cove path ",
+        goalLabel="   ",
+    )
+
+    assert starting_point.narrativeText == "Fog rolls off the cove."
+    assert starting_point.suggestedActions == ["Walk up"]
+    assert starting_point.locationLabel == "Cove path"
+    assert starting_point.goalLabel is None
+
+
+def test_story_round_trips_its_starting_point():
+    story = Story(
+        id="story-1",
+        worldPrompt="A half-abandoned lighthouse...",
+        characterTypes=[CharacterType(name="Curious Cousin")],
+        completionCriteria=_completion_criteria(),
+        narrativeGuidance="Keep it eerie but never actually dangerous.",
+        startingPoint=StartingPoint(
+            narrativeText="Fog rolls off the cove.", suggestedActions=["Walk up"], locationLabel="Cove path"
+        ),
+        createdBy="oid-1",
+        createdAt="2026-08-29T20:04:00Z",
+        contentUpdatedAt="2026-08-29T20:04:00Z",
+    )
+
+    assert Story.from_dict(story.to_dict()) == story
+
+
+def test_story_reads_a_row_persisted_before_starting_point_existed():
+    """Mirrors the contentUpdatedAt precedent above: such a row loads with
+    `startingPoint = None` and is backfilled on its next session start."""
+    data = {
+        "id": "story-1",
+        "worldPrompt": "A half-abandoned lighthouse...",
+        "characterTypes": [{"name": "Curious Cousin", "description": None}],
+        "completionCriteria": {"successConditions": ["Find the keeper"], "maxDurationMinutes": None, "failureConditions": [], "rule": None},
+        "narrativeGuidance": "Keep it eerie but never actually dangerous.",
+        "createdBy": "oid-1",
+        "createdAt": "2026-08-29T20:04:00Z",
+    }
+
+    assert Story.from_dict(data).startingPoint is None
+
+
+def test_story_round_trips_and_filters_admin_edited_fields():
+    """A row persisted before this field existed reads as `[]`; an unrecognised name in a
+    stored row is dropped rather than trusted."""
+    story = Story(
+        id="story-1",
+        worldPrompt="A half-abandoned lighthouse...",
+        characterTypes=[CharacterType(name="Curious Cousin")],
+        completionCriteria=_completion_criteria(),
+        narrativeGuidance="Keep it eerie but never actually dangerous.",
+        createdBy="oid-1",
+        createdAt="2026-08-29T20:04:00Z",
+        contentUpdatedAt="2026-08-29T20:04:00Z",
+        adminEditedFields=["narrativeGuidance"],
+    )
+
+    assert Story.from_dict(story.to_dict()).adminEditedFields == ["narrativeGuidance"]
+
+    data = story.to_dict()
+    del data["adminEditedFields"]
+    assert Story.from_dict(data).adminEditedFields == []
+
+    data["adminEditedFields"] = ["narrativeGuidance", "published"]
+    assert Story.from_dict(data).adminEditedFields == ["narrativeGuidance"]
 
 
 def test_story_round_trips_content_version_and_last_updated_by():

@@ -15,7 +15,7 @@ from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosReso
 
 from backend.config import config
 from backend.models.play_session import CheckpointMarker, PlayerInteraction, PlaySession
-from backend.models.story import CharacterType, CompletionCriteria, Story
+from backend.models.story import CharacterType, CompletionCriteria, StartingPoint, Story
 from backend.services.llm_service import LLMContentFilteredError, LLMRateLimitError, LLMService
 from backend.services.play_session_service import (
     AdventureNotFoundError,
@@ -35,6 +35,7 @@ from backend.services.play_session_service import (
     StoryUnpublishedError,
 )
 from backend.services.player_content_safety_standing_service import PlayerContentSafetyStandingService
+from backend.services.story_service import StoryService
 
 PLAYER_ID = "oid-1"
 OTHER_PLAYER_ID = "oid-2"
@@ -140,15 +141,11 @@ def _minutes_ago(minutes: float) -> str:
     )
 
 
-OPENING_TURN_DATA = {
-    "narrativeText": "The lighthouse door creaks open.",
-    "suggestedActions": ["look around", "step inside"],
-    "locationLabel": "Lighthouse entrance",
-    "goalLabel": None,
-    "progress": None,
-    "newlySatisfiedSuccessConditions": [],
-    "newlySatisfiedFailureConditions": [],
-}
+STARTING_POINT = StartingPoint(
+    narrativeText="The lighthouse door creaks open.",
+    suggestedActions=["look around", "step inside"],
+    locationLabel="Lighthouse entrance",
+)
 
 
 def _turn_data(text="You look around.", success=None, failure=None) -> dict:
@@ -169,6 +166,7 @@ def _story(
     rule=None,
     max_duration_minutes=None,
     published=True,
+    starting_point=STARTING_POINT,
 ) -> Story:
     return Story(
         id=str(uuid.uuid4()),
@@ -182,6 +180,7 @@ def _story(
             maxDurationMinutes=max_duration_minutes,
         ),
         narrativeGuidance="Keep it eerie but safe.",
+        startingPoint=starting_point,
         createdBy="admin-oid",
         createdAt="2026-09-05T00:00:00Z",
         contentUpdatedAt="2026-09-05T00:00:00Z",
@@ -189,17 +188,24 @@ def _story(
     )
 
 
-def _make_service(story: Story, llm_turn_data=OPENING_TURN_DATA, safety: PlayerContentSafetyStandingService | None = None):
+def _make_service(story: Story, llm_turn_data=None, safety: PlayerContentSafetyStandingService | None = None):
     cosmos = FakeCosmosService()
     cosmos.get_container(config.STORIES_CONTAINER).upsert_item(story.to_dict())
     llm = MagicMock()
     if isinstance(llm_turn_data, list):
         llm.generate_gameplay_turn.side_effect = llm_turn_data
     else:
-        llm.generate_gameplay_turn.return_value = llm_turn_data
+        llm.generate_gameplay_turn.return_value = llm_turn_data if llm_turn_data is not None else _turn_data()
+    llm.generate_starting_point.return_value = STARTING_POINT.to_dict()
     llm.summarize_session_history.return_value = "Condensed summary."
     safety = safety or PlayerContentSafetyStandingService(cosmos_service=cosmos)
-    service = PlaySessionService(cosmos_service=cosmos, llm_service=llm, player_content_safety_standing_service=safety)
+    stories = StoryService(cosmos_service=cosmos, llm_service=llm)
+    service = PlaySessionService(
+        cosmos_service=cosmos,
+        story_service=stories,
+        llm_service=llm,
+        player_content_safety_standing_service=safety,
+    )
     return service, cosmos, llm, safety
 
 
@@ -258,10 +264,44 @@ def test_create_session_valid_setup_persists_active_session_with_opening_turn():
     assert session.status == "active"
     assert len(session.turns) == 1
     assert session.turns[0].turnNumber == 0
-    assert session.turns[0].narrativeText == OPENING_TURN_DATA["narrativeText"]
+    assert session.turns[0].narrativeText == STARTING_POINT.narrativeText
+    assert session.turns[0].suggestedActions == STARTING_POINT.suggestedActions
+    assert session.turns[0].locationLabel == STARTING_POINT.locationLabel
     stored = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items[session.id]
     assert stored["status"] == "active"
-    llm.generate_gameplay_turn.assert_called_once()
+
+
+def test_create_session_replays_the_persisted_opening_without_any_llm_call():
+    """#271: turn 0 is the story's fixed starting point, identical for every player."""
+    story = _story()
+    service, cosmos, llm, _safety = _make_service(story)
+
+    first = service.create_session(story.id, "Wren", "Curious Cousin", PLAYER_ID)
+    _clear_creation_rate_limit(cosmos)
+    second = service.create_session(story.id, "Ash", "Detective", PLAYER_ID)
+
+    assert first.turns[0].narrativeText == second.turns[0].narrativeText == STARTING_POINT.narrativeText
+    llm.generate_gameplay_turn.assert_not_called()
+    llm.generate_starting_point.assert_not_called()
+
+
+def test_create_session_backfills_a_story_persisted_without_a_starting_point():
+    """A Story written before `startingPoint` existed generates one on its first session
+    and persists it, so every later session replays the same opening (#271)."""
+    story = _story(starting_point=None)
+    service, cosmos, llm, _safety = _make_service(story)
+
+    session = service.create_session(story.id, "Wren", "Curious Cousin", PLAYER_ID)
+
+    assert session.turns[0].narrativeText == STARTING_POINT.narrativeText
+    llm.generate_starting_point.assert_called_once()
+    stored_story = cosmos.get_container(config.STORIES_CONTAINER).items[story.id]
+    assert stored_story["startingPoint"]["narrativeText"] == STARTING_POINT.narrativeText
+
+    _clear_creation_rate_limit(cosmos)
+    service.create_session(story.id, "Ash", "Detective", PLAYER_ID)
+
+    llm.generate_starting_point.assert_called_once()
 
 
 def test_create_session_unpublished_adventure_raises_not_found():
@@ -679,8 +719,7 @@ def test_duration_reached_takes_priority_over_success_failure_on_same_turn():
 
 def test_opening_turn_never_evaluates_completion_conditions():
     story = _story(success_conditions=["The lighthouse door creaks open."])
-    opening_matching_condition = dict(OPENING_TURN_DATA)
-    service, cosmos, _llm, _safety = _make_service(story, llm_turn_data=opening_matching_condition)
+    service, cosmos, _llm, _safety = _make_service(story)
 
     session = service.create_session(story.id, "Wren", "Curious Cousin", PLAYER_ID)
 
@@ -698,15 +737,33 @@ def test_create_session_blank_adventure_id_is_a_field_error_not_a_404():
         service.create_session("", "Wren", "Curious Cousin", PLAYER_ID)
 
     assert "adventureId" in exc_info.value.fields
-    llm.generate_gameplay_turn.assert_not_called()
+    llm.generate_starting_point.assert_not_called()
 
 
-def test_create_session_content_filtered_opening_is_narrative_unavailable_not_a_strike():
-    """The opening call has no player input, so a filtered opening narrative is the
-    adventure's own content — it must not count against the player (FR-013)."""
-    story = _story()
+def test_create_session_reports_not_found_when_the_story_is_deleted_mid_backfill():
+    """The adventure can be deleted between the published check and the backfill write;
+    that is a 404, not a 500 (Copilot review, PR #279)."""
+    story = _story(starting_point=None)
+    service, cosmos, llm, _safety = _make_service(story)
+
+    def _delete_then_generate(*args, **kwargs):  # noqa: ARG001
+        del cosmos.get_container(config.STORIES_CONTAINER).items[story.id]
+        return STARTING_POINT.to_dict()
+
+    llm.generate_starting_point.side_effect = _delete_then_generate
+
+    with pytest.raises(AdventureNotFoundError):
+        service.create_session(story.id, "Wren", "Curious Cousin", PLAYER_ID)
+
+    assert cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items == {}
+
+
+def test_create_session_content_filtered_backfill_is_narrative_unavailable_not_a_strike():
+    """A backfilled opening scene has no player input, so a filtered one is the adventure's
+    own content — it must not count against the player (FR-013)."""
+    story = _story(starting_point=None)
     service, _cosmos, llm, safety = _make_service(story)
-    llm.generate_gameplay_turn.side_effect = LLMContentFilteredError("blocked")
+    llm.generate_starting_point.side_effect = LLMContentFilteredError("blocked")
 
     with pytest.raises(NarrativeUnavailableError):
         service.create_session(story.id, "Wren", "Curious Cousin", PLAYER_ID)
@@ -863,7 +920,7 @@ def test_writes_never_send_cosmos_system_metadata_back_as_document_fields():
 
     # ...and creating a second session exercises the deactivation write.
     llm.generate_gameplay_turn.side_effect = None
-    llm.generate_gameplay_turn.return_value = OPENING_TURN_DATA
+    llm.generate_gameplay_turn.return_value = _turn_data()
     _clear_creation_rate_limit(cosmos)
     service.create_session(story.id, "Ash", "Detective", PLAYER_ID)
 

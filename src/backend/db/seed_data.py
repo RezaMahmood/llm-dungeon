@@ -19,7 +19,7 @@ from azure.cosmos import PartitionKey
 
 from backend.config import config
 from backend.models.provisioned_account_entry import ProvisionedAccountEntry
-from backend.models.story import CharacterType, CompletionCriteria, Story
+from backend.models.story import CharacterType, CompletionCriteria, StartingPoint, Story
 from backend.services.cosmos_service import CosmosService
 
 TEST_USERS = [
@@ -72,6 +72,12 @@ def seed_stories(cosmos: CosmosService | None = None) -> list[str]:
         characterTypes=[CharacterType(name="Caretaker")],
         completionCriteria=CompletionCriteria(successConditions=["Find the ninth door"], maxDurationMinutes=1),
         narrativeGuidance="Keep it eerie but never actually dangerous.",
+        startingPoint=StartingPoint(
+            narrativeText="The hall's one working clock ticks somewhere above you, and every other room is silent.",
+            suggestedActions=["Follow the ticking upstairs", "Try the nearest door"],
+            locationLabel="Mudlark Hall entrance",
+            goalLabel="Find the ninth door",
+        ),
         createdBy="seed_data.py",
         createdAt=created_at,
         contentUpdatedAt=created_at,
@@ -90,6 +96,12 @@ def seed_stories(cosmos: CosmosService | None = None) -> list[str]:
             rule="any",
         ),
         narrativeGuidance="Keep it eerie but never actually dangerous.",
+        startingPoint=StartingPoint(
+            narrativeText="Fog rolls off the cove, and the lighthouse stands dark at the end of the path.",
+            suggestedActions=["Walk up to the lighthouse", "Search the shoreline"],
+            locationLabel="Gullwing Cove path",
+            goalLabel="Light the lamp",
+        ),
         createdBy="seed_data.py",
         createdAt=created_at,
         contentUpdatedAt=created_at,

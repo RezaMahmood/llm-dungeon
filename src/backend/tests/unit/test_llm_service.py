@@ -23,7 +23,7 @@ from backend.services.llm_service import (
     LLMService,
     _GameplayTurnResponse,
     _GenerationResponse,
-    _OpeningNarrativeResponse,
+    _StartingPointResponse,
     _SummaryResponse,
     _WorldPromptResponse,
 )
@@ -224,18 +224,55 @@ def _session(turns=None, summary=None, summarized_through=0) -> PlaySession:
     )
 
 
-def test_generate_gameplay_turn_opening_call_has_no_completion_fields():
+def test_generate_starting_point_returns_the_opening_scene_and_carries_the_guidance():
     response = _mock_response(
-        json.dumps({"narrativeText": "The door creaks.", "suggestedActions": ["look", "listen"], "locationLabel": "Entrance"}),
-        _OpeningNarrativeResponse,
+        json.dumps(
+            {
+                "narrativeText": "The door creaks.",
+                "suggestedActions": ["look", "listen"],
+                "locationLabel": "Entrance",
+            }
+        ),
+        _StartingPointResponse,
     )
     service = _service_with_response(response)
 
-    result = service.generate_gameplay_turn(_story(), _session(), None)
+    result = service.generate_starting_point({"worldPrompt": "A lighthouse..."}, "Keep it eerie but safe.")
 
     assert result["narrativeText"] == "The door creaks."
-    assert result["newlySatisfiedSuccessConditions"] == []
-    assert result["newlySatisfiedFailureConditions"] == []
+    assert result["suggestedActions"] == ["look", "listen"]
+    prompt = service.client.get_response.call_args[0][0][1].contents[0].text
+    assert "Keep it eerie but safe." in prompt
+    assert "A lighthouse..." in prompt
+
+
+def test_generate_starting_point_has_no_completion_condition_fields():
+    """#271: the opening scene is generated before any player has acted, so its schema
+    structurally cannot report a satisfied success/failure condition."""
+    assert "newlySatisfiedSuccessConditions" not in _StartingPointResponse.model_fields
+    assert "newlySatisfiedFailureConditions" not in _StartingPointResponse.model_fields
+
+
+def test_generate_starting_point_is_traced_under_its_own_span():
+    response = _mock_response(
+        json.dumps({"narrativeText": "The door creaks.", "suggestedActions": ["a", "b"], "locationLabel": "Here"}),
+        _StartingPointResponse,
+    )
+    service = _service_with_response(response)
+    tracer = MagicMock()
+
+    with patch("backend.services.llm_service.tracer", tracer):
+        service.generate_starting_point({"worldPrompt": "A lighthouse..."}, "Keep it eerie.")
+
+    tracer.start_as_current_span.assert_called_once_with("gen_ai.story_creation.starting_point")
+
+
+def test_generate_starting_point_rejects_malformed_output():
+    response = _mock_response(json.dumps({"nope": True}), _StartingPointResponse)
+    service = _service_with_response(response)
+
+    with pytest.raises(LLMOutputError):
+        service.generate_starting_point({}, "Keep it eerie.")
 
 
 def test_generate_gameplay_turn_subsequent_call_uses_full_history():
@@ -289,11 +326,11 @@ def test_generate_gameplay_turn_uses_summary_and_post_summary_turns_only():
 
 
 def test_generate_gameplay_turn_schema_validation_failure_raises_llm_output_error():
-    response = _mock_response(json.dumps({"nope": True}), _OpeningNarrativeResponse)
+    response = _mock_response(json.dumps({"nope": True}), _GameplayTurnResponse)
     service = _service_with_response(response)
 
     with pytest.raises(LLMOutputError):
-        service.generate_gameplay_turn(_story(), _session(), None)
+        service.generate_gameplay_turn(_story(), _session(), "look")
 
 
 def test_generate_gameplay_turn_rate_limit_raises_llm_rate_limit_error():
@@ -319,12 +356,12 @@ def test_generate_gameplay_turn_over_150_words_is_logged_not_truncated(caplog):
     long_text = " ".join(["word"] * 200)
     response = _mock_response(
         json.dumps({"narrativeText": long_text, "suggestedActions": ["a", "b"], "locationLabel": "Here"}),
-        _OpeningNarrativeResponse,
+        _GameplayTurnResponse,
     )
     service = _service_with_response(response)
 
     with caplog.at_level("WARNING"):
-        result = service.generate_gameplay_turn(_story(), _session(), None)
+        result = service.generate_gameplay_turn(_story(), _session(), "look")
 
     assert result["narrativeText"] == long_text
     assert any("exceeded" in message for message in caplog.messages)
@@ -357,7 +394,7 @@ def test_generate_gameplay_turn_populates_span_attributes_like_existing_calls():
     attributes_from_usage` above."""
     response = _mock_response(
         json.dumps({"narrativeText": "The door creaks.", "suggestedActions": ["a", "b"], "locationLabel": "Here"}),
-        _OpeningNarrativeResponse,
+        _GameplayTurnResponse,
     )
     service = _service_with_response(response)
 
@@ -366,7 +403,7 @@ def test_generate_gameplay_turn_populates_span_attributes_like_existing_calls():
     tracer.start_as_current_span.return_value.__enter__.return_value = span
 
     with patch("backend.services.llm_service.tracer", tracer):
-        service.generate_gameplay_turn(_story(), _session(), None)
+        service.generate_gameplay_turn(_story(), _session(), "look")
 
     tracer.start_as_current_span.assert_called_once_with("gen_ai.gameplay.turn")
     attribute_keys = {call.args[0] for call in span.set_attribute.call_args_list}

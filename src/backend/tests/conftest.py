@@ -8,7 +8,7 @@ import azure.functions as func
 import pytest
 from opentelemetry import trace
 
-from backend.models.story import CharacterType, CompletionCriteria, Story
+from backend.models.story import CharacterType, CompletionCriteria, StartingPoint, Story
 from opentelemetry._logs import set_logger_provider
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.sdk._logs import LoggerProvider
@@ -66,6 +66,23 @@ def request_factory():
     return make_request
 
 
+def _make_starting_point(**overrides) -> StartingPoint:
+    """Builds a valid `StartingPoint` — the story's fixed opening scene (#271)."""
+    defaults = dict(
+        narrativeText="Fog rolls off the cove, and the lighthouse stands dark.",
+        suggestedActions=["Walk to the lighthouse", "Search the shoreline"],
+        locationLabel="Gullwing Cove path",
+        goalLabel="Find the keeper",
+    )
+    defaults.update(overrides)
+    return StartingPoint(**defaults)
+
+
+@pytest.fixture
+def _starting_point():
+    return _make_starting_point
+
+
 def _make_story(**overrides) -> Story:
     """Builds a valid `Story` for tests, with sensible defaults for every required field.
     Promoted from test_story_service.py's local `_story(**overrides)` helper so every test
@@ -76,6 +93,7 @@ def _make_story(**overrides) -> Story:
         characterTypes=[CharacterType(name="Curious Cousin")],
         completionCriteria=CompletionCriteria(successConditions=["Find the keeper"]),
         narrativeGuidance="Keep it eerie but safe.",
+        startingPoint=_make_starting_point(),
         createdBy="admin-oid",
         createdAt="2026-08-30T00:00:00Z",
         contentUpdatedAt="2026-08-30T00:00:00Z",

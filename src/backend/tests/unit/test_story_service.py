@@ -10,15 +10,19 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 from backend.models.story import CharacterType, CompletionCriteria, Story
 from backend.models.story_draft import StoryDraft
+from backend.services.llm_service import LLMContentFilteredError, LLMOutputError
 from backend.services.story_service import (
     PUBLISH_GATE_NOT_SATISFIED,
     ConfirmationRequiredError,
+    ContentGenerationFailedError,
+    DerivedContent,
     StaleStoryError,
     StoryNotFoundError,
     StoryService,
     TitleRequiredError,
     WriteConflictError,
 )
+from backend.tests.conftest import _make_starting_point as _starting_point
 from backend.tests.conftest import _make_story as _story
 
 
@@ -37,7 +41,7 @@ def test_create_story_defaults_to_unpublished():
     cosmos = MagicMock()
     service = StoryService(cosmos_service=cosmos)
 
-    story = service.create_story(_draft(), "Keep it eerie but safe.")
+    story = service.create_story(_draft(), "Keep it eerie but safe.", _starting_point())
 
     assert story.published is False
     assert story.contentUpdatedAt == story.createdAt
@@ -77,7 +81,7 @@ def test_list_summaries_returns_summary_shape_only():
 def test_get_story_returns_full_config_including_narrative_guidance():
     cosmos = MagicMock()
     service = StoryService(cosmos_service=cosmos)
-    story = service.create_story(_draft(), "Keep it eerie but safe.")
+    story = service.create_story(_draft(), "Keep it eerie but safe.", _starting_point())
     cosmos.get_container.return_value.read_item.return_value = story.to_dict()
 
     fetched = service.get_story(story.id)
@@ -374,11 +378,25 @@ def _configuration(**overrides):
     return StoryConfiguration(**defaults)
 
 
+def _derived(narrative_guidance="New guidance.", starting_point=None, admin_edited=None) -> DerivedContent:
+    return DerivedContent(
+        narrativeGuidance=narrative_guidance,
+        startingPoint=starting_point or _starting_point(),
+        adminEditedFields=admin_edited or [],
+    )
+
+
+def _generating_llm() -> MagicMock:
+    llm = MagicMock()
+    llm.generate_story_config.return_value = {"narrativeGuidance": "Fresh guidance."}
+    llm.generate_starting_point.return_value = _starting_point(narrativeText="A fresh opening.").to_dict()
+    return llm
+
+
 def _service_with_etag(story: Story):
     cosmos = _EtagCosmosService()
     cosmos.get_container("stories").upsert_item(story.to_dict())
-    llm = MagicMock()
-    llm.generate_story_config.return_value = {"narrativeGuidance": "Fresh guidance."}
+    llm = _generating_llm()
     service = StoryService(cosmos_service=cosmos, llm_service=llm)
     return service, cosmos, llm
 
@@ -397,7 +415,7 @@ def test_apply_content_write_preserves_identity_and_publish_fields_and_stamps_au
     service, _cosmos, _llm = _service_with_etag(story)
     configuration = _configuration(name="Renamed")
 
-    updated = service.apply_content_write(story, configuration, "admin-oid", "New guidance.")
+    updated = service.apply_content_write(story, configuration, "admin-oid", _derived("New guidance."))
 
     assert updated.id == story.id
     assert updated.createdBy == "creator-oid"
@@ -419,7 +437,7 @@ def test_apply_content_write_regresses_can_publish_for_a_published_story():
     )
     service, _cosmos, _llm = _service_with_etag(story)
 
-    updated = service.apply_content_write(story, _configuration(), "admin-oid", "New guidance.")
+    updated = service.apply_content_write(story, _configuration(), "admin-oid", _derived("New guidance."))
 
     assert updated.published is True
     assert service.can_publish(updated) is False
@@ -434,7 +452,7 @@ def test_apply_content_write_retries_when_only_publish_changed_concurrently():
     concurrent = _story(id="story-1", contentVersion=3, published=True, lastPublishedAt="2026-08-30T09:05:00Z")
     cosmos.get_container("stories").upsert_item(concurrent.to_dict())
 
-    updated = service.apply_content_write(story, _configuration(), "admin-oid", "New guidance.")
+    updated = service.apply_content_write(story, _configuration(), "admin-oid", _derived("New guidance."))
 
     assert updated.published is True
     assert updated.lastPublishedAt == "2026-08-30T09:05:00Z"
@@ -449,7 +467,7 @@ def test_apply_content_write_raises_stale_story_when_content_version_changed():
     cosmos.get_container("stories").upsert_item(concurrent.to_dict())
 
     with pytest.raises(StaleStoryError):
-        service.apply_content_write(story, _configuration(), "admin-oid", "New guidance.")
+        service.apply_content_write(story, _configuration(), "admin-oid", _derived("New guidance."))
 
     # Nothing was written for the rejected attempt.
     assert cosmos.get_container("stories").items["story-1"]["contentVersion"] == 4
@@ -463,7 +481,7 @@ def test_apply_content_write_is_exempt_from_staleness_for_import():
     cosmos.get_container("stories").upsert_item(concurrent.to_dict())
 
     updated = service.apply_content_write(
-        story, _configuration(), "admin-oid", "New guidance.", exempt_from_staleness=True
+        story, _configuration(), "admin-oid", _derived("New guidance."), exempt_from_staleness=True
     )
 
     assert updated.contentVersion == 5
@@ -478,14 +496,12 @@ def test_apply_content_write_raises_write_conflict_after_a_second_precondition_f
     container.replace_item = MagicMock(side_effect=CosmosAccessConditionFailedError)
 
     with pytest.raises(WriteConflictError):
-        service.apply_content_write(story, _configuration(), "admin-oid", "New guidance.")
+        service.apply_content_write(story, _configuration(), "admin-oid", _derived("New guidance."))
 
 
 def test_import_configuration_creates_new_unpublished_story_when_id_absent():
     cosmos = _EtagCosmosService()
-    llm = MagicMock()
-    llm.generate_story_config.return_value = {"narrativeGuidance": "Fresh guidance."}
-    service = StoryService(cosmos_service=cosmos, llm_service=llm)
+    service = StoryService(cosmos_service=cosmos, llm_service=_generating_llm())
 
     outcome, story = service.import_configuration(
         _configuration(), admin_oid="admin-oid", confirm_overwrite_story_id=None, title="A New Tale"
@@ -584,3 +600,251 @@ def test_deleting_an_already_deleted_story_returns_false():
     cosmos.get_container.return_value.delete_item.side_effect = CosmosResourceNotFoundError
 
     assert service.delete_story("story-1") is False
+
+
+# --- Derived content: narrativeGuidance + startingPoint (#270, #271) ---
+
+
+def test_derived_content_generates_both_when_the_configuration_supplies_neither():
+    llm = _generating_llm()
+    service = StoryService(cosmos_service=_EtagCosmosService(), llm_service=llm)
+
+    derived = service.derived_content(_configuration(), "The Sunken Library")
+
+    assert derived.narrativeGuidance == "Fresh guidance."
+    assert derived.startingPoint.narrativeText == "A fresh opening."
+    assert derived.adminEditedFields == []
+    # The opening scene is anchored to the guidance generated alongside it.
+    assert llm.generate_starting_point.call_args[0][1] == "Fresh guidance."
+
+
+def test_derived_content_keeps_admin_authored_guidance_and_starting_point_verbatim():
+    """Both are authored, editable content in the configuration file — a value the file
+    carries is never overwritten by a regeneration (#270, #271)."""
+    llm = _generating_llm()
+    service = StoryService(cosmos_service=_EtagCosmosService(), llm_service=llm)
+    configuration = _configuration(
+        narrativeGuidance="Hand-edited guidance.",
+        startingPoint=_starting_point(narrativeText="Hand-edited opening."),
+    )
+
+    derived = service.derived_content(configuration, "The Sunken Library")
+
+    assert derived.narrativeGuidance == "Hand-edited guidance."
+    assert derived.startingPoint.narrativeText == "Hand-edited opening."
+    assert derived.adminEditedFields == ["narrativeGuidance", "startingPoint"]
+    llm.generate_story_config.assert_not_called()
+    llm.generate_starting_point.assert_not_called()
+
+
+def test_derived_content_generates_an_opening_scene_for_hand_written_guidance():
+    llm = _generating_llm()
+    service = StoryService(cosmos_service=_EtagCosmosService(), llm_service=llm)
+
+    derived = service.derived_content(
+        _configuration(narrativeGuidance="Hand-edited guidance."), "The Sunken Library"
+    )
+
+    assert derived.startingPoint.narrativeText == "A fresh opening."
+    assert derived.adminEditedFields == ["narrativeGuidance"]
+    assert llm.generate_starting_point.call_args[0][1] == "Hand-edited guidance."
+
+
+# --- ensure_starting_point: backfill for pre-#271 rows ---
+
+
+def test_ensure_starting_point_returns_a_story_that_already_has_one_untouched():
+    story = _story(startingPoint=_starting_point(narrativeText="The persisted opening."))
+    service, _cosmos, llm = _service_with_etag(story)
+
+    assert service.ensure_starting_point(story).startingPoint.narrativeText == "The persisted opening."
+    llm.generate_starting_point.assert_not_called()
+
+
+def test_ensure_starting_point_generates_and_persists_one_for_a_legacy_story():
+    story = _story(id="story-1", startingPoint=None)
+    service, cosmos, llm = _service_with_etag(story)
+
+    updated = service.ensure_starting_point(story)
+
+    assert updated.startingPoint.narrativeText == "A fresh opening."
+    stored = cosmos.get_container("stories").items["story-1"]
+    assert stored["startingPoint"]["narrativeText"] == "A fresh opening."
+    # Generated from the story's own already-persisted guidance, not a fresh one.
+    llm.generate_story_config.assert_not_called()
+    assert llm.generate_starting_point.call_args[0][1] == story.narrativeGuidance
+
+
+def test_ensure_starting_point_yields_to_a_backfill_that_landed_first():
+    story = _story(id="story-1", startingPoint=None)
+    service, cosmos, llm = _service_with_etag(story)
+    winner = _story(id="story-1", startingPoint=_starting_point(narrativeText="The winning opening."))
+    cosmos.get_container("stories").upsert_item(winner.to_dict())
+
+    updated = service.ensure_starting_point(story)
+
+    assert updated.startingPoint.narrativeText == "The winning opening."
+    assert cosmos.get_container("stories").items["story-1"]["startingPoint"]["narrativeText"] == "The winning opening."
+
+
+def test_ensure_starting_point_adopts_the_winners_opening_when_the_write_loses_its_race():
+    """Two first sessions racing must still converge on one turn 0 for the story
+    (Copilot review, PR #279)."""
+    from azure.cosmos.exceptions import CosmosAccessConditionFailedError
+
+    story = _story(id="story-1", startingPoint=None)
+    service, cosmos, _llm = _service_with_etag(story)
+    container = cosmos.get_container("stories")
+
+    def _lose_the_race(*args, **kwargs):  # noqa: ARG001
+        winner = _story(id="story-1", startingPoint=_starting_point(narrativeText="The winning opening."))
+        container.items["story-1"] = winner.to_dict() | {"_etag": "etag-winner"}
+        raise CosmosAccessConditionFailedError
+
+    container.replace_item = _lose_the_race
+
+    assert service.ensure_starting_point(story).startingPoint.narrativeText == "The winning opening."
+
+
+def test_ensure_starting_point_keeps_its_own_opening_when_the_race_winner_wrote_none():
+    from azure.cosmos.exceptions import CosmosAccessConditionFailedError
+
+    story = _story(id="story-1", startingPoint=None)
+    service, cosmos, _llm = _service_with_etag(story)
+    cosmos.get_container("stories").replace_item = MagicMock(side_effect=CosmosAccessConditionFailedError)
+
+    assert service.ensure_starting_point(story).startingPoint.narrativeText == "A fresh opening."
+
+
+@pytest.mark.parametrize("failure", [LLMContentFilteredError("blocked"), LLMOutputError("bad json")])
+def test_generating_content_maps_a_failed_call_to_generation_failed(failure):
+    """A content-filtered generation is a failed generation like any other on an admin
+    write — never an unhandled 500 (Copilot review, PR #279)."""
+    llm = _generating_llm()
+    llm.generate_starting_point.side_effect = failure
+    service = StoryService(cosmos_service=_EtagCosmosService(), llm_service=llm)
+
+    with pytest.raises(ContentGenerationFailedError):
+        service.derived_content(_configuration(), "The Sunken Library")
+
+    llm.generate_story_config.side_effect = failure
+    with pytest.raises(ContentGenerationFailedError):
+        service.derived_content(_configuration(), "The Sunken Library")
+
+
+def test_ensure_starting_point_raises_not_found_when_the_story_is_deleted_before_the_write():
+    """Deleted between the read and the replace: the same not-found the story's own
+    absence produces, not a 500 (Copilot review, PR #279)."""
+    story = _story(id="story-1", startingPoint=None)
+    service, cosmos, _llm = _service_with_etag(story)
+    cosmos.get_container("stories").replace_item = MagicMock(side_effect=CosmosResourceNotFoundError)
+
+    with pytest.raises(StoryNotFoundError):
+        service.ensure_starting_point(story)
+
+
+def test_ensure_starting_point_raises_not_found_when_the_race_winner_deleted_the_story():
+    from azure.cosmos.exceptions import CosmosAccessConditionFailedError
+
+    story = _story(id="story-1", startingPoint=None)
+    service, cosmos, _llm = _service_with_etag(story)
+    container = cosmos.get_container("stories")
+
+    def _delete_and_lose(*args, **kwargs):  # noqa: ARG001
+        del container.items["story-1"]
+        raise CosmosAccessConditionFailedError
+
+    container.replace_item = _delete_and_lose
+
+    with pytest.raises(StoryNotFoundError):
+        service.ensure_starting_point(story)
+
+
+def test_ensure_starting_point_raises_not_found_for_a_deleted_story():
+    story = _story(id="story-1", startingPoint=None)
+    service, cosmos, _llm = _service_with_etag(story)
+    del cosmos.get_container("stories").items["story-1"]
+
+    with pytest.raises(StoryNotFoundError):
+        service.ensure_starting_point(story)
+
+
+# --- Hand-edited derived content survives a later write (user review, PR #279) ---
+
+
+def test_derived_content_marks_a_supplied_value_that_differs_as_hand_edited():
+    story = _story(narrativeGuidance="Generated guidance.")
+    service, _cosmos, _llm = _service_with_etag(story)
+
+    derived = service.derived_content(
+        _configuration(id="story-1", narrativeGuidance="Hand-edited guidance."), "The Sunken Library", existing=story
+    )
+
+    assert derived.adminEditedFields == ["narrativeGuidance"]
+
+
+def test_derived_content_does_not_mark_an_untouched_round_trip_of_a_generated_value():
+    """Downloading and re-uploading a file without touching it must not freeze the
+    generated guidance — nothing was hand-edited."""
+    story = _story(narrativeGuidance="Generated guidance.", startingPoint=_starting_point())
+    service, _cosmos, _llm = _service_with_etag(story)
+
+    derived = service.derived_content(
+        _configuration(
+            id="story-1", narrativeGuidance="Generated guidance.", startingPoint=_starting_point()
+        ),
+        "The Sunken Library",
+        existing=story,
+    )
+
+    assert derived.adminEditedFields == []
+
+
+def test_derived_content_keeps_the_hand_edited_mark_when_the_same_value_is_resubmitted():
+    story = _story(narrativeGuidance="Hand-edited guidance.", adminEditedFields=["narrativeGuidance"])
+    service, _cosmos, _llm = _service_with_etag(story)
+
+    derived = service.derived_content(
+        _configuration(id="story-1", narrativeGuidance="Hand-edited guidance."), "The Sunken Library", existing=story
+    )
+
+    assert derived.adminEditedFields == ["narrativeGuidance"]
+
+
+def test_derived_content_clears_the_hand_edited_mark_when_the_file_omits_the_field():
+    """Deleting the key from the file is how an administrator asks for a fresh
+    generation, so it also gives ownership of the field back to the system."""
+    story = _story(narrativeGuidance="Hand-edited guidance.", adminEditedFields=["narrativeGuidance"])
+    service, _cosmos, _llm = _service_with_etag(story)
+
+    derived = service.derived_content(_configuration(id="story-1"), "The Sunken Library", existing=story)
+
+    assert derived.narrativeGuidance == "Fresh guidance."
+    assert derived.adminEditedFields == []
+
+
+def test_carry_admin_edits_seeds_only_the_hand_edited_fields():
+    story = _story(
+        narrativeGuidance="Hand-edited guidance.",
+        startingPoint=_starting_point(narrativeText="Generated opening."),
+        adminEditedFields=["narrativeGuidance"],
+    )
+    service, _cosmos, _llm = _service_with_etag(story)
+    configuration = _configuration()
+
+    service.carry_admin_edits(story, configuration)
+
+    assert configuration.narrativeGuidance == "Hand-edited guidance."
+    assert configuration.startingPoint is None
+
+
+def test_apply_content_write_persists_which_fields_were_hand_edited():
+    story = _story(id="story-1")
+    service, cosmos, _llm = _service_with_etag(story)
+
+    updated = service.apply_content_write(
+        story, _configuration(), "admin-oid", _derived(admin_edited=["startingPoint"])
+    )
+
+    assert updated.adminEditedFields == ["startingPoint"]
+    assert cosmos.get_container("stories").items["story-1"]["adminEditedFields"] == ["startingPoint"]

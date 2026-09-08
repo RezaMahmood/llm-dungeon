@@ -12,7 +12,7 @@ from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosReso
 from backend.api.admin.stories import get_story_configuration, import_story
 from backend.api.utils import forbidden_insufficient_permission, unauthorized
 from backend.services.story_service import StoryService
-from backend.tests.conftest import _make_story
+from backend.tests.conftest import _make_starting_point, _make_story
 
 ADMIN_OID = "550e8400-e29b-41d4-a716-446655440000"
 
@@ -73,6 +73,7 @@ def _services():
     cosmos = FakeCosmosService()
     llm = MagicMock()
     llm.generate_story_config.return_value = {"narrativeGuidance": "Refreshed guidance."}
+    llm.generate_starting_point.return_value = _make_starting_point().to_dict()
     return StoryService(cosmos_service=cosmos, llm_service=llm), cosmos, llm
 
 
@@ -242,6 +243,59 @@ def test_download_reupload_download_round_trip_is_byte_identical(request_factory
         )
 
     assert second_download.get_body().decode("utf-8") == downloaded_text
+
+
+def test_import_persists_an_edited_guidance_and_starting_point(request_factory):
+    """#270, #271: both are authored content in the file, so an admin's edits survive the
+    upload instead of being regenerated over."""
+    story_service, _cosmos, llm = _services()
+    _seed_story(story_service, id="story-1", name="Old Name", contentVersion=1)
+    payload = _valid_payload(
+        id="story-1",
+        narrativeGuidance="Hand-edited guidance.",
+        startingPoint={
+            "narrativeText": "Hand-edited opening.",
+            "suggestedActions": ["Wade in", "Call out"],
+            "locationLabel": "Library steps",
+            "goalLabel": None,
+            "progress": None,
+        },
+    )
+
+    with _patched_authorize_admin():
+        response = import_story(
+            _authorized(
+                request_factory,
+                {"configurationText": json.dumps(payload), "confirmOverwriteStoryId": "story-1"},
+            ),
+            story_service=story_service,
+        )
+
+    assert response.status_code == 200
+    stored = story_service.get_story("story-1")
+    assert stored.narrativeGuidance == "Hand-edited guidance."
+    assert stored.startingPoint.narrativeText == "Hand-edited opening."
+    llm.generate_story_config.assert_not_called()
+    llm.generate_starting_point.assert_not_called()
+
+
+def test_import_regenerates_guidance_and_starting_point_when_the_file_omits_them(request_factory):
+    story_service, _cosmos, llm = _services()
+    _seed_story(story_service, id="story-1", name="Old Name", contentVersion=1)
+
+    with _patched_authorize_admin():
+        response = import_story(
+            _authorized(
+                request_factory,
+                {"configurationText": json.dumps(_valid_payload(id="story-1")), "confirmOverwriteStoryId": "story-1"},
+            ),
+            story_service=story_service,
+        )
+
+    assert response.status_code == 200
+    stored = story_service.get_story("story-1")
+    assert stored.narrativeGuidance == "Refreshed guidance."
+    assert stored.startingPoint == _make_starting_point()
 
 
 def test_import_returns_write_conflict_after_repeated_etag_precondition_failure(request_factory):

@@ -108,7 +108,7 @@ If `idea` was supplied, the Foundry world-prompt call has already written the su
 
 ## POST /api/manage/stories/drafts/{draftId}/generate
 
-**Purpose**: The administrator's explicit "finish" action (#33) — generate the story's narrative-consistency guidance and persist a complete `Story`, deleting the draft. Never triggered as a side effect of `PATCH` or `.../world-prompt`; the administrator calls this only when they intend to finish the wizard.
+**Purpose**: The administrator's explicit "finish" action (#33) — generate the story's narrative-consistency guidance, then its fixed starting point from that guidance (#271), and persist a complete `Story`, deleting the draft. Never triggered as a side effect of `PATCH` or `.../world-prompt`; the administrator calls this only when they intend to finish the wizard.
 
 **Request**: No body.
 
@@ -126,7 +126,7 @@ If `idea` was supplied, the Foundry world-prompt call has already written the su
 { "error": "not_ready", "message": "name, worldPrompt, characterTypes, and completionCriteria are all required before generating" }
 ```
 
-**Response (502 Bad Gateway)** — the Foundry generation call failed or returned output that failed validation (Edge Cases: malformed LLM output is never persisted); the draft is left unchanged and intact for another attempt:
+**Response (502 Bad Gateway)** — either Foundry generation call (`narrativeGuidance`, `startingPoint`) failed or returned output that failed validation (Edge Cases: malformed LLM output is never persisted); the draft is left unchanged and intact for another attempt:
 ```json
 { "error": "generation_failed", "message": "Story generation did not produce a usable configuration; please try again" }
 ```
@@ -177,6 +177,11 @@ List entries are summaries (`id`, `name`, `published`, `createdAt`); full detail
     "characterTypes": [ { "name": "Curious Cousin", "description": "..." } ],
     "completionCriteria": { "maxDurationMinutes": 20, "successConditions": ["..."], "failureConditions": [], "rule": null },
     "narrativeGuidance": "...LLM-authored consistency guidance...",
+    "startingPoint": {
+      "narrativeText": "...the story's fixed opening scene...",
+      "suggestedActions": ["...", "..."],
+      "locationLabel": "...", "goalLabel": null, "progress": null
+    },
     "published": false,
     "createdBy": "550e8400-e29b-41d4-a716-446655440000",
     "createdAt": "2026-08-29T20:04:00Z"

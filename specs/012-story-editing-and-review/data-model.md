@@ -28,7 +28,9 @@ Existing fields are unchanged. Two fields are added.
 | `rules` | string \| null | — | Authored. In the config file. |
 | `characterTypes` | CharacterType[] (≥1) | — | Authored. In the config file. |
 | `completionCriteria` | CompletionCriteria | — | Authored. In the config file. |
-| `narrativeGuidance` | string (required) | — | **Derived**, regenerated on every content write (research.md §5). Not in the config file. |
+| `narrativeGuidance` | string (required) | — | Authored. In the config file (revised 2026-09-08, #270); regenerated on a content write only when neither the file nor `adminEditedFields` supplies it (research.md §5). |
+| `startingPoint` | StartingPoint \| null | **NEW** | Authored. In the config file (#271); regenerated from `narrativeGuidance` under the same rule. `null` only for rows persisted before it existed. |
+| `adminEditedFields` | string[] | **NEW** | Which of `narrativeGuidance`/`startingPoint` an administrator wrote themselves, so no later write regenerates over them (research.md §5). System-managed: never in the config file, derived at each write. `[]` for rows persisted before it existed. |
 | `published` | bool | — | System-managed. Never written by this feature (FR-007). |
 | `lastPublishedAt` | string \| null | — | System-managed, owned by `005-story-publishing-done`. |
 | `createdBy` | string (oid) | — | Preserved on edit (FR-009). |
@@ -39,10 +41,11 @@ Existing fields are unchanged. Two fields are added.
 | `lastTestPlayedAt` | string \| null | — | System-managed, owned by `010`/`017`. Never written here; the gate resets implicitly via `contentUpdatedAt`. |
 | `entityType` | `"Story"` | — | Constant. |
 
-**Validation** (unchanged, enforced in `__post_init__`): `worldPrompt` non-empty,
-`characterTypes` non-empty, `narrativeGuidance` non-empty; `CompletionCriteria` requires at
-least one `successConditions` entry and a `rule` of `any`/`all` when more than one condition
-exists in total.
+**Validation** (enforced in `__post_init__`): `worldPrompt` non-empty, `characterTypes`
+non-empty, `narrativeGuidance` non-empty; `CompletionCriteria` requires at least one
+`successConditions` entry and a `rule` of `any`/`all` when more than one condition exists in
+total; a present `StartingPoint` requires non-empty `narrativeText`, `locationLabel`, and at
+least one `suggestedActions` entry.
 
 ### Content write (the one operation this feature adds)
 
@@ -52,7 +55,9 @@ Applied identically by a wizard edit save and by an id-matched overwrite import:
 preserve:  id, createdBy, createdAt, published, lastPublishedAt, lastTestPlayedAt
 replace:   name, coverImageUrl, tone, readingLevel, sessionLengthMinutes, chapters,
            worldPrompt, rules, characterTypes, completionCriteria
-regenerate: narrativeGuidance
+take from the file, else keep if in adminEditedFields, else regenerate:
+             narrativeGuidance, startingPoint
+recompute:  adminEditedFields
 stamp:     lastUpdatedBy = acting admin oid
            contentUpdatedAt = now
            contentVersion  = contentVersion + 1
@@ -130,6 +135,8 @@ trusts none of it.
 | `rules` | string \| null | no | |
 | `characterTypes` | CharacterType[] | yes | ≥1; each needs a non-empty `name`; names unique case-insensitively (`011` Edge Cases). |
 | `completionCriteria` | CompletionCriteria | yes | ≥1 `successConditions`; `rule` ∈ {`any`,`all`} required when >1 condition in total. |
+| `narrativeGuidance` | string \| null | no | Absent, null, or blank ⇒ regenerate it on the write; otherwise persisted verbatim (#270). A non-string is `invalid_configuration` naming the field. |
+| `startingPoint` | StartingPoint \| null | no | Absent or null ⇒ regenerate it from the resulting `narrativeGuidance`; otherwise persisted verbatim (#271). A present object must satisfy every `StartingPoint` rule (`004-story-creation-done` data-model.md) — it is replayed as every session's turn 0 and is never repaired at play time — so a partial or malformed one is `invalid_configuration` naming `startingPoint`. |
 
 **Serialization contract** (FR-002, FR-004, SC-001): keys are emitted in exactly the table's
 order, `indent=2`, `ensure_ascii=False`, one trailing newline. `id` is emitted first and only
@@ -138,7 +145,7 @@ and what the importer accepts.
 
 **Excluded keys** — never emitted, and accepted-but-ignored on upload (never read):
 `published`, `lastPublishedAt`, `createdBy`, `createdAt`, `contentUpdatedAt`, `lastUpdatedBy`,
-`lastTestPlayedAt`, `contentVersion`, `entityType`, `narrativeGuidance`. Any **other**
+`lastTestPlayedAt`, `contentVersion`, `entityType`, `adminEditedFields`. Any **other**
 unrecognised key is a validation failure naming that key (research.md §7).
 
 ### Example
@@ -162,6 +169,14 @@ unrecognised key is a validation failure naming that key (research.md §7).
     "successConditions": ["Recover the tide ledger"],
     "failureConditions": ["The last lamp goes out"],
     "rule": "any"
+  },
+  "narrativeGuidance": "Keep the water rising slowly; the librarians are never in real danger.",
+  "startingPoint": {
+    "narrativeText": "Water laps at the lowest shelves...",
+    "suggestedActions": ["Wade in", "Call out"],
+    "locationLabel": "Library steps",
+    "goalLabel": "Recover the tide ledger",
+    "progress": null
   }
 }
 ```

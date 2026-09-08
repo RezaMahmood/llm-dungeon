@@ -130,8 +130,9 @@ returns, alongside the narrative text and suggested actions, which of the story'
 not-yet-satisfied `successConditions`/`failureConditions` (by index) the accumulated
 narrative — including this turn — newly satisfies. The gameplay service updates the
 session's own tracked satisfied-index sets from that result and evaluates the any/all rule
-(Decision 5) after each turn. The opening/first turn (session start, no player input yet)
-skips completion evaluation entirely — a session cannot end before the player has acted.
+(Decision 5) after each turn. Turn 0 is not generated here at all (revised 2026-09-08,
+#271): it is `Story.startingPoint`, replayed verbatim, so no completion evaluation applies
+to it — a session cannot end before the player has acted.
 
 **Rationale**: One call per turn keeps cost/latency in line with SC-001 ("a few seconds")
 and Constitution Principle VI's "per-prompt cost... attributable to a specific player
