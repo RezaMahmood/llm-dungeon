@@ -28,8 +28,9 @@ Existing fields are unchanged. Two fields are added.
 | `rules` | string \| null | — | Authored. In the config file. |
 | `characterTypes` | CharacterType[] (≥1) | — | Authored. In the config file. |
 | `completionCriteria` | CompletionCriteria | — | Authored. In the config file. |
-| `narrativeGuidance` | string (required) | — | Authored. In the config file (revised 2026-09-08, #270); regenerated on a content write only when the file omits it (research.md §5). |
-| `startingPoint` | StartingPoint \| null | **NEW** | Authored. In the config file (#271); regenerated from `narrativeGuidance` on a content write only when the file omits it. `null` only for rows persisted before it existed. |
+| `narrativeGuidance` | string (required) | — | Authored. In the config file (revised 2026-09-08, #270); regenerated on a content write only when neither the file nor `adminEditedFields` supplies it (research.md §5). |
+| `startingPoint` | StartingPoint \| null | **NEW** | Authored. In the config file (#271); regenerated from `narrativeGuidance` under the same rule. `null` only for rows persisted before it existed. |
+| `adminEditedFields` | string[] | **NEW** | Which of `narrativeGuidance`/`startingPoint` an administrator wrote themselves, so no later write regenerates over them (research.md §5). System-managed: never in the config file, derived at each write. `[]` for rows persisted before it existed. |
 | `published` | bool | — | System-managed. Never written by this feature (FR-007). |
 | `lastPublishedAt` | string \| null | — | System-managed, owned by `005-story-publishing-done`. |
 | `createdBy` | string (oid) | — | Preserved on edit (FR-009). |
@@ -54,7 +55,9 @@ Applied identically by a wizard edit save and by an id-matched overwrite import:
 preserve:  id, createdBy, createdAt, published, lastPublishedAt, lastTestPlayedAt
 replace:   name, coverImageUrl, tone, readingLevel, sessionLengthMinutes, chapters,
            worldPrompt, rules, characterTypes, completionCriteria
-take from the file, else regenerate: narrativeGuidance, startingPoint
+take from the file, else keep if in adminEditedFields, else regenerate:
+             narrativeGuidance, startingPoint
+recompute:  adminEditedFields
 stamp:     lastUpdatedBy = acting admin oid
            contentUpdatedAt = now
            contentVersion  = contentVersion + 1
@@ -142,8 +145,8 @@ and what the importer accepts.
 
 **Excluded keys** — never emitted, and accepted-but-ignored on upload (never read):
 `published`, `lastPublishedAt`, `createdBy`, `createdAt`, `contentUpdatedAt`, `lastUpdatedBy`,
-`lastTestPlayedAt`, `contentVersion`, `entityType`. Any **other** unrecognised key is a
-validation failure naming that key (research.md §7).
+`lastTestPlayedAt`, `contentVersion`, `entityType`, `adminEditedFields`. Any **other**
+unrecognised key is a validation failure naming that key (research.md §7).
 
 ### Example
 

@@ -21,7 +21,7 @@ from backend.services.story_draft_service import (
     StoryDraftService,
     WrongDraftModeError,
 )
-from backend.services.story_service import StaleStoryError
+from backend.services.story_service import DerivedContent, StaleStoryError
 from backend.tests.conftest import _make_starting_point, _make_story
 
 CREATED_BY = "oid-1"
@@ -398,7 +398,7 @@ def test_save_draft_to_story_applies_and_deletes_the_draft():
     container.read_item.return_value = draft.to_dict()
     story = _make_story(id="story-1", contentVersion=2)
     stories.get_story.return_value = story
-    stories.derived_content.return_value = ("Fresh guidance.", _make_starting_point())
+    stories.derived_content.return_value = DerivedContent("Fresh guidance.", _make_starting_point(), [])
     updated_story = _make_story(id="story-1", contentVersion=3)
     stories.apply_content_write.return_value = updated_story
 
@@ -409,9 +409,37 @@ def test_save_draft_to_story_applies_and_deletes_the_draft():
     args, kwargs = stories.apply_content_write.call_args
     assert args[0] is story
     assert args[2] == "admin-oid"
-    assert args[3] == "Fresh guidance."
-    assert args[4] == _make_starting_point()
+    assert args[3].narrativeGuidance == "Fresh guidance."
+    assert args[3].startingPoint == _make_starting_point()
     container.delete_item.assert_called_once_with(item="draft-1", partition_key="draft-1")
+
+
+def test_save_draft_to_story_carries_hand_edited_derived_fields_into_the_write():
+    """A wizard save regenerates the derived fields it isn't given, so anything the
+    administrator hand-edited in the configuration file is handed to the write explicitly
+    rather than regenerated over (user review, PR #279)."""
+    service, cosmos, _llm, stories = _service()
+    container = cosmos.get_container.return_value
+    draft = _edit_draft(base_content_version=2)
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+    story = _make_story(
+        id="story-1",
+        contentVersion=2,
+        narrativeGuidance="Hand-edited guidance.",
+        adminEditedFields=["narrativeGuidance"],
+    )
+    stories.get_story.return_value = story
+    stories.derived_content.return_value = DerivedContent("Hand-edited guidance.", _make_starting_point(), ["narrativeGuidance"])
+
+    service.save_draft_to_story("draft-1", "admin-oid")
+
+    # What "hand-edited" seeds into the configuration is StoryService's own rule
+    # (test_story_service.py); the draft save's part is applying it before the write.
+    carried_story, carried_configuration = stories.carry_admin_edits.call_args[0]
+    assert carried_story is story
+    assert carried_configuration is stories.derived_content.call_args[0][0]
+    assert stories.derived_content.call_args[1]["existing"] is story
 
 
 def test_save_draft_to_story_rejects_a_creation_draft():

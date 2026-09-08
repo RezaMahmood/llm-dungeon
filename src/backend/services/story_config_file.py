@@ -24,6 +24,7 @@ SYSTEM_MANAGED_KEYS = {
     "lastTestPlayedAt",
     "contentVersion",
     "entityType",
+    "adminEditedFields",
 }
 
 # Every key this feature ever emits or accepts, in the exact order serialize() emits them

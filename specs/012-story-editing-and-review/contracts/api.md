@@ -118,8 +118,9 @@ edit mode's terminal action, replacing creation mode's `…/generate`.
 **Request**: No body — the draft already carries `sourceStoryId` and `baseContentVersion`.
 
 **Behavior**: validates the Completeness Rule → checks `baseContentVersion` against the story's
-current `contentVersion` → regenerates `narrativeGuidance` and `startingPoint` (the draft
-carries neither) → writes the story (preserving `id`,
+current `contentVersion` → carries over any `narrativeGuidance`/`startingPoint` named in the
+story's `adminEditedFields` and regenerates the rest (the draft carries neither) → writes the
+story (preserving `id`,
 `createdBy`, `createdAt`, `published`, `lastPublishedAt`; stamping `lastUpdatedBy`,
 `contentUpdatedAt`; incrementing `contentVersion`) → deletes the draft.
 

@@ -5,13 +5,14 @@ from __future__ import annotations
 import datetime
 import logging
 import uuid
+from dataclasses import dataclass
 from typing import Any, Optional, Union
 
 from azure.core import MatchConditions
 from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosResourceNotFoundError
 
 from backend.config import config
-from backend.models.story import StartingPoint, Story
+from backend.models.story import ADMIN_EDITABLE_DERIVED_FIELDS, StartingPoint, Story
 from backend.models.story_draft import StoryDraft
 from backend.services.cosmos_service import CosmosService
 from backend.services.llm_service import LLMOutputError, LLMRateLimitError, LLMService
@@ -69,6 +70,16 @@ class _PublishGateNotSatisfied:
 PUBLISH_GATE_NOT_SATISFIED = _PublishGateNotSatisfied()
 
 
+@dataclass(frozen=True)
+class DerivedContent:
+    """What a content write persists for the two LLM-generated fields, and which of them
+    the administrator wrote themselves (`Story.adminEditedFields`)."""
+
+    narrativeGuidance: str
+    startingPoint: StartingPoint
+    adminEditedFields: list[str]
+
+
 def _now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -92,18 +103,51 @@ class StoryService:
             return None
 
     def derived_content(
-        self, configuration: StoryConfiguration, name: Optional[str]
-    ) -> tuple[str, StartingPoint]:
+        self, configuration: StoryConfiguration, name: Optional[str], existing: Optional[Story] = None
+    ) -> DerivedContent:
         """The `narrativeGuidance` and `startingPoint` a content write persists. A value
         the configuration file itself supplies is kept verbatim — both are authored,
         admin-editable content (#270, #271); anything absent is generated from the
         authored fields, `startingPoint` from the guidance that goes with it. `name` is
         passed separately because a new-story import's `title` may differ from the file's
-        own `name`."""
+        own `name`; `existing` is the story being overwritten, against which a supplied
+        value is judged hand-edited or not."""
         draft_like = self._draft_like(configuration, name)
-        narrative_guidance = configuration.narrativeGuidance or self._generate_narrative_guidance(draft_like)
-        starting_point = configuration.startingPoint or self._generate_starting_point(draft_like, narrative_guidance)
-        return narrative_guidance, starting_point
+        admin_edited: list[str] = []
+
+        narrative_guidance = configuration.narrativeGuidance
+        if narrative_guidance:
+            if self._is_admin_edited("narrativeGuidance", narrative_guidance, existing):
+                admin_edited.append("narrativeGuidance")
+        else:
+            narrative_guidance = self._generate_narrative_guidance(draft_like)
+
+        starting_point = configuration.startingPoint
+        if starting_point:
+            if self._is_admin_edited("startingPoint", starting_point, existing):
+                admin_edited.append("startingPoint")
+        else:
+            starting_point = self._generate_starting_point(draft_like, narrative_guidance)
+
+        return DerivedContent(narrative_guidance, starting_point, admin_edited)
+
+    @staticmethod
+    def _is_admin_edited(field_name: str, supplied: Any, existing: Optional[Story]) -> bool:
+        """A supplied value is the administrator's own from the moment it differs from what
+        the story already holds, and stays theirs on a later write that resubmits it
+        unchanged — so an untouched download/upload round-trip of a generated value does not
+        freeze it (user review, PR #279)."""
+        if existing is None:
+            return True
+        return supplied != getattr(existing, field_name) or field_name in existing.adminEditedFields
+
+    def carry_admin_edits(self, story: Story, configuration: StoryConfiguration) -> None:
+        """Seed a configuration built without the derived fields — a wizard edit draft
+        carries neither — with the ones this story's administrator wrote by hand, so the
+        save preserves them instead of regenerating over them (user review, PR #279)."""
+        for field_name in ADMIN_EDITABLE_DERIVED_FIELDS:
+            if field_name in story.adminEditedFields:
+                setattr(configuration, field_name, getattr(story, field_name))
 
     @staticmethod
     def _draft_like(source: Union[StoryConfiguration, Story], name: Optional[str]) -> dict[str, Any]:
@@ -288,12 +332,7 @@ class StoryService:
         return True
 
     def _replaced_story(
-        self,
-        story: Story,
-        configuration: StoryConfiguration,
-        admin_oid: str,
-        narrative_guidance: str,
-        starting_point: StartingPoint,
+        self, story: Story, configuration: StoryConfiguration, admin_oid: str, derived: DerivedContent
     ) -> Story:
         """The Content write operation (data-model.md → Content write): preserve the
         system-managed identity/publish fields, replace the authored set wholesale, and
@@ -310,8 +349,9 @@ class StoryService:
             rules=configuration.rules,
             characterTypes=configuration.characterTypes,
             completionCriteria=configuration.completionCriteria,
-            narrativeGuidance=narrative_guidance,
-            startingPoint=starting_point,
+            narrativeGuidance=derived.narrativeGuidance,
+            startingPoint=derived.startingPoint,
+            adminEditedFields=derived.adminEditedFields,
             published=story.published,
             lastPublishedAt=story.lastPublishedAt,
             createdBy=story.createdBy,
@@ -327,8 +367,7 @@ class StoryService:
         story: Story,
         configuration: StoryConfiguration,
         admin_oid: str,
-        narrative_guidance: str,
-        starting_point: StartingPoint,
+        derived: DerivedContent,
         *,
         exempt_from_staleness: bool = False,
     ) -> Story:
@@ -352,7 +391,7 @@ class StoryService:
             if not exempt_from_staleness and current.contentVersion != expected_version:
                 raise StaleStoryError()
 
-            updated = self._replaced_story(current, configuration, admin_oid, narrative_guidance, starting_point)
+            updated = self._replaced_story(current, configuration, admin_oid, derived)
             try:
                 self._container().replace_item(
                     item=updated.id,
@@ -383,16 +422,16 @@ class StoryService:
             story = self.get_story(configuration.id)
             if story is None:
                 raise StoryNotFoundError()
-            narrative_guidance, starting_point = self.derived_content(configuration, configuration.name)
+            derived = self.derived_content(configuration, configuration.name, existing=story)
             updated = self.apply_content_write(
-                story, configuration, admin_oid, narrative_guidance, starting_point, exempt_from_staleness=True
+                story, configuration, admin_oid, derived, exempt_from_staleness=True
             )
             return "updated", updated
 
         if not title:
             raise TitleRequiredError()
 
-        narrative_guidance, starting_point = self.derived_content(configuration, title)
+        derived = self.derived_content(configuration, title)
         created_at = _now()
         story = Story(
             id=str(uuid.uuid4()),
@@ -406,8 +445,9 @@ class StoryService:
             rules=configuration.rules,
             characterTypes=configuration.characterTypes,
             completionCriteria=configuration.completionCriteria,
-            narrativeGuidance=narrative_guidance,
-            startingPoint=starting_point,
+            narrativeGuidance=derived.narrativeGuidance,
+            startingPoint=derived.startingPoint,
+            adminEditedFields=derived.adminEditedFields,
             published=False,
             createdBy=admin_oid,
             createdAt=created_at,

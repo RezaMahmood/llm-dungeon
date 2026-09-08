@@ -171,7 +171,9 @@ class StoryDraftService:
         the source story is gone, `StaleStoryError` if the story changed since the draft
         was seeded (the draft is left intact), and `ContentGenerationFailedError`/
         `ContentGenerationRateLimitedError` if narrativeGuidance/startingPoint regeneration
-        fails (the story is left unchanged in every failure case)."""
+        fails (the story is left unchanged in every failure case). A draft carries neither
+        derived field, so a save regenerates both — except any the administrator hand-edited
+        in the configuration file, which are carried through untouched (user review, PR #279)."""
         draft = self.get_draft(draft_id)
         if draft is None:
             return None
@@ -202,10 +204,9 @@ class StoryDraftService:
             characterTypes=draft.characterTypes,
             completionCriteria=draft.completionCriteria,
         )
-        narrative_guidance, starting_point = self._stories.derived_content(configuration, draft.name)
-        updated = self._stories.apply_content_write(
-            story, configuration, admin_oid, narrative_guidance, starting_point
-        )
+        self._stories.carry_admin_edits(story, configuration)
+        derived = self._stories.derived_content(configuration, draft.name, existing=story)
+        updated = self._stories.apply_content_write(story, configuration, admin_oid, derived)
         self._container().delete_item(item=draft.id, partition_key=draft.id)
         return updated
 

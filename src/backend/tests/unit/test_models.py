@@ -270,6 +270,31 @@ def test_story_reads_a_row_persisted_before_starting_point_existed():
     assert Story.from_dict(data).startingPoint is None
 
 
+def test_story_round_trips_and_filters_admin_edited_fields():
+    """A row persisted before this field existed reads as `[]`; an unrecognised name in a
+    stored row is dropped rather than trusted."""
+    story = Story(
+        id="story-1",
+        worldPrompt="A half-abandoned lighthouse...",
+        characterTypes=[CharacterType(name="Curious Cousin")],
+        completionCriteria=_completion_criteria(),
+        narrativeGuidance="Keep it eerie but never actually dangerous.",
+        createdBy="oid-1",
+        createdAt="2026-08-29T20:04:00Z",
+        contentUpdatedAt="2026-08-29T20:04:00Z",
+        adminEditedFields=["narrativeGuidance"],
+    )
+
+    assert Story.from_dict(story.to_dict()).adminEditedFields == ["narrativeGuidance"]
+
+    data = story.to_dict()
+    del data["adminEditedFields"]
+    assert Story.from_dict(data).adminEditedFields == []
+
+    data["adminEditedFields"] = ["narrativeGuidance", "published"]
+    assert Story.from_dict(data).adminEditedFields == ["narrativeGuidance"]
+
+
 def test_story_round_trips_content_version_and_last_updated_by():
     story = Story(
         id="story-1",

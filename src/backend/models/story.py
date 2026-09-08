@@ -9,6 +9,11 @@ from typing import Any, Optional
 
 VALID_RULES = {"any", "all"}
 
+# The two LLM-generated fields an administrator may write themselves in the story
+# configuration file. `Story.adminEditedFields` names the ones they actually did
+# (user review, PR #279).
+ADMIN_EDITABLE_DERIVED_FIELDS = ("narrativeGuidance", "startingPoint")
+
 
 @dataclass
 class CharacterType:
@@ -131,6 +136,9 @@ class Story:
     # Optional only for Story rows persisted before this field existed; those are
     # backfilled on their next session start (StoryService.ensure_starting_point).
     startingPoint: Optional[StartingPoint] = None
+    # Which of ADMIN_EDITABLE_DERIVED_FIELDS an administrator wrote themselves. A content
+    # write regenerates the derived fields it isn't given, but never one named here.
+    adminEditedFields: list[str] = field(default_factory=list)
     entityType: str = field(default="Story")
 
     def __post_init__(self) -> None:
@@ -156,6 +164,7 @@ class Story:
             "completionCriteria": self.completionCriteria.to_dict(),
             "narrativeGuidance": self.narrativeGuidance,
             "startingPoint": self.startingPoint.to_dict() if self.startingPoint else None,
+            "adminEditedFields": self.adminEditedFields,
             "published": self.published,
             "lastPublishedAt": self.lastPublishedAt,
             "createdBy": self.createdBy,
@@ -185,6 +194,9 @@ class Story:
             startingPoint=(
                 StartingPoint.from_dict(data["startingPoint"]) if data.get("startingPoint") else None
             ),
+            adminEditedFields=[
+                name for name in data.get("adminEditedFields", []) if name in ADMIN_EDITABLE_DERIVED_FIELDS
+            ],
             published=data.get("published", False),
             lastPublishedAt=data.get("lastPublishedAt"),
             createdBy=data["createdBy"],

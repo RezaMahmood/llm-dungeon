@@ -141,15 +141,30 @@ is persisted verbatim, and one it omits is generated from the resulting configur
 reusing `LLMService.generate_story_config` and `LLMService.generate_starting_point`, exactly as
 creation does. `startingPoint` is generated from the `narrativeGuidance` that ends up on the
 story, whether that guidance was supplied or generated. A generation failure fails the whole
-save (502 `generation_failed` / 429 `rate_limited`) and leaves the story unchanged. The wizard
-edit path supplies neither, so a wizard save still regenerates both.
+save (502 `generation_failed` / 429 `rate_limited`) and leaves the story unchanged.
+
+A supplied value that differs from what the story already holds is the administrator's own:
+the write records it in `Story.adminEditedFields`, and it stays recorded while later writes
+resubmit it unchanged. A field named there is **never** regenerated over. Because a wizard edit
+draft carries neither field, a wizard save seeds them from the story for exactly the fields
+named there and regenerates the rest — so hand-edited text survives a wizard edit, while text
+the system generated is refreshed against the edited world. Omitting a key from an uploaded
+file asks for a fresh generation and hands ownership of that field back to the system.
 
 **Rationale**: Both are derived from `worldPrompt`, `rules`, `characterTypes`, and
-`completionCriteria` unless an administrator deliberately writes them into the file. Keeping a
-stale value after the world it describes was replaced would leave gameplay narrating the
-pre-edit story, which is a worse failure than a rejected save; carrying a supplied value
-through is what makes them editable at all (§3). Reusing the creation path keeps one prompt
-and one telemetry shape per call (Principle VI).
+`completionCriteria` unless an administrator deliberately writes them. Keeping a *generated*
+value after the world it describes was replaced would leave gameplay narrating the pre-edit
+story, which is a worse failure than a rejected save; silently regenerating over an
+administrator's own words is a worse failure still, and there is no way to tell the two apart
+without recording which is which. Reusing the creation path keeps one prompt and one telemetry
+shape per call (Principle VI).
+
+**Alternatives considered**:
+- *Never regenerate on a wizard save* — simpler, no provenance to track, but an administrator
+  who edits the world in the wizard would silently keep guidance and an opening scene
+  describing the story they replaced.
+- *Compare against a fresh generation to detect hand edits* — rejected: generation is
+  non-deterministic, so it cannot answer the question, and it costs a call per write.
 
 **Alternatives considered**:
 - *Regenerate only when a narrative-affecting field changed* — a real LLM-cost saving, but it

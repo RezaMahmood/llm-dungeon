@@ -84,6 +84,7 @@ A draft is never directly deleted by an explicit "abandon" action (Assumptions: 
 | `completionCriteria` | Completion Criteria | Yes, min 1 success condition | See below | FR-008, SC-003; shape matches `008-core-gameplay-done`'s Key Entity |
 | `narrativeGuidance` | string | Yes | LLM-generated prose the play-session narrator (`008-core-gameplay-done`) uses to stay consistent with this story | The "guidance... to keep the LLM's later narration consistent" named in spec.md's Story Key Entity |
 | `startingPoint` | Starting Point | Yes (from 2026-09-08, #271) | LLM-generated from `narrativeGuidance` at generation time; replayed verbatim as turn 0 of every session (`008-core-gameplay-done`) | A story's opening is fixed and admin-reviewable, not regenerated per session (#271) |
+| `adminEditedFields` | array of string | Yes, may be empty | Which of `narrativeGuidance`/`startingPoint` an administrator has since written themselves; `[]` at creation | A later content write must not regenerate over an administrator's own words (`012-story-editing-and-review` research.md §5) |
 | `published` | boolean | Yes | Defaults to `false` on creation | FR-006; flipped only by `005-story-publishing-done` |
 | `createdBy` | string | Yes | Administrator's `oid` | Audit trail |
 | `createdAt` | ISO 8601 timestamp | Yes | Generation time | Audit trail |
