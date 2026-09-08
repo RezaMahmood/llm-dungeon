@@ -7,7 +7,8 @@ middleware from `006-adventure-and-character-setup`) — no change to that middl
 
 ## POST /api/game/sessions
 
-Creates a new Play Session and returns its opening narrative. Supersedes
+Creates a new Play Session and returns the adventure's fixed starting point as turn 0
+(revised 2026-09-08, #271 — no opening-narrative generation per session). Supersedes
 `POST /api/game/start`'s role as the "setup complete" endpoint — `006`'s plan explicitly
 deferred session creation to this feature. `POST /api/game/start` is retired; the frontend
 calls this endpoint directly once setup (adventure, name, character type) is complete.
@@ -47,13 +48,14 @@ for this; it's an internal side effect.
 
 **Response (400 Bad Request)** — same `invalid_setup` shape as existing `start.py`.
 
-**Response (404 Not Found)** — adventure doesn't exist or isn't published.
+**Response (404 Not Found)** — adventure doesn't exist or isn't published, including one
+deleted between that check and a `startingPoint` backfill write (#271).
 
 **Response (429 Too Many Requests)** — the player started a session less than
-`MIN_SESSION_CREATION_INTERVAL_SECONDS` ago (FR-005). Each creation costs an
-opening-narrative LLM call, so this endpoint is throttled per player just as
-`.../interactions` is per session. Checked after field validation (so a mistyped setup
-still returns its field errors) and before any LLM call:
+`MIN_SESSION_CREATION_INTERVAL_SECONDS` ago (FR-005). Starting an adventure is a rare,
+deliberate act, so this endpoint is throttled per player just as `.../interactions` is per
+session. Checked after field validation, so a mistyped setup still returns its field
+errors:
 
 ```json
 { "error": "rate_limited", "message": "You've just started a story — take a moment before starting another." }
@@ -74,10 +76,11 @@ The `message` states the remaining time in words — players are young, so a raw
 timestamp is never shown to them; `lockoutUntil` carries the machine-readable value for
 any client that wants a countdown. Checked before any other validation or LLM call.
 
-**Response (500)** — `LLMOutputError`/`LLMRateLimitError` from the opening-narrative call
-maps to `error_response(502, "narrative_unavailable", "...")`; no session is persisted if
-the opening narrative can't be generated (mirrors `004`'s "no partial write on LLM
-failure" rule).
+**Response (502)** — reachable only for an adventure whose `Story` predates
+`startingPoint` (#271) and whose backfill generation fails: `error_response(502,
+"narrative_unavailable", "...")`, and no session is persisted (mirrors `004`'s "no partial
+write on LLM failure" rule). An adventure that already carries a `startingPoint` makes no
+LLM call here at all.
 
 ## POST /api/game/sessions/{sessionId}/interactions
 

@@ -5,16 +5,22 @@ from __future__ import annotations
 import datetime
 import logging
 import uuid
-from typing import Any, Optional
+from dataclasses import dataclass
+from typing import Any, Optional, Union
 
 from azure.core import MatchConditions
 from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosResourceNotFoundError
 
 from backend.config import config
-from backend.models.story import Story
+from backend.models.story import ADMIN_EDITABLE_DERIVED_FIELDS, StartingPoint, Story
 from backend.models.story_draft import StoryDraft
 from backend.services.cosmos_service import CosmosService
-from backend.services.llm_service import LLMOutputError, LLMRateLimitError, LLMService
+from backend.services.llm_service import (
+    LLMContentFilteredError,
+    LLMOutputError,
+    LLMRateLimitError,
+    LLMService,
+)
 from backend.services.story_config_file import StoryConfiguration
 
 logger = logging.getLogger("story_service")
@@ -37,14 +43,15 @@ class StoryNotFoundError(RuntimeError):
 
 
 class ContentGenerationFailedError(RuntimeError):
-    """`narrativeGuidance` regeneration (research.md §5) failed or returned invalid output
-    on a content write. The caller maps this to `502 generation_failed`; the story is left
-    unchanged."""
+    """`narrativeGuidance`/`startingPoint` (re)generation (research.md §5, #271) failed or
+    returned invalid output on a content write. The caller maps this to
+    `502 generation_failed`; the story is left unchanged."""
 
 
 class ContentGenerationRateLimitedError(RuntimeError):
-    """`narrativeGuidance` regeneration was rate-limited after retries were exhausted. The
-    caller maps this to `429 rate_limited`; the story is left unchanged."""
+    """`narrativeGuidance`/`startingPoint` (re)generation was rate-limited after retries
+    were exhausted. The caller maps this to `429 rate_limited`; the story is left
+    unchanged."""
 
 
 class ConfirmationRequiredError(RuntimeError):
@@ -66,6 +73,16 @@ class _PublishGateNotSatisfied:
 
 
 PUBLISH_GATE_NOT_SATISFIED = _PublishGateNotSatisfied()
+
+
+@dataclass(frozen=True)
+class DerivedContent:
+    """What a content write persists for the two LLM-generated fields, and which of them
+    the administrator wrote themselves (`Story.adminEditedFields`)."""
+
+    narrativeGuidance: str
+    startingPoint: StartingPoint
+    adminEditedFields: list[str]
 
 
 def _now() -> str:
@@ -90,22 +107,72 @@ class StoryService:
         except CosmosResourceNotFoundError:
             return None
 
-    def regenerate_narrative_guidance(self, configuration: StoryConfiguration, name: Optional[str]) -> str:
-        """Reuses the creation path's generation call (research.md §5) — the caller
-        provides `configuration` plus the `name` that will actually be persisted (a
-        new-story import's `title` may differ from the file's own `name`)."""
-        draft_like = {
+    def derived_content(
+        self, configuration: StoryConfiguration, name: Optional[str], existing: Optional[Story] = None
+    ) -> DerivedContent:
+        """The `narrativeGuidance` and `startingPoint` a content write persists. A value
+        the configuration file itself supplies is kept verbatim — both are authored,
+        admin-editable content (#270, #271); anything absent is generated from the
+        authored fields, `startingPoint` from the guidance that goes with it. `name` is
+        passed separately because a new-story import's `title` may differ from the file's
+        own `name`; `existing` is the story being overwritten, against which a supplied
+        value is judged hand-edited or not."""
+        draft_like = self._draft_like(configuration, name)
+        admin_edited: list[str] = []
+
+        narrative_guidance = configuration.narrativeGuidance
+        if narrative_guidance:
+            if self._is_admin_edited("narrativeGuidance", narrative_guidance, existing):
+                admin_edited.append("narrativeGuidance")
+        else:
+            narrative_guidance = self._generate_narrative_guidance(draft_like)
+
+        starting_point = configuration.startingPoint
+        if starting_point:
+            if self._is_admin_edited("startingPoint", starting_point, existing):
+                admin_edited.append("startingPoint")
+        else:
+            starting_point = self._generate_starting_point(draft_like, narrative_guidance)
+
+        return DerivedContent(narrative_guidance, starting_point, admin_edited)
+
+    @staticmethod
+    def _is_admin_edited(field_name: str, supplied: Any, existing: Optional[Story]) -> bool:
+        """A supplied value is the administrator's own from the moment it differs from what
+        the story already holds, and stays theirs on a later write that resubmits it
+        unchanged — so an untouched download/upload round-trip of a generated value does not
+        freeze it (user review, PR #279)."""
+        if existing is None:
+            return True
+        return supplied != getattr(existing, field_name) or field_name in existing.adminEditedFields
+
+    def carry_admin_edits(self, story: Story, configuration: StoryConfiguration) -> None:
+        """Seed a configuration built without the derived fields — a wizard edit draft
+        carries neither — with the ones this story's administrator wrote by hand, so the
+        save preserves them instead of regenerating over them (user review, PR #279)."""
+        for field_name in ADMIN_EDITABLE_DERIVED_FIELDS:
+            if field_name in story.adminEditedFields:
+                setattr(configuration, field_name, getattr(story, field_name))
+
+    @staticmethod
+    def _draft_like(source: Union[StoryConfiguration, Story], name: Optional[str]) -> dict[str, Any]:
+        """The generation calls' input shape, from either an uploaded configuration or an
+        already-persisted story — the two carry the same authored fields."""
+        return {
             "name": name,
-            "coverImageUrl": configuration.coverImageUrl,
-            "tone": configuration.tone,
-            "readingLevel": configuration.readingLevel,
-            "sessionLengthMinutes": configuration.sessionLengthMinutes,
-            "chapters": configuration.chapters,
-            "worldPrompt": configuration.worldPrompt,
-            "rules": configuration.rules,
-            "characterTypes": [ct.to_dict() for ct in configuration.characterTypes],
-            "completionCriteria": configuration.completionCriteria.to_dict(),
+            "coverImageUrl": source.coverImageUrl,
+            "tone": source.tone,
+            "readingLevel": source.readingLevel,
+            "sessionLengthMinutes": source.sessionLengthMinutes,
+            "chapters": source.chapters,
+            "worldPrompt": source.worldPrompt,
+            "rules": source.rules,
+            "characterTypes": [ct.to_dict() for ct in source.characterTypes],
+            "completionCriteria": source.completionCriteria.to_dict(),
         }
+
+    def _generate_narrative_guidance(self, draft_like: dict[str, Any]) -> str:
+        """Reuses the creation path's generation call (research.md §5)."""
         try:
             generation = self._llm.generate_story_config(draft_like)
             narrative_guidance = generation["narrativeGuidance"]
@@ -113,11 +180,60 @@ class StoryService:
                 raise LLMOutputError("narrativeGuidance was empty")
         except LLMRateLimitError as exc:
             raise ContentGenerationRateLimitedError(str(exc)) from exc
-        except LLMOutputError as exc:
+        except (LLMOutputError, LLMContentFilteredError) as exc:
             raise ContentGenerationFailedError(str(exc)) from exc
         return narrative_guidance
 
-    def create_story(self, draft: StoryDraft, narrative_guidance: str) -> Story:
+    def _generate_starting_point(self, draft_like: dict[str, Any], narrative_guidance: str) -> StartingPoint:
+        try:
+            return StartingPoint.from_dict(self._llm.generate_starting_point(draft_like, narrative_guidance))
+        except LLMRateLimitError as exc:
+            raise ContentGenerationRateLimitedError(str(exc)) from exc
+        except (LLMOutputError, LLMContentFilteredError, ValueError, KeyError) as exc:
+            # A content-filtered generation is a failed generation like any other here —
+            # the admin write paths map it to 502, never an unhandled 500.
+            raise ContentGenerationFailedError(str(exc)) from exc
+
+    def ensure_starting_point(self, story: Story) -> Story:
+        """Backfill for a `Story` persisted before `startingPoint` existed (#271): generate
+        one from the story's own content and write it back, so this costs one LLM call for
+        that story's first session and none thereafter. A lost `_etag` race adopts the
+        winner's opening, so concurrent first sessions still converge on one turn 0."""
+        if story.startingPoint:
+            return story
+
+        draft_like = self._draft_like(story, story.name)
+        story.startingPoint = self._generate_starting_point(draft_like, story.narrativeGuidance)
+
+        item = self._read_item(story.id)
+        if item is None:
+            raise StoryNotFoundError()
+        persisted = Story.from_dict(item)
+        if persisted.startingPoint:
+            story.startingPoint = persisted.startingPoint
+            return story
+        persisted.startingPoint = story.startingPoint
+        try:
+            self._container().replace_item(
+                item=persisted.id,
+                body=persisted.to_dict(),
+                etag=item["_etag"],
+                match_condition=MatchConditions.IfNotModified,
+            )
+        except CosmosResourceNotFoundError as exc:
+            # Deleted between the read above and this write — the caller turns this into
+            # the same not-found response the story's own absence would have produced.
+            raise StoryNotFoundError() from exc
+        except CosmosAccessConditionFailedError:
+            logger.warning("Starting-point backfill lost an etag race", extra={"story_id": story.id})
+            winner = self._read_item(story.id)
+            if winner is None:
+                raise StoryNotFoundError() from None
+            if winner.get("startingPoint"):
+                story.startingPoint = StartingPoint.from_dict(winner["startingPoint"])
+        return story
+
+    def create_story(self, draft: StoryDraft, narrative_guidance: str, starting_point: StartingPoint) -> Story:
         """Persist a complete `Story` from a draft that just met the Completeness Rule,
         `published=False` by default (FR-006)."""
         created_at = _now()
@@ -134,6 +250,7 @@ class StoryService:
             characterTypes=draft.characterTypes,
             completionCriteria=draft.completionCriteria,
             narrativeGuidance=narrative_guidance,
+            startingPoint=starting_point,
             published=False,
             createdBy=draft.createdBy,
             createdAt=created_at,
@@ -242,11 +359,11 @@ class StoryService:
         return True
 
     def _replaced_story(
-        self, story: Story, configuration: StoryConfiguration, admin_oid: str, narrative_guidance: str
+        self, story: Story, configuration: StoryConfiguration, admin_oid: str, derived: DerivedContent
     ) -> Story:
         """The Content write operation (data-model.md → Content write): preserve the
-        system-managed identity/publish fields, replace the authored set wholesale,
-        regenerate narrativeGuidance, and stamp the audit trail."""
+        system-managed identity/publish fields, replace the authored set wholesale, and
+        stamp the audit trail."""
         return Story(
             id=story.id,
             name=configuration.name,
@@ -259,7 +376,9 @@ class StoryService:
             rules=configuration.rules,
             characterTypes=configuration.characterTypes,
             completionCriteria=configuration.completionCriteria,
-            narrativeGuidance=narrative_guidance,
+            narrativeGuidance=derived.narrativeGuidance,
+            startingPoint=derived.startingPoint,
+            adminEditedFields=derived.adminEditedFields,
             published=story.published,
             lastPublishedAt=story.lastPublishedAt,
             createdBy=story.createdBy,
@@ -275,7 +394,7 @@ class StoryService:
         story: Story,
         configuration: StoryConfiguration,
         admin_oid: str,
-        narrative_guidance: str,
+        derived: DerivedContent,
         *,
         exempt_from_staleness: bool = False,
     ) -> Story:
@@ -299,7 +418,7 @@ class StoryService:
             if not exempt_from_staleness and current.contentVersion != expected_version:
                 raise StaleStoryError()
 
-            updated = self._replaced_story(current, configuration, admin_oid, narrative_guidance)
+            updated = self._replaced_story(current, configuration, admin_oid, derived)
             try:
                 self._container().replace_item(
                     item=updated.id,
@@ -330,16 +449,16 @@ class StoryService:
             story = self.get_story(configuration.id)
             if story is None:
                 raise StoryNotFoundError()
-            narrative_guidance = self.regenerate_narrative_guidance(configuration, configuration.name)
+            derived = self.derived_content(configuration, configuration.name, existing=story)
             updated = self.apply_content_write(
-                story, configuration, admin_oid, narrative_guidance, exempt_from_staleness=True
+                story, configuration, admin_oid, derived, exempt_from_staleness=True
             )
             return "updated", updated
 
         if not title:
             raise TitleRequiredError()
 
-        narrative_guidance = self.regenerate_narrative_guidance(configuration, title)
+        derived = self.derived_content(configuration, title)
         created_at = _now()
         story = Story(
             id=str(uuid.uuid4()),
@@ -353,7 +472,9 @@ class StoryService:
             rules=configuration.rules,
             characterTypes=configuration.characterTypes,
             completionCriteria=configuration.completionCriteria,
-            narrativeGuidance=narrative_guidance,
+            narrativeGuidance=derived.narrativeGuidance,
+            startingPoint=derived.startingPoint,
+            adminEditedFields=derived.adminEditedFields,
             published=False,
             createdBy=admin_oid,
             createdAt=created_at,

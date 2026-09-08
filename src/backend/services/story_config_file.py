@@ -10,7 +10,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from backend.models.story import VALID_RULES, CharacterType, CompletionCriteria, Story
+from backend.models.story import VALID_RULES, CharacterType, CompletionCriteria, StartingPoint, Story
 
 # Accepted-and-ignored on upload, never emitted on download (data-model.md → Excluded keys).
 # These are the Story fields this feature does not treat as authored content.
@@ -24,7 +24,7 @@ SYSTEM_MANAGED_KEYS = {
     "lastTestPlayedAt",
     "contentVersion",
     "entityType",
-    "narrativeGuidance",
+    "adminEditedFields",
 }
 
 # Every key this feature ever emits or accepts, in the exact order serialize() emits them
@@ -40,6 +40,8 @@ _AUTHORED_KEYS_IN_ORDER = (
     "rules",
     "characterTypes",
     "completionCriteria",
+    "narrativeGuidance",
+    "startingPoint",
 )
 
 _KNOWN_KEYS = {"id", *_AUTHORED_KEYS_IN_ORDER, *SYSTEM_MANAGED_KEYS}
@@ -67,6 +69,10 @@ class StoryConfiguration:
     sessionLengthMinutes: Optional[int] = None
     chapters: Optional[int] = None
     rules: Optional[str] = None
+    # Both are `None` when the caller wants them (re)generated from the authored content,
+    # and carry the file's own value through verbatim when it supplies one (#270, #271).
+    narrativeGuidance: Optional[str] = None
+    startingPoint: Optional[StartingPoint] = None
 
 
 def serialize(story: Story) -> str:
@@ -83,6 +89,8 @@ def serialize(story: Story) -> str:
     payload["rules"] = story.rules
     payload["characterTypes"] = [ct.to_dict() for ct in story.characterTypes]
     payload["completionCriteria"] = story.completionCriteria.to_dict()
+    payload["narrativeGuidance"] = story.narrativeGuidance
+    payload["startingPoint"] = story.startingPoint.to_dict() if story.startingPoint else None
     return json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
 
 
@@ -147,7 +155,34 @@ def parse(payload: Any) -> StoryConfiguration:
         rules=payload.get("rules"),
         characterTypes=character_types,
         completionCriteria=completion_criteria,
+        narrativeGuidance=_parse_narrative_guidance(payload.get("narrativeGuidance")),
+        startingPoint=_parse_starting_point(payload.get("startingPoint")),
     )
+
+
+def _parse_narrative_guidance(raw: Any) -> Optional[str]:
+    """Absent, null, or blank means "regenerate it" (research.md §5); anything present is
+    persisted verbatim as the narrator's anchor, so it has to be real text."""
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        raise InvalidStoryConfigurationError("narrativeGuidance: must be a string")
+    return raw.strip() or None
+
+
+def _parse_starting_point(raw: Any) -> Optional[StartingPoint]:
+    """The story's fixed opening scene (#271). Absent or null means "regenerate it";
+    a present object must be complete, since it is replayed verbatim as every session's
+    turn 0 and is never repaired at play time. `StartingPoint` itself owns the field rules
+    (models/story.py) — this only maps them onto the file's error shape."""
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise InvalidStoryConfigurationError("startingPoint: must be an object")
+    try:
+        return StartingPoint.from_dict(raw)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise InvalidStoryConfigurationError(f"startingPoint: {exc}") from exc
 
 
 def _parse_character_types(raw: Any) -> list[CharacterType]:

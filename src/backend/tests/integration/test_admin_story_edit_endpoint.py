@@ -9,10 +9,11 @@ from unittest.mock import MagicMock, patch
 from azure.core import MatchConditions
 from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosResourceNotFoundError
 
-from backend.api.admin.stories import create_edit_draft, generate_story_from_draft, save_draft
+from backend.api.admin.stories import create_edit_draft, generate_story_from_draft, import_story, save_draft
 from backend.api.utils import forbidden_insufficient_permission, unauthorized
 from backend.services.story_draft_service import StoryDraftService
 from backend.services.story_service import StoryService
+from backend.tests.conftest import _make_starting_point
 
 ADMIN_OID = "550e8400-e29b-41d4-a716-446655440000"
 
@@ -65,6 +66,7 @@ def _services():
     cosmos = FakeCosmosService()
     llm = MagicMock()
     llm.generate_story_config.return_value = {"narrativeGuidance": "Refreshed guidance."}
+    llm.generate_starting_point.return_value = _make_starting_point().to_dict()
     story_service = StoryService(cosmos_service=cosmos, llm_service=llm)
     draft_service = StoryDraftService(cosmos_service=cosmos, llm_service=llm, story_service=story_service)
     return story_service, draft_service, llm, cosmos
@@ -187,6 +189,83 @@ def test_save_draft_returns_200_and_updates_story_preserving_untouched_fields(re
     assert saved_story["contentVersion"] == 2
     assert saved_story["lastUpdatedBy"] == ADMIN_OID
     assert saved_story["name"] == "The Sunken Library"
+
+
+def test_save_draft_preserves_hand_edited_guidance_and_opening_but_regenerates_the_rest(request_factory):
+    """A wizard save must not overwrite what an administrator wrote by hand in the
+    configuration file; the derived fields they left alone are still regenerated
+    (user review, PR #279)."""
+    story_service, draft_service, llm, _cosmos = _services()
+    _seed_story(
+        story_service,
+        id="story-1",
+        name="The Sunken Library",
+        narrativeGuidance="Hand-edited guidance.",
+        startingPoint=_make_starting_point(narrativeText="Generated opening."),
+        adminEditedFields=["narrativeGuidance"],
+        contentVersion=1,
+    )
+    llm.generate_starting_point.return_value = _make_starting_point(narrativeText="Regenerated opening.").to_dict()
+    draft_id = _open_edit_draft(request_factory, story_service, draft_service)
+
+    with _patched_authorize_admin():
+        response = save_draft(
+            _authorized(request_factory, method="POST", url=f"/api/manage/stories/drafts/{draft_id}/save", route_params={"draftId": draft_id}),
+            story_draft_service=draft_service,
+        )
+
+    assert response.status_code == 200
+    saved = story_service.get_story("story-1")
+    assert saved.narrativeGuidance == "Hand-edited guidance."
+    assert saved.startingPoint.narrativeText == "Regenerated opening."
+    assert saved.adminEditedFields == ["narrativeGuidance"]
+    llm.generate_story_config.assert_not_called()
+
+
+def test_uploaded_hand_edit_survives_a_later_wizard_save(request_factory):
+    """The whole journey the fix is for: an administrator edits the opening scene in the
+    downloaded configuration file, uploads it, then edits the same story in the wizard —
+    and their opening is still there afterwards (user review, PR #279)."""
+    story_service, draft_service, llm, _cosmos = _services()
+    _seed_story(story_service, id="story-1", name="The Sunken Library", contentVersion=1)
+    hand_edited = _make_starting_point(narrativeText="Water laps at the lowest shelves.").to_dict()
+    payload = {
+        "id": "story-1",
+        "name": "The Sunken Library",
+        "worldPrompt": "A flooded library beneath a coastal town.",
+        "characterTypes": [{"name": "Archivist"}],
+        "completionCriteria": {"successConditions": ["Recover the ledger"]},
+        "startingPoint": hand_edited,
+    }
+
+    with _patched_authorize_admin():
+        upload = import_story(
+            _authorized(
+                request_factory,
+                method="POST",
+                url="/api/manage/stories/import",
+                body=json.dumps(
+                    {"configurationText": json.dumps(payload), "confirmOverwriteStoryId": "story-1"}
+                ).encode(),
+            ),
+            story_service=story_service,
+        )
+    assert upload.status_code == 200
+    assert story_service.get_story("story-1").adminEditedFields == ["startingPoint"]
+
+    draft_id = _open_edit_draft(request_factory, story_service, draft_service)
+    with _patched_authorize_admin():
+        response = save_draft(
+            _authorized(request_factory, method="POST", url=f"/api/manage/stories/drafts/{draft_id}/save", route_params={"draftId": draft_id}),
+            story_draft_service=draft_service,
+        )
+
+    assert response.status_code == 200
+    saved = story_service.get_story("story-1")
+    assert saved.startingPoint.narrativeText == "Water laps at the lowest shelves."
+    assert saved.adminEditedFields == ["startingPoint"]
+    # The guidance was never hand-edited, so the save still refreshed it.
+    assert saved.narrativeGuidance == "Refreshed guidance."
 
 
 def test_save_draft_rejects_stale_save_and_leaves_first_saves_state_intact(request_factory):

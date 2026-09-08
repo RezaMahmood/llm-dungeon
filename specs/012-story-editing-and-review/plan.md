@@ -71,13 +71,13 @@ this feature only re-arms their gate implicitly by stamping `contentUpdatedAt`, 
 **Status**: ✓ MET — No new language, framework, or hosting model; Python/Azure Functions + React 19 SPA throughout, no new runtime dependency in either `requirements.txt` or `package.json`.
 
 ### Principle IV – Simplicity Over Premature Scale (YAGNI)
-**Status**: ✓ MET — No new container, no version history, no field-level merge UI, no `schemaVersion` marker on the file format (research.md §3), no change-detection optimization on `narrativeGuidance` regeneration (§5). Edit mode is two nullable fields on the existing draft rather than a new entity, and FR-010 is satisfied by existing behavior with a regression test instead of new code (§9).
+**Status**: ✓ MET — No new container, no version history, no field-level merge UI, no `schemaVersion` marker on the file format (research.md §3), no change-detection optimization on `narrativeGuidance`/`startingPoint` regeneration (§5). Edit mode is two nullable fields on the existing draft rather than a new entity, and FR-010 is satisfied by existing behavior with a regression test instead of new code (§9).
 
 ### Principle V – Continuous Integration Gate
 **Status**: ✓ MET — All new tests land in the existing pytest and Vitest suites already wired into the PR gate; nothing here needs a new workflow.
 
 ### Principle VI – Observability & AI Cost Transparency (NON-NEGOTIABLE)
-**Status**: ✓ MET — The two LLM paths this feature touches (`Suggest` via the draft exchange, `narrativeGuidance` regeneration on save/import) both go through `LLMService`, which already emits prompt/response/token/cost/latency telemetry. New routes are registered through `function_app.py`'s `_guarded` wrapper, keeping `http.route` a low-cardinality template.
+**Status**: ✓ MET — The two LLM paths this feature touches (`Suggest` via the draft exchange, `narrativeGuidance`/`startingPoint` regeneration on save/import) both go through `LLMService`, which already emits prompt/response/token/cost/latency telemetry. New routes are registered through `function_app.py`'s `_guarded` wrapper, keeping `http.route` a low-cardinality template.
 
 ### Principle VII – Zero-Trust Azure Resource Communication (NON-NEGOTIABLE)
 **Status**: ✓ MET — All persistence goes through `CosmosService`'s existing Managed Identity (`DefaultAzureCredential`) path; no key, connection string, or new network path is introduced.

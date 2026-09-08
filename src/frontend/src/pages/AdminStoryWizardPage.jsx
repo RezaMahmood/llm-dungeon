@@ -299,6 +299,14 @@ export function AdminStoryWizardPage() {
         <h3>Narrative guidance</h3>
         <p>{story.narrativeGuidance}</p>
 
+        {story.startingPoint && (
+          <>
+            <h3>Opening scene</h3>
+            <p>{story.startingPoint.narrativeText}</p>
+            <p className="text-muted">Every player starts here — download the configuration file to edit it.</p>
+          </>
+        )}
+
         <hr className="hr" style={{ margin: "24px 0" }} />
         <h3>Test play</h3>
         <p className="text-muted">Play through this draft before publishing it.</p>

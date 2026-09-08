@@ -151,6 +151,13 @@ describe("Admin story creation: empty draft through generated, unpublished story
         characterTypes: [{ name: "Curious Cousin", description: "" }],
         completionCriteria: { maxDurationMinutes: null, successConditions: ["Find the keeper"], failureConditions: [], rule: null },
         narrativeGuidance: "Keep it eerie but never actually dangerous.",
+        startingPoint: {
+          narrativeText: "Fog rolls off the cove, and the lighthouse stands dark.",
+          suggestedActions: ["Walk up to the lighthouse", "Search the shoreline"],
+          locationLabel: "Gullwing Cove path",
+          goalLabel: "Find the keeper",
+          progress: null,
+        },
         published: false,
         createdAt: "2026-08-29T20:04:00Z",
       },
@@ -161,6 +168,9 @@ describe("Admin story creation: empty draft through generated, unpublished story
     expect(await screen.findByText(/story generated/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /the lighthouse at gullwing cove/i })).toBeInTheDocument();
     expect(screen.getByText(/keep it eerie but never actually dangerous/i)).toBeInTheDocument();
+    // The fixed opening scene every player will start from (#271).
+    expect(screen.getByRole("heading", { name: /opening scene/i })).toBeInTheDocument();
+    expect(screen.getByText(/fog rolls off the cove/i)).toBeInTheDocument();
     expect(screen.getByText(/unpublished/i)).toBeInTheDocument();
 
     // No wizard step tabs or "save" control remain — the story is already persisted.
