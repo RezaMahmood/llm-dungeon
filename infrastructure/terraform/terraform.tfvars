@@ -32,6 +32,11 @@ private_endpoints_subnet_prefix = "10.0.2.0/24"
 functions_python_version = "3.11"
 functions_hosting_plan   = "FC1"
 
+# One warm HTTP instance during functions-always-ready-schedule.yml's windows
+# (54h/week): ~$7/month of Always Ready Baseline at 2048 MB against the $50
+# budget_amount_usd alert below. That workflow reads this value.
+functions_always_ready_instance_count = 1
+
 cosmos_consistency_level         = "Session"
 cosmos_max_throughput            = 40000
 cosmos_backup_type               = "Periodic"

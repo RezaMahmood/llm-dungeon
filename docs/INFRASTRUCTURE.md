@@ -42,7 +42,7 @@ GitHub Actions ──(federated OIDC, no stored secrets)──► GitHub OIDC Ma
                                           ├─ VNet (10.0.0.0/16)
                                           │   ├─ Functions-integration subnet
                                           │   └─ Private-endpoints subnet ──► Storage / Cosmos DB / AI Foundry
-                                          ├─ Azure Functions (Flex Consumption, system-assigned Managed Identity)
+                                          ├─ Azure Functions (Flex Consumption, scheduled always-ready HTTP instance, system-assigned Managed Identity)
                                           ├─ Azure Static Web App
                                           ├─ Log Analytics Workspace + Application Insights
                                           └─ Consumption budget alert ($50/mo)
@@ -52,6 +52,19 @@ Functions reaches Storage, Cosmos DB, and AI Foundry exclusively over private
 endpoints, authenticated via its own system-assigned Managed Identity — no
 keys, connection strings, or stored credentials anywhere in this
 configuration (Constitution Principle VII).
+
+`var.functions_always_ready_instance_count` (1 in `terraform.tfvars`) keeps that
+many instances warm for the Function App's `http` trigger group, so requests
+arriving after an idle period skip the Flex Consumption cold start. Terraform
+seeds the value and then hands it over to
+[`functions-always-ready-schedule.yml`](../.github/workflows/functions-always-ready-schedule.yml),
+which switches it on for development hours (Europe/London: weekdays 17:00-23:00,
+weekends 10:00-22:00) and back to 0 outside them — hence `always_ready` sitting
+in the resource's `ignore_changes`. Always Ready Baseline billing at the app's
+2048 MB instance size is roughly $7/month for those 54h/week, against the $50
+budget alert; around the clock it would be ~$21. Set the variable to 0 for pure
+scale-to-zero, or run the workflow manually with `on`/`off` for a one-off
+override.
 
 ## Observability & Cost Dashboard
 
