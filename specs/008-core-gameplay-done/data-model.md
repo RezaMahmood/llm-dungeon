@@ -78,7 +78,7 @@ this document — out of scope here).
 ### State Transitions
 
 ```
-Created (status="active", turns=[opening narrative], entityType="PlaySession",
+Created (status="active", turns=[the story's startingPoint as turn 0], entityType="PlaySession",
          isActiveForPlayer=true; any other active session of this playerId set
          isActiveForPlayer=false)
   → each POST .../interactions (checks run in exactly this order, matching
@@ -119,6 +119,7 @@ inside its parent session (mirrors `Story-Creation Exchange`'s embedding pattern
 |---|---|---|
 | `turnNumber` | integer | 0 for the opening narrative (no player input), 1+ thereafter |
 | `playerInput` | string or null | `null` for the opening narrative; the player's free-text action otherwise |
+| — | — | Turn 0 is copied verbatim from `Story.startingPoint` and involves no LLM call (revised 2026-09-08, #271); a `Story` persisted without one has it generated and written back on that story's next session start, so every later session replays the same opening |
 | `narrativeText` | string | The system's narrative response; no longer than 150 words (FR-002, research.md Decision 6a) and MUST NOT contradict prior `turns`/`summary` (FR-003, research.md Decision 6a) |
 | `suggestedActions` | array of string | 2-3 alternative actions offered alongside free text (UI Design System Requirements: "Suggested actions MUST always be available") |
 | `locationLabel` | string | Status-panel "Where you are" (Screen Contracts: Play surface) |

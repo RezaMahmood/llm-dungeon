@@ -22,7 +22,11 @@ from backend.services.player_content_safety_standing_service import (
     PlayerContentSafetyStandingService,
     describe_lockout,
 )
-from backend.services.story_service import StoryService
+from backend.services.story_service import (
+    ContentGenerationFailedError,
+    ContentGenerationRateLimitedError,
+    StoryService,
+)
 
 logger = logging.getLogger("play_session_service")
 
@@ -31,9 +35,9 @@ MAX_CHARACTER_NAME_LENGTH = 50
 # hit (research.md Decision 4) — a best-effort, request-shape limiter, not a distributed
 # rate-limiter.
 MIN_INTERACTION_INTERVAL_SECONDS = 2
-# Starting an adventure is a rare, deliberate act, and each one costs an opening-narrative
-# LLM call — so it gets a longer floor than a turn does. Without this, session creation is
-# the cheapest way for one player to drive unbounded model spend (FR-005).
+# Starting an adventure is a rare, deliberate act, so it gets a longer floor than a turn
+# does. Without this, session creation is the cheapest way for one player to drive
+# unbounded writes (FR-005).
 MIN_SESSION_CREATION_INTERVAL_SECONDS = 10
 SUMMARIZE_EVERY_N_TURNS = 20
 
@@ -193,14 +197,22 @@ class PlaySessionService:
         if fields:
             raise InvalidSetupError(fields)
 
-        # Checked after validation (so a mistyped name still gets its field error) but
-        # before the opening-narrative call, which is the cost this protects.
+        # Checked after validation, so a mistyped name still gets its field error.
         most_recent_start = self._most_recent_session_start(player_id)
         if (
             most_recent_start
             and (_now_dt() - _parse(most_recent_start)).total_seconds() < MIN_SESSION_CREATION_INTERVAL_SECONDS
         ):
             raise RateLimitedError()
+
+        try:
+            story = self._stories.ensure_starting_point(story)
+        except (ContentGenerationFailedError, ContentGenerationRateLimitedError, LLMContentFilteredError) as exc:
+            # Only reachable for a story persisted before `startingPoint` existed (#271).
+            # The failure is in the adventure's own content, not the player's doing, so it
+            # must not count toward their safety standing (FR-013).
+            logger.warning("Starting-point backfill failed for adventure %s", story.id)
+            raise NarrativeUnavailableError() from exc
 
         now = _now()
         session = PlaySession(
@@ -213,19 +225,9 @@ class PlaySessionService:
             lastInteractionAt=now,
             isActiveForPlayer=True,
         )
-
-        try:
-            turn_data = self._llm.generate_gameplay_turn(story, session, None)
-        except LLMContentFilteredError as exc:
-            # No player input exists yet, so this is the adventure's own content tripping
-            # the filter. That is not the player's doing, so it must not count toward
-            # their safety standing (FR-013) — it is simply an unavailable narrative.
-            logger.warning("Opening narrative was content-filtered for adventure %s", story.id)
-            raise NarrativeUnavailableError() from exc
-        except (LLMOutputError, LLMRateLimitError) as exc:
-            raise NarrativeUnavailableError() from exc
-
-        session.turns.append(self._turn_from_llm_data(0, None, turn_data, now))
+        # Turn 0 is the story's fixed opening scene, identical for every player and every
+        # replay — never a per-session generation (#271).
+        session.turns.append(self._turn_from_data(0, None, story.startingPoint.to_dict(), now))
         self._container().create_item(session.to_dict())
         self._deactivate_other_active_sessions(player_id, exclude_session_id=session.id)
         logger.info("Play session created", extra={"session_id": session.id, "adventure_id": adventure_id})
@@ -310,17 +312,17 @@ class PlaySessionService:
                 )
             except (LLMOutputError, LLMRateLimitError) as exc:
                 raise NarrativeUnavailableError() from exc
-            turn = self._turn_from_llm_data(len(session.turns), trimmed_input, turn_data, now)
+            turn = self._turn_from_data(len(session.turns), trimmed_input, turn_data, now)
             completion_reason = {"type": "duration", "detail": None}
         else:
             try:
                 turn_data = self._llm.generate_gameplay_turn(story, session, trimmed_input)
-                turn = self._turn_from_llm_data(len(session.turns), trimmed_input, turn_data, now)
+                turn = self._turn_from_data(len(session.turns), trimmed_input, turn_data, now)
                 completion_reason = self._evaluate_completion(story, session, turn_data)
             except LLMContentFilteredError:
                 standing = self._safety.record_flag(player_id)
                 turn_data = self._deflection_turn_data(session, standing)
-                turn = self._turn_from_llm_data(len(session.turns), REDACTED_PLAYER_INPUT, turn_data, now)
+                turn = self._turn_from_data(len(session.turns), REDACTED_PLAYER_INPUT, turn_data, now)
             except (LLMOutputError, LLMRateLimitError) as exc:
                 raise NarrativeUnavailableError() from exc
 
@@ -692,7 +694,7 @@ class PlaySessionService:
         }
 
     @staticmethod
-    def _turn_from_llm_data(
+    def _turn_from_data(
         turn_number: int, player_input: Optional[str], turn_data: dict[str, Any], timestamp: str
     ) -> PlayerInteraction:
         return PlayerInteraction(

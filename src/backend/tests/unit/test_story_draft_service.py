@@ -22,7 +22,7 @@ from backend.services.story_draft_service import (
     WrongDraftModeError,
 )
 from backend.services.story_service import StaleStoryError
-from backend.tests.conftest import _make_story
+from backend.tests.conftest import _make_starting_point, _make_story
 
 CREATED_BY = "oid-1"
 
@@ -193,14 +193,36 @@ def test_generate_story_succeeds_once_complete():
     container.read_item.side_effect = None
     container.read_item.return_value = draft.to_dict()
     llm.generate_story_config.return_value = {"narrativeGuidance": "Keep it eerie but safe."}
+    llm.generate_starting_point.return_value = _make_starting_point().to_dict()
     generated_story = MagicMock(id="story-1")
     stories.create_story.return_value = generated_story
 
     story = service.generate_story("draft-1")
 
     assert story is generated_story
+    # The opening scene is generated from the guidance that was just generated with it,
+    # and persisted on the Story rather than regenerated per session (#271).
+    llm.generate_starting_point.assert_called_once()
+    assert llm.generate_starting_point.call_args[0][1] == "Keep it eerie but safe."
     stories.create_story.assert_called_once()
+    assert stories.create_story.call_args[0][2] == _make_starting_point()
     container.delete_item.assert_called_once_with(item="draft-1", partition_key="draft-1")
+
+
+def test_generate_story_leaves_the_draft_intact_when_the_opening_scene_fails():
+    service, cosmos, llm, stories = _service()
+    container = cosmos.get_container.return_value
+    draft = _complete_draft()
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+    llm.generate_story_config.return_value = {"narrativeGuidance": "Keep it eerie but safe."}
+    llm.generate_starting_point.side_effect = LLMOutputError("bad json")
+
+    with pytest.raises(GenerationFailedError):
+        service.generate_story("draft-1")
+
+    stories.create_story.assert_not_called()
+    container.delete_item.assert_not_called()
 
 
 def test_generate_story_returns_none_for_missing_draft():
@@ -376,7 +398,7 @@ def test_save_draft_to_story_applies_and_deletes_the_draft():
     container.read_item.return_value = draft.to_dict()
     story = _make_story(id="story-1", contentVersion=2)
     stories.get_story.return_value = story
-    stories.regenerate_narrative_guidance.return_value = "Fresh guidance."
+    stories.derived_content.return_value = ("Fresh guidance.", _make_starting_point())
     updated_story = _make_story(id="story-1", contentVersion=3)
     stories.apply_content_write.return_value = updated_story
 
@@ -388,6 +410,7 @@ def test_save_draft_to_story_applies_and_deletes_the_draft():
     assert args[0] is story
     assert args[2] == "admin-oid"
     assert args[3] == "Fresh guidance."
+    assert args[4] == _make_starting_point()
     container.delete_item.assert_called_once_with(item="draft-1", partition_key="draft-1")
 
 

@@ -118,7 +118,8 @@ edit mode's terminal action, replacing creation mode's `…/generate`.
 **Request**: No body — the draft already carries `sourceStoryId` and `baseContentVersion`.
 
 **Behavior**: validates the Completeness Rule → checks `baseContentVersion` against the story's
-current `contentVersion` → regenerates `narrativeGuidance` → writes the story (preserving `id`,
+current `contentVersion` → regenerates `narrativeGuidance` and `startingPoint` (the draft
+carries neither) → writes the story (preserving `id`,
 `createdBy`, `createdAt`, `published`, `lastPublishedAt`; stamping `lastUpdatedBy`,
 `contentUpdatedAt`; incrementing `contentVersion`) → deletes the draft.
 
@@ -241,7 +242,7 @@ Other `422` cases, same shape:
   non-positive `sessionLengthMinutes`/`chapters`.
 
 **Response (502 / 429)**: `generation_failed` / `rate_limited` from the `narrativeGuidance`
-regeneration (research.md §5), same shapes as above. Nothing is persisted.
+or `startingPoint` regeneration (research.md §5), same shapes as above. Nothing is persisted.
 
 ---
 
@@ -273,7 +274,8 @@ persisted and the story left as the concurrent writer left it:
 
 Status `409`. This is distinct from `stale_story`: it says nothing about the
 administrator's copy being out of date, and the action is simply to repeat it. The retry
-costs no extra LLM call — `narrativeGuidance` is generated before the write.
+costs no extra LLM call — `narrativeGuidance` and `startingPoint` are resolved before the
+write.
 
 ---
 

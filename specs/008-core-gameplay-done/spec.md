@@ -40,7 +40,7 @@ Once a player has set up a game (see `006-adventure-and-character-setup`), they 
 
 **Acceptance Scenarios**:
 
-1. **Given** a newly set-up play session, **When** it begins, **Then** the system presents an opening narrative passage establishing the scene, consistent with the chosen adventure and character.
+1. **Given** a newly set-up play session, **When** it begins, **Then** the system presents the adventure's fixed starting point (`004-story-creation-done` → `Story.startingPoint`) as its opening narrative — the same passage for every player of that adventure, revised 2026-09-08 (#271).
 2. **Given** an active play session with prior history, **When** the player types a free-text action, **Then** the system returns a narrative response consistent with the story's setting and the session's prior events.
 3. **Given** a concluded session (see User Story 2), **When** the player submits another action, **Then** the system indicates the story has ended rather than generating further narrative.
 4. **Given** an active play session, **When** a second interaction is attempted against it while one is already in progress, **Then** the system immediately rejects the second interaction (rather than queuing it) so session state is never corrupted or interleaved.

@@ -23,6 +23,7 @@ from backend.api.admin.stories import (
 from backend.services.llm_service import LLMOutputError, LLMRateLimitError
 from backend.services.story_draft_service import StoryDraftService
 from backend.services.story_service import StoryService
+from backend.tests.conftest import _make_starting_point
 
 ADMIN_OID = "550e8400-e29b-41d4-a716-446655440000"
 ADMIN_EMAIL = "admin@example.com"
@@ -254,6 +255,7 @@ def test_generate_action_persists_a_story_only_when_explicitly_called(request_fa
         )
 
     llm.generate_story_config.return_value = {"narrativeGuidance": "Keep it eerie but never actually dangerous."}
+    llm.generate_starting_point.return_value = _make_starting_point().to_dict()
     with _patched_authorize_admin():
         response = generate_story_from_draft(
             _authorized(

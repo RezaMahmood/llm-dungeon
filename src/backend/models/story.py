@@ -66,6 +66,47 @@ class CompletionCriteria:
 
 
 @dataclass
+class StartingPoint:
+    """The story's fixed opening — generated once at story-creation time and replayed
+    verbatim as every session's turn 0 (008-core-gameplay-done data-model.md → Player
+    Interaction). Its fields are exactly the ones a turn carries, minus the per-session
+    ones (`turnNumber`, `playerInput`, `timestamp`)."""
+
+    narrativeText: str
+    suggestedActions: list[str]
+    locationLabel: str
+    goalLabel: Optional[str] = None
+    progress: Optional[dict[str, int]] = None
+
+    def __post_init__(self) -> None:
+        if not self.narrativeText:
+            raise ValueError("narrativeText is required")
+        if not self.suggestedActions:
+            raise ValueError("suggestedActions must have at least one entry")
+        if not self.locationLabel:
+            raise ValueError("locationLabel is required")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "narrativeText": self.narrativeText,
+            "suggestedActions": self.suggestedActions,
+            "locationLabel": self.locationLabel,
+            "goalLabel": self.goalLabel,
+            "progress": self.progress,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "StartingPoint":
+        return cls(
+            narrativeText=data["narrativeText"],
+            suggestedActions=list(data.get("suggestedActions", [])),
+            locationLabel=data["locationLabel"],
+            goalLabel=data.get("goalLabel"),
+            progress=data.get("progress"),
+        )
+
+
+@dataclass
 class Story:
     id: str
     worldPrompt: str
@@ -87,6 +128,9 @@ class Story:
     lastTestPlayedAt: Optional[str] = None
     lastUpdatedBy: Optional[str] = None
     contentVersion: int = 1
+    # Optional only for Story rows persisted before this field existed; those are
+    # backfilled on their next session start (StoryService.ensure_starting_point).
+    startingPoint: Optional[StartingPoint] = None
     entityType: str = field(default="Story")
 
     def __post_init__(self) -> None:
@@ -111,6 +155,7 @@ class Story:
             "characterTypes": [ct.to_dict() for ct in self.characterTypes],
             "completionCriteria": self.completionCriteria.to_dict(),
             "narrativeGuidance": self.narrativeGuidance,
+            "startingPoint": self.startingPoint.to_dict() if self.startingPoint else None,
             "published": self.published,
             "lastPublishedAt": self.lastPublishedAt,
             "createdBy": self.createdBy,
@@ -137,6 +182,9 @@ class Story:
             characterTypes=[CharacterType.from_dict(ct) for ct in data.get("characterTypes", [])],
             completionCriteria=CompletionCriteria.from_dict(data["completionCriteria"]),
             narrativeGuidance=data["narrativeGuidance"],
+            startingPoint=(
+                StartingPoint.from_dict(data["startingPoint"]) if data.get("startingPoint") else None
+            ),
             published=data.get("published", False),
             lastPublishedAt=data.get("lastPublishedAt"),
             createdBy=data["createdBy"],

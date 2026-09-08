@@ -49,6 +49,7 @@ def _load_prompt(filename: str) -> str:
 
 WORLD_PROMPT_SYSTEM_PROMPT = _load_prompt("world_prompt_system_prompt.txt")
 GENERATION_SYSTEM_PROMPT = _load_prompt("generation_system_prompt.txt")
+STARTING_POINT_SYSTEM_PROMPT = _load_prompt("starting_point_system_prompt.txt")
 GAMEPLAY_TURN_SYSTEM_PROMPT = _load_prompt("gameplay_turn_system_prompt.txt")
 GAMEPLAY_SUMMARY_SYSTEM_PROMPT = _load_prompt("gameplay_summary_system_prompt.txt")
 
@@ -86,10 +87,10 @@ class _GenerationResponse(BaseModel):
     narrativeGuidance: str
 
 
-class _OpeningNarrativeResponse(BaseModel):
-    """The turn-0 (opening-narrative) call's schema — no player input yet exists, so a
-    session cannot end before the player has acted (research.md Decision 6): this schema
-    has no completion-condition-matching fields at all."""
+class _StartingPointResponse(BaseModel):
+    """The story's fixed opening scene, generated once at story-creation time (#271). No
+    session exists yet and no player has acted, so this schema carries no
+    completion-condition-matching fields at all."""
 
     narrativeText: str
     suggestedActions: list[str]
@@ -98,7 +99,12 @@ class _OpeningNarrativeResponse(BaseModel):
     progress: Optional[dict[str, int]] = None
 
 
-class _GameplayTurnResponse(_OpeningNarrativeResponse):
+class _GameplayTurnResponse(BaseModel):
+    narrativeText: str
+    suggestedActions: list[str]
+    locationLabel: str
+    goalLabel: Optional[str] = None
+    progress: Optional[dict[str, int]] = None
     newlySatisfiedSuccessConditions: list[int] = []
     newlySatisfiedFailureConditions: list[int] = []
 
@@ -143,32 +149,43 @@ class LLMService:
         result = self._call("gen_ai.story_creation.generate", GENERATION_SYSTEM_PROMPT, prompt, _GenerationResponse)
         return result.model_dump()
 
+    def generate_starting_point(self, draft: dict[str, Any], narrative_guidance: str) -> dict[str, Any]:
+        """The story's fixed opening scene, generated once per story from the freshly
+        generated `narrative_guidance` and persisted on the `Story` (#271). Turn 0 of every
+        session replays it verbatim, so it is deliberately character-agnostic."""
+        prompt = self._build_starting_point_prompt(draft, narrative_guidance)
+        result = self._call(
+            "gen_ai.story_creation.starting_point", STARTING_POINT_SYSTEM_PROMPT, prompt, _StartingPointResponse
+        )
+        data = result.model_dump()
+        self._warn_if_over_length(data["narrativeText"])
+        return data
+
     def generate_gameplay_turn(
         self,
         story: Story,
         session: PlaySession,
-        player_input: Optional[str],
+        player_input: str,
         concluding_reason: Optional[str] = None,
     ) -> dict[str, Any]:
         """One turn of gameplay narrative (008-core-gameplay-done research.md Decision 6).
-        `player_input is None` is the opening-narrative call (turn 0), which skips
-        requesting completion-condition matching entirely — a session cannot end before
-        the player has acted. `concluding_reason` asks for an ending; it travels as a
-        narrator directive rather than inside `player_input`, which the system prompt
-        instructs the model to distrust for behavior changes (FR-012)."""
+        Turn 0 never comes from here — it is `story.startingPoint`, replayed verbatim (#271).
+        `concluding_reason` asks for an ending; it travels as a narrator directive rather
+        than inside `player_input`, which the system prompt instructs the model to distrust
+        for behavior changes (FR-012)."""
         prompt = self._build_gameplay_turn_prompt(story, session, player_input, concluding_reason)
-        response_model = _OpeningNarrativeResponse if player_input is None else _GameplayTurnResponse
-        result = self._call("gen_ai.gameplay.turn", GAMEPLAY_TURN_SYSTEM_PROMPT, prompt, response_model)
+        result = self._call("gen_ai.gameplay.turn", GAMEPLAY_TURN_SYSTEM_PROMPT, prompt, _GameplayTurnResponse)
         data = result.model_dump()
-        data.setdefault("newlySatisfiedSuccessConditions", [])
-        data.setdefault("newlySatisfiedFailureConditions", [])
+        self._warn_if_over_length(data["narrativeText"])
+        return data
 
-        word_count = len(data["narrativeText"].split())
+    @staticmethod
+    def _warn_if_over_length(narrative_text: str) -> None:
+        word_count = len(narrative_text.split())
         if word_count > MAX_NARRATIVE_WORDS:
             # Logged, never truncated (research.md Decision 6a) — truncating mid-sentence
             # could itself introduce a fact-consistency contradiction.
-            logger.warning("gameplay turn narrative exceeded %d words (got %d)", MAX_NARRATIVE_WORDS, word_count)
-        return data
+            logger.warning("narrative exceeded %d words (got %d)", MAX_NARRATIVE_WORDS, word_count)
 
     def summarize_session_history(self, story: Story, session: PlaySession) -> str:
         """Condenses `session.summary` (if any) plus the turns since
@@ -308,11 +325,20 @@ class LLMService:
     def _build_generation_prompt(self, draft: dict[str, Any]) -> str:
         return "Complete draft:\n" + json.dumps(draft, indent=2)
 
+    def _build_starting_point_prompt(self, draft: dict[str, Any], narrative_guidance: str) -> str:
+        return "\n".join(
+            [
+                "Complete story configuration:",
+                json.dumps(draft, indent=2),
+                f"\nNarrative guidance: {narrative_guidance}",
+            ]
+        )
+
     def _build_gameplay_turn_prompt(
         self,
         story: Story,
         session: PlaySession,
-        player_input: Optional[str],
+        player_input: str,
         concluding_reason: Optional[str] = None,
     ) -> str:
         lines = [f"World: {story.worldPrompt}"]
@@ -328,34 +354,30 @@ class LLMService:
             lines.append(f"Total chapters: {story.chapters}")
         lines.append(f"Character: {session.characterName} ({session.characterType})")
 
-        history = self._prior_context(session)
-        lines.append("Prior narrative history:\n" + history if history else "This is the opening turn — no prior history yet.")
+        lines.append("Prior narrative history:\n" + self._prior_context(session))
 
-        if player_input is not None:
-            criteria = story.completionCriteria
-            remaining_success = [
-                (i, text)
-                for i, text in enumerate(criteria.successConditions)
-                if i not in session.satisfiedSuccessConditions
-            ]
-            remaining_failure = [
-                (i, text)
-                for i, text in enumerate(criteria.failureConditions)
-                if i not in session.satisfiedFailureConditions
-            ]
-            if remaining_success:
-                lines.append(
-                    "Not-yet-satisfied success conditions (index: text):\n"
-                    + "\n".join(f"  {i}: {text}" for i, text in remaining_success)
-                )
-            if remaining_failure:
-                lines.append(
-                    "Not-yet-satisfied failure conditions (index: text):\n"
-                    + "\n".join(f"  {i}: {text}" for i, text in remaining_failure)
-                )
-            lines.append(f"Player's latest input: {player_input}")
-        else:
-            lines.append("Generate the opening narrative for this session's first turn.")
+        criteria = story.completionCriteria
+        remaining_success = [
+            (i, text)
+            for i, text in enumerate(criteria.successConditions)
+            if i not in session.satisfiedSuccessConditions
+        ]
+        remaining_failure = [
+            (i, text)
+            for i, text in enumerate(criteria.failureConditions)
+            if i not in session.satisfiedFailureConditions
+        ]
+        if remaining_success:
+            lines.append(
+                "Not-yet-satisfied success conditions (index: text):\n"
+                + "\n".join(f"  {i}: {text}" for i, text in remaining_success)
+            )
+        if remaining_failure:
+            lines.append(
+                "Not-yet-satisfied failure conditions (index: text):\n"
+                + "\n".join(f"  {i}: {text}" for i, text in remaining_failure)
+            )
+        lines.append(f"Player's latest input: {player_input}")
 
         if concluding_reason:
             # Kept out of the player-input field on purpose: the system prompt tells the

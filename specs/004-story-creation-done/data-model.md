@@ -83,6 +83,7 @@ A draft is never directly deleted by an explicit "abandon" action (Assumptions: 
 | `characterTypes` | array of Character Type | Yes, min length 1 | See below | FR-008, SC-003 |
 | `completionCriteria` | Completion Criteria | Yes, min 1 success condition | See below | FR-008, SC-003; shape matches `008-core-gameplay-done`'s Key Entity |
 | `narrativeGuidance` | string | Yes | LLM-generated prose the play-session narrator (`008-core-gameplay-done`) uses to stay consistent with this story | The "guidance... to keep the LLM's later narration consistent" named in spec.md's Story Key Entity |
+| `startingPoint` | Starting Point | Yes (from 2026-09-08, #271) | LLM-generated from `narrativeGuidance` at generation time; replayed verbatim as turn 0 of every session (`008-core-gameplay-done`) | A story's opening is fixed and admin-reviewable, not regenerated per session (#271) |
 | `published` | boolean | Yes | Defaults to `false` on creation | FR-006; flipped only by `005-story-publishing-done` |
 | `createdBy` | string | Yes | Administrator's `oid` | Audit trail |
 | `createdAt` | ISO 8601 timestamp | Yes | Generation time | Audit trail |
@@ -92,7 +93,27 @@ A draft is never directly deleted by an explicit "abandon" action (Assumptions: 
 
 - A `Story` is only ever created by the backend's generation step, never directly via a client-supplied write — enforces FR-003 (LLM-generated) and FR-004 (auto-persisted as one atomic step).
 - `characterTypes` and `completionCriteria` MUST satisfy the same minimums as the draft's Completeness Rule — re-validated server-side at generation time even though the draft's own writes already enforce it, since the LLM's own output (`narrativeGuidance`) is what's actually new and unvalidated at that point (Edge Cases: malformed LLM output must not be persisted).
-- If the Foundry call for `narrativeGuidance` fails or returns content that fails validation (empty, or not parseable per research.md §4's schema for the generation call), no `Story` is written and the draft is left intact for another attempt (Edge Cases).
+- If either Foundry call — `narrativeGuidance`, or the `startingPoint` generated from it — fails or returns content that fails validation (empty, or not parseable per research.md §4's schemas), no `Story` is written and the draft is left intact for another attempt (Edge Cases).
+- `startingPoint` is `null` only on a `Story` row persisted before 2026-09-08 (#271); such a row is backfilled on its next session start (`008-core-gameplay-done` data-model.md).
+
+---
+
+## Shared Structure: Starting Point
+
+Added 2026-09-08 (#271). Embedded in `Story.startingPoint`; carries exactly the fields a
+`008-core-gameplay-done` Player Interaction does, minus the per-session ones
+(`turnNumber`, `playerInput`, `timestamp`).
+
+| Property | Type | Required | Rationale |
+|----------|------|----------|-----------|
+| `narrativeText` | string | Yes | The opening narrative every player sees; same 150-word ceiling as a turn |
+| `suggestedActions` | array of string, min length 1 | Yes | Suggested actions must be available on every turn, turn 0 included |
+| `locationLabel` | string | Yes | Status-panel "Where you are" at turn 0 |
+| `goalLabel` | string or null | No | Status-panel "Your goal" at turn 0 |
+| `progress` | object or null | No | `{"current": int, "total": int}` when `chapters` is set |
+
+Written without reference to any character name or type — it is identical for every player
+of the story.
 
 ---
 

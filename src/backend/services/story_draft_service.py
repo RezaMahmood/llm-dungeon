@@ -14,7 +14,7 @@ from typing import Any, Optional
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 from backend.config import config
-from backend.models.story import CharacterType, CompletionCriteria, Story
+from backend.models.story import CharacterType, CompletionCriteria, StartingPoint, Story
 from backend.models.story_draft import StoryDraft
 from backend.services.cosmos_service import CosmosService
 from backend.services.llm_service import LLMOutputError, LLMRateLimitError, LLMService
@@ -170,8 +170,8 @@ class StoryDraftService:
         `DraftIncompleteError` if the Completeness Rule isn't met, `DraftNotFoundError` if
         the source story is gone, `StaleStoryError` if the story changed since the draft
         was seeded (the draft is left intact), and `ContentGenerationFailedError`/
-        `ContentGenerationRateLimitedError` if narrativeGuidance regeneration fails (the
-        story is left unchanged in every failure case)."""
+        `ContentGenerationRateLimitedError` if narrativeGuidance/startingPoint regeneration
+        fails (the story is left unchanged in every failure case)."""
         draft = self.get_draft(draft_id)
         if draft is None:
             return None
@@ -202,15 +202,17 @@ class StoryDraftService:
             characterTypes=draft.characterTypes,
             completionCriteria=draft.completionCriteria,
         )
-        narrative_guidance = self._stories.regenerate_narrative_guidance(configuration, draft.name)
-        updated = self._stories.apply_content_write(story, configuration, admin_oid, narrative_guidance)
+        narrative_guidance, starting_point = self._stories.derived_content(configuration, draft.name)
+        updated = self._stories.apply_content_write(
+            story, configuration, admin_oid, narrative_guidance, starting_point
+        )
         self._container().delete_item(item=draft.id, partition_key=draft.id)
         return updated
 
     def generate_story(self, draft_id: str) -> Optional[Story]:
         """The administrator's explicit "finish" action: generate the story's narrative
-        guidance and persist a complete `Story`, deleting the draft. Returns `None` if the
-        draft doesn't exist. Raises `WrongDraftModeError` if the draft is an edit of an
+        guidance and its fixed opening scene, then persist a complete `Story`, deleting the
+        draft. Returns `None` if the draft doesn't exist. Raises `WrongDraftModeError` if the draft is an edit of an
         existing story (data-model.md → Mode rules — an edit must never mint a second
         story), `DraftIncompleteError` if the Completeness Rule isn't met yet,
         `GenerationFailedError`/`LLMRateLimitedError` if the Foundry call fails — in both
@@ -230,14 +232,17 @@ class StoryDraftService:
             narrative_guidance = generation["narrativeGuidance"]
             if not narrative_guidance:
                 raise LLMOutputError("narrativeGuidance was empty")
+            starting_point = StartingPoint.from_dict(
+                self._llm.generate_starting_point(draft.to_dict(), narrative_guidance)
+            )
         except LLMRateLimitError as exc:
             logger.warning("Story generation rate-limited for draft %s: %s", draft.id, exc)
             raise LLMRateLimitedError(str(exc)) from exc
-        except LLMOutputError as exc:
+        except (LLMOutputError, ValueError, KeyError) as exc:
             logger.warning("Story generation failed for draft %s: %s", draft.id, exc)
             raise GenerationFailedError(str(exc)) from exc
 
-        story = self._stories.create_story(draft, narrative_guidance)
+        story = self._stories.create_story(draft, narrative_guidance, starting_point)
         self._container().delete_item(item=draft.id, partition_key=draft.id)
         return story
 

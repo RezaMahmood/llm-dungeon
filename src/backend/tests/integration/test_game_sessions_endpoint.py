@@ -13,10 +13,11 @@ from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosReso
 
 from backend.api.game.sessions import create_session, resume_session, submit_interaction
 from backend.config import config
-from backend.models.story import CharacterType, CompletionCriteria, Story
+from backend.models.story import CharacterType, CompletionCriteria, StartingPoint, Story
 from backend.services.llm_service import LLMContentFilteredError
 from backend.services.play_session_service import PlaySessionService
 from backend.services.player_content_safety_standing_service import PlayerContentSafetyStandingService
+from backend.services.story_service import StoryService
 
 USER_OID = "550e8400-e29b-41d4-a716-446655440000"
 OTHER_OID = "660e8400-e29b-41d4-a716-446655440111"
@@ -80,15 +81,11 @@ class FakeCosmosService:
         return rows
 
 
-OPENING_TURN_DATA = {
-    "narrativeText": "The lighthouse door creaks open.",
-    "suggestedActions": ["look around", "step inside"],
-    "locationLabel": "Lighthouse entrance",
-    "goalLabel": None,
-    "progress": None,
-    "newlySatisfiedSuccessConditions": [],
-    "newlySatisfiedFailureConditions": [],
-}
+STARTING_POINT = StartingPoint(
+    narrativeText="The lighthouse door creaks open.",
+    suggestedActions=["look around", "step inside"],
+    locationLabel="Lighthouse entrance",
+)
 
 
 def _turn_data(text="You look around.", success=None, failure=None) -> dict:
@@ -118,6 +115,7 @@ def _story(
             maxDurationMinutes=max_duration_minutes,
         ),
         narrativeGuidance="Keep it eerie but safe.",
+        startingPoint=STARTING_POINT,
         createdBy="admin-oid",
         createdAt="2026-09-05T00:00:00Z",
         contentUpdatedAt="2026-09-05T00:00:00Z",
@@ -125,17 +123,24 @@ def _story(
     )
 
 
-def _service(story: Story, llm_turn_data=OPENING_TURN_DATA, cosmos: FakeCosmosService | None = None):
+def _service(story: Story, llm_turn_data=None, cosmos: FakeCosmosService | None = None):
     cosmos = cosmos or FakeCosmosService()
     cosmos.get_container(config.STORIES_CONTAINER).upsert_item(story.to_dict())
     llm = MagicMock()
     if isinstance(llm_turn_data, list):
         llm.generate_gameplay_turn.side_effect = llm_turn_data
     else:
-        llm.generate_gameplay_turn.return_value = llm_turn_data
+        llm.generate_gameplay_turn.return_value = llm_turn_data if llm_turn_data is not None else _turn_data()
+    llm.generate_starting_point.return_value = STARTING_POINT.to_dict()
     llm.summarize_session_history.return_value = "Condensed summary."
     safety = PlayerContentSafetyStandingService(cosmos_service=cosmos)
-    service = PlaySessionService(cosmos_service=cosmos, llm_service=llm, player_content_safety_standing_service=safety)
+    stories = StoryService(cosmos_service=cosmos, llm_service=llm)
+    service = PlaySessionService(
+        cosmos_service=cosmos,
+        story_service=stories,
+        llm_service=llm,
+        player_content_safety_standing_service=safety,
+    )
     return service, cosmos, llm, safety
 
 
@@ -211,6 +216,7 @@ def test_create_session_returns_201_with_opening_narrative(request_factory):
     assert response.status_code == 201
     body = json.loads(response.get_body())
     assert body["narrative"]["turnNumber"] == 0
+    assert body["narrative"]["narrativeText"] == STARTING_POINT.narrativeText
     assert "sessionId" in body
 
 
@@ -234,10 +240,10 @@ def test_create_session_missing_adventure_returns_404(request_factory):
 
 
 def test_creating_sessions_back_to_back_is_rate_limited(request_factory):
-    """FR-005: each creation costs an opening-narrative LLM call, so it cannot be
-    unthrottled just because the interactions endpoint is throttled."""
+    """FR-005: starting an adventure cannot be unthrottled just because the interactions
+    endpoint is throttled."""
     story = _story()
-    service, _cosmos, llm, _safety = _service(story)
+    service, _cosmos, _llm, _safety = _service(story)
     first = _create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"})
     assert first.status_code == 201
 
@@ -245,8 +251,8 @@ def test_creating_sessions_back_to_back_is_rate_limited(request_factory):
 
     assert second.status_code == 429
     assert json.loads(second.get_body())["error"] == "rate_limited"
-    # The throttled attempt never reached the model.
-    assert llm.generate_gameplay_turn.call_count == 1
+    # The throttled attempt never persisted a second session.
+    assert len(_cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items) == 1
 
 
 def test_create_session_blank_adventure_id_returns_400_not_404(request_factory):
@@ -434,12 +440,7 @@ def test_three_flags_lock_out_player_scoped_per_player(request_factory):
     created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
     session_id = created["sessionId"]
 
-    def _content_filter_unless_opening(story, session, player_input):  # noqa: ARG001
-        if player_input is None:
-            return OPENING_TURN_DATA
-        raise LLMContentFilteredError("blocked")
-
-    llm.generate_gameplay_turn.side_effect = _content_filter_unless_opening
+    llm.generate_gameplay_turn.side_effect = LLMContentFilteredError("blocked")
 
     _clear_rate_limit(cosmos, session_id)
     _interact(request_factory, service, session_id, {"input": "bad 1"})
@@ -471,7 +472,7 @@ def test_three_flags_lock_out_player_scoped_per_player(request_factory):
 def test_twenty_turns_produces_summary_used_on_turn_twenty_one(request_factory):
     story = _story()
     responses = [_turn_data(f"Turn {i}") for i in range(1, 22)]
-    service, cosmos, _llm, _safety = _service(story, llm_turn_data=[OPENING_TURN_DATA] + responses)
+    service, cosmos, _llm, _safety = _service(story, llm_turn_data=responses)
     created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
     session_id = created["sessionId"]
 

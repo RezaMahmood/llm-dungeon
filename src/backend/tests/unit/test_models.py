@@ -8,7 +8,7 @@ import pytest
 from backend.models.play_session import CheckpointMarker, PlayerInteraction, PlaySession
 from backend.models.player_content_safety_standing import PlayerContentSafetyStanding
 from backend.models.provisioned_account_entry import ProvisionedAccountEntry
-from backend.models.story import CharacterType, CompletionCriteria, Story
+from backend.models.story import CharacterType, CompletionCriteria, StartingPoint, Story
 from backend.models.story_draft import StoryDraft
 
 
@@ -203,6 +203,71 @@ def test_story_defaults_content_version_and_last_updated_by_for_pre_existing_row
 
     assert story.contentVersion == 1
     assert story.lastUpdatedBy is None
+
+
+# --- StartingPoint (#271) ---
+
+
+def test_starting_point_round_trips_through_dict():
+    starting_point = StartingPoint(
+        narrativeText="Fog rolls off the cove.",
+        suggestedActions=["Walk up", "Search the shore"],
+        locationLabel="Cove path",
+        goalLabel="Light the lamp",
+        progress={"current": 1, "total": 5},
+    )
+
+    assert StartingPoint.from_dict(starting_point.to_dict()) == starting_point
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"narrativeText": ""},
+        {"suggestedActions": []},
+        {"locationLabel": ""},
+    ],
+)
+def test_starting_point_rejects_a_missing_required_field(overrides):
+    fields = dict(narrativeText="Fog rolls off the cove.", suggestedActions=["Walk up"], locationLabel="Cove path")
+    fields.update(overrides)
+
+    with pytest.raises(ValueError):
+        StartingPoint(**fields)
+
+
+def test_story_round_trips_its_starting_point():
+    story = Story(
+        id="story-1",
+        worldPrompt="A half-abandoned lighthouse...",
+        characterTypes=[CharacterType(name="Curious Cousin")],
+        completionCriteria=_completion_criteria(),
+        narrativeGuidance="Keep it eerie but never actually dangerous.",
+        startingPoint=StartingPoint(
+            narrativeText="Fog rolls off the cove.", suggestedActions=["Walk up"], locationLabel="Cove path"
+        ),
+        createdBy="oid-1",
+        createdAt="2026-08-29T20:04:00Z",
+        contentUpdatedAt="2026-08-29T20:04:00Z",
+    )
+
+    assert Story.from_dict(story.to_dict()) == story
+
+
+def test_story_reads_a_row_persisted_before_starting_point_existed():
+    """Mirrors the contentUpdatedAt precedent above: such a row loads with
+    `startingPoint = None` and is backfilled on its next session start."""
+    data = {
+        "id": "story-1",
+        "worldPrompt": "A half-abandoned lighthouse...",
+        "characterTypes": [{"name": "Curious Cousin", "description": None}],
+        "completionCriteria": {"successConditions": ["Find the keeper"], "maxDurationMinutes": None, "failureConditions": [], "rule": None},
+        "narrativeGuidance": "Keep it eerie but never actually dangerous.",
+        "createdBy": "oid-1",
+        "createdAt": "2026-08-29T20:04:00Z",
+    }
+
+    assert Story.from_dict(data).startingPoint is None
 
 
 def test_story_round_trips_content_version_and_last_updated_by():

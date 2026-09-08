@@ -13,6 +13,7 @@ from backend.api.admin.stories import create_edit_draft, generate_story_from_dra
 from backend.api.utils import forbidden_insufficient_permission, unauthorized
 from backend.services.story_draft_service import StoryDraftService
 from backend.services.story_service import StoryService
+from backend.tests.conftest import _make_starting_point
 
 ADMIN_OID = "550e8400-e29b-41d4-a716-446655440000"
 
@@ -65,6 +66,7 @@ def _services():
     cosmos = FakeCosmosService()
     llm = MagicMock()
     llm.generate_story_config.return_value = {"narrativeGuidance": "Refreshed guidance."}
+    llm.generate_starting_point.return_value = _make_starting_point().to_dict()
     story_service = StoryService(cosmos_service=cosmos, llm_service=llm)
     draft_service = StoryDraftService(cosmos_service=cosmos, llm_service=llm, story_service=story_service)
     return story_service, draft_service, llm, cosmos
