@@ -10,8 +10,9 @@ Per the constitution's Principle XIII (AI Agent Division of Labor), Claude
 Code performs local development and spec-related work — including
 resolving a GitHub issue end-to-end (writing the fix, pushing, and opening
 the PR) — and also pushes and opens the pull request once that work is
-ready. Claude MUST NOT merge a pull request or close a GitHub issue directly against GitHub itself.
-GitHub Copilot's role is PR code review; the requesting user merges pull requests (and closes issues if needed).
+ready. Claude MUST NOT merge a pull request against GitHub itself.
+GitHub Copilot's role is PR code review; the requesting user merges pull requests.
+Claude MAY close a GitHub issue, but only on the conditions below.
 
 - When local work on a branch is ready, Claude MUST push it and open the
   pull request itself with `gh pr create`.
@@ -33,6 +34,13 @@ GitHub Copilot's role is PR code review; the requesting user merges pull request
   approving review or perform the merge. The requesting user reviews Copilot's
   recommendations and the required status checks, then merges the pull
   request manually.
+- Claude MAY close a GitHub issue with `gh issue close` only when both hold:
+  the user has asked Claude to close that issue, and Claude has verified the
+  work resolving it is merged to `origin/main` — not just on a local branch,
+  in a worktree, or in an open PR. Claude MUST say what it verified when it
+  closes one, and MUST NOT close an issue on its own initiative (e.g. because
+  it judges the work done). If either condition fails, leave the issue open
+  and say why.
 
 ### Responding to GitHub Copilot review comments
 
@@ -48,8 +56,8 @@ fixes the underlying issue and pushes the fix:
   comment id/URL is known), e.g.
   `gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "..."}) { thread { isResolved } } }'`.
 - Resolving a Copilot review thread this way is addressing feedback on an
-  open PR, not closing a GitHub issue or merging — the restrictions above
-  on merging and closing issues still apply.
+  open PR, not merging — the restriction above on merging still applies, as
+  do the conditions on closing an issue.
 - If a Copilot comment is out of scope, already handled elsewhere, or a
   fix isn't warranted, reply explaining why instead of silently resolving
   it, and leave the thread open for the user to decide.
