@@ -1,6 +1,7 @@
-"""Azure OpenAI LLM client — the guiding-question exchange and final story-generation
-calls, each wrapped in an OpenTelemetry span carrying full prompt/response, token counts,
-computed cost, and latency (Constitution Principle VI; research.md §1, §2, §4).
+"""Azure OpenAI LLM client — the one-pass world-prompt suggestion and final
+story-generation calls, each wrapped in an OpenTelemetry span carrying full
+prompt/response, token counts, computed cost, and latency (Constitution Principle VI;
+research.md §1, §2, §4).
 
 Built on the Microsoft Agent Framework's `OpenAIChatCompletionClient` (`agent-framework-openai`)
 rather than `azure-ai-inference`, which Microsoft retired on 2026-08-26 — see research.md §1
@@ -46,7 +47,7 @@ def _load_prompt(filename: str) -> str:
     return (_PROMPTS_DIR / filename).read_text(encoding="utf-8").removesuffix("\n")
 
 
-EXCHANGE_SYSTEM_PROMPT = _load_prompt("exchange_system_prompt.txt")
+WORLD_PROMPT_SYSTEM_PROMPT = _load_prompt("world_prompt_system_prompt.txt")
 GENERATION_SYSTEM_PROMPT = _load_prompt("generation_system_prompt.txt")
 GAMEPLAY_TURN_SYSTEM_PROMPT = _load_prompt("gameplay_turn_system_prompt.txt")
 GAMEPLAY_SUMMARY_SYSTEM_PROMPT = _load_prompt("gameplay_summary_system_prompt.txt")
@@ -73,25 +74,12 @@ class LLMContentFilteredError(RuntimeError):
     Callers map this to a safe in-fiction deflection narrative, never a raw error."""
 
 
-class _FieldUpdates(BaseModel):
-    """Mirrors the fields listed in `EXCHANGE_SYSTEM_PROMPT`. Declared explicitly (rather
-    than `dict[str, Any]`) because Azure OpenAI's structured-output mode requires every
-    object in the response schema to have `additionalProperties: false`, which can't be
-    inferred for a free-form dict."""
+class _WorldPromptResponse(BaseModel):
+    """The one-pass world-prompt suggestion's schema (#227) — a single suggested
+    `worldPrompt` and nothing else, so the call structurally cannot ask a follow-up
+    question or write any other draft field."""
 
-    worldPrompt: Optional[str] = None
-    rules: Optional[str] = None
-    name: Optional[str] = None
-    coverImageUrl: Optional[str] = None
-    tone: Optional[str] = None
-    readingLevel: Optional[str] = None
-    sessionLengthMinutes: Optional[int] = None
-    chapters: Optional[int] = None
-
-
-class _ExchangeResponse(BaseModel):
-    assistantMessage: str
-    fieldUpdates: _FieldUpdates = _FieldUpdates()
+    worldPrompt: str
 
 
 class _GenerationResponse(BaseModel):
@@ -140,12 +128,13 @@ class LLMService:
             )
         return self._client
 
-    def generate_exchange_response(self, draft: dict[str, Any], message: Optional[str]) -> dict[str, Any]:
-        """One turn of the guiding-question conversation. Returns
-        `{"assistantMessage": str, "fieldUpdates": dict}` (research.md §4)."""
-        prompt = self._build_exchange_prompt(draft, message)
-        result = self._call("gen_ai.story_creation.exchange", EXCHANGE_SYSTEM_PROMPT, prompt, _ExchangeResponse)
-        return result.model_dump(exclude_none=True)
+    def suggest_world_prompt(self, draft: dict[str, Any], idea: str) -> str:
+        """Turn the administrator's idea into a single suggested world prompt in one pass
+        (#227). Deliberately not a conversation: the model is never asked for a follow-up
+        question, and exactly one call is made per idea."""
+        prompt = self._build_world_prompt_request(draft, idea)
+        result = self._call("gen_ai.story_creation.world_prompt", WORLD_PROMPT_SYSTEM_PROMPT, prompt, _WorldPromptResponse)
+        return result.worldPrompt
 
     def generate_story_config(self, draft: dict[str, Any]) -> dict[str, Any]:
         """Final generation call once the Completeness Rule is met. Returns
@@ -313,11 +302,8 @@ class LLMService:
                 pass
         return fallback
 
-    def _build_exchange_prompt(self, draft: dict[str, Any], message: Optional[str]) -> str:
-        lines = ["Current draft state:", json.dumps(draft, indent=2)]
-        if message:
-            lines.append(f"\nAdministrator's latest message: {message}")
-        return "\n".join(lines)
+    def _build_world_prompt_request(self, draft: dict[str, Any], idea: str) -> str:
+        return "\n".join(["Current draft state:", json.dumps(draft, indent=2), f"\nAdministrator's story idea: {idea}"])
 
     def _build_generation_prompt(self, draft: dict[str, Any]) -> str:
         return "Complete draft:\n" + json.dumps(draft, indent=2)

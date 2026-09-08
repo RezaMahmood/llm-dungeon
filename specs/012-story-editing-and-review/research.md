@@ -106,13 +106,15 @@ is not in FR-004's list.
 **Decision**: Reopening a story in the wizard creates a `StoryDraft` seeded from that story
 (`POST /api/manage/stories/{storyId}/edit-drafts`), carrying two new fields
 (`sourceStoryId`, `baseContentVersion`). Every existing wizard interaction — per-field
-`PATCH`, the `Suggest` exchange (`POST …/drafts/{id}/messages`), field validation — is reused
+`PATCH`, the `Suggest` action (`POST …/drafts/{id}/world-prompt`; `POST …/drafts/{id}/messages`
+until #227 replaced it, 2026-09-08), field validation — is reused
 unchanged. The wizard's terminal action in edit mode is `POST …/drafts/{draftId}/save`, which
 applies the draft to its source story and deletes the draft.
 
 **Rationale**: The 2026-09-06 clarification requires "the existing story wizard in 'edit'
 mode … LLM help stays exactly as in creation". The one-shot `Suggest` action is implemented
-today as a draft exchange (`StoryDraftService._apply_exchange` merging `fieldUpdates`), so it
+today as a one-pass world-prompt suggestion (`StoryDraftService._apply_world_prompt_suggestion`;
+`_apply_exchange` merging `fieldUpdates` until #227), so it
 only works against a draft. Seeding a draft is what makes "exactly as in creation" literally
 true rather than approximately true, and it inherits draft autosave, cross-tab persistence,
 and the 24h TTL that garbage-collects an abandoned edit with no cleanup code.

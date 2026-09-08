@@ -19,12 +19,12 @@ vi.mock("../../src/hooks/useCapabilities.js", () => ({
 const createDraft = vi.fn();
 const getDraft = vi.fn();
 const patchDraft = vi.fn();
-const postMessage = vi.fn();
+const suggestWorldPrompt = vi.fn();
 vi.mock("../../src/services/storyDraftService.js", () => ({
   createDraft: (...args) => createDraft(...args),
   getDraft: (...args) => getDraft(...args),
   patchDraft: (...args) => patchDraft(...args),
-  postMessage: (...args) => postMessage(...args),
+  suggestWorldPrompt: (...args) => suggestWorldPrompt(...args),
 }));
 
 import AuthenticatedLayout from "../../src/components/Layout/AuthenticatedLayout.jsx";
@@ -42,7 +42,6 @@ const EMPTY_DRAFT = {
   rules: null,
   characterTypes: [],
   completionCriteria: null,
-  exchanges: [],
 };
 
 describe("Admin Story Wizard refresh (FR-003, contracts/refresh-control.md)", () => {
@@ -50,7 +49,7 @@ describe("Admin Story Wizard refresh (FR-003, contracts/refresh-control.md)", ()
     createDraft.mockReset();
     getDraft.mockReset();
     patchDraft.mockReset();
-    postMessage.mockReset();
+    suggestWorldPrompt.mockReset();
     sessionStorage.clear();
     mockUseCapabilities.mockReturnValue({
       hasPlayer: false,

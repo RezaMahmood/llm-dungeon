@@ -16,8 +16,8 @@ import {
   generateStory,
   getDraft,
   patchDraft,
-  postMessage,
   saveDraftToStory,
+  suggestWorldPrompt,
 } from "../services/storyDraftService.js";
 
 const STALE_STORY_MESSAGE = "This story changed since you opened it. Reload it and reapply your change.";
@@ -229,9 +229,11 @@ export function AdminStoryWizardPage() {
     [token, draft, applyWriteResult],
   );
 
-  const handleSendMessage = useCallback(
-    async (message) => {
-      const data = await postMessage(token, draft.id, message);
+  // A single pass over the administrator's idea (#227) — the returned draft's worldPrompt
+  // is the whole result, so it flows through the same write path as any other field write.
+  const handleSuggestWorldPrompt = useCallback(
+    async (idea) => {
+      const data = await suggestWorldPrompt(token, draft.id, idea);
       applyWriteResult(data);
     },
     [token, draft, applyWriteResult],
@@ -383,7 +385,7 @@ export function AdminStoryWizardPage() {
       <ActiveStep
         draft={draft}
         onPatch={handlePatch}
-        onSendMessage={handleSendMessage}
+        onSuggestWorldPrompt={handleSuggestWorldPrompt}
         onDirtyChange={setIsDirty}
         fieldErrors={fieldErrors}
       />

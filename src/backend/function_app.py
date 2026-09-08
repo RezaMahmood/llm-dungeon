@@ -19,9 +19,9 @@ from backend.api.admin.stories import (
     import_story,
     list_stories,
     patch_draft,
-    post_message,
     publish_story,
     save_draft,
+    suggest_world_prompt,
     unpublish_story,
 )
 from backend.api.auth.login import login
@@ -141,9 +141,9 @@ def admin_story_drafts_patch(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(patch_draft)(req)
 
 
-@app.route(route="manage/stories/drafts/{draftId}/messages", methods=["POST"])
-def admin_story_drafts_post_message(req: func.HttpRequest) -> func.HttpResponse:
-    return _guarded(post_message)(req)
+@app.route(route="manage/stories/drafts/{draftId}/world-prompt", methods=["POST"])
+def admin_story_drafts_suggest_world_prompt(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(suggest_world_prompt)(req)
 
 
 @app.route(route="manage/stories/drafts/{draftId}/generate", methods=["POST"])

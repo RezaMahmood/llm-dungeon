@@ -15,8 +15,9 @@ admin endpoint apply and are not repeated per-endpoint below. Response bodies us
 **Unchanged and reused as-is**: `GET /api/manage/stories` (the list, FR-001 — already returns
 `id`, `name`, `published`, `lastPublishedAt`, `createdAt`), `POST /api/manage/stories/{storyId}/publish`
 and `.../unpublish` (FR-011 reuses them from the list with no behavioral change),
-`GET|PATCH /api/manage/stories/drafts/{draftId}` and `POST .../drafts/{draftId}/messages`
-(the wizard's per-field autosave and one-shot `Suggest`, used unchanged in edit mode, FR-003).
+`GET|PATCH /api/manage/stories/drafts/{draftId}` and `POST .../drafts/{draftId}/world-prompt`
+(the wizard's per-field autosave and one-shot `Suggest`, used unchanged in edit mode, FR-003;
+the suggest route was `.../messages` until #227 made it one-pass, 2026-09-08).
 
 ---
 
@@ -96,7 +97,6 @@ version it was seeded from (`baseContentVersion`).
     "worldPrompt": "A flooded library beneath a coastal town...",
     "characterTypes": [{ "name": "Archivist", "description": "Knows where everything was." }],
     "completionCriteria": { "successConditions": ["Recover the tide ledger"], "failureConditions": ["The last lamp goes out"], "rule": "any", "maxDurationMinutes": 30 },
-    "exchanges": [],
     "…": "remaining StoryDraft fields as in 004's contract"
   },
   "readyToGenerate": true
@@ -301,4 +301,4 @@ low-cardinality template (Principle VI).
 | `importStoryConfiguration(token, body)` | `POST …/import` | `body` = `{ configurationText, confirmOverwriteStoryId?, title? }` — the file's raw text, not a re-serialized object. |
 
 Existing `listStories`, `getStory`, `publishStory`, `unpublishStory`, `getDraft`,
-`patchDraft`, `postMessage` are reused unchanged.
+`patchDraft`, `suggestWorldPrompt` (`postMessage` until #227) are reused unchanged.

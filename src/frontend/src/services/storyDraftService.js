@@ -23,8 +23,10 @@ export async function patchDraft(token, draftId, updates) {
   return response.data;
 }
 
-export async function postMessage(token, draftId, message) {
-  const response = await client.post(`/manage/stories/drafts/${draftId}/messages`, { message }, authHeaders(token));
+// One pass over the idea (#227): the response's draft carries the suggested worldPrompt,
+// and nothing else about the draft changes.
+export async function suggestWorldPrompt(token, draftId, idea) {
+  const response = await client.post(`/manage/stories/drafts/${draftId}/world-prompt`, { idea }, authHeaders(token));
   return response.data;
 }
 
@@ -83,7 +85,7 @@ export default {
   createDraft,
   getDraft,
   patchDraft,
-  postMessage,
+  suggestWorldPrompt,
   generateStory,
   listStories,
   getStory,

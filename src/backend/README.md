@@ -11,7 +11,7 @@ provisioning, guided story creation, and adventure/character setup (features
 src/backend/
 ├── api/            # HTTP route handlers (auth, admin, game)
 ├── models/         # ProvisionedAccountEntry, Story, StoryDraft, CharacterType,
-│                   # CompletionCriteria, StoryCreationExchange
+│                   # CompletionCriteria
 ├── services/       # Cosmos DB, token validation, account provisioning,
 │                   # LLM client (Azure AI Foundry), story draft/story persistence
 ├── db/             # Seed data script
@@ -86,7 +86,7 @@ request/response contracts.
 | `/api/manage/stories/drafts` | POST | Administrator role |
 | `/api/manage/stories/drafts/{draftId}` | GET | Administrator role |
 | `/api/manage/stories/drafts/{draftId}` | PATCH | Administrator role |
-| `/api/manage/stories/drafts/{draftId}/messages` | POST | Administrator role |
+| `/api/manage/stories/drafts/{draftId}/world-prompt` | POST | Administrator role |
 | `/api/manage/stories` | GET | Administrator role |
 | `/api/manage/stories/{storyId}` | GET | Administrator role |
 | `/api/game/adventures` | GET | Player role |

@@ -16,7 +16,7 @@ src/frontend/
 │   │   └── Common/    # ErrorBoundary
 │   │   └── Admin/
 │   │       ├── AccountForm.jsx, AccountList.jsx
-│   │       └── StoryWizard/  # ConversationPanel, CharacterTypeList,
+│   │       └── StoryWizard/  # IdeaPanel, CharacterTypeList,
 │   │                         # CompletionCriteriaFields, Step* (004-story-creation-done)
 │   ├── services/      # msalConfig, authService, tokenInterceptor, accountService,
 │   │                  # storyDraftService (004-story-creation-done)
@@ -65,9 +65,9 @@ Uses Vitest + React Testing Library; MSAL and network calls are mocked.
 `/admin/stories/new` (linked from the Administration page) is a four-step
 guided wizard — Name & cover, World & setting, Tone & reading level, Session
 length, reachable in any order — for creating a new story. The World &
-setting step embeds a conversational panel (plain-language idea plus
-guiding questions) alongside dedicated character-type and completion-criteria
-fields. The wizard has no manual "save" button: once the world prompt, at
+setting step embeds an idea panel — a plain-language idea sent to the story
+engine once, whose suggested world prompt lands in the world prompt field
+(#227) — alongside dedicated character-type and completion-criteria fields. The wizard has no manual "save" button: once the world prompt, at
 least one character type, and at least one completion criterion exist, the
 backend generates and persists the story automatically on that same write,
 and the page shows the generated (unpublished) result. See

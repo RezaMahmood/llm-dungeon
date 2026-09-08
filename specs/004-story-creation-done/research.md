@@ -68,6 +68,8 @@
 
 **Validation**: Unit tests feed `llm_service` a mocked Foundry response with valid and invalid JSON payloads and assert the merge succeeds / the turn is rejected without a partial write, respectively.
 
+**Amendment (2026-09-08, #227)**: The guided conversation this decision describes is gone; the response schema and the JSON-mode reasoning above still stand, but the shape is now smaller. `llm_service.suggest_world_prompt` makes exactly one Foundry call per idea (span `gen_ai.story_creation.world_prompt`) against the schema `{ "worldPrompt": string }`, and the backend writes that string to `StoryDraft.worldPrompt` and nothing else. Structured `characterTypes`/`completionCriteria` (FR-008) come solely from the wizard's dedicated form fields via `PATCH`, which is where they were already collected in practice — so no extraction path is lost. Asking for one field instead of a conversational turn plus a free-form `fieldUpdates` object also removes the failure mode where a follow-up question overwrote a field the administrator had just typed.
+
 ---
 
 ## 5. Placement of the New Character-Types/Completion-Criteria Fields (FR-008)

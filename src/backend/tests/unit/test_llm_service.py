@@ -21,11 +21,11 @@ from backend.services.llm_service import (
     LLMOutputError,
     LLMRateLimitError,
     LLMService,
-    _ExchangeResponse,
     _GameplayTurnResponse,
     _GenerationResponse,
     _OpeningNarrativeResponse,
     _SummaryResponse,
+    _WorldPromptResponse,
 )
 
 
@@ -71,16 +71,14 @@ def _service_with_response(response: ChatResponse) -> LLMService:
     return LLMService(client=client)
 
 
-def test_generate_exchange_response_parses_valid_json():
-    response = _mock_response(
-        json.dumps({"assistantMessage": "Who is the player?", "fieldUpdates": {"worldPrompt": "A lighthouse..."}}),
-        _ExchangeResponse,
-    )
+def test_suggest_world_prompt_returns_the_single_suggested_prompt():
+    response = _mock_response(json.dumps({"worldPrompt": "A lighthouse..."}), _WorldPromptResponse)
     service = _service_with_response(response)
 
-    result = service.generate_exchange_response({"worldPrompt": None}, "A half-abandoned lighthouse...")
+    result = service.suggest_world_prompt({"worldPrompt": None}, "A half-abandoned lighthouse...")
 
-    assert result == {"assistantMessage": "Who is the player?", "fieldUpdates": {"worldPrompt": "A lighthouse..."}}
+    assert result == "A lighthouse..."
+    # One pass, not a conversation (#227) — exactly one call, and nothing to follow up on.
     service.client.get_response.assert_called_once()
 
 
@@ -93,12 +91,12 @@ def test_generate_story_config_parses_valid_json():
     assert result == {"narrativeGuidance": "Keep it eerie but safe."}
 
 
-def test_generate_exchange_response_rejects_malformed_json():
-    response = _mock_response("not valid json{", _ExchangeResponse)
+def test_suggest_world_prompt_rejects_malformed_json():
+    response = _mock_response("not valid json{", _WorldPromptResponse)
     service = _service_with_response(response)
 
     with pytest.raises(LLMOutputError):
-        service.generate_exchange_response({}, "hello")
+        service.suggest_world_prompt({}, "hello")
 
 
 def test_generate_story_config_rejects_missing_required_key():
@@ -111,8 +109,8 @@ def test_generate_story_config_rejects_missing_required_key():
 
 def test_call_populates_span_attributes_from_usage():
     response = _mock_response(
-        json.dumps({"assistantMessage": "hi", "fieldUpdates": {}}),
-        _ExchangeResponse,
+        json.dumps({"worldPrompt": "A lighthouse..."}),
+        _WorldPromptResponse,
         prompt_tokens=100,
         completion_tokens=50,
     )
@@ -123,9 +121,9 @@ def test_call_populates_span_attributes_from_usage():
     tracer.start_as_current_span.return_value.__enter__.return_value = span
 
     with patch("backend.services.llm_service.tracer", tracer):
-        service.generate_exchange_response({}, "hello")
+        service.suggest_world_prompt({}, "hello")
 
-    tracer.start_as_current_span.assert_called_once_with("gen_ai.story_creation.exchange")
+    tracer.start_as_current_span.assert_called_once_with("gen_ai.story_creation.world_prompt")
     attribute_keys = {call.args[0] for call in span.set_attribute.call_args_list}
     assert attribute_keys == {
         "gen_ai.prompt",
@@ -144,15 +142,15 @@ def test_call_populates_span_attributes_from_usage():
 
 
 def test_call_retries_then_succeeds_after_transient_rate_limit():
-    response = _mock_response(json.dumps({"assistantMessage": "hi", "fieldUpdates": {}}), _ExchangeResponse)
+    response = _mock_response(json.dumps({"worldPrompt": "A lighthouse..."}), _WorldPromptResponse)
     client = MagicMock()
     client.get_response = AsyncMock(side_effect=[_rate_limit_error(), response])
     service = LLMService(client=client)
 
     with patch("backend.services.llm_service.time.sleep") as sleep:
-        result = service.generate_exchange_response({}, "hello")
+        result = service.suggest_world_prompt({}, "hello")
 
-    assert result == {"assistantMessage": "hi", "fieldUpdates": {}}
+    assert result == "A lighthouse..."
     assert client.get_response.call_count == 2
     sleep.assert_called_once()
 
@@ -164,19 +162,19 @@ def test_call_raises_rate_limit_error_after_exhausting_retries():
 
     with patch("backend.services.llm_service.time.sleep"):
         with pytest.raises(LLMRateLimitError):
-            service.generate_exchange_response({}, "hello")
+            service.suggest_world_prompt({}, "hello")
 
     assert client.get_response.call_count == 3
 
 
 def test_call_honors_retry_after_header():
-    response = _mock_response(json.dumps({"assistantMessage": "hi", "fieldUpdates": {}}), _ExchangeResponse)
+    response = _mock_response(json.dumps({"worldPrompt": "A lighthouse..."}), _WorldPromptResponse)
     client = MagicMock()
     client.get_response = AsyncMock(side_effect=[_rate_limit_error(retry_after="7"), response])
     service = LLMService(client=client)
 
     with patch("backend.services.llm_service.time.sleep") as sleep:
-        service.generate_exchange_response({}, "hello")
+        service.suggest_world_prompt({}, "hello")
 
     sleep.assert_called_once_with(7.0)
 
@@ -187,7 +185,7 @@ def test_call_does_not_retry_non_rate_limit_errors():
     service = LLMService(client=client)
 
     with pytest.raises(RuntimeError, match="boom"):
-        service.generate_exchange_response({}, "hello")
+        service.suggest_world_prompt({}, "hello")
 
     assert client.get_response.call_count == 1
 

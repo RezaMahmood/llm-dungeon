@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const acquireTokenSilent = vi.fn();
 const createDraft = vi.fn();
 const patchDraft = vi.fn();
-const postMessage = vi.fn();
+const suggestWorldPrompt = vi.fn();
 const generateStory = vi.fn();
 
 const mockInstance = { acquireTokenSilent };
@@ -18,7 +18,7 @@ vi.mock("@azure/msal-react", () => ({
 vi.mock("../../src/services/storyDraftService.js", () => ({
   createDraft: (...args) => createDraft(...args),
   patchDraft: (...args) => patchDraft(...args),
-  postMessage: (...args) => postMessage(...args),
+  suggestWorldPrompt: (...args) => suggestWorldPrompt(...args),
   generateStory: (...args) => generateStory(...args),
 }));
 
@@ -36,7 +36,6 @@ const EMPTY_DRAFT = {
   rules: null,
   characterTypes: [],
   completionCriteria: null,
-  exchanges: [],
 };
 
 describe("Admin story creation: empty draft through generated, unpublished story", () => {
@@ -44,7 +43,7 @@ describe("Admin story creation: empty draft through generated, unpublished story
     acquireTokenSilent.mockReset().mockResolvedValue({ accessToken: "tok" });
     createDraft.mockReset();
     patchDraft.mockReset();
-    postMessage.mockReset();
+    suggestWorldPrompt.mockReset();
     generateStory.mockReset();
   });
 
@@ -72,23 +71,24 @@ describe("Admin story creation: empty draft through generated, unpublished story
     expect(patchDraft).toHaveBeenCalledWith("tok", "draft-1", { name: "The Lighthouse at Gullwing Cove", coverImageUrl: "" });
     expect(screen.getByRole("button", { name: /generate story/i })).toBeDisabled();
 
-    // Move to the World & setting step and answer the guiding question.
+    // Move to the World & setting step and turn an idea into a world prompt in one pass (#227).
     await userEvent.click(screen.getByRole("tab", { name: /world & setting/i }));
-    postMessage.mockResolvedValueOnce({
+    suggestWorldPrompt.mockResolvedValueOnce({
       status: "success",
       draft: {
         ...EMPTY_DRAFT,
         name: "The Lighthouse at Gullwing Cove",
         worldPrompt: "A half-abandoned lighthouse...",
-        exchanges: [{ role: "administrator", message: "A half-abandoned lighthouse...", timestamp: "t" }],
       },
       readyToGenerate: false,
     });
-    await userEvent.type(screen.getByPlaceholderText(/describe your idea/i), "A half-abandoned lighthouse...");
-    await userEvent.click(screen.getByRole("button", { name: /send/i }));
+    await userEvent.type(screen.getByPlaceholderText(/describe your idea/i), "A lighthouse nobody has visited in years.");
+    await userEvent.click(screen.getByRole("button", { name: /suggest world prompt/i }));
 
-    expect(await screen.findByText(/A half-abandoned lighthouse/, { selector: "p" })).toBeInTheDocument();
-    expect(postMessage).toHaveBeenCalledWith("tok", "draft-1", "A half-abandoned lighthouse...");
+    // The suggestion lands in the world prompt field, and nowhere else on the page (#227).
+    expect(await screen.findByLabelText(/world prompt/i)).toHaveValue("A half-abandoned lighthouse...");
+    expect(screen.queryByText(/A half-abandoned lighthouse/, { selector: "p" })).not.toBeInTheDocument();
+    expect(suggestWorldPrompt).toHaveBeenCalledWith("tok", "draft-1", "A lighthouse nobody has visited in years.");
 
     // Add a character type — not yet complete. Uses a persistent mock (not "once")
     // because blurring the still-focused description field again later (e.g. by

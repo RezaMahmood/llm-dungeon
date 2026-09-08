@@ -22,7 +22,7 @@ vi.mock("../../src/services/storyDraftService.js", () => ({
   getDraft: vi.fn(),
   createDraft: vi.fn(),
   generateStory: vi.fn(),
-  postMessage: vi.fn(),
+  suggestWorldPrompt: vi.fn(),
 }));
 
 import AdminStoryWizardPage from "../../src/pages/AdminStoryWizardPage.jsx";
@@ -41,7 +41,6 @@ const SEEDED_DRAFT = {
   rules: null,
   characterTypes: [{ name: "Archivist", description: "" }],
   completionCriteria: { maxDurationMinutes: null, successConditions: ["Recover the ledger"], failureConditions: [], rule: null },
-  exchanges: [],
 };
 
 const renderEditPage = () =>
