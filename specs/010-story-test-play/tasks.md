@@ -149,7 +149,6 @@ Every functional requirement and acceptance scenario maps to at least one test t
 | Two administrators, same story, concurrently | T013 |
 | Restart warning dismissed | T015, T029 |
 | Publish blocked or fails at conclusion | T016, T031 |
-| Story with no completion criteria | **Not reachable — see Notes** |
 
 ---
 
@@ -218,6 +217,6 @@ Task: "Conclusion flow tests in src/frontend/tests/integration/admin_test_play_f
 - `017-story-publish-test-play-gate`'s FR-001/FR-002/FR-003 code is already merged; no task re-implements the gate. T007 supplies the writer it reads
 - The publish confirmation (T026–T027) reaches all three entry points because the story list and `StepPublish` already render `StoryPublishActions`
 - FR-011 defers visual design only — T035 is not optional
-- **The spec's "story with no completion criteria" edge case is unreachable.** `CompletionCriteria.__post_init__` in `src/backend/models/story.py` raises unless `successConditions` has at least one entry, so a persisted `Story` always has a reachable ending, and FR-001 scopes test play to a story's *saved* configuration. No task covers it; the spec's Edge Cases entry needs amending or removing
+- A saved `Story` always has at least one success condition (`CompletionCriteria.__post_init__` in `src/backend/models/story.py`), so every test-play session has a reachable ending. The spec's unreachable "no completion criteria" edge case was dropped on 2026-09-08
 - T006 modifies merged `008-core-gameplay-done` code; T037 re-runs the existing suites specifically to catch a regression there
 - Commit after each task or logical group; stop at any checkpoint to validate

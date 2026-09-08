@@ -22,6 +22,7 @@
 - Q: Do exchanges from a deleted session still count toward the publish gate? → A: Yes. Attempting a playthrough satisfies the gate; completing one is not required.
 - Q: What happens when a test play reaches an ending? → A: The administrator is told the playthrough concluded and is offered Publish (confirmed, then to the story list) and Edit (back to the wizard). Visual design is deferred.
 - Q: Should publish confirmation apply everywhere or only at test-play conclusion? → A: Everywhere — `005-story-publishing-done` FR-013 is amended so publish and unpublish both require confirmation.
+- Q: What happens during test play when a story has no completion criteria configured? → A: Not applicable — a saved story always has at least one success condition, so the case cannot arise; the edge case was dropped.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -48,7 +49,6 @@ An administrator starts an interactive test conversation against a story's curre
 
 - Two administrators test-play the same draft story at the same time: each gets their own independent test-play session; either session's exchanges are visible only within that session.
 - An administrator dismisses the restart warning: the session continues unaffected, with its conversation intact.
-- A draft story has no completion criteria configured yet: test play still allows narrative interaction, but no criteria-based ending can be reached, so restart is the only exit from the session.
 - An administrator publishes from the conclusion screen and the publish is blocked or fails: they stay on the conclusion screen and are told why, rather than being taken to the story list.
 
 ## Requirements *(mandatory)*
