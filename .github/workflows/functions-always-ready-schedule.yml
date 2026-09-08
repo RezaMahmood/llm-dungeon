@@ -1,0 +1,101 @@
+name: Functions Always-Ready Schedule
+
+on:
+  schedule:
+    # :50 warms the instance before a window opens, :00 releases it once one
+    # closes. Windows are evaluated in Europe/London, so BST/GMT needs no
+    # cron change.
+    - cron: "0,50 * * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "auto follows the schedule below; on/off override it until the next scheduled run"
+        type: choice
+        options:
+          - auto
+          - "on"
+          - "off"
+        default: auto
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: functions-always-ready
+  cancel-in-progress: false
+
+jobs:
+  set-always-ready:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve desired always-ready count
+        id: desired
+        env:
+          MODE: ${{ inputs.mode || 'auto' }}
+        run: |
+          set -euo pipefail
+
+          # terraform.tfvars is the single source of truth for how many
+          # instances a warm window runs; this workflow owns only *when*.
+          count=$(grep -oP 'functions_always_ready_instance_count\s*=\s*\K[0-9]+' \
+            infrastructure/terraform/terraform.tfvars)
+
+          desired=$(scripts/functions-always-ready-window.sh "$count" "$MODE")
+
+          echo "desired=$desired" >> "$GITHUB_OUTPUT"
+          echo "london=$(TZ=Europe/London date '+%a %F %R %Z')" >> "$GITHUB_OUTPUT"
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Read current always-ready count
+        id: current
+        run: |
+          set -euo pipefail
+          current=$(az functionapp show \
+            --name ${{ vars.FUNCTIONS_APP_NAME }} \
+            --resource-group ${{ vars.RESOURCE_GROUP_NAME }} \
+            --output json |
+            jq -r '((.functionAppConfig // .properties.functionAppConfig // {}).scaleAndConcurrency.alwaysReady // [])
+                   | map(select(.name == "http") | .instanceCount) | first // 0')
+          echo "count=$current" >> "$GITHUB_OUTPUT"
+
+      - name: Apply always-ready count
+        env:
+          CURRENT: ${{ steps.current.outputs.count }}
+          DESIRED: ${{ steps.desired.outputs.desired }}
+        run: |
+          set -euo pipefail
+
+          if [ "$CURRENT" = "$DESIRED" ]; then
+            echo "http always-ready already at $DESIRED, nothing to do"
+          elif [ "$DESIRED" = "0" ]; then
+            az functionapp scale config always-ready delete \
+              --name ${{ vars.FUNCTIONS_APP_NAME }} \
+              --resource-group ${{ vars.RESOURCE_GROUP_NAME }} \
+              --setting-names http \
+              --output none
+          else
+            az functionapp scale config always-ready set \
+              --name ${{ vars.FUNCTIONS_APP_NAME }} \
+              --resource-group ${{ vars.RESOURCE_GROUP_NAME }} \
+              --settings "http=$DESIRED" \
+              --output none
+          fi
+
+          {
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            echo "| London time | ${{ steps.desired.outputs.london }} |"
+            echo "| Mode | ${{ inputs.mode || 'auto' }} |"
+            echo "| http always-ready | $CURRENT → $DESIRED |"
+          } >> "$GITHUB_STEP_SUMMARY"
