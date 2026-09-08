@@ -53,7 +53,11 @@ const GENERATED_STORY = {
 async function renderGeneratedStory() {
   createDraft.mockResolvedValueOnce({ draft: READY_DRAFT });
   generateStory.mockResolvedValueOnce({ status: "generated", storyId: "story-1", story: GENERATED_STORY });
-  render(<AdminStoryWizardPage />);
+  render(
+    <MemoryRouter>
+      <AdminStoryWizardPage />
+    </MemoryRouter>,
+  );
 
   const generateButton = await screen.findByRole("button", { name: /generate story/i });
   await userEvent.click(generateButton);
@@ -74,6 +78,7 @@ describe("Admin story publish flow: generate -> blocked publish -> publish -> un
     await renderGeneratedStory();
 
     // Scenario 1: publish is blocked without a qualifying test play (FR-008, FR-011).
+    // Publish now requires confirmation too (amended 005 FR-013).
     publishStory.mockRejectedValueOnce({
       response: {
         status: 409,
@@ -84,6 +89,9 @@ describe("Admin story publish flow: generate -> blocked publish -> publish -> un
       },
     });
     await userEvent.click(screen.getByRole("button", { name: /^publish$/i }));
+    let publishDialog = screen.getByRole("dialog");
+    expect(publishStory).not.toHaveBeenCalled();
+    await userEvent.click(within(publishDialog).getByRole("button", { name: /^publish$/i }));
     expect(await screen.findByText(/must be test-played/i)).toBeInTheDocument();
     expect(screen.getByText(/unpublished/i)).toBeInTheDocument();
 
@@ -93,6 +101,8 @@ describe("Admin story publish flow: generate -> blocked publish -> publish -> un
       story: { ...GENERATED_STORY, published: true, lastPublishedAt: "2026-08-30T14:22:00Z" },
     });
     await userEvent.click(screen.getByRole("button", { name: /^publish$/i }));
+    publishDialog = screen.getByRole("dialog");
+    await userEvent.click(within(publishDialog).getByRole("button", { name: /^publish$/i }));
     expect(await screen.findByText(/^published$/i)).toBeInTheDocument();
 
     // Unpublish requires confirmation (FR-013).
@@ -115,6 +125,8 @@ describe("Admin story publish flow: generate -> blocked publish -> publish -> un
       story: { ...GENERATED_STORY, published: true, lastPublishedAt: "2026-08-30T15:00:00Z" },
     });
     await userEvent.click(screen.getByRole("button", { name: /^publish$/i }));
+    publishDialog = screen.getByRole("dialog");
+    await userEvent.click(within(publishDialog).getByRole("button", { name: /^publish$/i }));
     expect(await screen.findByText(/^published$/i)).toBeInTheDocument();
   });
 });
@@ -141,7 +153,8 @@ describe("Publish/unpublish from the story list (012 FR-011, research.md §11)",
     renderList();
     await waitForElementToBeRemoved(() => screen.queryByText(/loading stories/i));
 
-    // The same 409 gate explanation as the wizard's StepPublish.
+    // The same 409 gate explanation as the wizard's StepPublish. Publish itself now
+    // requires confirmation too (amended 005 FR-013).
     publishStory.mockRejectedValueOnce({
       response: {
         status: 409,
@@ -149,6 +162,8 @@ describe("Publish/unpublish from the story list (012 FR-011, research.md §11)",
       },
     });
     await userEvent.click(screen.getByRole("button", { name: /^publish$/i }));
+    let publishDialog = screen.getByRole("dialog");
+    await userEvent.click(within(publishDialog).getByRole("button", { name: /^publish$/i }));
     expect(await screen.findByText(/must be test-played/i)).toBeInTheDocument();
     expect(publishStory).toHaveBeenCalledWith("tok", "story-1");
 
@@ -158,6 +173,8 @@ describe("Publish/unpublish from the story list (012 FR-011, research.md §11)",
       story: { id: "story-1", name: "The Lighthouse", published: true, lastPublishedAt: "2026-08-30T14:22:00Z" },
     });
     await userEvent.click(screen.getByRole("button", { name: /^publish$/i }));
+    publishDialog = screen.getByRole("dialog");
+    await userEvent.click(within(publishDialog).getByRole("button", { name: /^publish$/i }));
     await screen.findByRole("button", { name: /^unpublish$/i });
 
     await userEvent.click(screen.getByRole("button", { name: /^unpublish$/i }));

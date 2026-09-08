@@ -210,6 +210,17 @@ class StoryService:
         self._container().upsert_item(story.to_dict())
         return story
 
+    def record_test_play(self, story_id: str) -> Optional[Story]:
+        """010-story-test-play FR-004/FR-010: stamp `lastTestPlayedAt` on a qualifying
+        test-play exchange. Must not touch `contentUpdatedAt` — doing so would re-arm the
+        very gate this write satisfies (`can_publish()`)."""
+        story = self.get_story(story_id)
+        if story is None:
+            return None
+        story.lastTestPlayedAt = _now()
+        self._container().upsert_item(story.to_dict())
+        return story
+
     def unpublish(self, story_id: str) -> Optional[Story]:
         """Unpublish `story_id` (FR-004), idempotent (FR-006); `lastPublishedAt` is left
         untouched (FR-012). No server-side precondition beyond the story existing."""

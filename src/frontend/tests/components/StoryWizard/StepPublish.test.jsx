@@ -37,6 +37,15 @@ describe("StepPublish", () => {
     expect(screen.getByText(/unpublished/i)).toBeInTheDocument();
   });
 
+  it("requires confirmation before publishing (amended 005 FR-013) — no request until confirmed", async () => {
+    render(<StepPublish story={UNPUBLISHED_STORY} token="tok" onStoryChange={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /^publish$/i }));
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(publishStory).not.toHaveBeenCalled();
+  });
+
   it("shows the FR-011 explanatory text and does not flip published when the gate blocks publish", async () => {
     publishStory.mockRejectedValueOnce({
       response: {
@@ -48,13 +57,15 @@ describe("StepPublish", () => {
     render(<StepPublish story={UNPUBLISHED_STORY} token="tok" onStoryChange={onStoryChange} />);
 
     await userEvent.click(screen.getByRole("button", { name: /^publish$/i }));
+    const dialog = screen.getByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: /^publish$/i }));
 
     expect(await screen.findByText(/must be test-played/i)).toBeInTheDocument();
     expect(onStoryChange).not.toHaveBeenCalled();
     expect(screen.getByText(/unpublished/i)).toBeInTheDocument();
   });
 
-  it("calls publishStory and reflects published:true when the gate is satisfied", async () => {
+  it("confirming the dialog calls publishStory and reflects published:true when the gate is satisfied", async () => {
     publishStory.mockResolvedValueOnce({
       status: "success",
       story: { ...UNPUBLISHED_STORY, published: true, lastPublishedAt: "2026-08-30T14:22:00Z" },
@@ -63,6 +74,8 @@ describe("StepPublish", () => {
     render(<StepPublish story={UNPUBLISHED_STORY} token="tok" onStoryChange={onStoryChange} />);
 
     await userEvent.click(screen.getByRole("button", { name: /^publish$/i }));
+    const dialog = screen.getByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: /^publish$/i }));
 
     expect(publishStory).toHaveBeenCalledWith("tok", "story-1");
     expect(onStoryChange).toHaveBeenCalledWith(expect.objectContaining({ published: true }));

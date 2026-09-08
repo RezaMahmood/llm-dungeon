@@ -18,6 +18,7 @@ from backend.models.play_session import CheckpointMarker, PlayerInteraction, Pla
 from backend.models.player_content_safety_standing import PlayerContentSafetyStanding
 from backend.services.cosmos_service import CosmosService
 from backend.services.llm_service import LLMContentFilteredError, LLMOutputError, LLMRateLimitError, LLMService
+from backend.services.completion_rules import evaluate_completion
 from backend.services.player_content_safety_standing_service import (
     PlayerContentSafetyStandingService,
     describe_lockout,
@@ -316,7 +317,7 @@ class PlaySessionService:
             try:
                 turn_data = self._llm.generate_gameplay_turn(story, session, trimmed_input)
                 turn = self._turn_from_llm_data(len(session.turns), trimmed_input, turn_data, now)
-                completion_reason = self._evaluate_completion(story, session, turn_data)
+                completion_reason = evaluate_completion(story, session, turn_data)
             except LLMContentFilteredError:
                 standing = self._safety.record_flag(player_id)
                 turn_data = self._deflection_turn_data(session, standing)
@@ -647,34 +648,6 @@ class PlaySessionService:
             return False
         elapsed_minutes = (_now_dt() - _parse(session.startedAt)).total_seconds() / 60
         return elapsed_minutes >= max_minutes
-
-    def _evaluate_completion(self, story, session: PlaySession, turn_data: dict[str, Any]) -> Optional[dict[str, Any]]:
-        criteria = story.completionCriteria
-        newly_success = turn_data.get("newlySatisfiedSuccessConditions", [])
-        newly_failure = turn_data.get("newlySatisfiedFailureConditions", [])
-
-        session.satisfiedSuccessConditions = sorted(set(session.satisfiedSuccessConditions) | set(newly_success))
-        session.satisfiedFailureConditions = sorted(set(session.satisfiedFailureConditions) | set(newly_failure))
-
-        success_ends = self._rule_satisfied(criteria.successConditions, session.satisfiedSuccessConditions, criteria.rule)
-        failure_ends = self._rule_satisfied(criteria.failureConditions, session.satisfiedFailureConditions, criteria.rule)
-
-        # Success is checked first: a same-turn tie is decided in success's favor (FR-009).
-        if success_ends:
-            detail_index = newly_success[0] if newly_success else session.satisfiedSuccessConditions[0]
-            return {"type": "success", "detail": criteria.successConditions[detail_index]}
-        if failure_ends:
-            detail_index = newly_failure[0] if newly_failure else session.satisfiedFailureConditions[0]
-            return {"type": "failure", "detail": criteria.failureConditions[detail_index]}
-        return None
-
-    @staticmethod
-    def _rule_satisfied(configured: list[str], satisfied_indices: list[int], rule: Optional[str]) -> bool:
-        if not configured:
-            return False
-        if rule == "all":
-            return set(range(len(configured))) <= set(satisfied_indices)
-        return len(satisfied_indices) > 0
 
     def _deflection_turn_data(self, session: PlaySession, standing: PlayerContentSafetyStanding) -> dict[str, Any]:
         text = "That doesn't seem to work here."
