@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -140,7 +140,7 @@ describe("AdminStoryTestPlayPage (010-story-test-play)", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /restart/i }));
     const dialog = screen.getByRole("dialog");
-    await userEvent.click(dialog.querySelector("button.btn-primary"));
+    await userEvent.click(within(dialog).getByRole("button", { name: /^restart$/i }));
 
     await waitFor(() => expect(deleteTestPlaySession).toHaveBeenCalledWith("tok", "session-1"));
     expect(await screen.findByText(/edit story page/i)).toBeInTheDocument();
