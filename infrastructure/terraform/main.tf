@@ -238,6 +238,19 @@ resource "azurerm_function_app_flex_consumption" "functions" {
   instance_memory_in_mb  = 2048
   maximum_instance_count = 100
 
+  # Keeps HTTP-triggered functions off a cold start after scale-to-zero. Billed
+  # as Flex Consumption "Always Ready Baseline" on instance_memory_in_mb for
+  # every second the app exists, so 0 drops the block and restores pure
+  # scale-to-zero.
+  dynamic "always_ready" {
+    for_each = var.functions_always_ready_instance_count > 0 ? [1] : []
+
+    content {
+      name           = "http"
+      instance_count = var.functions_always_ready_instance_count
+    }
+  }
+
   https_only                    = true
   virtual_network_subnet_id     = azurerm_subnet.functions.id
   public_network_access_enabled = true # ingress stays public HTTPS (FR-014 documented exception); egress to backends is forced through the VNet below

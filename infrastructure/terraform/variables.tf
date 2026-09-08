@@ -143,6 +143,17 @@ variable "functions_hosting_plan" {
   default     = "FC1" # Flex Consumption
 }
 
+variable "functions_always_ready_instance_count" {
+  description = "Instances kept warm for the Functions app's HTTP trigger group; 0 disables always-ready and returns the app to scale-to-zero"
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.functions_always_ready_instance_count >= 0 && floor(var.functions_always_ready_instance_count) == var.functions_always_ready_instance_count
+    error_message = "functions_always_ready_instance_count must be a whole number of zero or greater."
+  }
+}
+
 # --- Data tier ---
 
 variable "cosmos_consistency_level" {

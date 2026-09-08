@@ -32,6 +32,10 @@ private_endpoints_subnet_prefix = "10.0.2.0/24"
 functions_python_version = "3.11"
 functions_hosting_plan   = "FC1"
 
+# One warm HTTP instance; ~$21/month of Always Ready Baseline at 2048 MB
+# against the $50 budget_amount_usd alert below.
+functions_always_ready_instance_count = 1
+
 cosmos_consistency_level         = "Session"
 cosmos_max_throughput            = 40000
 cosmos_backup_type               = "Periodic"
