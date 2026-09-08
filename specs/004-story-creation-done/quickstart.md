@@ -11,7 +11,7 @@ This guide provides step-by-step validation scenarios confirming story creation 
 ## Prerequisites
 
 1. Cosmos DB `storyDrafts` (TTL-enabled) and `stories` containers exist (per `007-azure-infrastructure-provisioning` and data-model.md's Storage Model).
-2. Backend deployed (or running locally) with `/api/manage/stories/drafts` (POST/GET/PATCH), `/api/manage/stories/drafts/{id}/messages` (POST), `/api/manage/stories` (GET), `/api/manage/stories/{id}` (GET).
+2. Backend deployed (or running locally) with `/api/manage/stories/drafts` (POST/GET/PATCH), `/api/manage/stories/drafts/{id}/world-prompt` (POST), `/api/manage/stories` (GET), `/api/manage/stories/{id}` (GET).
 3. The Azure AI Foundry deployed model is reachable from the backend (Managed Identity, per `007-azure-infrastructure-provisioning`); locally, `llm_service.py` can be run against a real Foundry endpoint the developer has access to, or exercised via its mocked unit tests only.
 4. A signed-in Administrator account (per `002-login-and-access-control` / `003-account-provisioning-done`).
 5. Frontend running with the "New story" wizard reachable from the admin story list.
@@ -24,8 +24,8 @@ This guide provides step-by-step validation scenarios confirming story creation 
 
 **Steps**:
 1. As the Administrator, start a new story-creation session: `POST /api/manage/stories/drafts` with `{"idea": "A half-abandoned lighthouse on a cold northern cove in 1908..."}`.
-2. Confirm the response includes a `draft.id`, a merged `worldPrompt` reflecting the idea, and a system guiding question in `exchanges`.
-3. Answer the guiding question(s) via `POST /api/manage/stories/drafts/{draftId}/messages` until the system stops asking about setting/plot.
+2. Confirm the response includes a `draft.id` and a `worldPrompt` written from the idea (amended 2026-09-08, #227 — one pass, so there is no `exchanges` history and no guiding question).
+3. Refine the setting as needed: either edit `worldPrompt` directly via `PATCH`, or send another idea to `POST /api/manage/stories/drafts/{draftId}/world-prompt`, which replaces `worldPrompt` with a fresh suggestion.
 4. Add at least one character type and the story's completion criteria via `PATCH /api/manage/stories/drafts/{draftId}` (per contracts/api.md's example body).
 5. Observe that the same `PATCH` response (once `worldPrompt`, `characterTypes`, and `completionCriteria.successConditions` are all non-empty) returns `"status": "generated"` with a `storyId`.
 6. Fetch `GET /api/manage/stories/{storyId}` and confirm: `published: false`, `characterTypes` has ≥1 entry, `completionCriteria.successConditions` has ≥1 entry, and `narrativeGuidance` is non-empty.

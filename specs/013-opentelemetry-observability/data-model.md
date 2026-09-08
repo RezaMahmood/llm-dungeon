@@ -13,7 +13,7 @@ A single request or operation's timing, status, and correlation identity.
 |---|---|---|
 | `trace_id` / `span_id` | OTel SDK (auto) | W3C trace-context; shared across frontend↔backend when correlated (FR-005) |
 | `parent_span_id` | OTel SDK (auto) | Backend request span is a child of the frontend's dependency span when correlated |
-| `name` | OTel semantic conventions (auto for HTTP spans) or explicit (`gen_ai.*` spans) | e.g. `POST /api/auth/login`, `gen_ai.story_creation.exchange` |
+| `name` | OTel semantic conventions (auto for HTTP spans) or explicit (`gen_ai.*` spans) | e.g. `POST /api/auth/login`, `gen_ai.story_creation.world_prompt` |
 | `kind` | OTel SDK (auto) | `SERVER` (backend request), `CLIENT` (frontend dependency call), `INTERNAL` |
 | `status` | OTel SDK (auto from HTTP status / exception) | `OK` / `ERROR`; FR-002 requires `ERROR` + exception event on every unhandled route exception |
 | `start_time` / `duration` | OTel SDK (auto) | Backs SC-001's "outcome (status code, duration)" |

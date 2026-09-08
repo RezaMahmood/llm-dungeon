@@ -120,19 +120,23 @@ def patch_draft(
     return _draft_write_response(draft)
 
 
-def post_message(
+def suggest_world_prompt(
     req: func.HttpRequest,
     story_draft_service: StoryDraftService | None = None,
 ) -> func.HttpResponse:
+    """One pass over the administrator's idea, writing only `worldPrompt` (#227) — there
+    is no conversation to append to and no other field is touched."""
     is_authorized, _user_oid, error = authorize_admin(req)
     if not is_authorized:
         return error
 
     draft_id = req.route_params.get("draftId")
-    message = _body(req).get("message", "")
+    idea = _body(req).get("idea", "")
     service = story_draft_service or StoryDraftService()
     try:
-        draft = service.post_message(draft_id, message)
+        draft = service.suggest_world_prompt(draft_id, idea)
+    except DraftValidationError as exc:
+        return error_response(422, "invalid_field", str(exc))
     except LLMRateLimitedError:
         return error_response(429, "rate_limited", RATE_LIMITED_MESSAGE)
 

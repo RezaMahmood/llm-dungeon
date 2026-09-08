@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 
 import CharacterTypeList from "./CharacterTypeList.jsx";
 import CompletionCriteriaFields from "./CompletionCriteriaFields.jsx";
-import ConversationPanel from "./ConversationPanel.jsx";
+import IdeaPanel from "./IdeaPanel.jsx";
 
-export function StepWorldSetting({ draft, onSendMessage, onPatch, onDirtyChange, fieldErrors = {} }) {
+export function StepWorldSetting({ draft, onSuggestWorldPrompt, onPatch, onDirtyChange, fieldErrors = {} }) {
   const [worldPrompt, setWorldPrompt] = useState(draft.worldPrompt || "");
   const [rules, setRules] = useState(draft.rules || "");
 
@@ -22,7 +22,7 @@ export function StepWorldSetting({ draft, onSendMessage, onPatch, onDirtyChange,
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-      <ConversationPanel exchanges={draft.exchanges} onSendMessage={onSendMessage} />
+      <IdeaPanel onSuggestWorldPrompt={onSuggestWorldPrompt} />
 
       <div className="field">
         <label htmlFor="world-prompt">World prompt — what the story engine should know</label>

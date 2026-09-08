@@ -40,7 +40,6 @@ const READY_DRAFT = {
   rules: null,
   characterTypes: [{ name: "Curious Cousin", description: "" }],
   completionCriteria: { maxDurationMinutes: null, successConditions: ["Find the keeper"], failureConditions: [], rule: null },
-  exchanges: [],
 };
 
 const GENERATED_STORY = {

@@ -30,7 +30,6 @@ This document defines the entities this feature introduces: an ephemeral `StoryD
 | `rules` | string or null | No | Free-language constraints the narration must keep | Optional |
 | `characterTypes` | array of Character Type | Yes, may be empty | See Character Type below | At least one required before generation can trigger (FR-008) |
 | `completionCriteria` | Completion Criteria or null | No | See Completion Criteria below | Required (non-null, ≥1 success condition) before generation can trigger (FR-008) |
-| `exchanges` | array of Story-Creation Exchange | Yes, may be empty | See Story-Creation Exchange below | Conversation history driving `worldPrompt`/`rules` extraction (research.md §4) |
 | `createdAt` | ISO 8601 timestamp | Yes | Session start time | Audit/debugging |
 | `updatedAt` | ISO 8601 timestamp | Yes | Last write time | Drives the TTL refresh (research.md §3) |
 | `ttl` | integer (seconds) | Yes | Cosmos TTL, reset to 86400 on every update | Auto-expires an abandoned draft (FR-005) — see research.md §3 |
@@ -52,7 +51,7 @@ Every `PATCH`/message write re-evaluates and reports this as `readyToGenerate`, 
 
 ```
 Created (empty fields, entityType="StoryDraft")
-  → updated repeatedly via PATCH / conversational exchange (any order, any number of times)
+  → updated repeatedly via PATCH / world-prompt suggestion (any order, any number of times)
   → [Completeness Rule met] → readyToGenerate: true reported, draft otherwise unchanged
   → [administrator explicitly calls POST .../generate] → Story generated and persisted → draft document deleted
   → [administrator stops interacting] → ttl expires → draft document deleted (never became a Story)
@@ -121,15 +120,9 @@ Used identically inside `StoryDraft.completionCriteria` and `Story.completionCri
 
 ---
 
-## Entity: Story-Creation Exchange
+## Entity: Story-Creation Exchange (removed 2026-09-08, #227)
 
-**Definition**: A single turn in the conversation between an administrator and the system while building a Story (spec.md Key Entities) — the atomic unit of the elicitation process. Stored only inside its parent `StoryDraft.exchanges`; never a top-level Cosmos document.
-
-| Property | Type | Required | Rationale |
-|----------|------|----------|-----------|
-| `role` | `"administrator"` \| `"system"` | Yes | Who produced this turn |
-| `message` | string | Yes | Administrator's plain-language input, or the system's guiding question/acknowledgment |
-| `timestamp` | ISO 8601 timestamp | Yes | Ordering within the conversation |
+**Amendment (2026-09-08, #227)**: The guided, multi-turn conversation this entity recorded is gone. Sending an idea from the wizard's "World & setting" step is now a single pass: the idea goes to the model exactly once, and the one thing that comes back — a suggested `worldPrompt` — is written to that field and surfaced nowhere else. With no conversation to replay, `StoryDraft.exchanges` and the `StoryCreationExchange` entity were removed rather than left as a permanently empty array. Drafts persisted before this change still load: `StoryDraft.from_dict` reads the fields it knows and ignores a stored `exchanges` array.
 
 ---
 
@@ -140,7 +133,7 @@ Used identically inside `StoryDraft.completionCriteria` and `Story.completionCri
 ```
 Point read: container.read_item(id=draftId, partition_key=draftId)
 ```
-**Cost**: ~1 RU per read; write cost dominated by `exchanges` array growth (bounded in practice by a single wizard session's conversation length).
+**Cost**: ~1 RU per read; a draft is a small, bounded document (its largest fields are `worldPrompt`/`rules` free text), so writes stay at a few RU regardless of how many times it is edited.
 
 **Container: `stories`** — partition key `/id`. No TTL. Query patterns:
 

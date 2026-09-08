@@ -9,7 +9,7 @@ from backend.models.play_session import CheckpointMarker, PlayerInteraction, Pla
 from backend.models.player_content_safety_standing import PlayerContentSafetyStanding
 from backend.models.provisioned_account_entry import ProvisionedAccountEntry
 from backend.models.story import CharacterType, CompletionCriteria, Story
-from backend.models.story_draft import StoryCreationExchange, StoryDraft
+from backend.models.story_draft import StoryDraft
 
 
 def test_provisioned_account_entry_rejects_empty_roles():
@@ -258,7 +258,6 @@ def test_story_draft_round_trips_through_dict():
         worldPrompt="A half-abandoned lighthouse...",
         characterTypes=[CharacterType(name="Curious Cousin")],
         completionCriteria=_completion_criteria(),
-        exchanges=[StoryCreationExchange(role="administrator", message="A half-abandoned lighthouse...")],
     )
     restored = StoryDraft.from_dict(draft.to_dict())
     assert restored == draft
@@ -279,11 +278,6 @@ def test_story_draft_round_trips_source_story_id_and_base_content_version():
     assert restored == draft
     assert restored.sourceStoryId == "story-1"
     assert restored.baseContentVersion == 4
-
-
-def test_story_creation_exchange_rejects_invalid_role():
-    with pytest.raises(ValueError):
-        StoryCreationExchange(role="narrator", message="hello")
 
 
 # --- PlayerInteraction / PlaySession (008-core-gameplay-done) ---

@@ -76,29 +76,79 @@ def test_patch_never_generates_even_when_all_four_conditions_are_now_met():
     container.delete_item.assert_not_called()
 
 
-def test_message_never_generates_even_when_all_four_conditions_are_now_met():
+def test_world_prompt_suggestion_never_generates_even_when_all_four_conditions_are_now_met():
     service, cosmos, llm, stories = _service()
     container = cosmos.get_container.return_value
     draft = StoryDraft(
         id="draft-1",
         createdBy=CREATED_BY,
         name="The Lighthouse",
-        worldPrompt="A lighthouse...",
-        characterTypes=[],
-        completionCriteria=None,
+        characterTypes=[CharacterType.from_dict(ct) for ct in _valid_character_types()],
+        completionCriteria=CompletionCriteria.from_dict(_valid_completion_criteria()),
     )
     container.read_item.side_effect = None
     container.read_item.return_value = draft.to_dict()
-    llm.generate_exchange_response.return_value = {
-        "assistantMessage": "Got it.",
-        "fieldUpdates": {"characterTypes": _valid_character_types(), "completionCriteria": _valid_completion_criteria()},
-    }
+    llm.suggest_world_prompt.return_value = "A half-abandoned lighthouse on a cold coast."
 
-    result_draft = service.post_message("draft-1", "A curious cousin, and they must find the keeper.")
+    result_draft = service.suggest_world_prompt("draft-1", "A lighthouse nobody has visited in years.")
 
     assert result_draft.is_complete() is True
     llm.generate_story_config.assert_not_called()
     stories.create_story.assert_not_called()
+
+
+def test_world_prompt_suggestion_is_one_pass_and_writes_only_world_prompt():
+    """#227 — one call per idea, no conversation, and no other draft field touched."""
+    service, cosmos, llm, _stories = _service()
+    container = cosmos.get_container.return_value
+    draft = StoryDraft(id="draft-1", createdBy=CREATED_BY, name="The Lighthouse", rules="Nobody gets hurt.")
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+    llm.suggest_world_prompt.return_value = "A half-abandoned lighthouse on a cold coast."
+
+    result_draft = service.suggest_world_prompt("draft-1", "A lighthouse nobody has visited in years.")
+
+    llm.suggest_world_prompt.assert_called_once()
+    assert result_draft.worldPrompt == "A half-abandoned lighthouse on a cold coast."
+    assert result_draft.name == "The Lighthouse"
+    assert result_draft.rules == "Nobody gets hurt."
+
+
+def test_blank_idea_is_rejected_before_the_foundry_call():
+    """A whitespace-only idea can neither spend tokens nor overwrite an existing prompt."""
+    service, cosmos, llm, _stories = _service()
+    container = cosmos.get_container.return_value
+    draft = StoryDraft(id="draft-1", createdBy=CREATED_BY, worldPrompt="It is 1908.")
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+
+    with pytest.raises(DraftValidationError):
+        service.suggest_world_prompt("draft-1", "   ")
+
+    llm.suggest_world_prompt.assert_not_called()
+    container.upsert_item.assert_not_called()
+
+
+def test_blank_idea_starts_a_blank_draft_without_a_foundry_call():
+    service, _cosmos, llm, _stories = _service()
+
+    draft = service.create_draft(created_by=CREATED_BY, idea="   ")
+
+    llm.suggest_world_prompt.assert_not_called()
+    assert draft.worldPrompt is None
+
+
+def test_empty_world_prompt_suggestion_leaves_the_existing_world_prompt_alone():
+    service, cosmos, llm, _stories = _service()
+    container = cosmos.get_container.return_value
+    draft = StoryDraft(id="draft-1", createdBy=CREATED_BY, worldPrompt="It is 1908.")
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+    llm.suggest_world_prompt.return_value = ""
+
+    result_draft = service.suggest_world_prompt("draft-1", "Actually make it 1920.")
+
+    assert result_draft.worldPrompt == "It is 1908."
 
 
 # --- Explicit generate_story action ---
@@ -213,18 +263,15 @@ def test_patch_accepts_single_character_type():
 # --- Contradictory-answer overwrite (latest wins) ---
 
 
-def test_message_field_updates_overwrite_a_contradictory_earlier_answer():
+def test_world_prompt_suggestion_overwrites_a_contradictory_earlier_answer():
     service, cosmos, llm, stories = _service()
     container = cosmos.get_container.return_value
     draft = StoryDraft(id="draft-1", createdBy=CREATED_BY, worldPrompt="It is 1908.")
     container.read_item.side_effect = None
     container.read_item.return_value = draft.to_dict()
-    llm.generate_exchange_response.return_value = {
-        "assistantMessage": "Got it, updated to 1920.",
-        "fieldUpdates": {"worldPrompt": "It is 1920."},
-    }
+    llm.suggest_world_prompt.return_value = "It is 1920."
 
-    result_draft = service.post_message("draft-1", "Actually make it 1920.")
+    result_draft = service.suggest_world_prompt("draft-1", "Actually make it 1920.")
 
     assert result_draft.worldPrompt == "It is 1920."
 
@@ -268,16 +315,16 @@ def test_rate_limited_generation_leaves_draft_intact_and_raises():
     container.delete_item.assert_not_called()
 
 
-def test_rate_limited_exchange_raises_without_persisting():
+def test_rate_limited_world_prompt_suggestion_raises_without_persisting():
     service, cosmos, llm, stories = _service()
     container = cosmos.get_container.return_value
     draft = StoryDraft(id="draft-1", createdBy=CREATED_BY)
     container.read_item.side_effect = None
     container.read_item.return_value = draft.to_dict()
-    llm.generate_exchange_response.side_effect = LLMRateLimitError("rate limited")
+    llm.suggest_world_prompt.side_effect = LLMRateLimitError("rate limited")
 
     with pytest.raises(LLMRateLimitedError):
-        service.post_message("draft-1", "hello")
+        service.suggest_world_prompt("draft-1", "hello")
 
     container.upsert_item.assert_not_called()
 

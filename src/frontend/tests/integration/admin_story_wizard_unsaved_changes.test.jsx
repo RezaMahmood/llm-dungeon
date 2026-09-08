@@ -14,12 +14,12 @@ vi.mock("@azure/msal-react", () => ({
 const createDraft = vi.fn();
 const getDraft = vi.fn();
 const patchDraft = vi.fn();
-const postMessage = vi.fn();
+const suggestWorldPrompt = vi.fn();
 vi.mock("../../src/services/storyDraftService.js", () => ({
   createDraft: (...args) => createDraft(...args),
   getDraft: (...args) => getDraft(...args),
   patchDraft: (...args) => patchDraft(...args),
-  postMessage: (...args) => postMessage(...args),
+  suggestWorldPrompt: (...args) => suggestWorldPrompt(...args),
 }));
 
 import AdminStoryWizardPage from "../../src/pages/AdminStoryWizardPage.jsx";
@@ -36,7 +36,6 @@ const EMPTY_DRAFT = {
   rules: null,
   characterTypes: [],
   completionCriteria: null,
-  exchanges: [],
 };
 
 describe("Admin Story Wizard unsaved-changes warning (FR-010)", () => {
@@ -46,7 +45,7 @@ describe("Admin Story Wizard unsaved-changes warning (FR-010)", () => {
     createDraft.mockReset();
     getDraft.mockReset();
     patchDraft.mockReset();
-    postMessage.mockReset();
+    suggestWorldPrompt.mockReset();
     sessionStorage.clear();
     addSpy = vi.spyOn(window, "addEventListener");
   });

@@ -18,7 +18,7 @@ from backend.api.admin.stories import (
     get_story,
     list_stories,
     patch_draft,
-    post_message,
+    suggest_world_prompt,
 )
 from backend.services.llm_service import LLMOutputError, LLMRateLimitError
 from backend.services.story_draft_service import StoryDraftService
@@ -91,35 +91,56 @@ def _completion_criteria():
     return {"maxDurationMinutes": None, "successConditions": ["Find the keeper"], "failureConditions": [], "rule": None}
 
 
-# --- Eliciting setting/plot via POST .../messages ---
+# --- Turning an idea into a world prompt via POST .../world-prompt ---
 
 
-def test_message_elicits_setting_plot_and_merges_field_updates(request_factory):
+def test_idea_is_turned_into_a_world_prompt_in_one_pass(request_factory):
+    """#227 — the idea goes to the model exactly once, the suggestion lands in
+    worldPrompt, and no conversation history comes back with it."""
     draft_service, _stories, llm, _cosmos = _services()
     with _patched_authorize_admin():
         create_response = create_draft(_authorized(request_factory, method="POST", url="/api/manage/stories/drafts"), story_draft_service=draft_service)
     draft_id = json.loads(create_response.get_body())["draft"]["id"]
 
-    llm.generate_exchange_response.return_value = {
-        "assistantMessage": "Who is the player, and what draws them there?",
-        "fieldUpdates": {"worldPrompt": "A half-abandoned lighthouse on a cold northern cove."},
-    }
+    llm.suggest_world_prompt.return_value = "A half-abandoned lighthouse on a cold northern cove."
     req = _authorized(
         request_factory,
         method="POST",
-        url=f"/api/manage/stories/drafts/{draft_id}/messages",
-        body=json.dumps({"message": "A half-abandoned lighthouse on a cold northern cove."}).encode(),
+        url=f"/api/manage/stories/drafts/{draft_id}/world-prompt",
+        body=json.dumps({"idea": "A lighthouse nobody has visited in years."}).encode(),
         route_params={"draftId": draft_id},
     )
     with _patched_authorize_admin():
-        response = post_message(req, story_draft_service=draft_service)
+        response = suggest_world_prompt(req, story_draft_service=draft_service)
 
     assert response.status_code == 200
     body = json.loads(response.get_body())
     assert body["status"] == "success"
     assert body["draft"]["worldPrompt"] == "A half-abandoned lighthouse on a cold northern cove."
-    assert body["draft"]["exchanges"][-1]["message"] == "Who is the player, and what draws them there?"
+    assert "exchanges" not in body["draft"]
+    llm.suggest_world_prompt.assert_called_once()
     assert body["readyToGenerate"] is False
+
+
+def test_world_prompt_suggestion_rejects_a_blank_idea(request_factory):
+    draft_service, _stories, llm, _cosmos = _services()
+    with _patched_authorize_admin():
+        create_response = create_draft(_authorized(request_factory, method="POST", url="/api/manage/stories/drafts"), story_draft_service=draft_service)
+    draft_id = json.loads(create_response.get_body())["draft"]["id"]
+
+    req = _authorized(
+        request_factory,
+        method="POST",
+        url=f"/api/manage/stories/drafts/{draft_id}/world-prompt",
+        body=json.dumps({}).encode(),
+        route_params={"draftId": draft_id},
+    )
+    with _patched_authorize_admin():
+        response = suggest_world_prompt(req, story_draft_service=draft_service)
+
+    assert response.status_code == 422
+    assert json.loads(response.get_body())["error"] == "invalid_field"
+    llm.suggest_world_prompt.assert_not_called()
 
 
 # --- Eliciting character types and completion criteria via PATCH ---
@@ -156,7 +177,7 @@ def test_completing_the_draft_via_patch_does_not_generate_or_redirect(request_fa
     since that's what previously caused the wizard to redirect away without the
     administrator explicitly finishing (#33)."""
     draft_service, _stories, llm, _cosmos = _services()
-    llm.generate_exchange_response.return_value = {"assistantMessage": "Noted.", "fieldUpdates": {"worldPrompt": "A half-abandoned lighthouse."}}
+    llm.suggest_world_prompt.return_value = "A half-abandoned lighthouse."
     with _patched_authorize_admin():
         create_response = create_draft(
             _authorized(
@@ -201,7 +222,7 @@ def test_completing_the_draft_via_patch_does_not_generate_or_redirect(request_fa
 
 def test_generate_action_persists_a_story_only_when_explicitly_called(request_factory):
     draft_service, story_service, llm, _cosmos = _services()
-    llm.generate_exchange_response.return_value = {"assistantMessage": "Noted.", "fieldUpdates": {"worldPrompt": "A half-abandoned lighthouse."}}
+    llm.suggest_world_prompt.return_value = "A half-abandoned lighthouse."
     with _patched_authorize_admin():
         create_response = create_draft(
             _authorized(
@@ -331,7 +352,7 @@ def test_abandoned_draft_is_gone_after_ttl_expiry_and_never_listed(request_facto
 
 def test_starting_a_new_draft_does_not_resume_an_earlier_unfinished_one(request_factory):
     draft_service, _stories, llm, _cosmos = _services()
-    llm.generate_exchange_response.return_value = {"assistantMessage": "Tell me more.", "fieldUpdates": {"worldPrompt": "Idea one."}}
+    llm.suggest_world_prompt.return_value = "Idea one."
     with _patched_authorize_admin():
         first = create_draft(
             _authorized(request_factory, method="POST", url="/api/manage/stories/drafts", body=json.dumps({"idea": "Idea one."}).encode()),
@@ -346,8 +367,8 @@ def test_starting_a_new_draft_does_not_resume_an_earlier_unfinished_one(request_
     first_draft = json.loads(first.get_body())["draft"]
     second_draft = json.loads(second.get_body())["draft"]
     assert first_draft["id"] != second_draft["id"]
+    assert first_draft["worldPrompt"] == "Idea one."
     assert second_draft["worldPrompt"] is None
-    assert second_draft["exchanges"] == []
 
 
 # --- 502 generation_failed leaves the draft intact ---
@@ -409,7 +430,7 @@ def test_malformed_generation_output_returns_502_and_leaves_draft_intact(request
 # --- 429 rate_limited leaves the draft intact (#33) ---
 
 
-def test_rate_limited_message_returns_429_and_leaves_draft_intact(request_factory):
+def test_rate_limited_world_prompt_suggestion_returns_429_and_leaves_draft_intact(request_factory):
     draft_service, _stories, llm, cosmos = _services()
     with _patched_authorize_admin():
         create_response = create_draft(
@@ -418,19 +439,19 @@ def test_rate_limited_message_returns_429_and_leaves_draft_intact(request_factor
         )
     draft_id = json.loads(create_response.get_body())["draft"]["id"]
 
-    llm.generate_exchange_response.side_effect = LLMRateLimitError("rate limited")
+    llm.suggest_world_prompt.side_effect = LLMRateLimitError("rate limited")
     req = _authorized(
         request_factory,
         method="POST",
-        url=f"/api/manage/stories/drafts/{draft_id}/messages",
-        body=json.dumps({"message": "A half-abandoned lighthouse."}).encode(),
+        url=f"/api/manage/stories/drafts/{draft_id}/world-prompt",
+        body=json.dumps({"idea": "A half-abandoned lighthouse."}).encode(),
         route_params={"draftId": draft_id},
     )
     with _patched_authorize_admin():
-        response = post_message(req, story_draft_service=draft_service)
+        response = suggest_world_prompt(req, story_draft_service=draft_service)
 
     assert response.status_code == 429
     assert json.loads(response.get_body())["error"] == "rate_limited"
 
-    # No message or field update from the failed exchange was persisted.
-    assert cosmos.get_container("storyDrafts").items[draft_id]["exchanges"] == []
+    # Nothing from the failed suggestion was persisted.
+    assert cosmos.get_container("storyDrafts").items[draft_id]["worldPrompt"] is None

@@ -12,7 +12,7 @@ All endpoints require an authenticated Administrator (`authorize_admin`, per `sr
 
 ## POST /api/manage/stories/drafts
 
-**Purpose**: Start a new story-creation session (FR-001). Optionally accepts an initial plain-language idea, which is immediately sent through the guiding-question exchange (research.md §1, §4).
+**Purpose**: Start a new story-creation session (FR-001). Optionally accepts an initial plain-language idea, which is immediately turned into a suggested `worldPrompt` in one pass (research.md §1, §4; amended 2026-09-08, #227).
 
 **Request**:
 ```json
@@ -29,15 +29,11 @@ All endpoints require an authenticated Administrator (`authorize_admin`, per `sr
     "name": null, "coverImageUrl": null, "tone": null, "readingLevel": null,
     "sessionLengthMinutes": null, "chapters": null,
     "worldPrompt": null, "rules": null,
-    "characterTypes": [], "completionCriteria": null,
-    "exchanges": [
-      { "role": "administrator", "message": "A half-abandoned lighthouse...", "timestamp": "2026-08-29T20:00:00Z" },
-      { "role": "system", "message": "Who is the player in this story, and what draws them to the lighthouse?", "timestamp": "2026-08-29T20:00:01Z" }
-    ]
+    "characterTypes": [], "completionCriteria": null
   }
 }
 ```
-If `idea` was supplied, the Foundry exchange call (research.md §4) has already merged any `fieldUpdates` it extracted (e.g., `worldPrompt`) before this response is returned.
+If `idea` was supplied, the Foundry world-prompt call has already written the suggestion into `worldPrompt` before this response is returned.
 
 ---
 
@@ -92,22 +88,27 @@ If `idea` was supplied, the Foundry exchange call (research.md §4) has already 
 
 ---
 
-## POST /api/manage/stories/drafts/{draftId}/messages
+## POST /api/manage/stories/drafts/{draftId}/world-prompt
 
-**Purpose**: Append one plain-language administrator message to the conversation (FR-001, FR-002) and receive the system's next guiding question or acknowledgment, with any extracted field updates already merged (research.md §4).
+**Purpose**: Turn one plain-language idea into a suggested world prompt (FR-001, FR-002) in a single pass — the idea is sent to the model exactly once, and the suggestion is written to `worldPrompt`. No other draft field is touched, no follow-up question is asked, and no conversation history is kept (amended 2026-09-08, #227 — this endpoint replaces `POST .../messages`, which held a multi-turn guided Q&A).
 
 **Request**:
 ```json
-{ "message": "Make it 1908, and nobody actually gets hurt in the story." }
+{ "idea": "A half-abandoned lighthouse on a cold northern cove, in 1908." }
 ```
 
-**Response (200 OK)**: Same shape as `PATCH` above (`{"status":"success","draft":...,"readyToGenerate":...}`) — never the `"generated"` shape; a `429` if the Foundry exchange call is rate-limited (#33).
+**Response (200 OK)**: Same shape as `PATCH` above (`{"status":"success","draft":...,"readyToGenerate":...}`) — never the `"generated"` shape; a `429` if the Foundry call is rate-limited (#33).
+
+**Response (422 Unprocessable Entity)** — `idea` missing, empty, or whitespace-only. Rejected before the Foundry call, so an empty request can neither spend tokens nor overwrite a `worldPrompt` the administrator already has:
+```json
+{ "error": "invalid_field", "message": "idea: describe your story idea before asking for a world prompt" }
+```
 
 ---
 
 ## POST /api/manage/stories/drafts/{draftId}/generate
 
-**Purpose**: The administrator's explicit "finish" action (#33) — generate the story's narrative-consistency guidance and persist a complete `Story`, deleting the draft. Never triggered as a side effect of `PATCH` or `.../messages`; the administrator calls this only when they intend to finish the wizard.
+**Purpose**: The administrator's explicit "finish" action (#33) — generate the story's narrative-consistency guidance and persist a complete `Story`, deleting the draft. Never triggered as a side effect of `PATCH` or `.../world-prompt`; the administrator calls this only when they intend to finish the wizard.
 
 **Request**: No body.
 

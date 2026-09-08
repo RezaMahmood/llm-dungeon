@@ -1,8 +1,9 @@
-"""StoryDraftService — draft CRUD, the conversational exchange, field validation, and the
-explicit generation step that turns a complete draft into a persisted Story (FR-003/FR-004;
-data-model.md Story Draft). Generation is a separate, administrator-triggered action
-(`generate_story`) — it is never a side effect of a field write, so filling in the last
-required field never itself navigates the administrator away (#33 follow-up)."""
+"""StoryDraftService — draft CRUD, the one-pass world-prompt suggestion, field
+validation, and the explicit generation step that turns a complete draft into a persisted
+Story (FR-003/FR-004; data-model.md Story Draft). Generation is a separate,
+administrator-triggered action (`generate_story`) — it is never a side effect of a field
+write, so filling in the last required field never itself navigates the administrator
+away (#33 follow-up)."""
 
 from __future__ import annotations
 
@@ -14,7 +15,7 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 from backend.config import config
 from backend.models.story import CharacterType, CompletionCriteria, Story
-from backend.models.story_draft import StoryCreationExchange, StoryDraft
+from backend.models.story_draft import StoryDraft
 from backend.services.cosmos_service import CosmosService
 from backend.services.llm_service import LLMOutputError, LLMRateLimitError, LLMService
 from backend.services.story_config_file import StoryConfiguration
@@ -22,9 +23,9 @@ from backend.services.story_service import StaleStoryError, StoryService
 
 logger = logging.getLogger("story_draft_service")
 
-# Draft fields settable directly via PATCH or merged from a conversational exchange's
-# fieldUpdates (data-model.md Story Draft) — characterTypes/completionCriteria are
-# handled separately since they need Shared-Structure validation, not a plain setattr.
+# Draft fields settable directly via PATCH (data-model.md Story Draft) —
+# characterTypes/completionCriteria are handled separately since they need
+# Shared-Structure validation, not a plain setattr.
 PATCHABLE_FIELDS = {
     "name",
     "coverImageUrl",
@@ -49,9 +50,9 @@ class GenerationFailedError(RuntimeError):
 
 
 class LLMRateLimitedError(RuntimeError):
-    """The Foundry deployment rate-limited an exchange or generation call after retries
-    were exhausted — the caller maps this to 429 `rate_limited`; the draft (including any
-    message just sent) is left unchanged and intact for another attempt (#33)."""
+    """The Foundry deployment rate-limited a world-prompt suggestion or generation call
+    after retries were exhausted — the caller maps this to 429 `rate_limited`; the draft
+    is left unchanged and intact for another attempt (#33)."""
 
 
 class DraftIncompleteError(ValueError):
@@ -93,32 +94,43 @@ class StoryDraftService:
 
     def create_draft(self, created_by: str, idea: Optional[str] = None) -> StoryDraft:
         """Start a new session (FR-001), optionally seeded with a plain-language idea
-        immediately sent through the guiding-question exchange."""
+        immediately turned into a suggested world prompt. A blank or whitespace-only
+        `idea` starts a blank draft rather than spending a Foundry call on nothing."""
         draft = StoryDraft(id=str(uuid.uuid4()), createdBy=created_by)
+        idea = (idea or "").strip()
         if idea:
-            self._apply_exchange(draft, idea)
+            self._apply_world_prompt_suggestion(draft, idea)
         draft.touch()
         self._container().upsert_item(draft.to_dict())
         return draft
 
-    def post_message(self, draft_id: str, message: str) -> Optional[StoryDraft]:
-        """Append one administrator message and merge the system's field updates. Returns
-        `None` if the draft doesn't exist (expired TTL or never existed). Never generates a
-        Story — the administrator triggers that explicitly via `generate_story` once the
-        Completeness Rule is met, so a message never itself navigates them away (#33)."""
+    def suggest_world_prompt(self, draft_id: str, idea: str) -> Optional[StoryDraft]:
+        """Send the administrator's idea to the model exactly once and store what comes
+        back as the draft's `worldPrompt` (#227) — a single pass, not a conversation, and
+        nothing but `worldPrompt` is written. Returns `None` if the draft doesn't exist
+        (expired TTL or never existed). Never generates a Story — the administrator
+        triggers that explicitly via `generate_story` once the Completeness Rule is met,
+        so asking for a suggestion never itself navigates them away (#33). Raises
+        `DraftValidationError` for a blank or whitespace-only idea — rejected before the
+        Foundry call, so an empty request can neither spend tokens nor overwrite a
+        `worldPrompt` the administrator already has."""
+        idea = (idea or "").strip()
+        if not idea:
+            raise DraftValidationError("idea: describe your story idea before asking for a world prompt")
+
         draft = self.get_draft(draft_id)
         if draft is None:
             return None
 
-        self._apply_exchange(draft, message)
+        self._apply_world_prompt_suggestion(draft, idea)
         draft.touch()
         self._container().upsert_item(draft.to_dict())
         return draft
 
     def patch_draft(self, draft_id: str, updates: dict[str, Any]) -> Optional[StoryDraft]:
         """Directly edit structured draft fields (FR-008). Same return contract as
-        `post_message`. Raises `DraftValidationError` on the first invalid field — no
-        partial merge. Never generates a Story (see `post_message`)."""
+        `suggest_world_prompt`. Raises `DraftValidationError` on the first invalid field —
+        no partial merge. Never generates a Story (see `suggest_world_prompt`)."""
         draft = self.get_draft(draft_id)
         if draft is None:
             return None
@@ -229,27 +241,15 @@ class StoryDraftService:
         self._container().delete_item(item=draft.id, partition_key=draft.id)
         return story
 
-    def _apply_exchange(self, draft: StoryDraft, message: str) -> None:
-        draft.exchanges.append(StoryCreationExchange(role="administrator", message=message))
+    def _apply_world_prompt_suggestion(self, draft: StoryDraft, idea: str) -> None:
+        """The latest suggestion always wins over whatever `worldPrompt` held before
+        (Edge Cases); an empty suggestion is discarded rather than blanking the field."""
         try:
-            response = self._llm.generate_exchange_response(draft.to_dict(), message)
+            world_prompt = self._llm.suggest_world_prompt(draft.to_dict(), idea)
         except LLMRateLimitError as exc:
             raise LLMRateLimitedError(str(exc)) from exc
-        self._merge_field_updates(draft, response.get("fieldUpdates") or {})
-        assistant_message = response.get("assistantMessage") or ""
-        if assistant_message:
-            draft.exchanges.append(StoryCreationExchange(role="system", message=assistant_message))
-
-    def _merge_field_updates(self, draft: StoryDraft, updates: dict[str, Any]) -> None:
-        """Merge LLM-extracted field updates — latest write always wins, including over a
-        contradictory earlier answer (Edge Cases)."""
-        for key, value in updates.items():
-            if key in PATCHABLE_FIELDS:
-                setattr(draft, key, value)
-            elif key == "characterTypes" and isinstance(value, list):
-                draft.characterTypes = [CharacterType.from_dict(ct) for ct in value]
-            elif key == "completionCriteria" and isinstance(value, dict):
-                draft.completionCriteria = CompletionCriteria.from_dict(value)
+        if world_prompt:
+            draft.worldPrompt = world_prompt
 
     def _apply_patch(self, draft: StoryDraft, updates: dict[str, Any]) -> None:
         for field_name in PATCHABLE_FIELDS:

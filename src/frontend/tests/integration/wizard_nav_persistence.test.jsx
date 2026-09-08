@@ -7,7 +7,7 @@ const acquireTokenSilent = vi.fn();
 const createDraft = vi.fn();
 const getDraft = vi.fn();
 const patchDraft = vi.fn();
-const postMessage = vi.fn();
+const suggestWorldPrompt = vi.fn();
 
 const mockInstance = { acquireTokenSilent, logoutRedirect: vi.fn() };
 const mockAccounts = [{ homeAccountId: "home-1", username: "admin@example.com", name: "Ada B." }];
@@ -20,7 +20,7 @@ vi.mock("../../src/services/storyDraftService.js", () => ({
   createDraft: (...args) => createDraft(...args),
   getDraft: (...args) => getDraft(...args),
   patchDraft: (...args) => patchDraft(...args),
-  postMessage: (...args) => postMessage(...args),
+  suggestWorldPrompt: (...args) => suggestWorldPrompt(...args),
 }));
 
 import AdminStoryWizardPage from "../../src/pages/AdminStoryWizardPage.jsx";
@@ -37,7 +37,6 @@ const draftWith = (overrides = {}) => ({
   rules: null,
   characterTypes: [],
   completionCriteria: null,
-  exchanges: [],
   ...overrides,
 });
 
@@ -55,7 +54,7 @@ describe("Wizard progress survives leaving via the nav bar (FR-005, SC-003)", ()
     createDraft.mockReset();
     getDraft.mockReset();
     patchDraft.mockReset();
-    postMessage.mockReset();
+    suggestWorldPrompt.mockReset();
   });
 
   it("resumes the same draft — not a new blank one — when the wizard is revisited", async () => {
