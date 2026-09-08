@@ -144,7 +144,7 @@ variable "functions_hosting_plan" {
 }
 
 variable "functions_always_ready_instance_count" {
-  description = "Instances kept warm for the Functions app's HTTP trigger group; 0 disables always-ready and returns the app to scale-to-zero"
+  description = "Instances kept warm for the Functions app's HTTP trigger group during the warm windows in functions-always-ready-schedule.yml; 0 disables always-ready entirely"
   type        = number
   default     = 1
 

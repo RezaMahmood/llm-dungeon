@@ -238,10 +238,9 @@ resource "azurerm_function_app_flex_consumption" "functions" {
   instance_memory_in_mb  = 2048
   maximum_instance_count = 100
 
-  # Keeps HTTP-triggered functions off a cold start after scale-to-zero. Billed
-  # as Flex Consumption "Always Ready Baseline" on instance_memory_in_mb for
-  # every second the app exists, so 0 drops the block and restores pure
-  # scale-to-zero.
+  # Warm instance for HTTP triggers, so requests during development hours don't
+  # pay a cold start. Only the initial value: functions-always-ready-schedule.yml
+  # switches it on and off from here on (ignore_changes below).
   dynamic "always_ready" {
     for_each = var.functions_always_ready_instance_count > 0 ? [1] : []
 
@@ -315,6 +314,9 @@ resource "azurerm_function_app_flex_consumption" "functions" {
       # Auto-added by Azure when Application Insights is linked; not
       # Terraform-managed, and Azure just re-adds it after every apply.
       tags["hidden-link: /app-insights-resource-id"],
+      # functions-always-ready-schedule.yml scales this to 0 outside the
+      # warm windows, which Terraform would otherwise revert on every apply.
+      always_ready,
     ]
   }
 }
