@@ -235,3 +235,39 @@ def test_llm_run_reraises_the_original_exception_with_its_cause():
 
     assert raised.value is wrapper
     assert raised.value.__cause__ is cause
+
+
+def test_concurrent_llm_calls_overlap_rather_than_serialize():
+    """The daemon loop exists so calls taking seconds still run alongside each other; a
+    lock around a single loop would satisfy every other test here. Two coroutines are held
+    on a gate and neither is released until both have entered, so a serialized
+    implementation cannot get the second one in and times out."""
+    import asyncio
+    import threading
+
+    loop = llm_service_module._shared_loop()
+    gate = asyncio.Event()
+    entered = threading.Semaphore(0)
+    results: dict[int, str] = {}
+
+    async def held_call() -> str:
+        entered.release()
+        await asyncio.wait_for(gate.wait(), timeout=5)
+        return "released"
+
+    def worker(n: int) -> None:
+        results[n] = llm_service_module._run(held_call())
+
+    threads = [threading.Thread(target=worker, args=(n,), daemon=True) for n in (1, 2)]
+    for thread in threads:
+        thread.start()
+    try:
+        # Both inside the call before either can finish — the assertion that they overlap.
+        assert entered.acquire(timeout=5), "second call never started; calls are serialized"
+        assert entered.acquire(timeout=5), "second call never started; calls are serialized"
+    finally:
+        loop.call_soon_threadsafe(gate.set)
+    for thread in threads:
+        thread.join(timeout=5)
+
+    assert results == {1: "released", 2: "released"}
