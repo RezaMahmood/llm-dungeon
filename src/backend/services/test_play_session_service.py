@@ -130,7 +130,7 @@ class TestPlaySessionService:
             raise StoryNotFoundError() from exc
         except (ContentGenerationFailedError, ContentGenerationRateLimitedError) as exc:
             # Only reachable for a story persisted before `startingPoint` existed (#271).
-            logger.warning("Starting-point backfill failed for story %s", story.id)
+            logger.warning("Starting-point backfill failed for story %s", story.id, exc_info=exc)
             raise NarrativeUnavailableError() from exc
 
         now = _now()
