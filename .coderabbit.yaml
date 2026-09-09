@@ -33,6 +33,8 @@ reviews:
     - '!**/__pycache__/**'
     - '!**/dist/**'
     - '!**/package-lock.json'
+    - '!**/devcontainer-lock.json'
+    - '!**/.terraform.lock.hcl'
     - '!**/*.min.js'
     - '!.worktrees/**'
 
