@@ -199,23 +199,25 @@ def test_llm_calls_all_run_on_one_event_loop():
     assert not first.is_closed()
 
 
-def test_llm_run_survives_a_resource_bound_to_the_loop():
-    """The regression itself: something created on the first call's loop must still be
-    usable on the second call, which is exactly what broke under `asyncio.run()`."""
+def test_llm_run_can_await_a_future_created_by_an_earlier_call():
+    """The regression itself. A pending Future is genuinely bound to the loop that created
+    it, and its timer only fires while that loop still runs — so awaiting it on a later
+    call fails with "attached to a different loop" under a per-call `asyncio.run()` and
+    succeeds only if both calls share one live loop."""
     import asyncio
 
-    holder = {}
+    async def make_pending_future():
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
+        loop.call_later(0.01, lambda: future.done() or future.set_result("done"))
+        return future
 
-    async def create():
-        holder["event"] = asyncio.Event()
+    async def await_future(future):
+        return await future
 
-    async def use():
-        holder["event"].set()
-        return holder["event"].is_set()
+    future = llm_service_module._run(make_pending_future())
 
-    llm_service_module._run(create())
-
-    assert llm_service_module._run(use()) is True
+    assert llm_service_module._run(await_future(future)) == "done"
 
 
 def test_llm_run_reraises_the_original_exception_with_its_cause():
