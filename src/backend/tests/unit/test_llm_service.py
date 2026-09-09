@@ -15,6 +15,7 @@ from agent_framework.exceptions import ChatClientException
 
 from backend.models.play_session import PlayerInteraction, PlaySession
 from backend.models.story import CharacterType, CompletionCriteria, Story
+from backend.services.llm_service import config as llm_service_config
 from backend.services.llm_service import (
     GAMEPLAY_TURN_SYSTEM_PROMPT,
     LLMContentFilteredError,
@@ -130,12 +131,74 @@ def test_call_populates_span_attributes_from_usage():
         "gen_ai.response",
         "gen_ai.usage.input_tokens",
         "gen_ai.usage.output_tokens",
+        "gen_ai.usage.reasoning_tokens",
         "gen_ai.cost_usd",
         "gen_ai.latency_ms",
     }
     attributes = {call.args[0]: call.args[1] for call in span.set_attribute.call_args_list}
     assert attributes["gen_ai.usage.input_tokens"] == 100
     assert attributes["gen_ai.usage.output_tokens"] == 50
+    # A deployment that reports no reasoning breakdown records a zero, never a missing
+    # attribute — the Application Insights query behind #285 can then treat the attribute
+    # as always present.
+    assert attributes["gen_ai.usage.reasoning_tokens"] == 0
+
+
+def test_call_records_reasoning_tokens_when_the_deployment_reports_them():
+    """gpt-5-nano bills reasoning as output tokens but never shows them in the response
+    text, so the span attribute is the only way to see how much of a slow call was
+    thinking rather than writing (#285)."""
+    usage = UsageDetails(input_token_count=100, output_token_count=1200)
+    usage["reasoning_output_token_count"] = 1024
+    response = ChatResponse(
+        messages=[Message(role="assistant", contents=[json.dumps({"worldPrompt": "A lighthouse..."})])],
+        usage_details=usage,
+        response_format=_WorldPromptResponse,
+    )
+    service = _service_with_response(response)
+
+    span = MagicMock()
+    tracer = MagicMock()
+    tracer.start_as_current_span.return_value.__enter__.return_value = span
+
+    with patch("backend.services.llm_service.tracer", tracer):
+        service.suggest_world_prompt({}, "hello")
+
+    attributes = {call.args[0]: call.args[1] for call in span.set_attribute.call_args_list}
+    assert attributes["gen_ai.usage.reasoning_tokens"] == 1024
+    # Reasoning tokens are a subset of the output count, so cost must not double-count them.
+    assert attributes["gen_ai.usage.output_tokens"] == 1200
+
+
+# --- Reasoning effort (#285) ---
+
+
+def _reasoning_effort_sent(configured: str) -> dict:
+    """Runs one call with LLM_REASONING_EFFORT set to `configured` and returns the options
+    mapping actually handed to the underlying client."""
+    response = _mock_response(json.dumps({"worldPrompt": "A lighthouse..."}), _WorldPromptResponse)
+    service = _service_with_response(response)
+    with patch.object(llm_service_config, "LLM_REASONING_EFFORT", configured):
+        service.suggest_world_prompt({}, "hello")
+    return service.client.get_response.call_args.kwargs["options"]
+
+
+def test_call_sends_the_configured_reasoning_effort():
+    options = _reasoning_effort_sent("minimal")
+
+    assert options["reasoning_effort"] == "minimal"
+    # The response format must survive alongside it — the schema is what stops the call
+    # from returning prose instead of the single-key JSON object (#227).
+    assert options["response_format"] is _WorldPromptResponse
+
+
+def test_call_omits_reasoning_effort_when_it_is_unset():
+    """A non-reasoning deployment rejects `reasoning_effort` outright, so the empty
+    setting has to drop the parameter rather than send an empty string."""
+    options = _reasoning_effort_sent("")
+
+    assert "reasoning_effort" not in options
+    assert options["response_format"] is _WorldPromptResponse
 
 
 # --- Rate limiting (#33) ---
@@ -412,6 +475,7 @@ def test_generate_gameplay_turn_populates_span_attributes_like_existing_calls():
         "gen_ai.response",
         "gen_ai.usage.input_tokens",
         "gen_ai.usage.output_tokens",
+        "gen_ai.usage.reasoning_tokens",
         "gen_ai.cost_usd",
         "gen_ai.latency_ms",
     }

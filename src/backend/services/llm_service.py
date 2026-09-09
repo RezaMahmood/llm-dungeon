@@ -216,16 +216,23 @@ class LLMService:
             if isinstance(usage, dict):
                 input_tokens = usage.get("input_token_count") or 0
                 output_tokens = usage.get("output_token_count") or 0
+                reasoning_tokens = usage.get("reasoning_output_token_count") or 0
             elif usage is not None:
                 input_tokens = getattr(usage, "input_token_count", 0) or 0
                 output_tokens = getattr(usage, "output_token_count", 0) or 0
+                reasoning_tokens = getattr(usage, "reasoning_output_token_count", 0) or 0
             else:
-                input_tokens = output_tokens = 0
+                input_tokens = output_tokens = reasoning_tokens = 0
             cost_usd = input_tokens * config.LLM_INPUT_TOKEN_PRICE_USD + output_tokens * config.LLM_OUTPUT_TOKEN_PRICE_USD
 
             span.set_attribute("gen_ai.response", response.text or "")
             span.set_attribute("gen_ai.usage.input_tokens", input_tokens)
             span.set_attribute("gen_ai.usage.output_tokens", output_tokens)
+            # A subset of output_tokens, not an addition to them — billed as output, but
+            # invisible in the response text. Recorded separately because it is the only
+            # way to tell "the model wrote a long answer" apart from "the model thought for
+            # a long time", which is exactly the distinction LLM_REASONING_EFFORT controls.
+            span.set_attribute("gen_ai.usage.reasoning_tokens", reasoning_tokens)
             span.set_attribute("gen_ai.cost_usd", cost_usd)
             span.set_attribute("gen_ai.latency_ms", latency_ms)
 
@@ -245,12 +252,18 @@ class LLMService:
             Message(role="system", contents=[system_prompt]),
             Message(role="user", contents=[user_prompt]),
         ]
+        options: dict[str, Any] = {"response_format": response_model}
+        if config.LLM_REASONING_EFFORT:
+            # Not a declared key on agent_framework's `OpenAIChatCompletionOptions`, which
+            # only models the Responses API's richer `reasoning` object. The chat-completion
+            # client copies every unrecognized option key through to
+            # `chat.completions.create()` verbatim (`_prepare_options`), and the OpenAI SDK
+            # accepts `reasoning_effort` there, so this reaches the deployment as sent.
+            options["reasoning_effort"] = config.LLM_REASONING_EFFORT
         delay = INITIAL_RETRY_DELAY_SECONDS
         for attempt in range(1, MAX_RATE_LIMIT_ATTEMPTS + 1):
             try:
-                return asyncio.run(
-                    self.client.get_response(messages, options={"response_format": response_model})
-                )
+                return asyncio.run(self.client.get_response(messages, options=options))
             except Exception as exc:  # noqa: BLE001 - re-raised untouched unless it's a 429/content-filter
                 rate_limit_error = self._as_rate_limit_error(exc)
                 if rate_limit_error is None:
