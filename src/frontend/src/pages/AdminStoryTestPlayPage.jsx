@@ -168,7 +168,7 @@ export function AdminStoryTestPlayPage() {
           <div style={{ flex: "none", borderTop: "2px solid var(--color-divider)", padding: "16px 40px 22px" }}>
             {status === "concluded" ? (
               <div>
-                <h2 style={{ margin: "0 0 8px" }}>Playthrough concluded</h2>
+                <h1 style={{ margin: "0 0 8px", fontSize: "20px" }}>Playthrough concluded</h1>
                 <p role="status" className="text-muted" style={{ margin: "0 0 18px" }}>
                   This test playthrough of &ldquo;{story.name}&rdquo; has concluded — read how it ended above.
                 </p>

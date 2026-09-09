@@ -189,5 +189,11 @@ describe("AdminStoryTestPlayPage (010-story-test-play)", () => {
     expect(await screen.findByRole("heading", { name: /playthrough concluded/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^publish$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /return to the story wizard/i })).toBeInTheDocument();
+
+    // The concluding narrative — and the turn before it — must still be visible, not
+    // discarded in favor of the bare summary (regression coverage for the bug where the
+    // whole play screen was replaced on conclusion).
+    expect(screen.getByText(OPENING_NARRATIVE.narrativeText)).toBeInTheDocument();
+    expect(screen.getByText(NEXT_TURN.narrativeText)).toBeInTheDocument();
   });
 });
