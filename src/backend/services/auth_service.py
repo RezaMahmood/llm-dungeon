@@ -16,11 +16,9 @@ from backend.config import config
 
 logger = logging.getLogger("auth_service")
 
-# The signing-key cache has to outlive the request to be a cache at all. AuthService is
-# constructed per request by the auth middleware, so a PyJWKClient held only on the
-# instance meant JWKS_CACHE_SECONDS could never elapse and every single request re-fetched
-# https://login.microsoftonline.com/common/discovery/v2.0/keys (#286). Keyed by URI so a
-# test pointing at its own endpoint cannot poison the real one.
+# AuthService is constructed per request, so the signing-key cache has to live above the
+# instance for JWKS_CACHE_SECONDS to mean anything. Keyed by URI so a test pointing at its
+# own endpoint cannot poison the real one.
 _jwk_clients: dict[str, tuple[PyJWKClient, float]] = {}
 _jwk_clients_lock = threading.Lock()
 
@@ -72,9 +70,8 @@ class AuthService:
         self._jwk_client_created_at: float = 0.0
 
     def _get_jwk_client(self) -> PyJWKClient:
-        # An instance-level client stays an explicit override (the tests set one directly);
-        # everything else comes from the process-wide cache, which is the only place the
-        # JWKS_CACHE_SECONDS window can actually be observed.
+        # An instance-level client stays an explicit override; everything else comes from
+        # the process-wide cache.
         if self._jwk_client is not None and (time.time() - self._jwk_client_created_at) <= config.JWKS_CACHE_SECONDS:
             return self._jwk_client
         return _shared_jwk_client(self._jwks_uri)

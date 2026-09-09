@@ -1,18 +1,8 @@
 """The process-wide Managed Identity credential (Constitution Principle VII).
 
-`DefaultAzureCredential` caches tokens per scope on the *instance*, so a credential
-built per request throws that cache away every time and pays a fresh IMDS round trip
-for every scope it touches. A production trace of one story-creation request showed
-three separate credential chains — two for Cosmos, one for Cognitive Services — each
-re-walking the chain and re-fetching a token that a longer-lived instance would
-already have held (#286).
-
-Sharing one instance across the worker process is also what makes the cache useful
-across *scopes*: Cosmos and Azure OpenAI tokens then live side by side in the same
-credential rather than in two short-lived ones.
-
-Safe to share: the synchronous `azure-identity` credentials are thread-safe, and the
-Functions Python worker reuses its process across invocations.
+`DefaultAzureCredential` caches tokens per scope on the instance, so one shared instance
+holds the Cosmos, Graph and Azure OpenAI tokens together instead of re-acquiring each per
+request. The synchronous credentials are thread-safe.
 """
 
 from __future__ import annotations

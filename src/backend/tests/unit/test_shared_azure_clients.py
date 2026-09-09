@@ -1,11 +1,8 @@
-"""The clients that must outlive a single request (#286).
+"""The clients that must outlive a single request.
 
-Cosmos clients, the Managed Identity credential, the JWKS signing-key client and the
-Azure OpenAI client were all rebuilt per request, so each one re-paid its own discovery
-cost every time: account discovery and container-properties reads for Cosmos, an IMDS
-round trip per scope for the credential, a JWKS fetch for token validation, and a fresh
-connection pool for the model calls. These tests pin the sharing itself, since nothing
-about a single request's behaviour would reveal a regression.
+Sharing is not observable from one request's behaviour, so it needs its own tests: nothing
+else here would catch a client, credential or signing-key cache going back to being rebuilt
+per call.
 """
 
 from __future__ import annotations

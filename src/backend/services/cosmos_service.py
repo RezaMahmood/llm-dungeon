@@ -18,13 +18,8 @@ logger = logging.getLogger("cosmos_service")
 _MAX_RETRIES = 3
 _RETRY_BACKOFF_SECONDS = 0.5
 
-# One CosmosClient per endpoint per worker process. A fresh client has to discover the
-# database account (a `GET /` against the global endpoint) before its first call and
-# then read each container's properties before that container's first operation; both
-# results are cached on the *client*, so a client built per request pays them every
-# time. In production that was ~570ms of a single request spent re-learning topology
-# to perform ~90ms of reads, twice over, because the admin-authorization path and the
-# handler each built their own client (#286).
+# One CosmosClient per endpoint per worker process: a client caches database-account
+# discovery and container properties on itself, and re-fetches both when rebuilt.
 _clients: dict[str, CosmosClient] = {}
 _clients_lock = threading.Lock()
 
@@ -95,9 +90,8 @@ class CosmosService:
         raise last_error  # type: ignore[misc]
 
 
-# The default CosmosService for request handling. Callers still accept an injected
-# service (the tests pass fakes); this is only what they fall back to, so that the
-# database and container proxies are reused across requests along with the client.
+# What callers fall back to when no service is injected, so the database and container
+# proxies are reused across requests along with the client.
 _shared_service: Optional[CosmosService] = None
 _shared_service_lock = threading.Lock()
 

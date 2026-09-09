@@ -43,11 +43,8 @@ INITIAL_RETRY_DELAY_SECONDS = 2.0
 # since Function App instances are short-lived and the files never change at runtime.
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
 
-# One chat-completion client per endpoint per worker process. Building one is not free —
-# it carries its own httpx connection pool, so a per-request client also means a fresh TLS
-# handshake to the Foundry endpoint on every call. A production trace showed 750ms between
-# the credential-chain log line and the token request that follows it, all of it inside
-# this construction (#286).
+# One chat-completion client per endpoint per worker process, so its httpx connection pool
+# and that pool's TLS handshake survive between calls.
 _clients: dict[str, OpenAIChatCompletionClient] = {}
 _clients_lock = threading.Lock()
 
@@ -65,17 +62,10 @@ def _shared_client(endpoint: str) -> OpenAIChatCompletionClient:
         return client
 
 
-# Reusing the client above is only safe alongside a single, long-lived event loop. The
-# client holds an `httpx.AsyncClient`, whose pooled connections are bound to the loop that
-# opened them, and `asyncio.run()` builds and closes a *new* loop per call. A shared client
-# driven that way hands the next call a connection belonging to a closed loop and raises
-# `RuntimeError: Event loop is closed` — intermittently, since it only happens when the
-# pooled connection is actually reused. So the loop lives on a daemon thread for the life
-# of the process and every call is dispatched onto it. This also removes the loop
-# setup/teardown that used to run on every call.
-#
-# A thread rather than a lock around one loop: calls take seconds, and serializing them
-# would make concurrent admin activity queue up behind each other.
+# Sharing the client above requires one long-lived loop: its httpx connection pool is bound
+# to the loop that opened it, so an `asyncio.run()` per call eventually reuses a connection
+# belonging to a closed loop and raises "RuntimeError: Event loop is closed". A daemon
+# thread rather than a lock around one loop, so calls taking seconds still overlap.
 _loop: Optional[asyncio.AbstractEventLoop] = None
 _loop_lock = threading.Lock()
 
@@ -92,9 +82,8 @@ def _shared_loop() -> asyncio.AbstractEventLoop:
 
 
 def _run(coro: Any) -> Any:
-    """Run one client coroutine on the shared loop, from whichever worker thread is
-    handling this request, and block for its result. The awaited exception is re-raised
-    unchanged, so the `__cause__` unwrapping in `_as_rate_limit_error` still works."""
+    """Run one client coroutine on the shared loop and block for its result. The exception
+    is re-raised unchanged, which `_as_rate_limit_error`'s `__cause__` walk depends on."""
     return asyncio.run_coroutine_threadsafe(coro, _shared_loop()).result()
 
 
