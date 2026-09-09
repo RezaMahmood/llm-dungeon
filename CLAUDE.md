@@ -11,8 +11,11 @@ Code performs local development and spec-related work — including
 resolving a GitHub issue end-to-end (writing the fix, pushing, and opening
 the PR) — and also pushes and opens the pull request once that work is
 ready. Claude MUST NOT merge a pull request against GitHub itself.
-CodeRabbit's role is PR code review; the requesting user merges pull requests.
-Claude MAY close a GitHub issue, but only on the conditions below.
+PR code review is done via Claude Code's `/code-review` skill (`/code-review ultra
+<PR#>` for a full multi-agent cloud review posted to the PR), triggered explicitly by
+the requesting user or by Claude when asked — not automatically on push. The
+requesting user merges pull requests. Claude MAY close a GitHub issue, but only on the
+conditions below.
 
 - When local work on a branch is ready, Claude MUST push it and open the
   pull request itself with `gh pr create`.
@@ -29,11 +32,12 @@ Claude MAY close a GitHub issue, but only on the conditions below.
 - PR descriptions MUST NOT include a link to the Claude Code session/transcript.
 - Claude MUST NOT enable auto-merge and MUST NOT run `gh pr merge` to merge
   directly, and MUST NOT itself monitor the PR through to completion. From
-  there, CodeRabbit reviews the PR and posts its findings as review
-  comments/recommendations — CodeRabbit's review does not produce a formal
-  approving review or perform the merge. The requesting user reviews
-  CodeRabbit's recommendations and the required status checks, then merges the
-  pull request manually.
+  there, the PR is reviewed via Claude Code's `/code-review` skill (run explicitly
+  by the requesting user, or by Claude when asked — it is not automatic on push)
+  and its findings posted as recommendations — this does not produce a formal
+  approving review or perform the merge. The requesting user reviews those
+  findings and the required status checks, then merges the pull request
+  manually.
 - Claude MAY close a GitHub issue with `gh issue close` only when both hold:
   the user has asked Claude to close that issue, and Claude has verified the
   work resolving it is merged to `origin/main` — not just on a local branch,
@@ -42,26 +46,29 @@ Claude MAY close a GitHub issue, but only on the conditions below.
   it judges the work done). If either condition fails, leave the issue open
   and say why.
 
-### Responding to CodeRabbit review comments
+### Responding to code-review findings
 
-CodeRabbit is configured by `.coderabbit.yaml` at the repo root. When the user
-hands Claude a link to a CodeRabbit review (or an individual CodeRabbit review
-comment) on one of Claude's PRs, and Claude then fixes the underlying issue and
+PR code review runs via Claude Code's `/code-review` skill — either as inline PR
+review comments (`--comment`) or as a single posted comment (`/code-review ultra
+<PR#> --post`). When the user hands Claude a link to that review (or an individual
+finding) on one of Claude's PRs, and Claude then fixes the underlying issue and
 pushes the fix:
 
-- Reply on that specific review comment thread (not just the PR generally)
-  summarizing the fix and the commit it landed in, e.g.
-  `gh api repos/{owner}/{repo}/pulls/{pr}/comments -f body="..." -f in_reply_to={comment_id}`.
-- Mark the thread resolved via the GraphQL `resolveReviewThread` mutation
-  (look up the thread id with a `reviewThreads` query first if only the
-  comment id/URL is known), e.g.
+- If the finding is an inline review comment thread, reply on that specific thread
+  (not just the PR generally) summarizing the fix and the commit it landed in, e.g.
+  `gh api repos/{owner}/{repo}/pulls/{pr}/comments -f body="..." -f in_reply_to={comment_id}`,
+  then mark the thread resolved via the GraphQL `resolveReviewThread` mutation
+  (look up the thread id with a `reviewThreads` query first if only the comment
+  id/URL is known), e.g.
   `gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "..."}) { thread { isResolved } } }'`.
-- Resolving a CodeRabbit review thread this way is addressing feedback on an
-  open PR, not merging — the restriction above on merging still applies, as
-  do the conditions on closing an issue.
-- If a CodeRabbit comment is out of scope, already handled elsewhere, or a
-  fix isn't warranted, reply explaining why instead of silently resolving
-  it, and leave the thread open for the user to decide.
+- If the finding was posted as a single PR comment, reply as a normal PR comment
+  summarizing the fix and the commit it landed in.
+- Resolving a review thread this way is addressing feedback on an open PR, not
+  merging — the restriction above on merging still applies, as do the conditions
+  on closing an issue.
+- If a finding is out of scope, already handled elsewhere, or a fix isn't
+  warranted, reply explaining why instead of silently resolving it, and leave
+  it for the user to decide.
 
 ## PR title format
 
