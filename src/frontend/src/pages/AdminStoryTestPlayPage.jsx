@@ -142,29 +142,6 @@ export function AdminStoryTestPlayPage() {
     );
   }
 
-  if (status === "concluded") {
-    return (
-      <div style={{ padding: "var(--space-6)", maxWidth: "640px" }}>
-        <div
-          style={{ fontSize: "12px", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-accent-700)" }}
-        >
-          Test play — draft, not published
-        </div>
-        <h1>Playthrough concluded</h1>
-        <p role="status">This test playthrough of &ldquo;{story.name}&rdquo; has concluded.</p>
-
-        <hr className="hr" style={{ margin: "24px 0" }} />
-        <h3>Publish this story</h3>
-        <StoryPublishActions story={story} token={token} onStoryChange={setStory} onPublished={handlePublished} />
-
-        <hr className="hr" style={{ margin: "24px 0" }} />
-        <button type="button" className="btn btn-secondary" onClick={handleEditFromConclusion}>
-          Return to the story wizard
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="shell" style={{ height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div
@@ -189,13 +166,33 @@ export function AdminStoryTestPlayPage() {
         <div style={{ display: "flex", flexDirection: "column", minHeight: 0, borderRight: "2px solid var(--color-divider)" }}>
           <StoryPane turns={turns} />
           <div style={{ flex: "none", borderTop: "2px solid var(--color-divider)", padding: "16px 40px 22px" }}>
-            {notice && (
-              <p role="alert" className="text-muted" style={{ margin: "0 0 10px", fontSize: "13px" }}>
-                {notice.message}
-              </p>
+            {status === "concluded" ? (
+              <div>
+                <h1 style={{ margin: "0 0 8px", fontSize: "20px" }}>Playthrough concluded</h1>
+                <p role="status" className="text-muted" style={{ margin: "0 0 18px" }}>
+                  This test playthrough of &ldquo;{story.name}&rdquo; has concluded — read how it ended above.
+                </p>
+                <StoryPublishActions story={story} token={token} onStoryChange={setStory} onPublished={handlePublished} />
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ marginTop: "14px" }}
+                  onClick={handleEditFromConclusion}
+                >
+                  Return to the story wizard
+                </button>
+              </div>
+            ) : (
+              <>
+                {notice && (
+                  <p role="alert" className="text-muted" style={{ margin: "0 0 10px", fontSize: "13px" }}>
+                    {notice.message}
+                  </p>
+                )}
+                <SuggestedActions actions={latest.suggestedActions} onSelect={handleSubmit} disabled={disabled} />
+                <InstructionInput value={inputValue} onChange={setInputValue} onSubmit={handleSubmit} disabled={disabled} />
+              </>
             )}
-            <SuggestedActions actions={latest.suggestedActions} onSelect={handleSubmit} disabled={disabled} />
-            <InstructionInput value={inputValue} onChange={setInputValue} onSubmit={handleSubmit} disabled={disabled} />
           </div>
         </div>
         <StatusPanel
