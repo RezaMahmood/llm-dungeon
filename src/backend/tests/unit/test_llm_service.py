@@ -193,36 +193,75 @@ def _world_prompt_options(override: str = "") -> dict:
     )
 
 
-def test_world_prompt_asks_for_the_cheapest_reasoning():
-    options = _world_prompt_options()
+_TURN_PAYLOAD = {
+    "narrativeText": "The door creaks.",
+    "suggestedActions": ["go in", "wait"],
+    "locationLabel": "Hall",
+    "newlySatisfiedSuccessConditions": [],
+    "newlySatisfiedFailureConditions": [],
+}
+_STARTING_POINT_PAYLOAD = {
+    "narrativeText": "You arrive at the gate.",
+    "suggestedActions": ["knock", "wait"],
+    "locationLabel": "Gate",
+}
 
-    assert options["reasoning_effort"] == "minimal"
-    # The response format must survive alongside it — the schema is what stops the call
-    # from returning prose instead of the single-key JSON object (#227).
-    assert options["response_format"] is _WorldPromptResponse
-
-
-def test_gameplay_turn_keeps_a_reasoning_budget():
-    """The turn call decides whether the player's action satisfied a completion condition,
-    and that verdict is persisted on the session — it must not be reduced to the effort
-    that suits expanding an idea into prose."""
-    options = _options_sent(
+# Every call site, with the effort it is supposed to ask for. Covers all five so a swapped
+# or omitted constant fails here rather than silently shipping.
+_CALL_SITES = [
+    pytest.param(
+        lambda service: service.suggest_world_prompt({}, "hello"),
+        {"worldPrompt": "A lighthouse..."},
+        _WorldPromptResponse,
+        "minimal",
+        id="world_prompt",
+    ),
+    pytest.param(
+        lambda service: service.generate_story_config({"worldPrompt": "A lighthouse..."}),
+        {"narrativeGuidance": "Keep it eerie but safe."},
+        _GenerationResponse,
+        "low",
+        id="generation",
+    ),
+    pytest.param(
+        lambda service: service.generate_starting_point({"worldPrompt": "A lighthouse..."}, "guidance"),
+        _STARTING_POINT_PAYLOAD,
+        _StartingPointResponse,
+        "low",
+        id="starting_point",
+    ),
+    pytest.param(
         lambda service: service.generate_gameplay_turn(_story(), _session(), "look"),
-        {
-            "narrativeText": "The door creaks.",
-            "suggestedActions": ["go in", "wait"],
-            "locationLabel": "Hall",
-            "newlySatisfiedSuccessConditions": [],
-            "newlySatisfiedFailureConditions": [],
-        },
+        _TURN_PAYLOAD,
         _GameplayTurnResponse,
-    )
+        "medium",
+        id="gameplay_turn",
+    ),
+    pytest.param(
+        lambda service: service.summarize_session_history(_story(), _session()),
+        {"summary": "Condensed."},
+        _SummaryResponse,
+        "minimal",
+        id="gameplay_summary",
+    ),
+]
 
-    assert options["reasoning_effort"] == "medium"
+
+@pytest.mark.parametrize("call, payload, response_model, expected_effort", _CALL_SITES)
+def test_each_call_site_asks_for_its_own_reasoning_effort(call, payload, response_model, expected_effort):
+    """The gameplay turn decides whether the player's action satisfied a completion
+    condition and that verdict is persisted, so it keeps a budget the prose calls do not."""
+    options = _options_sent(call, payload, response_model)
+
+    assert options["reasoning_effort"] == expected_effort
+    # The response format must survive alongside it — the schema is what stops a call
+    # returning prose instead of the JSON object its caller parses.
+    assert options["response_format"] is response_model
 
 
-def test_every_call_declares_its_own_reasoning_effort():
-    """A new call site must choose an effort rather than silently inherit one."""
+def test_call_requires_an_explicit_reasoning_effort():
+    """Belt and braces on the parameterization above: a call site added later cannot fall
+    back to a default, it has to pick one."""
     import inspect
 
     signature = inspect.signature(LLMService._call)
