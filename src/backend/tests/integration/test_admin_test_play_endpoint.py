@@ -17,7 +17,7 @@ from backend.api.admin.test_play import (
     submit_test_play_interaction,
 )
 from backend.config import config
-from backend.models.story import CharacterType, CompletionCriteria, Story
+from backend.models.story import CharacterType, CompletionCriteria, StartingPoint, Story
 from backend.services.story_service import StoryService
 from backend.services.test_play_session_service import TestPlaySessionService
 
@@ -82,15 +82,11 @@ class FakeCosmosService:
         return list(self.get_container(container_name).items.values())
 
 
-OPENING_TURN_DATA = {
-    "narrativeText": "The lighthouse door creaks open.",
-    "suggestedActions": ["look around", "step inside"],
-    "locationLabel": "Lighthouse entrance",
-    "goalLabel": None,
-    "progress": None,
-    "newlySatisfiedSuccessConditions": [],
-    "newlySatisfiedFailureConditions": [],
-}
+STARTING_POINT = StartingPoint(
+    narrativeText="The lighthouse door creaks open.",
+    suggestedActions=["look around", "step inside"],
+    locationLabel="Lighthouse entrance",
+)
 
 
 def _turn_data(success=None) -> dict:
@@ -113,6 +109,7 @@ def _story(**overrides) -> Story:
         characterTypes=[CharacterType(name="Curious Cousin")],
         completionCriteria=CompletionCriteria(successConditions=["Find the keeper"]),
         narrativeGuidance="Keep it eerie but safe.",
+        startingPoint=STARTING_POINT,
         createdBy="admin-oid",
         createdAt="2026-09-05T00:00:00Z",
         contentUpdatedAt="2026-09-05T00:00:00Z",
@@ -122,15 +119,16 @@ def _story(**overrides) -> Story:
     return Story(**defaults)
 
 
-def _service(story: Story, llm_turn_data=OPENING_TURN_DATA):
+def _service(story: Story, llm_turn_data=None):
     cosmos = FakeCosmosService()
     cosmos.get_container(config.STORIES_CONTAINER).upsert_item(story.to_dict())
     llm = MagicMock()
     if isinstance(llm_turn_data, list):
         llm.generate_gameplay_turn.side_effect = llm_turn_data
     else:
-        llm.generate_gameplay_turn.return_value = llm_turn_data
-    stories = StoryService(cosmos_service=cosmos)
+        llm.generate_gameplay_turn.return_value = llm_turn_data if llm_turn_data is not None else _turn_data()
+    llm.generate_starting_point.return_value = STARTING_POINT.to_dict()
+    stories = StoryService(cosmos_service=cosmos, llm_service=llm)
     service = TestPlaySessionService(cosmos_service=cosmos, story_service=stories, llm_service=llm)
     return service, cosmos, llm, stories
 
@@ -246,7 +244,7 @@ def test_start_test_play_rejects_unauthenticated_request(request_factory):
 
 def test_submit_interaction_returns_200_and_stamps_last_test_played_at(request_factory):
     story = _story()
-    service, cosmos, _llm, stories = _service(story, llm_turn_data=[OPENING_TURN_DATA, _turn_data()])
+    service, cosmos, _llm, stories = _service(story, llm_turn_data=_turn_data())
     start_response = _start(request_factory, service, story.id)
     session_id = json.loads(start_response.get_body())["sessionId"]
     _clear_rate_limit(cosmos, session_id)
@@ -262,7 +260,7 @@ def test_submit_interaction_returns_200_and_stamps_last_test_played_at(request_f
 
 def test_submit_interaction_returns_completion_reason_when_concluded(request_factory):
     story = _story()
-    service, cosmos, _llm, _stories = _service(story, llm_turn_data=[OPENING_TURN_DATA, _turn_data(success=[0])])
+    service, cosmos, _llm, _stories = _service(story, llm_turn_data=_turn_data(success=[0]))
     start_response = _start(request_factory, service, story.id)
     session_id = json.loads(start_response.get_body())["sessionId"]
     _clear_rate_limit(cosmos, session_id)
@@ -312,7 +310,7 @@ def test_submit_interaction_returns_404_for_missing_session(request_factory):
 
 def test_submit_interaction_rejects_concluded_session(request_factory):
     story = _story()
-    service, cosmos, _llm, _stories = _service(story, llm_turn_data=[OPENING_TURN_DATA, _turn_data(success=[0])])
+    service, cosmos, _llm, _stories = _service(story, llm_turn_data=_turn_data(success=[0]))
     start_response = _start(request_factory, service, story.id)
     session_id = json.loads(start_response.get_body())["sessionId"]
     _clear_rate_limit(cosmos, session_id)
@@ -408,7 +406,7 @@ def test_delete_session_rejects_another_administrators_session(request_factory):
 
 def test_delete_session_does_not_reset_last_test_played_at(request_factory):
     story = _story()
-    service, cosmos, _llm, stories = _service(story, llm_turn_data=[OPENING_TURN_DATA, _turn_data()])
+    service, cosmos, _llm, stories = _service(story, llm_turn_data=_turn_data())
     start_response = _start(request_factory, service, story.id)
     session_id = json.loads(start_response.get_body())["sessionId"]
     _clear_rate_limit(cosmos, session_id)

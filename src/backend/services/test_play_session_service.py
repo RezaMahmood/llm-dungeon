@@ -1,6 +1,7 @@
 """TestPlaySessionService — an administrator's interactive test playthrough of a draft
 story (010-story-test-play research.md, data-model.md). Reuses `LLMService.generate_gameplay_turn()`
-and the shared `completion_rules` module rather than the player session lifecycle: no
+for turns 1+ and `StoryService.ensure_starting_point()`/`story.startingPoint` for turn 0,
+plus the shared `completion_rules` module, rather than the player session lifecycle: no
 `published` gate, no per-player exclusivity, no content-safety accrual against the
 administrator (research.md Decisions 2-4)."""
 
@@ -19,7 +20,12 @@ from backend.models.test_play_session import TestPlayExchange, TestPlaySession
 from backend.services import completion_rules
 from backend.services.cosmos_service import CosmosService
 from backend.services.llm_service import LLMContentFilteredError, LLMOutputError, LLMRateLimitError, LLMService
-from backend.services.story_service import StoryService
+from backend.services.story_service import (
+    ContentGenerationFailedError,
+    ContentGenerationRateLimitedError,
+    StoryService,
+)
+from backend.services.story_service import StoryNotFoundError as StoryServiceStoryNotFoundError
 
 logger = logging.getLogger("test_play_session_service")
 
@@ -109,10 +115,23 @@ class TestPlaySessionService:
         """No `published` check — testing a draft is the point. Defaults the character to
         `story.characterTypes[0]` with the fixed name `"Tester"` (research.md Decision 6).
         No qualifying exchange occurs here, so `Story.lastTestPlayedAt` is not written
-        (research.md Decision 9)."""
+        (research.md Decision 9). Turn 0 replays the story's persisted `startingPoint`
+        verbatim rather than generating a fresh opening narrative per session — the same
+        fix #279 applied to `PlaySessionService`, since a live per-session LLM call here
+        is exactly as unreliable and unnecessary for testing as it was for real play."""
         story = self._stories.get_story(story_id)
         if story is None:
             raise StoryNotFoundError()
+
+        try:
+            story = self._stories.ensure_starting_point(story)
+        except StoryServiceStoryNotFoundError as exc:
+            # The story was deleted between the read above and the backfill write.
+            raise StoryNotFoundError() from exc
+        except (ContentGenerationFailedError, ContentGenerationRateLimitedError) as exc:
+            # Only reachable for a story persisted before `startingPoint` existed (#271).
+            logger.warning("Starting-point backfill failed for story %s", story.id)
+            raise NarrativeUnavailableError() from exc
 
         now = _now()
         session = TestPlaySession(
@@ -125,15 +144,7 @@ class TestPlaySessionService:
             lastInteractionAt=now,
         )
 
-        try:
-            turn_data = self._llm.generate_gameplay_turn(story, session, None)
-        except LLMContentFilteredError as exc:
-            logger.warning("Opening narrative was content-filtered for story %s", story.id)
-            raise NarrativeUnavailableError() from exc
-        except (LLMOutputError, LLMRateLimitError) as exc:
-            raise NarrativeUnavailableError() from exc
-
-        session.turns.append(self._turn_from_llm_data(0, None, turn_data, now))
+        session.turns.append(self._turn_from_llm_data(0, None, story.startingPoint.to_dict(), now))
         self._container().create_item(session.to_dict())
         logger.info("Test-play session created", extra={"session_id": session.id, "story_id": story_id})
         return session
