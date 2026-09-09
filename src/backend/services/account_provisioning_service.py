@@ -11,7 +11,7 @@ from pyisemail import is_email
 
 from backend.config import config
 from backend.models.provisioned_account_entry import VALID_ROLES, ProvisionedAccountEntry
-from backend.services.cosmos_service import CosmosService
+from backend.services.cosmos_service import CosmosService, shared_cosmos_service
 from backend.services.entra_directory_service import EntraDirectoryService
 
 logger = logging.getLogger("account_provisioning_service")
@@ -49,7 +49,7 @@ class AccountProvisioningService:
         cosmos_service: Optional[CosmosService] = None,
         entra_directory_service: Optional[EntraDirectoryService] = None,
     ) -> None:
-        self._cosmos = cosmos_service or CosmosService()
+        self._cosmos = cosmos_service or shared_cosmos_service()
         self._entra = entra_directory_service or EntraDirectoryService()
 
     def get_by_email(self, email: str) -> Optional[ProvisionedAccountEntry]:

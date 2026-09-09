@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from typing import Iterable, Optional, Union
 
@@ -14,6 +15,22 @@ from jwt.exceptions import InvalidTokenError
 from backend.config import config
 
 logger = logging.getLogger("auth_service")
+
+# AuthService is constructed per request, so the signing-key cache has to live above the
+# instance for JWKS_CACHE_SECONDS to mean anything. Keyed by URI so a test pointing at its
+# own endpoint cannot poison the real one.
+_jwk_clients: dict[str, tuple[PyJWKClient, float]] = {}
+_jwk_clients_lock = threading.Lock()
+
+
+def _shared_jwk_client(jwks_uri: str) -> PyJWKClient:
+    now = time.time()
+    with _jwk_clients_lock:
+        cached = _jwk_clients.get(jwks_uri)
+        if cached is None or (now - cached[1]) > config.JWKS_CACHE_SECONDS:
+            cached = (PyJWKClient(jwks_uri), now)
+            _jwk_clients[jwks_uri] = cached
+        return cached[0]
 
 
 class AuthService:
@@ -53,11 +70,11 @@ class AuthService:
         self._jwk_client_created_at: float = 0.0
 
     def _get_jwk_client(self) -> PyJWKClient:
-        now = time.time()
-        if self._jwk_client is None or (now - self._jwk_client_created_at) > config.JWKS_CACHE_SECONDS:
-            self._jwk_client = PyJWKClient(self._jwks_uri)
-            self._jwk_client_created_at = now
-        return self._jwk_client
+        # An instance-level client stays an explicit override; everything else comes from
+        # the process-wide cache.
+        if self._jwk_client is not None and (time.time() - self._jwk_client_created_at) <= config.JWKS_CACHE_SECONDS:
+            return self._jwk_client
+        return _shared_jwk_client(self._jwks_uri)
 
     def validate_token(self, token_string: str) -> tuple[bool, Optional[str], Optional[str], Optional[str]]:
         """Validate a bearer token.

@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -20,13 +21,13 @@ from typing import Any, Optional
 import openai
 from agent_framework import Message
 from agent_framework.openai import OpenAIChatCompletionClient
-from azure.identity import DefaultAzureCredential
 from opentelemetry import trace
 from pydantic import BaseModel, ValidationError
 
 from backend.config import config
 from backend.models.play_session import PlaySession
 from backend.models.story import Story
+from backend.services.azure_credential import shared_credential
 
 logger = logging.getLogger("llm_service")
 tracer = trace.get_tracer("backend.services.llm_service")
@@ -42,6 +43,49 @@ INITIAL_RETRY_DELAY_SECONDS = 2.0
 # since Function App instances are short-lived and the files never change at runtime.
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
 
+# One chat-completion client per endpoint per worker process, so its httpx connection pool
+# and that pool's TLS handshake survive between calls.
+_clients: dict[str, OpenAIChatCompletionClient] = {}
+_clients_lock = threading.Lock()
+
+
+def _shared_client(endpoint: str) -> OpenAIChatCompletionClient:
+    with _clients_lock:
+        client = _clients.get(endpoint)
+        if client is None:
+            client = OpenAIChatCompletionClient(
+                model=config.AZURE_AI_FOUNDRY_DEPLOYMENT_NAME,
+                azure_endpoint=endpoint,
+                credential=shared_credential(),
+            )
+            _clients[endpoint] = client
+        return client
+
+
+# Sharing the client above requires one long-lived loop: its httpx connection pool is bound
+# to the loop that opened it, so an `asyncio.run()` per call eventually reuses a connection
+# belonging to a closed loop and raises "RuntimeError: Event loop is closed". A daemon
+# thread rather than a lock around one loop, so calls taking seconds still overlap.
+_loop: Optional[asyncio.AbstractEventLoop] = None
+_loop_lock = threading.Lock()
+
+
+def _shared_loop() -> asyncio.AbstractEventLoop:
+    global _loop
+    if _loop is None or _loop.is_closed():
+        with _loop_lock:
+            if _loop is None or _loop.is_closed():
+                loop = asyncio.new_event_loop()
+                threading.Thread(target=loop.run_forever, name="llm-service-loop", daemon=True).start()
+                _loop = loop
+    return _loop
+
+
+def _run(coro: Any) -> Any:
+    """Run one client coroutine on the shared loop and block for its result. The exception
+    is re-raised unchanged, which `_as_rate_limit_error`'s `__cause__` walk depends on."""
+    return asyncio.run_coroutine_threadsafe(coro, _shared_loop()).result()
+
 
 def _load_prompt(filename: str) -> str:
     return (_PROMPTS_DIR / filename).read_text(encoding="utf-8").removesuffix("\n")
@@ -54,6 +98,18 @@ GAMEPLAY_TURN_SYSTEM_PROMPT = _load_prompt("gameplay_turn_system_prompt.txt")
 GAMEPLAY_SUMMARY_SYSTEM_PROMPT = _load_prompt("gameplay_summary_system_prompt.txt")
 
 MAX_NARRATIVE_WORDS = 150
+
+# Reasoning effort per call, set against what each call has to work out. The gameplay turn
+# judges whether the player's action satisfied a completion condition and that verdict is
+# persisted, so it keeps the API's default; the others expand or condense prose.
+REASONING_EFFORT_WORLD_PROMPT = "minimal"
+REASONING_EFFORT_GENERATION = "low"
+REASONING_EFFORT_STARTING_POINT = "low"
+REASONING_EFFORT_GAMEPLAY_TURN = "medium"
+REASONING_EFFORT_GAMEPLAY_SUMMARY = "minimal"
+
+# config.LLM_REASONING_EFFORT set to this omits the parameter, for a model that rejects it.
+REASONING_EFFORT_OFF = "off"
 
 
 class LLMOutputError(ValueError):
@@ -117,8 +173,9 @@ class LLMService:
     """Thin wrapper around `agent_framework.openai.OpenAIChatCompletionClient`, authenticated
     via Managed Identity (Constitution Principle VII), matching CosmosService's lazy-client
     construction pattern. `get_response()` is async in the underlying library; each public
-    method here runs its single call via `asyncio.run()` so the rest of the service layer
-    (`story_draft_service.py`, the HTTP handlers) stays synchronous, unchanged."""
+    method here dispatches its single call onto the module's shared event loop (`_run`) so
+    the rest of the service layer (`story_draft_service.py`, the HTTP handlers) stays
+    synchronous, unchanged."""
 
     def __init__(self, client: Optional[OpenAIChatCompletionClient] = None, endpoint: Optional[str] = None) -> None:
         self._endpoint = endpoint or config.AZURE_AI_FOUNDRY_ENDPOINT
@@ -127,11 +184,7 @@ class LLMService:
     @property
     def client(self) -> OpenAIChatCompletionClient:
         if self._client is None:
-            self._client = OpenAIChatCompletionClient(
-                model=config.AZURE_AI_FOUNDRY_DEPLOYMENT_NAME,
-                azure_endpoint=self._endpoint,
-                credential=DefaultAzureCredential(),
-            )
+            self._client = _shared_client(self._endpoint)
         return self._client
 
     def suggest_world_prompt(self, draft: dict[str, Any], idea: str) -> str:
@@ -139,14 +192,26 @@ class LLMService:
         (#227). Deliberately not a conversation: the model is never asked for a follow-up
         question, and exactly one call is made per idea."""
         prompt = self._build_world_prompt_request(draft, idea)
-        result = self._call("gen_ai.story_creation.world_prompt", WORLD_PROMPT_SYSTEM_PROMPT, prompt, _WorldPromptResponse)
+        result = self._call(
+            "gen_ai.story_creation.world_prompt",
+            WORLD_PROMPT_SYSTEM_PROMPT,
+            prompt,
+            _WorldPromptResponse,
+            REASONING_EFFORT_WORLD_PROMPT,
+        )
         return result.worldPrompt
 
     def generate_story_config(self, draft: dict[str, Any]) -> dict[str, Any]:
         """Final generation call once the Completeness Rule is met. Returns
         `{"narrativeGuidance": str}` (research.md §4)."""
         prompt = self._build_generation_prompt(draft)
-        result = self._call("gen_ai.story_creation.generate", GENERATION_SYSTEM_PROMPT, prompt, _GenerationResponse)
+        result = self._call(
+            "gen_ai.story_creation.generate",
+            GENERATION_SYSTEM_PROMPT,
+            prompt,
+            _GenerationResponse,
+            REASONING_EFFORT_GENERATION,
+        )
         return result.model_dump()
 
     def generate_starting_point(self, draft: dict[str, Any], narrative_guidance: str) -> dict[str, Any]:
@@ -155,7 +220,11 @@ class LLMService:
         session replays it verbatim, so it is deliberately character-agnostic."""
         prompt = self._build_starting_point_prompt(draft, narrative_guidance)
         result = self._call(
-            "gen_ai.story_creation.starting_point", STARTING_POINT_SYSTEM_PROMPT, prompt, _StartingPointResponse
+            "gen_ai.story_creation.starting_point",
+            STARTING_POINT_SYSTEM_PROMPT,
+            prompt,
+            _StartingPointResponse,
+            REASONING_EFFORT_STARTING_POINT,
         )
         data = result.model_dump()
         self._warn_if_over_length(data["narrativeText"])
@@ -174,7 +243,13 @@ class LLMService:
         than inside `player_input`, which the system prompt instructs the model to distrust
         for behavior changes (FR-012)."""
         prompt = self._build_gameplay_turn_prompt(story, session, player_input, concluding_reason)
-        result = self._call("gen_ai.gameplay.turn", GAMEPLAY_TURN_SYSTEM_PROMPT, prompt, _GameplayTurnResponse)
+        result = self._call(
+            "gen_ai.gameplay.turn",
+            GAMEPLAY_TURN_SYSTEM_PROMPT,
+            prompt,
+            _GameplayTurnResponse,
+            REASONING_EFFORT_GAMEPLAY_TURN,
+        )
         data = result.model_dump()
         self._warn_if_over_length(data["narrativeText"])
         return data
@@ -194,7 +269,13 @@ class LLMService:
         `generate_gameplay_turn` (spec.md Assumptions) — a distinct method/call site is
         what makes that possible."""
         prompt = self._build_summary_prompt(story, session)
-        result = self._call("gen_ai.gameplay.summary", GAMEPLAY_SUMMARY_SYSTEM_PROMPT, prompt, _SummaryResponse)
+        result = self._call(
+            "gen_ai.gameplay.summary",
+            GAMEPLAY_SUMMARY_SYSTEM_PROMPT,
+            prompt,
+            _SummaryResponse,
+            REASONING_EFFORT_GAMEPLAY_SUMMARY,
+        )
         return result.summary
 
     def _call(
@@ -203,11 +284,14 @@ class LLMService:
         system_prompt: str,
         user_prompt: str,
         response_model: type[BaseModel],
+        reasoning_effort: str,
     ) -> BaseModel:
         with tracer.start_as_current_span(span_name) as span:
             span.set_attribute("gen_ai.prompt", user_prompt)
             start = time.monotonic()
-            response = self._get_response_with_retry(span_name, system_prompt, user_prompt, response_model)
+            response = self._get_response_with_retry(
+                span_name, system_prompt, user_prompt, response_model, reasoning_effort
+            )
             latency_ms = (time.monotonic() - start) * 1000
 
             usage = response.usage_details
@@ -216,16 +300,21 @@ class LLMService:
             if isinstance(usage, dict):
                 input_tokens = usage.get("input_token_count") or 0
                 output_tokens = usage.get("output_token_count") or 0
+                reasoning_tokens = usage.get("reasoning_output_token_count") or 0
             elif usage is not None:
                 input_tokens = getattr(usage, "input_token_count", 0) or 0
                 output_tokens = getattr(usage, "output_token_count", 0) or 0
+                reasoning_tokens = getattr(usage, "reasoning_output_token_count", 0) or 0
             else:
-                input_tokens = output_tokens = 0
+                input_tokens = output_tokens = reasoning_tokens = 0
             cost_usd = input_tokens * config.LLM_INPUT_TOKEN_PRICE_USD + output_tokens * config.LLM_OUTPUT_TOKEN_PRICE_USD
 
             span.set_attribute("gen_ai.response", response.text or "")
             span.set_attribute("gen_ai.usage.input_tokens", input_tokens)
             span.set_attribute("gen_ai.usage.output_tokens", output_tokens)
+            # A subset of output_tokens, not an addition to them; separates thinking from
+            # writing when tuning a call's reasoning effort.
+            span.set_attribute("gen_ai.usage.reasoning_tokens", reasoning_tokens)
             span.set_attribute("gen_ai.cost_usd", cost_usd)
             span.set_attribute("gen_ai.latency_ms", latency_ms)
 
@@ -240,17 +329,28 @@ class LLMService:
         system_prompt: str,
         user_prompt: str,
         response_model: type[BaseModel],
+        reasoning_effort: str,
     ) -> Any:
         messages = [
             Message(role="system", contents=[system_prompt]),
             Message(role="user", contents=[user_prompt]),
         ]
+        # Only these two options. Reasoning models reject temperature, top_p,
+        # presence_penalty, frequency_penalty, logprobs, logit_bias and max_tokens — the
+        # parameter being present is the error, whatever its value. Cap output with
+        # `max_completion_tokens` (which agent_framework renames `max_tokens` to) if ever
+        # needed, bearing in mind it truncates mid-JSON rather than shortening the answer.
+        options: dict[str, Any] = {"response_format": response_model}
+        effort = self._resolve_reasoning_effort(reasoning_effort)
+        if effort is not None:
+            # Undeclared on agent_framework's chat-completion options, which model only the
+            # Responses API's `reasoning` object; unrecognized keys are forwarded to the
+            # OpenAI SDK, which accepts `reasoning_effort`.
+            options["reasoning_effort"] = effort
         delay = INITIAL_RETRY_DELAY_SECONDS
         for attempt in range(1, MAX_RATE_LIMIT_ATTEMPTS + 1):
             try:
-                return asyncio.run(
-                    self.client.get_response(messages, options={"response_format": response_model})
-                )
+                return _run(self.client.get_response(messages, options=options))
             except Exception as exc:  # noqa: BLE001 - re-raised untouched unless it's a 429/content-filter
                 rate_limit_error = self._as_rate_limit_error(exc)
                 if rate_limit_error is None:
@@ -272,6 +372,12 @@ class LLMService:
                 time.sleep(wait_seconds)
                 delay *= 2
         raise AssertionError("unreachable: loop always returns or raises")
+
+    @staticmethod
+    def _resolve_reasoning_effort(call_default: str) -> Optional[str]:
+        """The effort to send, or None to omit the parameter."""
+        effort = config.LLM_REASONING_EFFORT or call_default
+        return None if effort == REASONING_EFFORT_OFF else effort
 
     @staticmethod
     def _as_rate_limit_error(exc: Exception) -> Optional[openai.RateLimitError]:
