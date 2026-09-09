@@ -1,6 +1,38 @@
 <!--
 Sync Impact Report
-Version change: 3.1.0 -> 4.0.0
+Version change: 4.0.0 -> 5.0.0
+Modified principles:
+  - XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, GitHub Copilot
+    Reviews, Human Merges (NON-NEGOTIABLE) -> XIII. AI Agent Division of Labor: Local
+    LLM Pushes & Opens PRs, CodeRabbit Reviews, Human Merges (NON-NEGOTIABLE) -
+    CodeRabbit replaces GitHub Copilot as the GitHub-side automated review pass. The
+    division of labor is otherwise UNCHANGED: the local AI agent still pushes and opens
+    the pull request, the automated reviewer still posts findings without a formal
+    approving review, and the requesting user or product owner still merges manually.
+    The prohibitions on a local AI agent merging a pull request or enabling auto-merge,
+    and the conditions under which it may close an issue, are UNCHANGED and stay
+    non-negotiable. Backward-incompatible: a NON-NEGOTIABLE principle names a different
+    required actor, so a pull request reviewed under the old rule does not satisfy the
+    new one, hence MAJOR.
+Added principles: none
+Removed principles: none
+Added sections: none
+Modified sections:
+  - AI Agent / GitHub Handoff Requirements - the post-push review bullet and the
+    exception bullet name CodeRabbit instead of GitHub Copilot.
+  - Development Workflow & Quality Gates - the bullet summarizing the AI agent
+    push/PR/review/merge flow names CodeRabbit as the reviewer.
+Removed sections: none
+Source: direct user instruction (2026-09-09) - GitHub Copilot no longer reviews code on
+  this repository. CodeRabbit was installed and configured via `.coderabbit.yaml`, and
+  the `copilot_code_review` rule was removed from the `main` branch ruleset.
+Templates requiring follow-up: none - CLAUDE.md's mirrored Git / PR workflow rules and
+  `.github/skills/repo-constitution-review/SKILL.md` are updated, and
+  `.github/copilot-instructions.md` is deleted, in the same pull request as this
+  amendment.
+Deferred/TODO placeholders: none.
+
+Previous report (3.1.0 -> 4.0.0)
 Modified principles:
   - XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, GitHub Copilot
     Reviews, Human Merges (NON-NEGOTIABLE) - a local AI agent MAY now close a GitHub
@@ -380,67 +412,67 @@ general YAGNI stance into an explicit, enforced process check specifically for
 enterprise-shaped patterns, since those are the ones most likely to be assumed rather
 than requested.
 
-### XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, GitHub Copilot Reviews, Human Merges (NON-NEGOTIABLE)
+### XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, CodeRabbit Reviews, Human Merges (NON-NEGOTIABLE)
 Local AI agent development — writing code, running local tests, and spec-related work
 (intake, specify, clarify, plan, tasks, analyze) — MAY be performed by Claude Code or
 another local LLM-based coding assistant (e.g., Cursor or an equivalent). Spec-related
 work MUST stay local: it MUST be performed by the local AI agent and MUST NOT be
-delegated to GitHub Copilot. Once that local work is ready, the local AI agent MUST
-push the branch and open the pull request itself (e.g., `gh pr create`), labelled per
-the AI Agent / GitHub Handoff Requirements below. The local AI agent MUST NOT enable
-auto-merge and MUST NOT merge the pull request itself. From there, GitHub Copilot
-reviews the pull request and posts its findings as review comments/recommendations —
-Copilot code review does not produce a formal approving review or perform the merge on
-a clean pass. The requesting user or product owner MUST review Copilot's
-recommendations together with the required CI/status checks and code-quality gate, and
-then merge the pull request manually. A local AI agent MAY resolve a GitHub issue
-end-to-end — writing the fix, pushing the branch, and opening the pull request itself —
-the same as any other local development work; GitHub Copilot's role is the PR review
-pass described above, not a required intermediary for issue resolution. A local AI agent
-MUST NOT merge a pull request itself and MUST NOT enable auto-merge on one, even where
-the tool has the technical means to do so — merging stays a manual action for the
-requesting user or product owner. A local AI agent MAY close a GitHub issue directly
-(e.g., via `gh issue close`), but only where the requesting user has asked it to close
-that issue and the agent has verified that the work resolving it is merged to
-`origin/main`. Absent that request, an issue is closed by its resolving pull request
-merging or manually by the requesting user; an agent MUST NOT close an issue on its own
-initiative. Work MUST start from a synced tree: before any development or
+delegated to CodeRabbit or another GitHub-side review agent. Once that local work is
+ready, the local AI agent MUST push the branch and open the pull request itself (e.g.,
+`gh pr create`), labelled per the AI Agent / GitHub Handoff Requirements below. The
+local AI agent MUST NOT enable auto-merge and MUST NOT merge the pull request itself.
+From there, CodeRabbit reviews the pull request and posts its findings as review
+comments/recommendations — CodeRabbit's review does not produce a formal approving
+review or perform the merge on a clean pass. The requesting user or product owner MUST
+review CodeRabbit's recommendations together with the required CI/status checks and
+code-quality gate, and then merge the pull request manually. A local AI agent MAY
+resolve a GitHub issue end-to-end — writing the fix, pushing the branch, and opening the
+pull request itself — the same as any other local development work; CodeRabbit's role is
+the PR review pass described above, not a required intermediary for issue resolution. A
+local AI agent MUST NOT merge a pull request itself and MUST NOT enable auto-merge on
+one, even where the tool has the technical means to do so — merging stays a manual
+action for the requesting user or product owner. A local AI agent MAY close a GitHub
+issue directly (e.g., via `gh issue close`), but only where the requesting user has
+asked it to close that issue and the agent has verified that the work resolving it is
+merged to `origin/main`. Absent that request, an issue is closed by its resolving pull
+request merging or manually by the requesting user; an agent MUST NOT close an issue on
+its own initiative. Work MUST start from a synced tree: before any development or
 spec-related work begins on a feature branch — planning (plan, tasks, clarify, analyze)
 included, not implementation alone — that branch MUST be brought up to date with
 `origin/main`, and a divergence MUST be resolved or reported rather than worked around.
 Where an artifact then states that code already exists — a module path, a class or
-function name, a constant, a field, an endpoint, or a configuration value — that statement
-MUST match the synced tree or `origin/main` itself, never an unmerged local branch,
-another worktree's checkout, or a stale local `main`. Identifiers an artifact proposes to
-create are expressly exempt: a plan is expected to name files, symbols, and fields that do
-not exist yet, and MUST simply make clear which it proposes and which it claims already
-exist. A dependency on work that has not yet merged MUST be named explicitly rather than
-described as if it had already landed. Every push of new work MUST be visible as its own
-open pull request: a local AI agent MUST NOT push follow-up commits onto the branch of a
-pull request that has already been merged or closed, even where that branch still exists
-and the push would technically succeed. Such work MUST go onto a fresh branch behind a new
-pull request. Detailed rules are in the AI Agent / GitHub Handoff Requirements
-section below.
+function name, a constant, a field, an endpoint, or a configuration value — that
+statement MUST match the synced tree or `origin/main` itself, never an unmerged local
+branch, another worktree's checkout, or a stale local `main`. Identifiers an artifact
+proposes to create are expressly exempt: a plan is expected to name files, symbols, and
+fields that do not exist yet, and MUST simply make clear which it proposes and which it
+claims already exist. A dependency on work that has not yet merged MUST be named
+explicitly rather than described as if it had already landed. Every push of new work
+MUST be visible as its own open pull request: a local AI agent MUST NOT push follow-up
+commits onto the branch of a pull request that has already been merged or closed, even
+where that branch still exists and the push would technically succeed. Such work MUST go
+onto a fresh branch behind a new pull request. Detailed rules are in the AI Agent /
+GitHub Handoff Requirements section below.
 
 Rationale: A bot-authored pull request (one opened by an automation identity via a
 GitHub Actions workflow) is treated by GitHub the same way as an outside contributor's
 PR — its required checks sit pending a manual "approve and run workflows" click every
 time, which defeats a hands-off pipeline. Having the local AI agent open the PR as the
-developer's own authenticated action avoids that gate, while GitHub Copilot still
+developer's own authenticated action avoids that gate, while CodeRabbit still
 provides a consistent, GitHub-side review pass regardless of which local LLM tool
-pushed the branch. Auto-completing the merge once Copilot finishes was dropped because
-Copilot's code review is relatively slow and does not produce a formal approving review
-before merge — wiring auto-merge to it would let a pull request merge without anyone
-actually having weighed Copilot's findings. Requiring the requesting user to read
-Copilot's recommendations and merge manually keeps a real decision point in the loop
-while still using Copilot for the GitHub-side review pass. Closing an issue is a
+pushed the branch. Auto-completing the merge once that review finishes was dropped
+because an automated review pass does not produce a formal approving review before
+merge — wiring auto-merge to it would let a pull request merge without anyone actually
+having weighed its findings. Requiring the requesting user to read CodeRabbit's
+recommendations and merge manually keeps a real decision point in the loop while still
+using CodeRabbit for the GitHub-side review pass. Closing an issue is a
 different action from merging and is not gated the same way: a close only records a
 decision a human already took when they merged the change, so a local AI agent may
 perform it on request once it has confirmed the fix is on the trunk. Merging stays
 manual because that is where the decision to accept a change is actually made.
 Reusing the branch of an
 already-merged or closed pull request hides the new work: the merged PR is no longer
-part of anyone's review queue, Copilot does not re-review it, and the commits reach
+part of anyone's review queue, CodeRabbit does not re-review it, and the commits reach
 the repository without ever appearing as something a human was asked to look at.
 
 Rationale for the sync-before-work rule: a local AI agent can read any branch or
@@ -627,13 +659,13 @@ drifts out of sync with the spec as the code evolves, and clutters the code itse
   on a local branch, in a worktree, or in an open pull request. The agent MUST state what
   it verified when it closes an issue. Where either condition fails, it MUST leave the
   issue open and say why.
-- Once a local AI agent has pushed a branch and opened its pull request, GitHub Copilot
+- Once a local AI agent has pushed a branch and opened its pull request, CodeRabbit
   reviews the pull request and posts its findings as review comments/recommendations;
   its required CI/status checks and code-quality gate run as usual, mirroring the
   required checks already established in Development Workflow & Quality
-  Gates and Continuous Integration Gate (Principle V). Copilot code review does not
+  Gates and Continuous Integration Gate (Principle V). CodeRabbit's review does not
   produce a formal approving review or perform the merge. The requesting user or
-  product owner MUST read Copilot's recommendations and the status of the required
+  product owner MUST read CodeRabbit's recommendations and the status of the required
   checks, then merge the pull request manually once satisfied.
 - This division applies to GitHub-hosted actions only. It does not change where code is
   written or tested (Principle I, Environments & Deployment Pipeline) — only who is
@@ -642,7 +674,7 @@ drifts out of sync with the spec as the code evolves, and clutters the code itse
   requesting user or product owner, not something either AI agent performs, while closing
   an issue is an action a local AI agent MAY perform on request under the conditions
   above.
-- Any exception (e.g., an emergency fix where GitHub Copilot is unavailable) MUST be
+- Any exception (e.g., an emergency fix where CodeRabbit is unavailable) MUST be
   explicitly called out by the person directing the work and is not a default local AI
   agent behavior.
 
@@ -686,9 +718,9 @@ drifts out of sync with the spec as the code evolves, and clutters the code itse
   walkthrough at the author's discretion.
 - A local AI agent completing local work — including resolving a GitHub issue —
   pushes the branch and opens its own pull request (labelled, auto-merge NOT enabled),
-  per Principle XIII and the AI Agent / GitHub Handoff Requirements above. GitHub
-  Copilot reviews the PR and posts its findings as recommendations. Merging is a manual
-  step: the requesting user or product owner reviews Copilot's recommendations and the
+  per Principle XIII and the AI Agent / GitHub Handoff Requirements above. CodeRabbit
+  reviews the PR and posts its findings as recommendations. Merging is a manual step:
+  the requesting user or product owner reviews CodeRabbit's recommendations and the
   required checks, then merges the pull request themselves. Once that merge is on
   `origin/main`, the local AI agent MAY close the originating issue if the requesting
   user asks it to.
@@ -907,4 +939,4 @@ with the design-token, visual-rules, interaction-state, or layout/scroll require
 above as a blocking finding. No feature may ship a screen that is not traceable to a
 screen contract above or to a documented amendment extending it.
 
-**Version**: 4.0.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-08
+**Version**: 5.0.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-09
