@@ -11,6 +11,7 @@ import requests
 from azure.identity import DefaultAzureCredential
 
 from backend.config import config
+from backend.services.azure_credential import shared_credential
 
 logger = logging.getLogger("entra_directory_service")
 
@@ -40,7 +41,7 @@ class EntraDirectoryService:
     @property
     def credential(self) -> DefaultAzureCredential:
         if self._credential is None:
-            self._credential = DefaultAzureCredential()
+            self._credential = shared_credential()
         return self._credential
 
     def _headers(self) -> dict[str, str]:

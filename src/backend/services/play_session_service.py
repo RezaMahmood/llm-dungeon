@@ -16,7 +16,7 @@ from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosReso
 from backend.config import config
 from backend.models.play_session import CheckpointMarker, PlayerInteraction, PlaySession
 from backend.models.player_content_safety_standing import PlayerContentSafetyStanding
-from backend.services.cosmos_service import CosmosService
+from backend.services.cosmos_service import CosmosService, shared_cosmos_service
 from backend.services.llm_service import LLMContentFilteredError, LLMOutputError, LLMRateLimitError, LLMService
 from backend.services.completion_rules import evaluate_completion
 from backend.services.player_content_safety_standing_service import (
@@ -150,7 +150,7 @@ class PlaySessionService:
         llm_service: Optional[LLMService] = None,
         player_content_safety_standing_service: Optional[PlayerContentSafetyStandingService] = None,
     ) -> None:
-        self._cosmos = cosmos_service or CosmosService()
+        self._cosmos = cosmos_service or shared_cosmos_service()
         self._stories = story_service or StoryService(cosmos_service=self._cosmos)
         self._llm = llm_service or LLMService()
         self._safety = player_content_safety_standing_service or PlayerContentSafetyStandingService(
