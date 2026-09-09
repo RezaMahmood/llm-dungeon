@@ -6,8 +6,8 @@ early_access: false
 
 reviews:
   profile: chill
-  # Copilot and CodeRabbit both comment on PRs here; neither blocks the merge.
-  # The requesting user reviews their recommendations and merges manually.
+  # CodeRabbit comments but does not block the merge (constitution Principle
+  # XIII): the requesting user reviews its findings and merges manually.
   request_changes_workflow: false
   high_level_summary: true
   review_status: true
@@ -98,5 +98,4 @@ knowledge_base:
       - '.specify/memory/constitution.md'
       - 'CLAUDE.md'
       - 'CONTRIBUTING.md'
-      - '.github/copilot-instructions.md'
       - '.github/skills/**/SKILL.md'
