@@ -294,6 +294,11 @@ class LLMService:
             Message(role="system", contents=[system_prompt]),
             Message(role="user", contents=[user_prompt]),
         ]
+        # Only these two options. Reasoning models reject temperature, top_p,
+        # presence_penalty, frequency_penalty, logprobs, logit_bias and max_tokens — the
+        # parameter being present is the error, whatever its value. Cap output with
+        # `max_completion_tokens` (which agent_framework renames `max_tokens` to) if ever
+        # needed, bearing in mind it truncates mid-JSON rather than shortening the answer.
         options: dict[str, Any] = {"response_format": response_model}
         effort = self._resolve_reasoning_effort(reasoning_effort)
         if effort is not None:
