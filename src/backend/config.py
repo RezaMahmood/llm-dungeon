@@ -36,6 +36,11 @@ class Config:
     LLM_INPUT_TOKEN_PRICE_USD = float(os.environ.get("LLM_INPUT_TOKEN_PRICE_USD", "0") or "0")
     LLM_OUTPUT_TOKEN_PRICE_USD = float(os.environ.get("LLM_OUTPUT_TOKEN_PRICE_USD", "0") or "0")
 
+    # Overrides the per-call reasoning effort in llm_service.py for every call. Unset
+    # leaves each call at its own default; "off" omits the parameter entirely, which a
+    # non-reasoning deployment requires.
+    LLM_REASONING_EFFORT = os.environ.get("LLM_REASONING_EFFORT", "").strip()
+
     JWKS_CACHE_SECONDS = 24 * 60 * 60
 
     # Microsoft's fixed, well-known tenant ID representing every personal
