@@ -14,8 +14,8 @@ from azure.core import MatchConditions
 from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosResourceNotFoundError
 
 from backend.config import config
-from backend.models.story import CharacterType, CompletionCriteria, Story
-from backend.services.llm_service import LLMContentFilteredError
+from backend.models.story import CharacterType, CompletionCriteria, StartingPoint, Story
+from backend.services.llm_service import LLMContentFilteredError, LLMOutputError
 from backend.services.story_service import StoryService
 from backend.services.test_play_session_service import (
     ForbiddenError,
@@ -85,15 +85,11 @@ class FakeCosmosService:
         return list(self.get_container(container_name).items.values())
 
 
-OPENING_TURN_DATA = {
-    "narrativeText": "The lighthouse door creaks open.",
-    "suggestedActions": ["look around", "step inside"],
-    "locationLabel": "Lighthouse entrance",
-    "goalLabel": None,
-    "progress": None,
-    "newlySatisfiedSuccessConditions": [],
-    "newlySatisfiedFailureConditions": [],
-}
+STARTING_POINT = StartingPoint(
+    narrativeText="The lighthouse door creaks open.",
+    suggestedActions=["look around", "step inside"],
+    locationLabel="Lighthouse entrance",
+)
 
 
 def _turn_data(text="You look around.", success=None, failure=None) -> dict:
@@ -108,7 +104,7 @@ def _turn_data(text="You look around.", success=None, failure=None) -> dict:
     }
 
 
-def _story(**overrides) -> Story:
+def _story(starting_point=STARTING_POINT, **overrides) -> Story:
     defaults = dict(
         id=str(uuid.uuid4()),
         name="The Lighthouse at Gullwing Cove",
@@ -116,6 +112,7 @@ def _story(**overrides) -> Story:
         characterTypes=[CharacterType(name="Curious Cousin")],
         completionCriteria=CompletionCriteria(successConditions=["Find the keeper"]),
         narrativeGuidance="Keep it eerie but safe.",
+        startingPoint=starting_point,
         createdBy="admin-oid",
         createdAt="2026-09-05T00:00:00Z",
         contentUpdatedAt="2026-09-05T00:00:00Z",
@@ -125,15 +122,16 @@ def _story(**overrides) -> Story:
     return Story(**defaults)
 
 
-def _service(story: Story, llm_turn_data=OPENING_TURN_DATA, cosmos: FakeCosmosService | None = None):
+def _service(story: Story, llm_turn_data=None, cosmos: FakeCosmosService | None = None):
     cosmos = cosmos or FakeCosmosService()
     cosmos.get_container(config.STORIES_CONTAINER).upsert_item(story.to_dict())
     llm = MagicMock()
     if isinstance(llm_turn_data, list):
         llm.generate_gameplay_turn.side_effect = llm_turn_data
     else:
-        llm.generate_gameplay_turn.return_value = llm_turn_data
-    stories = StoryService(cosmos_service=cosmos)
+        llm.generate_gameplay_turn.return_value = llm_turn_data if llm_turn_data is not None else _turn_data()
+    llm.generate_starting_point.return_value = STARTING_POINT.to_dict()
+    stories = StoryService(cosmos_service=cosmos, llm_service=llm)
     service = TestPlaySessionService(cosmos_service=cosmos, story_service=stories, llm_service=llm)
     return service, cosmos, llm, stories
 
@@ -159,7 +157,38 @@ def test_create_session_works_against_a_draft_story():
     assert session.characterName == "Tester"
     assert session.turns[0].turnNumber == 0
     assert session.turns[0].playerInput is None
-    llm.generate_gameplay_turn.assert_called_once_with(story, session, None)
+    assert session.turns[0].narrativeText == STARTING_POINT.narrativeText
+    # Turn 0 replays the story's persisted startingPoint verbatim — it never costs a
+    # live LLM call (#279's fix, applied here to close #282).
+    llm.generate_gameplay_turn.assert_not_called()
+
+
+def test_create_session_backfills_a_missing_starting_point():
+    """A story persisted before `startingPoint` existed (#271) still starts a test-play
+    session — the backfill costs one LLM call, and that call is `generate_starting_point`,
+    never `generate_gameplay_turn` (#282)."""
+    story = _story(starting_point=None)
+    service, cosmos, llm, stories = _service(story)
+
+    session = service.create_session(story.id, ADMIN_ID)
+
+    assert session.turns[0].narrativeText == STARTING_POINT.narrativeText
+    llm.generate_gameplay_turn.assert_not_called()
+    assert stories.get_story(story.id).startingPoint is not None
+    stored_story = cosmos.get_container(config.STORIES_CONTAINER).items[story.id]
+    assert stored_story["startingPoint"]["narrativeText"] == STARTING_POINT.narrativeText
+
+
+def test_create_session_maps_starting_point_backfill_failure_to_narrative_unavailable():
+    story = _story(starting_point=None)
+    service, _cosmos, llm, _stories = _service(story)
+    llm.generate_starting_point.side_effect = LLMOutputError("bad output")
+
+    try:
+        service.create_session(story.id, ADMIN_ID)
+        assert False, "expected NarrativeUnavailableError"
+    except NarrativeUnavailableError:
+        pass
 
 
 def test_create_session_raises_story_not_found_for_missing_story():
@@ -187,7 +216,7 @@ def test_create_session_turn_zero_does_not_stamp_last_test_played_at():
 
 def test_submit_exchange_concludes_session_on_newly_satisfied_success_condition():
     story = _story()
-    service, cosmos, _llm, _stories = _service(story, llm_turn_data=[OPENING_TURN_DATA, _turn_data(success=[0])])
+    service, cosmos, _llm, _stories = _service(story, llm_turn_data=_turn_data(success=[0]))
     session = service.create_session(story.id, ADMIN_ID)
     _clear_rate_limit(cosmos, session.id)
 
@@ -199,7 +228,7 @@ def test_submit_exchange_concludes_session_on_newly_satisfied_success_condition(
 
 def test_submit_exchange_stays_active_with_no_newly_satisfied_conditions():
     story = _story()
-    service, cosmos, _llm, _stories = _service(story, llm_turn_data=[OPENING_TURN_DATA, _turn_data()])
+    service, cosmos, _llm, _stories = _service(story, llm_turn_data=_turn_data())
     session = service.create_session(story.id, ADMIN_ID)
     _clear_rate_limit(cosmos, session.id)
 
@@ -214,7 +243,7 @@ def test_submit_exchange_stays_active_with_no_newly_satisfied_conditions():
 
 def test_delete_session_removes_the_document_but_preserves_last_test_played_at():
     story = _story()
-    service, cosmos, _llm, stories = _service(story, llm_turn_data=[OPENING_TURN_DATA, _turn_data(success=[0])])
+    service, cosmos, _llm, stories = _service(story, llm_turn_data=_turn_data(success=[0]))
     session = service.create_session(story.id, ADMIN_ID)
     _clear_rate_limit(cosmos, session.id)
     service.submit_exchange(session.id, ADMIN_ID, "search for the keeper")
@@ -274,7 +303,7 @@ def test_get_session_raises_not_found_for_missing_session():
 def test_two_administrators_testing_the_same_story_concurrently_get_independent_sessions():
     story = _story()
     service, cosmos, llm, _stories = _service(
-        story, llm_turn_data=[OPENING_TURN_DATA, OPENING_TURN_DATA, _turn_data(success=[0]), _turn_data()]
+        story, llm_turn_data=[_turn_data(success=[0]), _turn_data()]
     )
 
     session_a = service.create_session(story.id, ADMIN_ID)
@@ -302,7 +331,7 @@ def test_two_administrators_testing_the_same_story_concurrently_get_independent_
 
 def test_no_test_play_write_reaches_play_sessions_or_safety_standings_containers():
     story = _story()
-    service, cosmos, _llm, _stories = _service(story, llm_turn_data=[OPENING_TURN_DATA, _turn_data()])
+    service, cosmos, _llm, _stories = _service(story, llm_turn_data=_turn_data())
     session = service.create_session(story.id, ADMIN_ID)
     _clear_rate_limit(cosmos, session.id)
     service.submit_exchange(session.id, ADMIN_ID, "look around")
@@ -341,7 +370,7 @@ def test_submit_exchange_enforces_the_interaction_interval():
 
 def test_submit_exchange_rejects_a_concluded_session():
     story = _story()
-    service, cosmos, _llm, _stories = _service(story, llm_turn_data=[OPENING_TURN_DATA, _turn_data(success=[0])])
+    service, cosmos, _llm, _stories = _service(story, llm_turn_data=_turn_data(success=[0]))
     session = service.create_session(story.id, ADMIN_ID)
     _clear_rate_limit(cosmos, session.id)
     service.submit_exchange(session.id, ADMIN_ID, "search for the keeper")
@@ -371,7 +400,7 @@ def test_submit_exchange_rejects_a_claim_already_in_progress():
 
 def test_submit_exchange_content_filtered_returns_deflection_without_recording_a_flag():
     story = _story()
-    service, cosmos, llm, _stories = _service(story, llm_turn_data=[OPENING_TURN_DATA])
+    service, cosmos, llm, _stories = _service(story, llm_turn_data=_turn_data())
     session = service.create_session(story.id, ADMIN_ID)
     _clear_rate_limit(cosmos, session.id)
     llm.generate_gameplay_turn.side_effect = LLMContentFilteredError("filtered")
@@ -384,10 +413,8 @@ def test_submit_exchange_content_filtered_returns_deflection_without_recording_a
 
 
 def test_submit_exchange_maps_llm_output_error_to_narrative_unavailable():
-    from backend.services.llm_service import LLMOutputError
-
     story = _story()
-    service, cosmos, llm, _stories = _service(story, llm_turn_data=[OPENING_TURN_DATA])
+    service, cosmos, llm, _stories = _service(story, llm_turn_data=_turn_data())
     session = service.create_session(story.id, ADMIN_ID)
     _clear_rate_limit(cosmos, session.id)
     llm.generate_gameplay_turn.side_effect = LLMOutputError("bad output")
