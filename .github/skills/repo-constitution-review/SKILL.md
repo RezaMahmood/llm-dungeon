@@ -8,8 +8,8 @@ license: N/A
 
 This repo's binding rules live in `.specify/memory/constitution.md`. These
 checks are repo-specific review criteria for whoever reviews a pull request
-here — CodeRabbit picks this file up via `knowledge_base.code_guidelines` in
-`.coderabbit.yaml`, and a human or local agent reviewer can apply it directly.
+here — Claude Code's `/code-review` skill, a human, or another local agent
+reviewer can apply it directly.
 It is a narrow, second guard focused only on GitHub platform mechanics
 and CI/CD — not application code quality, UI/design, telemetry, or other
 in-progress implementation details, which are expected to evolve freely
