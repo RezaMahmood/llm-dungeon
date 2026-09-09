@@ -61,6 +61,7 @@ func start
 | `AZURE_AI_FOUNDRY_DEPLOYMENT_NAME` | Deployed model name on that resource (e.g. `gpt-5-nano`) — passed as `OpenAIChatCompletionClient`'s `model` |
 | `LLM_INPUT_TOKEN_PRICE_USD` | USD price per input token, used to compute `gen_ai.cost_usd` on every LLM call span (Constitution Principle VI) |
 | `LLM_OUTPUT_TOKEN_PRICE_USD` | USD price per output token, same purpose |
+| `LLM_REASONING_EFFORT` | Optional. Overrides the per-call reasoning effort set in `llm_service.py` (`REASONING_EFFORT_*`) for **every** call — `minimal`, `low`, `medium` or `high`. Leave unset to keep each call's own default; set to `off` to omit the parameter entirely, which a non-reasoning deployment requires. Compare `gen_ai.usage.reasoning_tokens` across the `gen_ai.*` spans when tuning |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Application Insights connection string; when set, `configure_azure_monitor()` exports OpenTelemetry spans (incl. `gen_ai.*` LLM call spans) on startup — unset locally, this step is skipped |
 
 ## Deployment

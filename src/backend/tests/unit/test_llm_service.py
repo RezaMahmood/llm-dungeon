@@ -173,18 +173,27 @@ def test_call_records_reasoning_tokens_when_the_deployment_reports_them():
 # --- Reasoning effort (#285) ---
 
 
-def _reasoning_effort_sent(configured: str) -> dict:
-    """Runs one call with LLM_REASONING_EFFORT set to `configured` and returns the options
+def _options_sent(call, payload: dict, response_model, override: str = "") -> dict:
+    """Runs one call with LLM_REASONING_EFFORT set to `override` and returns the options
     mapping actually handed to the underlying client."""
-    response = _mock_response(json.dumps({"worldPrompt": "A lighthouse..."}), _WorldPromptResponse)
+    response = _mock_response(json.dumps(payload), response_model)
     service = _service_with_response(response)
-    with patch.object(llm_service_config, "LLM_REASONING_EFFORT", configured):
-        service.suggest_world_prompt({}, "hello")
+    with patch.object(llm_service_config, "LLM_REASONING_EFFORT", override):
+        call(service)
     return service.client.get_response.call_args.kwargs["options"]
 
 
-def test_call_sends_the_configured_reasoning_effort():
-    options = _reasoning_effort_sent("minimal")
+def _world_prompt_options(override: str = "") -> dict:
+    return _options_sent(
+        lambda service: service.suggest_world_prompt({}, "hello"),
+        {"worldPrompt": "A lighthouse..."},
+        _WorldPromptResponse,
+        override,
+    )
+
+
+def test_world_prompt_asks_for_the_cheapest_reasoning():
+    options = _world_prompt_options()
 
     assert options["reasoning_effort"] == "minimal"
     # The response format must survive alongside it — the schema is what stops the call
@@ -192,10 +201,45 @@ def test_call_sends_the_configured_reasoning_effort():
     assert options["response_format"] is _WorldPromptResponse
 
 
-def test_call_omits_reasoning_effort_when_it_is_unset():
-    """A non-reasoning deployment rejects `reasoning_effort` outright, so the empty
-    setting has to drop the parameter rather than send an empty string."""
-    options = _reasoning_effort_sent("")
+def test_gameplay_turn_keeps_a_reasoning_budget():
+    """The turn call decides whether the player's action satisfied a completion condition,
+    and that verdict is persisted on the session — it must not be reduced to the effort
+    that suits expanding an idea into prose."""
+    options = _options_sent(
+        lambda service: service.generate_gameplay_turn(_story(), _session(), "look"),
+        {
+            "narrativeText": "The door creaks.",
+            "suggestedActions": ["go in", "wait"],
+            "locationLabel": "Hall",
+            "newlySatisfiedSuccessConditions": [],
+            "newlySatisfiedFailureConditions": [],
+        },
+        _GameplayTurnResponse,
+    )
+
+    assert options["reasoning_effort"] == "medium"
+
+
+def test_every_call_declares_its_own_reasoning_effort():
+    """A new call site must choose an effort rather than silently inherit one."""
+    import inspect
+
+    signature = inspect.signature(LLMService._call)
+
+    assert "reasoning_effort" in signature.parameters
+    assert signature.parameters["reasoning_effort"].default is inspect.Parameter.empty
+
+
+def test_the_override_replaces_every_call_default():
+    options = _world_prompt_options(override="high")
+
+    assert options["reasoning_effort"] == "high"
+
+
+def test_the_off_override_omits_reasoning_effort_entirely():
+    """A non-reasoning deployment rejects `reasoning_effort` outright, so this has to drop
+    the parameter rather than send a value."""
+    options = _world_prompt_options(override="off")
 
     assert "reasoning_effort" not in options
     assert options["response_format"] is _WorldPromptResponse

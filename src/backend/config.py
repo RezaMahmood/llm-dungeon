@@ -36,15 +36,10 @@ class Config:
     LLM_INPUT_TOKEN_PRICE_USD = float(os.environ.get("LLM_INPUT_TOKEN_PRICE_USD", "0") or "0")
     LLM_OUTPUT_TOKEN_PRICE_USD = float(os.environ.get("LLM_OUTPUT_TOKEN_PRICE_USD", "0") or "0")
 
-    # gpt-5-nano is a reasoning model, so with no explicit effort the API applies its own
-    # default and spends reasoning tokens accordingly — 12.9s of a 14.6s world-prompt
-    # request in production, for a 1.3KB prompt returning a 120-200 word string (#285).
-    # Every call this app makes is small and well-specified by its system prompt, so the
-    # cheapest effort is the right default; it is an app setting rather than a constant so
-    # the latency/quality trade-off can be retuned without a redeploy. Set it to the empty
-    # string to omit the parameter entirely — which is what a non-reasoning deployment
-    # needs, since those reject `reasoning_effort` outright.
-    LLM_REASONING_EFFORT = os.environ.get("LLM_REASONING_EFFORT", "minimal").strip()
+    # Overrides the per-call reasoning effort in llm_service.py for every call. Unset
+    # leaves each call at its own default; "off" omits the parameter entirely, which a
+    # non-reasoning deployment requires.
+    LLM_REASONING_EFFORT = os.environ.get("LLM_REASONING_EFFORT", "").strip()
 
     JWKS_CACHE_SECONDS = 24 * 60 * 60
 
