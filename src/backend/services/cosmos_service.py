@@ -3,19 +3,39 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from typing import Any, Iterable, Optional
 
 from azure.cosmos import CosmosClient
 from azure.cosmos.exceptions import CosmosHttpResponseError
-from azure.identity import DefaultAzureCredential
 
 from backend.config import config
+from backend.services.azure_credential import shared_credential
 
 logger = logging.getLogger("cosmos_service")
 
 _MAX_RETRIES = 3
 _RETRY_BACKOFF_SECONDS = 0.5
+
+# One CosmosClient per endpoint per worker process. A fresh client has to discover the
+# database account (a `GET /` against the global endpoint) before its first call and
+# then read each container's properties before that container's first operation; both
+# results are cached on the *client*, so a client built per request pays them every
+# time. In production that was ~570ms of a single request spent re-learning topology
+# to perform ~90ms of reads, twice over, because the admin-authorization path and the
+# handler each built their own client (#286).
+_clients: dict[str, CosmosClient] = {}
+_clients_lock = threading.Lock()
+
+
+def _shared_client(endpoint: str) -> CosmosClient:
+    with _clients_lock:
+        client = _clients.get(endpoint)
+        if client is None:
+            client = CosmosClient(endpoint, credential=shared_credential())
+            _clients[endpoint] = client
+        return client
 
 
 class CosmosService:
@@ -33,7 +53,7 @@ class CosmosService:
     @property
     def client(self) -> CosmosClient:
         if self._client is None:
-            self._client = CosmosClient(self._endpoint, credential=DefaultAzureCredential())
+            self._client = _shared_client(self._endpoint)
         return self._client
 
     @property
@@ -73,3 +93,19 @@ class CosmosService:
                 time.sleep(_RETRY_BACKOFF_SECONDS * attempt)
         logger.error("Cosmos query failed after %d attempts: %s", _MAX_RETRIES, last_error)
         raise last_error  # type: ignore[misc]
+
+
+# The default CosmosService for request handling. Callers still accept an injected
+# service (the tests pass fakes); this is only what they fall back to, so that the
+# database and container proxies are reused across requests along with the client.
+_shared_service: Optional[CosmosService] = None
+_shared_service_lock = threading.Lock()
+
+
+def shared_cosmos_service() -> "CosmosService":
+    global _shared_service
+    if _shared_service is None:
+        with _shared_service_lock:
+            if _shared_service is None:
+                _shared_service = CosmosService()
+    return _shared_service

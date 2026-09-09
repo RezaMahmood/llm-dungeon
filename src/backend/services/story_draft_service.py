@@ -16,7 +16,7 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from backend.config import config
 from backend.models.story import CharacterType, CompletionCriteria, StartingPoint, Story
 from backend.models.story_draft import StoryDraft
-from backend.services.cosmos_service import CosmosService
+from backend.services.cosmos_service import CosmosService, shared_cosmos_service
 from backend.services.llm_service import (
     LLMContentFilteredError,
     LLMOutputError,
@@ -83,7 +83,7 @@ class StoryDraftService:
         llm_service: Optional[LLMService] = None,
         story_service: Optional[StoryService] = None,
     ) -> None:
-        self._cosmos = cosmos_service or CosmosService()
+        self._cosmos = cosmos_service or shared_cosmos_service()
         self._llm = llm_service or LLMService()
         self._stories = story_service or StoryService(cosmos_service=self._cosmos)
 

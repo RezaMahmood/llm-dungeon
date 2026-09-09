@@ -17,7 +17,7 @@ from azure.cosmos.exceptions import (
 
 from backend.config import config
 from backend.models.player_content_safety_standing import PlayerContentSafetyStanding
-from backend.services.cosmos_service import CosmosService
+from backend.services.cosmos_service import CosmosService, shared_cosmos_service
 
 logger = logging.getLogger("player_content_safety_standing_service")
 
@@ -60,7 +60,7 @@ def describe_lockout(lockout_until: Optional[str]) -> str:
 
 class PlayerContentSafetyStandingService:
     def __init__(self, cosmos_service: Optional[CosmosService] = None) -> None:
-        self._cosmos = cosmos_service or CosmosService()
+        self._cosmos = cosmos_service or shared_cosmos_service()
 
     def _container(self):
         return self._cosmos.get_container(config.PLAYER_CONTENT_SAFETY_STANDINGS_CONTAINER)

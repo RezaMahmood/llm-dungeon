@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from typing import Iterable, Optional, Union
 
@@ -14,6 +15,24 @@ from jwt.exceptions import InvalidTokenError
 from backend.config import config
 
 logger = logging.getLogger("auth_service")
+
+# The signing-key cache has to outlive the request to be a cache at all. AuthService is
+# constructed per request by the auth middleware, so a PyJWKClient held only on the
+# instance meant JWKS_CACHE_SECONDS could never elapse and every single request re-fetched
+# https://login.microsoftonline.com/common/discovery/v2.0/keys (#286). Keyed by URI so a
+# test pointing at its own endpoint cannot poison the real one.
+_jwk_clients: dict[str, tuple[PyJWKClient, float]] = {}
+_jwk_clients_lock = threading.Lock()
+
+
+def _shared_jwk_client(jwks_uri: str) -> PyJWKClient:
+    now = time.time()
+    with _jwk_clients_lock:
+        cached = _jwk_clients.get(jwks_uri)
+        if cached is None or (now - cached[1]) > config.JWKS_CACHE_SECONDS:
+            cached = (PyJWKClient(jwks_uri), now)
+            _jwk_clients[jwks_uri] = cached
+        return cached[0]
 
 
 class AuthService:
@@ -53,11 +72,12 @@ class AuthService:
         self._jwk_client_created_at: float = 0.0
 
     def _get_jwk_client(self) -> PyJWKClient:
-        now = time.time()
-        if self._jwk_client is None or (now - self._jwk_client_created_at) > config.JWKS_CACHE_SECONDS:
-            self._jwk_client = PyJWKClient(self._jwks_uri)
-            self._jwk_client_created_at = now
-        return self._jwk_client
+        # An instance-level client stays an explicit override (the tests set one directly);
+        # everything else comes from the process-wide cache, which is the only place the
+        # JWKS_CACHE_SECONDS window can actually be observed.
+        if self._jwk_client is not None and (time.time() - self._jwk_client_created_at) <= config.JWKS_CACHE_SECONDS:
+            return self._jwk_client
+        return _shared_jwk_client(self._jwks_uri)
 
     def validate_token(self, token_string: str) -> tuple[bool, Optional[str], Optional[str], Optional[str]]:
         """Validate a bearer token.

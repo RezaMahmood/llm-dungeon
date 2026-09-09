@@ -18,7 +18,7 @@ from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosReso
 from backend.config import config
 from backend.models.test_play_session import TestPlayExchange, TestPlaySession
 from backend.services import completion_rules
-from backend.services.cosmos_service import CosmosService
+from backend.services.cosmos_service import CosmosService, shared_cosmos_service
 from backend.services.llm_service import LLMContentFilteredError, LLMOutputError, LLMRateLimitError, LLMService
 from backend.services.story_service import (
     ContentGenerationFailedError,
@@ -96,7 +96,7 @@ class TestPlaySessionService:
         story_service: Optional[StoryService] = None,
         llm_service: Optional[LLMService] = None,
     ) -> None:
-        self._cosmos = cosmos_service or CosmosService()
+        self._cosmos = cosmos_service or shared_cosmos_service()
         self._stories = story_service or StoryService(cosmos_service=self._cosmos)
         self._llm = llm_service or LLMService()
 

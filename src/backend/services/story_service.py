@@ -14,7 +14,7 @@ from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosReso
 from backend.config import config
 from backend.models.story import ADMIN_EDITABLE_DERIVED_FIELDS, StartingPoint, Story
 from backend.models.story_draft import StoryDraft
-from backend.services.cosmos_service import CosmosService
+from backend.services.cosmos_service import CosmosService, shared_cosmos_service
 from backend.services.llm_service import (
     LLMContentFilteredError,
     LLMOutputError,
@@ -95,7 +95,7 @@ class StoryService:
         cosmos_service: Optional[CosmosService] = None,
         llm_service: Optional[LLMService] = None,
     ) -> None:
-        self._cosmos = cosmos_service or CosmosService()
+        self._cosmos = cosmos_service or shared_cosmos_service()
         self._llm = llm_service or LLMService()
 
     def _container(self):

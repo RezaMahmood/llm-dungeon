@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -20,13 +21,13 @@ from typing import Any, Optional
 import openai
 from agent_framework import Message
 from agent_framework.openai import OpenAIChatCompletionClient
-from azure.identity import DefaultAzureCredential
 from opentelemetry import trace
 from pydantic import BaseModel, ValidationError
 
 from backend.config import config
 from backend.models.play_session import PlaySession
 from backend.models.story import Story
+from backend.services.azure_credential import shared_credential
 
 logger = logging.getLogger("llm_service")
 tracer = trace.get_tracer("backend.services.llm_service")
@@ -41,6 +42,60 @@ INITIAL_RETRY_DELAY_SECONDS = 2.0
 # reviewed/diffed/tuned independently of application code; read once at import time
 # since Function App instances are short-lived and the files never change at runtime.
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
+
+# One chat-completion client per endpoint per worker process. Building one is not free —
+# it carries its own httpx connection pool, so a per-request client also means a fresh TLS
+# handshake to the Foundry endpoint on every call. A production trace showed 750ms between
+# the credential-chain log line and the token request that follows it, all of it inside
+# this construction (#286).
+_clients: dict[str, OpenAIChatCompletionClient] = {}
+_clients_lock = threading.Lock()
+
+
+def _shared_client(endpoint: str) -> OpenAIChatCompletionClient:
+    with _clients_lock:
+        client = _clients.get(endpoint)
+        if client is None:
+            client = OpenAIChatCompletionClient(
+                model=config.AZURE_AI_FOUNDRY_DEPLOYMENT_NAME,
+                azure_endpoint=endpoint,
+                credential=shared_credential(),
+            )
+            _clients[endpoint] = client
+        return client
+
+
+# Reusing the client above is only safe alongside a single, long-lived event loop. The
+# client holds an `httpx.AsyncClient`, whose pooled connections are bound to the loop that
+# opened them, and `asyncio.run()` builds and closes a *new* loop per call. A shared client
+# driven that way hands the next call a connection belonging to a closed loop and raises
+# `RuntimeError: Event loop is closed` — intermittently, since it only happens when the
+# pooled connection is actually reused. So the loop lives on a daemon thread for the life
+# of the process and every call is dispatched onto it. This also removes the loop
+# setup/teardown that used to run on every call.
+#
+# A thread rather than a lock around one loop: calls take seconds, and serializing them
+# would make concurrent admin activity queue up behind each other.
+_loop: Optional[asyncio.AbstractEventLoop] = None
+_loop_lock = threading.Lock()
+
+
+def _shared_loop() -> asyncio.AbstractEventLoop:
+    global _loop
+    if _loop is None or _loop.is_closed():
+        with _loop_lock:
+            if _loop is None or _loop.is_closed():
+                loop = asyncio.new_event_loop()
+                threading.Thread(target=loop.run_forever, name="llm-service-loop", daemon=True).start()
+                _loop = loop
+    return _loop
+
+
+def _run(coro: Any) -> Any:
+    """Run one client coroutine on the shared loop, from whichever worker thread is
+    handling this request, and block for its result. The awaited exception is re-raised
+    unchanged, so the `__cause__` unwrapping in `_as_rate_limit_error` still works."""
+    return asyncio.run_coroutine_threadsafe(coro, _shared_loop()).result()
 
 
 def _load_prompt(filename: str) -> str:
@@ -117,8 +172,9 @@ class LLMService:
     """Thin wrapper around `agent_framework.openai.OpenAIChatCompletionClient`, authenticated
     via Managed Identity (Constitution Principle VII), matching CosmosService's lazy-client
     construction pattern. `get_response()` is async in the underlying library; each public
-    method here runs its single call via `asyncio.run()` so the rest of the service layer
-    (`story_draft_service.py`, the HTTP handlers) stays synchronous, unchanged."""
+    method here dispatches its single call onto the module's shared event loop (`_run`) so
+    the rest of the service layer (`story_draft_service.py`, the HTTP handlers) stays
+    synchronous, unchanged."""
 
     def __init__(self, client: Optional[OpenAIChatCompletionClient] = None, endpoint: Optional[str] = None) -> None:
         self._endpoint = endpoint or config.AZURE_AI_FOUNDRY_ENDPOINT
@@ -127,11 +183,7 @@ class LLMService:
     @property
     def client(self) -> OpenAIChatCompletionClient:
         if self._client is None:
-            self._client = OpenAIChatCompletionClient(
-                model=config.AZURE_AI_FOUNDRY_DEPLOYMENT_NAME,
-                azure_endpoint=self._endpoint,
-                credential=DefaultAzureCredential(),
-            )
+            self._client = _shared_client(self._endpoint)
         return self._client
 
     def suggest_world_prompt(self, draft: dict[str, Any], idea: str) -> str:
@@ -248,7 +300,7 @@ class LLMService:
         delay = INITIAL_RETRY_DELAY_SECONDS
         for attempt in range(1, MAX_RATE_LIMIT_ATTEMPTS + 1):
             try:
-                return asyncio.run(
+                return _run(
                     self.client.get_response(messages, options={"response_format": response_model})
                 )
             except Exception as exc:  # noqa: BLE001 - re-raised untouched unless it's a 429/content-filter
