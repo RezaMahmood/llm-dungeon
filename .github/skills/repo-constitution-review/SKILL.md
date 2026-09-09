@@ -6,8 +6,11 @@ license: N/A
 
 # Repo constitution review — GitHub & CI/CD
 
-This repo's binding rules live in `.specify/memory/constitution.md`. This
-skill is a narrow, second guard focused only on GitHub platform mechanics
+This repo's binding rules live in `.specify/memory/constitution.md`. These
+checks are repo-specific review criteria for whoever reviews a pull request
+here — CodeRabbit picks this file up via `knowledge_base.code_guidelines` in
+`.coderabbit.yaml`, and a human or local agent reviewer can apply it directly.
+It is a narrow, second guard focused only on GitHub platform mechanics
 and CI/CD — not application code quality, UI/design, telemetry, or other
 in-progress implementation details, which are expected to evolve freely
 while a feature is being built. Only apply the sections below relevant to
@@ -120,6 +123,8 @@ can find the source of truth.
   session/transcript in the description, and MUST NOT have auto-merge
   enabled — merging is a manual step for the requesting user or product
   owner, not something the agent enables or performs itself.
-- The local agent must not itself merge a PR or close/resolve a GitHub
-  issue — that's GitHub Copilot's job. Note it if a PR's history shows the
-  opening actor also merging it or closing an issue directly.
+- The local agent must not itself merge a PR or enable auto-merge — merging is
+  the requesting user's decision. Note it if a PR's history shows the opening
+  actor also merging it. Closing a GitHub issue is different: the agent MAY
+  close one where the user asked it to and the resolving work is already merged
+  to `origin/main` — flag a close that meets neither condition.

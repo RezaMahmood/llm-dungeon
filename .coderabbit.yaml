@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit review configuration for llm-dungeon.
+# Reference: https://docs.coderabbit.ai/reference/configuration
+language: en-US
+early_access: false
+
+reviews:
+  profile: chill
+  # CodeRabbit comments but does not block the merge (constitution Principle
+  # XIII): the requesting user reviews its findings and merges manually.
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  collapse_walkthrough: false
+  sequence_diagrams: true
+  poem: false
+
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true
+    # Auto reviews are skipped on any base branch not listed here (the default
+    # branch is implied, but listing it explicitly avoids the "Auto reviews are
+    # disabled on base/target branches other than the default branch" skip seen
+    # on PR #287). Feature branches occasionally serve as a base for stacked
+    # work, so spec-kit feature branches are allowed as bases too.
+    base_branches:
+      - main
+      - '^\d{3}-.*'
+
+  path_filters:
+    - '!**/node_modules/**'
+    - '!**/__pycache__/**'
+    - '!**/dist/**'
+    - '!**/package-lock.json'
+    - '!**/devcontainer-lock.json'
+    - '!**/.terraform.lock.hcl'
+    - '!**/*.min.js'
+    - '!.worktrees/**'
+
+  path_instructions:
+    - path: '.github/workflows/**'
+      instructions: >-
+        Review workflow security first: pinned action versions, least-privilege
+        `permissions:` blocks, no secrets echoed into logs or artifacts, and no
+        untrusted input interpolated into `run:` steps. Reusable workflows are
+        prefixed with `_`. `pr-title-check.yml` mirrors
+        `scripts/pr-title-config.js` — flag any drift between the two.
+    - path: 'src/backend/**/*.py'
+      instructions: >-
+        Azure Functions Python backend. Check for unhandled exceptions crossing
+        the HTTP boundary, missing input validation on request payloads, secrets
+        or player-identifying data reaching logs, and blocking I/O in async
+        paths. Tests live in `src/backend/tests` — flag behaviour changes that
+        arrive without test coverage.
+    - path: 'src/frontend/src/**/*.{js,jsx}'
+      instructions: >-
+        React 19 + Vite frontend using MSAL for auth. Watch for tokens or user
+        identifiers written to logs or localStorage, missing loading/error
+        states around API calls, and effect dependency mistakes. Tests use
+        Vitest and Testing Library under `src/frontend/tests`.
+    - path: 'infrastructure/terraform/**'
+      instructions: >-
+        Terraform for Azure. Check for hardcoded secrets or subscription ids,
+        resources created without tags or diagnostic settings, publicly exposed
+        endpoints, and changes that would force replacement of stateful
+        resources (storage, databases).
+    - path: 'specs/**'
+      instructions: >-
+        Spec-kit planning documents, not shipped code. Review only for internal
+        consistency between spec/plan/tasks and for contradictions with
+        `.specify/memory/constitution.md`. Do not comment on prose style,
+        formatting, or markdown lint issues here.
+
+  tools:
+    actionlint:
+      enabled: true
+    ruff:
+      enabled: true
+    eslint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    checkov:
+      enabled: true
+    yamllint:
+      enabled: true
+    shellcheck:
+      enabled: true
+    markdownlint:
+      enabled: false
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - '.specify/memory/constitution.md'
+      - 'CLAUDE.md'
+      - 'CONTRIBUTING.md'
+      - '.github/skills/**/SKILL.md'
