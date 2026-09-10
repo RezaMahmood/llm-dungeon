@@ -1,5 +1,55 @@
 <!--
 Sync Impact Report
+Version change: 6.0.0 -> 6.1.0
+Modified principles: none - no principle's text, name, or normative force changes.
+Added principles: none
+Removed principles: none
+Added sections: none
+Modified sections:
+  - Development Workflow & Quality Gates - four changes. (1) The bullet requiring
+    "code review by at least one other contributor" is replaced by one describing the
+    review pass this project actually has: Principle XIII's `/code-review` skill, at a
+    tier chosen by an explicit triage rule, with a floor requiring the deepest tier for
+    blast-radius changes (auth/secrets/permissions, CI/CD, deploy, infrastructure,
+    persisted-data schema, release machinery, governance files). The old bullet
+    contradicted Principle XIII, which since v5.0.0 has said the GitHub-side pass
+    produces no approving review and that the requesting user merges; it also
+    contradicted the repository ruleset, which requires zero approving reviews. This is
+    a correction of an internal contradiction, not a change of policy: a pull request
+    that satisfied Principle XIII already satisfies the replacement, so it is MINOR
+    rather than MAJOR. (2) A new bullet requires a pull request description to carry the
+    account of the change (problem and evidence, decisions, what was actually tested and
+    what it returned, what is left undone, recommended review tier) and forbids claiming
+    unrun checks, unmeasured numbers, or an approving review; the full contract lives in
+    CLAUDE.md. (3) The worktree bullet is scoped: spec/feature work (a branch with a
+    matching specs/<branch>/ folder) MUST still run in its own worktree devcontainer,
+    while branch work carrying no spec folder MAY run in the primary checkout, which is
+    where the concurrent-spec cross-contamination the rule exists to prevent cannot
+    arise. Such a session must still be on a branch, must not reach into .worktrees/,
+    and leaves the checkout on main. No work of either kind happens on main. (4) New
+    bullets record the worktree lifecycle established by issue #293(b): directory name
+    must equal branch name; pruning is driven by GitHub's record of the pull request
+    rather than git ancestry, because squash merges make every ancestry test report
+    merged work as unmerged; pruning never touches dirty worktrees or branches without a
+    merged pull request; and a worktree whose constitution is a MAJOR version behind
+    origin/main must not be worked in until rebased, with lesser bootstrap drift warned
+    rather than blocked.
+  - AI Agent / GitHub Handoff Requirements - the merge prohibition is made explicit
+    about route: auto-merge, `gh api --method PUT .../merge` and a GraphQL
+    `mergePullRequest` mutation are prohibited on the same footing as `gh pr merge`,
+    and the rule holds regardless of what a tool's configuration permits. This
+    clarifies rather than extends the existing prohibition.
+Source: issue #293 part (c) - governance docs. Parts (a) (PR #294) and (b) (PR #295)
+  are merged; this amendment records what they established and removes the
+  contradictions the issue's audit found between the written rules and the executable
+  ones.
+Templates requiring follow-up: none - CLAUDE.md (restructured, with the new PR content
+  contract and review-triage table), CONTRIBUTING.md (realigned) and
+  `.github/skills/repo-constitution-review/SKILL.md` are updated in the same pull
+  request as this amendment.
+Deferred/TODO placeholders: none.
+
+Previous report (5.0.0 -> 6.0.0)
 Version change: 5.0.0 -> 6.0.0
 Modified principles:
   - XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, CodeRabbit Reviews,
@@ -689,6 +739,11 @@ drifts out of sync with the spec as the code evolves, and clutters the code itse
   still open is permitted and is the normal way to address review feedback.
 - Local AI agent tools MUST NOT merge a pull request on their own behalf, even where the
   tool has the technical means to do so (e.g., a `gh` CLI or GitHub API credential).
+  This covers every route to a merge, not only `gh pr merge`: enabling auto-merge, a
+  REST call (`gh api --method PUT .../merge`), and a GraphQL `mergePullRequest` mutation
+  are equally prohibited. Permission rules block the `gh pr merge` forms; the remaining
+  routes are governed by this rule, which holds regardless of what any tool
+  configuration happens to permit.
   Resolving the issue — writing the fix, pushing the branch, and opening the pull
   request — is ordinary local development work and is not restricted by this bullet;
   only the GitHub-side merge action is.
@@ -735,9 +790,25 @@ drifts out of sync with the spec as the code evolves, and clutters the code itse
   it introduces or changes, per Principle I.
 - CI MUST run the full automated test suite on every pull request, per Principle V; a
   failing run blocks merge.
-- Code review by at least one other contributor is required before merge, focused on
-  correctness, adherence to this constitution, and meaningful test quality (not just
-  presence of tests).
+- Every pull request MUST have a review pass before merge, focused on correctness,
+  adherence to this constitution, and meaningful test quality (not just presence of
+  tests). That pass is Claude Code's `/code-review` skill, per Principle XIII — this
+  project has one maintainer, so a second contributor's approving review is not
+  available and the repository ruleset accordingly requires zero approving reviews. The
+  review tier MUST be chosen deliberately rather than defaulted to, using the triage
+  rule recorded in `CLAUDE.md` (blast radius first, then diff size, then how the change
+  was authored). A change touching authentication, secrets, permissions, CI/CD,
+  deployment, infrastructure, persisted-data schema, release machinery, or this
+  constitution and its operational mirrors MUST receive the deepest tier
+  (`/code-review ultra <PR#>`) whatever its size. Skipping the review pass entirely is
+  the exception described at the end of the AI Agent / GitHub Handoff Requirements
+  above, not a default.
+- A pull request description MUST carry the account of the change that survives to
+  `main`: what problem it addresses and the evidence for it, what was decided and why,
+  what was actually tested and what that returned, what is deliberately left undone, and
+  the review tier being recommended. It MUST NOT claim a check that was not run, quote a
+  measurement that was not taken, or assert an approving review. The full contract is in
+  `CLAUDE.md`; a local AI agent MUST follow it on every pull request it opens.
 - A passing automated test suite (Principle I) and a green CI run (Principle V) are
   sufficient for a feature to be considered complete and mergeable; human playtesting
   against the deployed environment happens afterward, on an ongoing basis, per
@@ -766,12 +837,33 @@ drifts out of sync with the spec as the code evolves, and clutters the code itse
   required checks, then merges the pull request themselves. Once that merge is on
   `origin/main`, the local AI agent MAY close the originating issue if the requesting
   user asks it to.
-- Feature work MUST happen inside that feature's own git worktree, running inside that
-  worktree's own isolated devcontainer (started via `bin/wt <branch>`) — never directly in
-  the primary checkout, and a worktree's container MUST NOT be shared with another
-  worktree. This keeps concurrent specs from cross-contaminating: a session for one spec
-  has no filesystem access to any other spec's worktree. See
-  `docs/WORKTREE_CONTAINER_WORKFLOW.md` for the full workflow.
+- Spec/feature work — work on a branch with a matching `specs/<branch>/` folder — MUST
+  happen inside that feature's own git worktree, running inside that worktree's own
+  isolated devcontainer (started via `bin/wt <branch>`), and a worktree's container MUST
+  NOT be shared with another worktree. This keeps concurrent specs from
+  cross-contaminating: a session for one spec has no filesystem access to any other
+  spec's worktree. Work on a branch carrying no spec folder (e.g. `chore/*`, `fix/*`,
+  `docs/*`, `perf/*`) MAY instead be done in the primary checkout, where that
+  cross-contamination risk does not arise; such a session MUST still work on a branch
+  rather than on `main`, MUST NOT read or write another worktree under `.worktrees/`,
+  and leaves the primary checkout returned to `main` when it ends. No work of either
+  kind happens directly on `main`.
+- A worktree MUST live at `.worktrees/<branch>`, its directory name spelling out its
+  branch name exactly; the container identity, the edit guard, and the lifecycle tools
+  all key off that equality.
+- Worktrees and branches MUST be pruned once their pull request is merged, and merge
+  MUST be determined from GitHub's record of that pull request (`bin/wt-prune`), never
+  from git ancestry — this repository merges exclusively by squash, so a merged branch's
+  tip is never an ancestor of `main` and every git-ancestry test reports merged work as
+  unmerged. Pruning MUST NOT remove a worktree holding uncommitted or untracked work, or
+  a branch whose pull request is open, closed unmerged, or absent.
+- A worktree whose copy of this constitution is a MAJOR version behind `origin/main`
+  MUST NOT be worked in until it is rebased: its session would be governed by rules the
+  current constitution has already replaced. `bin/wt-sync` detects this and `bin/wt`
+  refuses to start such a worktree. Lesser drift in the bootstrap files (`CLAUDE.md`,
+  this constitution's minor/patch versions, Claude settings, hook scripts, `bin/`,
+  `.devcontainer/`) is reported as a warning, not a block.
+- See `docs/WORKTREE_CONTAINER_WORKFLOW.md` for the full workflow.
 
 ## Environments & Deployment Pipeline
 
@@ -981,4 +1073,4 @@ with the design-token, visual-rules, interaction-state, or layout/scroll require
 above as a blocking finding. No feature may ship a screen that is not traceable to a
 screen contract above or to a documented amendment extending it.
 
-**Version**: 6.0.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-09
+**Version**: 6.1.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-10

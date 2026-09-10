@@ -115,6 +115,22 @@ can find the source of truth.
   (role/internal ID) rather than by name/email/etc.
 - **No direct pushes to `main`** — all changes go through a PR (Development
   Workflow & Quality Gates).
+- **PR description contract** (Development Workflow & Quality Gates; the
+  full contract is in `CLAUDE.md`). A description MUST account for the
+  change: the problem and the evidence for it, what was decided, what was
+  actually tested and what it returned, what is deliberately left undone,
+  and the recommended review tier. Flag a description that claims a status
+  check nobody ran, quotes a measurement nobody took, asserts an approving
+  review, or restates the file list the diff already shows in place of
+  saying why. Size it to the change — a one-line docs fix needs the issue
+  link, the testing note and the limits, not six headings.
+- **Review tier** — the tier MUST be chosen by the triage rule in
+  `CLAUDE.md` (blast radius first, then diff size, then how the change was
+  authored), not defaulted to. A PR touching authentication, secrets,
+  permissions, CI/CD, deployment, infrastructure, persisted-data schema,
+  release machinery, or the governance files (constitution, `CLAUDE.md`,
+  `CONTRIBUTING.md`) warrants the deepest tier whatever its size — flag
+  one that recommends less.
 
 ## AI-agent GitHub handoff (Principle XIII)
 

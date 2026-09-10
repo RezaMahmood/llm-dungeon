@@ -121,8 +121,9 @@ CI and CD are fully separated — merging to `main` never deploys anything.
   build. Infrastructure deploys run validate → test → plan → apply, applying
   the exact plan from that run behind a human approval gate on the
   `production-infra` environment.
-- **Required checks:** `test`, `frontend-test`, PR title, workflow lint,
-  workflow structure, release fixtures.
+- **Required checks:** `test`, `check-title`, `actionlint`,
+  `structure-test`, `release-fixtures-test` — the five contexts the `main`
+  ruleset requires. A branch must also be up to date with `main` to merge.
 
 Detail: [.github/workflows/README.md](.github/workflows/README.md),
 [CONTRIBUTING.md](CONTRIBUTING.md),
@@ -141,8 +142,11 @@ Detail: [.github/workflows/README.md](.github/workflows/README.md),
   [`.specify/`](.specify). A spec covers at most two user stories — larger
   ones are split into their own numbered specs.
 - **Pull requests only.** Direct pushes to `main` are blocked; PRs need
-  passing checks and one approval, and are merged by a human, always by
-  squash.
+  passing checks and a review pass via Claude Code's `/code-review` skill
+  (tier per the triage rule in
+  [CONTRIBUTING.md](CONTRIBUTING.md#5-review)), and are merged by a human,
+  always by squash. The ruleset requires no approving reviews — this
+  project has one maintainer.
 - **Conventional Commit PR titles.** `type(scope): description`, validated by
   the `check-title` gate. Because the repo squash-merges, the PR title *is*
   the commit on `main` and is what `semantic-release` reads to compute the
