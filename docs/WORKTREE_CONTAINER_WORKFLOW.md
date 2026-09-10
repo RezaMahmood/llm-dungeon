@@ -66,9 +66,12 @@ git -C .worktrees/<branch-a> diff main --stat
 git -C .worktrees/<branch-b> diff main --stat
 ```
 
-or ask Claude to do this comparison for you from a primary-root session
-(one *not* started via `bin/wt`). Actual merge conflicts, if any, still
-surface normally at merge/rebase time regardless.
+Do this yourself — Claude cannot. `.claude/settings.json` denies
+`Read(.worktrees/**)` and `Edit(.worktrees/**)`, so a session in the
+primary checkout has no more access to a sibling worktree than a session
+inside a container does (see **What Claude can and cannot see** below).
+Actual merge conflicts, if any, still surface normally at merge/rebase
+time regardless.
 
 ## Reviewing in VS Code
 
@@ -87,14 +90,121 @@ Run `/speckit-mark-done` as usual. Once a spec's folder is renamed to
 worktree itself is left alone, per that skill's existing behavior — see
 [`speckit-mark-done`](../.claude/skills/speckit-mark-done/SKILL.md)).
 
-## Cleaning up orphaned containers
+## Pruning merged work
 
-If a worktree's branch/directory was removed some other way and its
-container was left behind, sweep it from the primary repo root:
+Run from the **primary checkout** (an isolated container cannot see its
+siblings, which is the point):
+
+```bash
+bin/wt-prune            # dry run: reports what it would remove
+bin/wt-prune --yes      # actually remove it
+```
+
+For every worktree under `.worktrees/` and every local branch without one,
+it removes the worktree, the branch and the devcontainer once GitHub says
+that branch's pull request is **merged**.
+
+It asks GitHub rather than git because this repo merges exclusively by
+**squash**: a merged branch's tip is never an ancestor of `main`, so
+`git branch --merged` and `git merge-base --is-ancestor` report every
+merged branch as unmerged. `gh pr list --state merged --head <branch>` is
+the only reliable local test.
+
+What it will never do:
+
+- delete anything without `--yes` (dry run is the default);
+- touch a worktree with uncommitted or untracked work;
+- remove a branch that has **no** PR — that gets reported for you to judge;
+- remove a branch whose PR was **closed without merging**, unless you pass
+  `--include-closed`.
+
+### Cleaning up orphaned containers
+
+`bin/wt-prune` removes each container alongside its worktree. If a
+worktree was removed some other way and left its container behind, sweep
+those alone from the primary repo root:
 
 ```bash
 .specify/scripts/bash/prune-worktree-containers.sh
 ```
+
+## Checking for stale bootstrap files
+
+`CLAUDE.md`, the constitution, `.claude/settings.json`, the hook scripts,
+`bin/` and `.devcontainer/` are all *tracked*, so every worktree holds its
+own copy frozen at the moment it was created. A worktree that has not
+rebased since is being governed by whatever those files said back then —
+issue #293 found four constitution versions live at once, spanning three
+major versions.
+
+```bash
+bin/wt-sync                     # every worktree
+bin/wt-sync <branch>            # just one
+bin/wt-sync --ref=origin/main   # compare against something else
+```
+
+The rule it enforces:
+
+| drift | result |
+|---|---|
+| constitution **major**-version gap | **blocks** (exit 2) — `bin/wt` refuses to start that worktree |
+| constitution minor/patch, `CLAUDE.md`, settings, skills, hooks, `bin/` | warns |
+| `.devcontainer/` changed | warns, and says the fix also needs `bin/wt <branch> --rebuild` |
+
+`bin/wt` runs this itself before bringing a container up, so a worktree
+two constitution majors behind cannot quietly start a session. The fix is
+always to rebase:
+
+```bash
+git -C .worktrees/<branch> rebase origin/main
+```
+
+`bin/wt <branch> --allow-stale` overrides the block if you genuinely need
+it. Staleness is measured against the **merge base**, so a branch that
+deliberately edits `CLAUDE.md` or a hook counts as ahead, not stale.
+
+## Directory name must equal branch name
+
+A worktree for branch `<branch>` lives at `.worktrees/<branch>` — slashes
+and all, so `docs/overview` lives at `.worktrees/docs/overview`. The
+container label, `WORKTREE_CONTAINER`, the edit guard, `bin/wt-prune` and
+`bin/wt-sync` all key off that equality. `bin/wt` now refuses to start a
+session where the two have drifted apart (issue #293 found two such cases)
+and tells you which `git worktree move` or `git switch` fixes it.
+
+## The primary checkout returns to `main`
+
+Feature work happens in worktrees, so the primary checkout should be
+sitting on `main` whenever nobody is using it. Left on the last branch
+worked on there, it silently becomes the wrong `--base` for the next
+`bin/wt` run.
+
+`.specify/scripts/bash/return-to-main.sh` runs on `SessionEnd` and switches
+the primary checkout back to `main` — but only when the tree is clean and
+no rebase/merge is in progress; otherwise it says why it left things alone.
+On `SessionStart` it only *reports* a non-trunk branch, never switches:
+moving HEAD out from under a session that was deliberately put there would
+be worse than the drift. It is a no-op inside any worktree or container.
+
+## What Claude can and cannot see
+
+- **Denied**: `Read(.worktrees/**)` and `Edit(.worktrees/**)` in the
+  tracked `.claude/settings.json`, so a Claude session in the primary
+  checkout cannot read or edit any worktree — the same blindness a
+  containerised session has, from the other direction. VS Code is a host
+  application and is unaffected, so you keep full visibility.
+- **Enforced on every branch**: the `Edit|Write|NotebookEdit` guard
+  `check-worktree-sync.sh` compares `WORKTREE_CONTAINER` against `HEAD`.
+  It used to exit early whenever `.specify/feature.json` was absent, which
+  disabled it for every `chore/*`, `fix/*`, `perf/*` and `issue/*` worktree
+  (issue #293, Leak B). It stands down mid-rebase/merge, so it can never
+  block the conflict resolution that brings a stale worktree back in line.
+- **Known limits**: `Bash` permission rules are prefix matches, so
+  `Bash(cd .worktrees:*)` and friends catch the obvious shell paths but not
+  every possible one (`cat ./.worktrees/x/y`). And the shared `.git`
+  directory lets any container read *committed* content on other branches —
+  closing that would break rebasing onto `main`, so it is an accepted limit,
+  not an oversight.
 
 ## Forcing a rebuild
 

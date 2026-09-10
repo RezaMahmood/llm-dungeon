@@ -50,7 +50,12 @@
       "Bash(gh pr merge)",
       "Bash(gh pr merge:*)",
       "Bash(git checkout .)",
-      "Bash(git checkout --:*)"
+      "Bash(git checkout --:*)",
+      "Read(.worktrees/**)",
+      "Edit(.worktrees/**)",
+      "Bash(cd .worktrees:*)",
+      "Bash(cd ./.worktrees:*)",
+      "Bash(git -C .worktrees:*)"
     ]
   },
   "hooks": {
@@ -72,6 +77,28 @@
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.specify/scripts/bash/trim-noisy-bash-output.sh",
             "statusMessage": "Trimming noisy test/build output..."
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.specify/scripts/bash/return-to-main.sh",
+            "statusMessage": "Checking the primary checkout's branch..."
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.specify/scripts/bash/return-to-main.sh",
+            "statusMessage": "Checking the primary checkout's branch..."
           }
         ]
       }

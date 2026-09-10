@@ -56,3 +56,6 @@ jobs:
 
       - name: Run always-ready warm-window schedule tests
         run: npm run test:always-ready-window
+
+      - name: Run worktree hook/lifecycle script smoke tests
+        run: npm run test:hook-scripts

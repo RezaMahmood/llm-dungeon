@@ -1,0 +1,284 @@
+#!/usr/bin/env bash
+# bin/wt-prune [--yes] [--include-closed]
+#
+# Lifecycle sweep for the per-worktree devcontainer workflow (see
+# docs/WORKTREE_CONTAINER_WORKFLOW.md): removes the worktrees, branches and
+# containers whose pull request GitHub says is already merged.
+#
+# Why it asks GitHub rather than git: this repo merges exclusively by
+# squash, so a merged branch's tip is never an ancestor of main. Both
+# `git branch --merged` and `git merge-base --is-ancestor` therefore report
+# every merged branch as unmerged (verified in issue #293 — perf/llm-reasoning-effort
+# read as "unmerged" while its work sat in main as 78e184e). The only
+# reliable local test is what GitHub says about the branch's PR:
+# `gh pr list --state merged --head <branch>`.
+#
+# Safety rules, in force regardless of --yes:
+#   - Dry run by default. Nothing is deleted without --yes.
+#   - A worktree with uncommitted or untracked work is never touched.
+#   - A branch with no PR is reported for manual review, never removed.
+#   - A branch whose PR is open, or closed without merging, is kept.
+#   - Runs only from the primary checkout: an isolated worktree container
+#     cannot see its siblings, which is the whole point of the workflow.
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: bin/wt-prune [--yes] [--include-closed]
+
+Reports (and with --yes, removes) worktrees, local branches and devcontainers
+whose pull request GitHub reports as MERGED.
+
+Options:
+  --yes              Actually delete. Without it, this is a dry run that
+                     only prints what it would do.
+  --include-closed   Also prune branches whose PR was closed WITHOUT being
+                     merged. Off by default: that work never landed.
+  -h, --help         Show this help.
+EOF
+}
+
+DO_IT=0
+INCLUDE_CLOSED=0
+for arg in "$@"; do
+  case "$arg" in
+    --yes) DO_IT=1 ;;
+    --include-closed) INCLUDE_CLOSED=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown option: $arg" >&2; usage >&2; exit 1 ;;
+  esac
+done
+
+TRUNK="main"
+
+if [[ -n "${WORKTREE_CONTAINER:-}" ]]; then
+  echo "Refusing to run inside worktree container '$WORKTREE_CONTAINER': pruning needs to see every worktree at once, which an isolated container cannot. Run this from the primary checkout on the host." >&2
+  exit 1
+fi
+
+for _cmd in git gh; do
+  command -v "$_cmd" >/dev/null 2>&1 || { echo "$_cmd is required on PATH." >&2; exit 1; }
+done
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "Not inside a git repository." >&2
+  exit 1
+fi
+
+_common_dir="$(git rev-parse --path-format=absolute --git-common-dir)"
+PRIMARY_REPO_ROOT="$(CDPATH= cd "$(dirname "$_common_dir")" && pwd -P)"
+WORKTREES_ROOT="$PRIMARY_REPO_ROOT/.worktrees"
+cd "$PRIMARY_REPO_ROOT"
+
+if [[ "$DO_IT" == "1" ]]; then
+  echo "Mode: DELETING (--yes given)"
+else
+  echo "Mode: dry run — nothing will be deleted. Re-run with --yes to apply."
+fi
+echo "Primary checkout: $PRIMARY_REPO_ROOT"
+echo
+
+echo "Fetching and pruning remote-tracking refs..."
+git fetch --prune --quiet || echo "  (fetch failed — continuing with local state)"
+echo
+
+# --- Collect worktrees ------------------------------------------------------
+# Parallel arrays: WT_PATHS[i] is on branch WT_BRANCHES[i] ("" if detached).
+WT_PATHS=()
+WT_BRANCHES=()
+_path=""
+_branch=""
+flush_wt() {
+  [[ -z "$_path" ]] && return 0
+  WT_PATHS+=("$_path")
+  WT_BRANCHES+=("$_branch")
+  _path=""
+  _branch=""
+}
+while IFS= read -r line; do
+  case "$line" in
+    "worktree "*) flush_wt; _path="${line#worktree }" ;;
+    "branch refs/heads/"*) _branch="${line#branch refs/heads/}" ;;
+  esac
+done < <(git worktree list --porcelain)
+flush_wt
+
+# --- What GitHub says about a branch ----------------------------------------
+# Echoes "<state>\t<pr number or ->": MERGED, OPEN, CLOSED or NONE.
+pr_state_of() {
+  local branch="$1" json
+  json="$(gh pr list --state all --head "$branch" --limit 20 \
+            --json number,state 2>/dev/null || true)"
+  if [[ -z "$json" || "$json" == "[]" ]]; then
+    printf 'NONE\t-\n'
+    return 0
+  fi
+  printf '%s' "$json" | jq -r '
+    (map(select(.state == "MERGED")) | sort_by(.number) | last) as $merged
+    | (map(select(.state == "OPEN")) | sort_by(.number) | last) as $open
+    | (map(select(.state == "CLOSED")) | sort_by(.number) | last) as $closed
+    | if   $open   then "OPEN\t\($open.number)"
+      elif $merged then "MERGED\t\($merged.number)"
+      elif $closed then "CLOSED\t\($closed.number)"
+      else "NONE\t-" end'
+}
+
+remove_container_for() {
+  local path="$1" ids
+  command -v docker >/dev/null 2>&1 || return 0
+  ids="$(docker ps -aq --filter "label=devcontainer.local_folder=$path" 2>/dev/null || true)"
+  [[ -z "$ids" ]] && return 0
+  if [[ "$DO_IT" == "1" ]]; then
+    echo "    removing devcontainer(s): $(echo "$ids" | tr '\n' ' ')"
+    # shellcheck disable=SC2086
+    docker rm -f $ids >/dev/null 2>&1 || echo "    (docker rm failed — remove it by hand)"
+  else
+    echo "    would remove devcontainer(s): $(echo "$ids" | tr '\n' ' ')"
+  fi
+}
+
+delete_branch() {
+  local branch="$1"
+  if [[ "$DO_IT" == "1" ]]; then
+    echo "    deleting branch '$branch'"
+    # -D, not -d: a squash-merged branch is never an ancestor of main, so
+    # git's own merged check would refuse it. GitHub already confirmed the
+    # PR is merged, which is the stronger guarantee.
+    git branch -D "$branch" >/dev/null || echo "    (branch delete failed)"
+  else
+    echo "    would delete branch '$branch'"
+  fi
+}
+
+prune_worktree() {
+  local path="$1" branch="$2"
+  remove_container_for "$path"
+  if [[ "$DO_IT" == "1" ]]; then
+    echo "    removing worktree $path"
+    # --force after our own cleanliness check above: git refuses to remove a
+    # worktree that still holds gitignored build output (.venv, node_modules),
+    # which every worktree here has. The check above already established there
+    # is no tracked or untracked *work* to lose.
+    git worktree remove --force "$path" >/dev/null || {
+      echo "    (worktree remove failed — leaving branch '$branch' alone too)"
+      return 0
+    }
+  else
+    echo "    would remove worktree $path"
+  fi
+  delete_branch "$branch"
+}
+
+PRUNED=0
+KEPT=0
+REVIEW=0
+
+echo "== Worktrees under .worktrees/ =="
+FOUND_WT=0
+for i in "${!WT_PATHS[@]}"; do
+  path="${WT_PATHS[$i]}"
+  branch="${WT_BRANCHES[$i]}"
+  case "$path" in "$WORKTREES_ROOT"/*) : ;; *) continue ;; esac
+  FOUND_WT=1
+  # The directory a worktree lives in must spell out its branch name --
+  # .worktrees/<branch>, slashes and all (branch docs/overview lives at
+  # .worktrees/docs/overview). Compare the path relative to .worktrees/,
+  # not its basename.
+  relpath="${path#"$WORKTREES_ROOT"/}"
+
+  if [[ -z "$branch" ]]; then
+    echo "  review: $relpath — detached HEAD, no branch to check. Resolve by hand."
+    REVIEW=$((REVIEW + 1))
+    continue
+  fi
+
+  label="$branch"
+  if [[ "$relpath" != "$branch" ]]; then
+    label="$branch (in mismatched directory .worktrees/$relpath)"
+  fi
+
+  if [[ -n "$(git -C "$path" status --porcelain 2>/dev/null)" ]]; then
+    echo "  keep:   $label — uncommitted or untracked work present, never touched."
+    KEPT=$((KEPT + 1))
+    continue
+  fi
+
+  IFS=$'\t' read -r state pr <<<"$(pr_state_of "$branch")"
+  case "$state" in
+    OPEN)
+      echo "  keep:   $label — PR #$pr is still open."
+      KEPT=$((KEPT + 1))
+      ;;
+    NONE)
+      echo "  review: $label — no pull request found. Nothing verifies this work landed; remove it by hand if it is scrap."
+      REVIEW=$((REVIEW + 1))
+      ;;
+    CLOSED)
+      if [[ "$INCLUDE_CLOSED" == "1" ]]; then
+        echo "  prune:  $label — PR #$pr was closed without merging (--include-closed)."
+        prune_worktree "$path" "$branch"
+        PRUNED=$((PRUNED + 1))
+      else
+        echo "  review: $label — PR #$pr was closed WITHOUT merging, so this work never landed. Pass --include-closed to prune it anyway."
+        REVIEW=$((REVIEW + 1))
+      fi
+      ;;
+    MERGED)
+      echo "  prune:  $label — PR #$pr is merged."
+      prune_worktree "$path" "$branch"
+      PRUNED=$((PRUNED + 1))
+      ;;
+  esac
+done
+[[ "$FOUND_WT" == "0" ]] && echo "  (none)"
+echo
+
+echo "== Local branches with no worktree =="
+FOUND_BR=0
+while IFS= read -r branch; do
+  [[ "$branch" == "$TRUNK" ]] && continue
+  _has_wt=0
+  for b in "${WT_BRANCHES[@]}"; do
+    [[ "$b" == "$branch" ]] && _has_wt=1 && break
+  done
+  [[ "$_has_wt" == "1" ]] && continue
+  FOUND_BR=1
+
+  IFS=$'\t' read -r state pr <<<"$(pr_state_of "$branch")"
+  case "$state" in
+    OPEN)
+      echo "  keep:   $branch — PR #$pr is still open."
+      KEPT=$((KEPT + 1))
+      ;;
+    NONE)
+      echo "  review: $branch — no pull request found. Delete by hand if it is scrap."
+      REVIEW=$((REVIEW + 1))
+      ;;
+    CLOSED)
+      if [[ "$INCLUDE_CLOSED" == "1" ]]; then
+        echo "  prune:  $branch — PR #$pr closed without merging (--include-closed)."
+        delete_branch "$branch"
+        PRUNED=$((PRUNED + 1))
+      else
+        echo "  review: $branch — PR #$pr closed WITHOUT merging. Pass --include-closed to prune it anyway."
+        REVIEW=$((REVIEW + 1))
+      fi
+      ;;
+    MERGED)
+      echo "  prune:  $branch — PR #$pr is merged."
+      delete_branch "$branch"
+      PRUNED=$((PRUNED + 1))
+      ;;
+  esac
+done < <(git for-each-ref --format='%(refname:short)' refs/heads/)
+[[ "$FOUND_BR" == "0" ]] && echo "  (none)"
+echo
+
+if [[ "$DO_IT" == "1" ]]; then
+  echo "Summary: $PRUNED pruned, $KEPT kept, $REVIEW needing manual review."
+else
+  echo "Summary: $PRUNED would be pruned, $KEPT kept, $REVIEW needing manual review."
+fi
+if [[ "$DO_IT" != "1" && "$PRUNED" -gt 0 ]]; then
+  echo "Dry run — re-run with --yes to apply."
+fi
