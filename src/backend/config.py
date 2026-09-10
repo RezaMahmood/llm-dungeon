@@ -37,9 +37,20 @@ class Config:
     LLM_OUTPUT_TOKEN_PRICE_USD = float(os.environ.get("LLM_OUTPUT_TOKEN_PRICE_USD", "0") or "0")
 
     # Overrides the per-call reasoning effort in llm_service.py for every call. Unset
-    # leaves each call at its own default; "off" omits the parameter entirely, which a
-    # non-reasoning deployment requires.
+    # leaves each call at its own default (below); "off" omits the parameter entirely,
+    # which a non-reasoning deployment requires. Takes priority over the per-call
+    # settings below when set, so it stays the fast way to disable reasoning entirely.
     LLM_REASONING_EFFORT = os.environ.get("LLM_REASONING_EFFORT", "").strip()
+
+    # Per-call reasoning effort overrides (minimal|low|medium|high|off), one per
+    # llm_service.py call site. Unset keeps that call's own hardcoded default
+    # (REASONING_EFFORT_* in llm_service.py) — set one to retune a single call's
+    # latency/quality trade-off without redeploying code or touching the others.
+    LLM_REASONING_EFFORT_WORLD_PROMPT = os.environ.get("LLM_REASONING_EFFORT_WORLD_PROMPT", "").strip()
+    LLM_REASONING_EFFORT_GENERATION = os.environ.get("LLM_REASONING_EFFORT_GENERATION", "").strip()
+    LLM_REASONING_EFFORT_STARTING_POINT = os.environ.get("LLM_REASONING_EFFORT_STARTING_POINT", "").strip()
+    LLM_REASONING_EFFORT_GAMEPLAY_TURN = os.environ.get("LLM_REASONING_EFFORT_GAMEPLAY_TURN", "").strip()
+    LLM_REASONING_EFFORT_GAMEPLAY_SUMMARY = os.environ.get("LLM_REASONING_EFFORT_GAMEPLAY_SUMMARY", "").strip()
 
     JWKS_CACHE_SECONDS = 24 * 60 * 60
 

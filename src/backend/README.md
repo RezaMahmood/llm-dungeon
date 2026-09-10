@@ -62,6 +62,7 @@ func start
 | `LLM_INPUT_TOKEN_PRICE_USD` | USD price per input token, used to compute `gen_ai.cost_usd` on every LLM call span (Constitution Principle VI) |
 | `LLM_OUTPUT_TOKEN_PRICE_USD` | USD price per output token, same purpose |
 | `LLM_REASONING_EFFORT` | Optional. Overrides the per-call reasoning effort set in `llm_service.py` (`REASONING_EFFORT_*`) for **every** call — `minimal`, `low`, `medium` or `high`. Leave unset to keep each call's own default; set to `off` to omit the parameter entirely, which a non-reasoning deployment requires. Compare `gen_ai.usage.reasoning_tokens` across the `gen_ai.*` spans when tuning |
+| `LLM_REASONING_EFFORT_WORLD_PROMPT`, `LLM_REASONING_EFFORT_GENERATION`, `LLM_REASONING_EFFORT_STARTING_POINT`, `LLM_REASONING_EFFORT_GAMEPLAY_TURN`, `LLM_REASONING_EFFORT_GAMEPLAY_SUMMARY` | Optional, one per call site. Overrides that single call's hardcoded default without affecting the others — use these to retune one call's latency/quality trade-off (e.g. drop `LLM_REASONING_EFFORT_GAMEPLAY_TURN` from its `medium` default) without a code deploy. `LLM_REASONING_EFFORT` above still wins over all of these when set |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Application Insights connection string; when set, `configure_azure_monitor()` exports OpenTelemetry spans (incl. `gen_ai.*` LLM call spans) on startup — unset locally, this step is skipped |
 
 ## Deployment
