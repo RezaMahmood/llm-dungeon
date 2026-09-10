@@ -10,11 +10,21 @@
 # This is plain, static bash -- not a Claude skill, and not something
 # Claude decides to run on its own. You run it yourself, once per
 # terminal tab/window, before Claude exists for that worktree.
+#
+# Every run is logged to .wt-logs/ in the primary checkout (gitignored):
+#   events.jsonl                 one JSON object per event, all runs
+#   run-<branch>-<run-id>.log    full transcript of one run
+# Each event carries a stable `code` (E_CONTAINER_UP, E_CLAUDE_MISSING,
+# ...) so "what kind of error is this, and has it happened before?" is
+# answerable after the terminal has scrolled away. `bin/wt --logs`
+# summarises them. Set WT_LOG_DIR to log somewhere else, or WT_NO_LOG=1
+# to turn logging off.
 set -euo pipefail
 
 usage() {
   cat <<'EOF'
 Usage: bin/wt <branch> [options]
+       bin/wt --logs [N]
 
 Ensures a git worktree for <branch> exists at .worktrees/<branch>
 (creating it from --base, or main, if it's new), brings up that
@@ -25,28 +35,40 @@ Options:
   --base=<branch>   Base branch to create <branch> from if it's new
                      (default: main). Use this when <branch> depends on
                      another spec's in-flight, already-committed work.
+                     Ignored (with a warning) if <branch> already exists.
   --shell           Exec an interactive shell instead of `claude`.
   --rebuild          Force-recreate the container (passes
                      --remove-existing-container to `devcontainer up`).
   --allow-stale      Start even when bin/wt-sync reports this worktree is
                      blocked on a constitution major-version gap. Escape
                      hatch only -- the fix is to rebase onto main.
+  --logs [N]         Print a summary of .wt-logs/events.jsonl (failure
+                     counts by error code, plus the last N events,
+                     default 20) and exit. Takes no branch.
   -h, --help         Show this help.
+
+Environment:
+  WT_LOG_DIR   Where to write logs (default: <primary checkout>/.wt-logs).
+  WT_NO_LOG=1  Disable logging entirely.
 EOF
 }
 
 BRANCH=""
 BASE="main"
+BASE_GIVEN=0
 MODE="claude"
 REBUILD=0
 ALLOW_STALE=0
+LOGS_MODE=0
+LOGS_COUNT=20
 
 for arg in "$@"; do
   case "$arg" in
-    --base=*) BASE="${arg#--base=}" ;;
+    --base=*) BASE="${arg#--base=}"; BASE_GIVEN=1 ;;
     --shell) MODE="shell" ;;
     --rebuild) REBUILD=1 ;;
     --allow-stale) ALLOW_STALE=1 ;;
+    --logs) LOGS_MODE=1 ;;
     -h|--help) usage; exit 0 ;;
     -*)
       echo "Unknown option: $arg" >&2
@@ -54,6 +76,10 @@ for arg in "$@"; do
       exit 1
       ;;
     *)
+      if [[ "$LOGS_MODE" == "1" && "$arg" =~ ^[0-9]+$ ]]; then
+        LOGS_COUNT="$arg"
+        continue
+      fi
       if [[ -n "$BRANCH" ]]; then
         echo "Only one branch may be given (got '$BRANCH' and '$arg')." >&2
         exit 1
@@ -63,24 +89,13 @@ for arg in "$@"; do
   esac
 done
 
-if [[ -z "$BRANCH" ]]; then
+if [[ "$LOGS_MODE" != "1" && -z "$BRANCH" ]]; then
   usage >&2
-  exit 1
-fi
-
-if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
-  echo "Refusing to create a worktree/container for '$BRANCH' -- it's the trunk; work never happens there." >&2
   exit 1
 fi
 
 if ! command -v git >/dev/null 2>&1; then
   echo "git is required on the host but was not found on PATH." >&2
-  exit 1
-fi
-
-DEVCONTAINER_BIN="$(command -v devcontainer || true)"
-if [[ -z "$DEVCONTAINER_BIN" ]]; then
-  echo "The devcontainer CLI was not found on PATH. Install it with: npm install -g @devcontainers/cli" >&2
   exit 1
 fi
 
@@ -98,8 +113,218 @@ case "$_common_dir" in
   /*) : ;;
   *) _common_dir="$(pwd)/$_common_dir" ;;
 esac
+# shellcheck disable=SC1007  # `CDPATH= cd` deliberately blanks CDPATH for one command.
 PRIMARY_REPO_ROOT="$(CDPATH= cd "$(dirname "$_common_dir")" && pwd -P)"
 WORKTREE_PATH="$PRIMARY_REPO_ROOT/.worktrees/$BRANCH"
+
+# =============================================================================
+# Logging
+# =============================================================================
+# Before this existed, everything bin/wt and `devcontainer up` printed went
+# to the terminal and nowhere else -- so a container that failed to build,
+# or a postCreateCommand that gave up installing `claude`, left no trace
+# once the scrollback was gone. Each event below carries a stable code so
+# recurring failures can be counted and recognised rather than re-diagnosed.
+#
+# Logging must never be the reason a session fails to start: every write is
+# best-effort, and an unwritable log directory downgrades to LOG_ENABLED=0
+# rather than aborting.
+LOG_ENABLED=1
+[[ -n "${WT_NO_LOG:-}" ]] && LOG_ENABLED=0
+LOG_DIR="${WT_LOG_DIR:-$PRIMARY_REPO_ROOT/.wt-logs}"
+EVENTS_LOG="$LOG_DIR/events.jsonl"
+RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+RUN_LOG=""
+
+if [[ "$LOG_ENABLED" == "1" ]]; then
+  if mkdir -p "$LOG_DIR" 2>/dev/null; then
+    # --logs only reads; it should not leave an empty transcript behind.
+    if [[ "$LOGS_MODE" != "1" ]]; then
+      RUN_LOG="$LOG_DIR/run-${BRANCH//\//-}-$RUN_ID.log"
+      : >"$RUN_LOG" 2>/dev/null || LOG_ENABLED=0
+    fi
+  else
+    LOG_ENABLED=0
+  fi
+fi
+
+# JSON string escaping, hand-rolled so the host needs no jq. Covers the
+# characters that actually turn up in branch names, git errors and
+# devcontainer messages; anything more exotic degrades to a literal, which
+# a reader can still make sense of.
+json_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"
+  s="${s//$'\r'/\\r}"
+  s="${s//$'\t'/\\t}"
+  printf '%s' "$s"
+}
+
+# `message` is deliberately the LAST field: it is the only one whose value
+# can contain escaped quotes, so keeping it last lets the --logs reader
+# extract every other field with a simple, unambiguous match.
+log_event() { # <level> <phase> <code> <message> [exit-code]
+  [[ "$LOG_ENABLED" == "1" ]] || return 0
+  local level="$1" phase="$2" code="$3" msg="$4" ec="${5:-null}"
+  {
+    printf '{"ts":"%s","run_id":"%s","branch":"%s","phase":"%s","level":"%s","code":"%s","exit":%s,"message":"%s"}\n' \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$RUN_ID" "$(json_escape "$BRANCH")" \
+      "$phase" "$level" "$code" "$ec" "$(json_escape "$msg")"
+  } >>"$EVENTS_LOG" 2>/dev/null || true
+}
+
+log_line() { # append one line to this run's transcript
+  [[ "$LOG_ENABLED" == "1" && -n "$RUN_LOG" ]] || return 0
+  printf '%s %s\n' "$(date -u +%H:%M:%SZ)" "$*" >>"$RUN_LOG" 2>/dev/null || true
+}
+
+say()  { printf '%s\n' "$*"; log_line "$*"; }
+warn() { printf '%s\n' "$*" >&2; log_line "$*"; }
+
+# Print every line to stderr, record them all in the transcript, log the
+# first as the event message, and stop.
+fail() { # <code> <phase> <message> [more lines...]
+  local code="$1" phase="$2" first="$3"
+  shift 2
+  local line
+  for line in "$@"; do
+    printf '%s\n' "$line" >&2
+    log_line "$line"
+  done
+  log_event error "$phase" "$code" "$first" 1
+  exit 1
+}
+
+rotate_logs() {
+  [[ "$LOG_ENABLED" == "1" ]] || return 0
+  local old lines
+  old="$(ls -1t "$LOG_DIR"/run-*.log 2>/dev/null | tail -n +51 || true)"
+  if [[ -n "$old" ]]; then
+    printf '%s\n' "$old" | while IFS= read -r f; do
+      [[ -n "$f" ]] && rm -f "$f" 2>/dev/null || true
+    done
+  fi
+  if [[ -f "$EVENTS_LOG" ]]; then
+    lines="$(wc -l <"$EVENTS_LOG" 2>/dev/null | tr -d ' ' || echo 0)"
+    if [[ "${lines:-0}" -gt 5000 ]]; then
+      tail -n 2000 "$EVENTS_LOG" >"$EVENTS_LOG.tmp" 2>/dev/null \
+        && mv "$EVENTS_LOG.tmp" "$EVENTS_LOG" 2>/dev/null || true
+    fi
+  fi
+}
+
+print_log_summary() {
+  echo "Log directory: $LOG_DIR"
+  if [[ ! -f "$EVENTS_LOG" ]]; then
+    echo "No events recorded yet — run 'bin/wt <branch>' at least once."
+    return 0
+  fi
+  echo "Runs logged:   $(ls -1 "$LOG_DIR"/run-*.log 2>/dev/null | wc -l | tr -d ' ')"
+  echo "Events:        $(wc -l <"$EVENTS_LOG" | tr -d ' ')"
+  echo
+  echo "== Problems by code (errors and warnings) =="
+  local codes
+  codes="$(grep -E '"level":"(error|warn)"' "$EVENTS_LOG" 2>/dev/null \
+             | sed -n 's/.*"code":"\([A-Z_]*\)".*/\1/p' | sort | uniq -c | sort -rn || true)"
+  if [[ -z "$codes" ]]; then
+    echo "  (none)"
+  else
+    printf '%s\n' "$codes" | sed 's/^/  /'
+  fi
+  echo
+  echo "== Last $LOGS_COUNT events =="
+  if command -v jq >/dev/null 2>&1; then
+    tail -n "$LOGS_COUNT" "$EVENTS_LOG" \
+      | jq -r '"  \(.ts)  \(.level|ascii_upcase[0:4])  \(.branch)  \(.phase)/\(.code)  \(.message)"' 2>/dev/null \
+      || tail -n "$LOGS_COUNT" "$EVENTS_LOG" | sed 's/^/  /'
+  else
+    tail -n "$LOGS_COUNT" "$EVENTS_LOG" | sed 's/^/  /'
+  fi
+  echo
+  echo "Full transcript of a run: $LOG_DIR/run-<branch>-<run-id>.log"
+}
+
+if [[ "$LOGS_MODE" == "1" ]]; then
+  print_log_summary
+  exit 0
+fi
+
+rotate_logs
+log_event info start OK_START "bin/wt $* (mode=$MODE rebuild=$REBUILD)" 0
+log_line "primary checkout: $PRIMARY_REPO_ROOT"
+log_line "worktree path:    $WORKTREE_PATH"
+
+# =============================================================================
+# Teardown
+# =============================================================================
+# Stop (not remove) this worktree's container once the session inside it
+# ends, to free CPU/RAM -- caches and any uncommitted worktree state are
+# preserved, so the next `bin/wt <branch>` resumes quickly. This has to
+# happen out here on the host, after `devcontainer exec` returns: a
+# container cannot reliably stop itself from a hook running inside it.
+#
+# It runs from an EXIT/INT/TERM trap rather than as the last statement, so
+# a `devcontainer up` that fails half-way, or a Ctrl-C during the session,
+# no longer leaves a container running with nothing attached to it. The
+# CONTAINER_STARTED guard means an early refusal (a branch/path mismatch,
+# say) never stops a container this run did not start -- which matters if
+# another terminal happens to have the same worktree open.
+CONTAINER_STARTED=0
+
+stop_container() {
+  local ids
+  ids="$(docker ps -q --filter "label=devcontainer.local_folder=$WORKTREE_PATH" 2>/dev/null || true)"
+  [[ -z "$ids" ]] && return 0
+  say "Stopping container for worktree '$BRANCH'..."
+  # ids is a newline-separated list of container ids, intentionally split.
+  # shellcheck disable=SC2086
+  if docker stop $ids >/dev/null 2>&1; then
+    log_event info teardown OK_TEARDOWN "stopped container(s) for $WORKTREE_PATH" 0
+  else
+    warn "Could not stop the container for '$BRANCH'. Stop it by hand: docker stop $(printf '%s' "$ids" | tr '\n' ' ')"
+    log_event warn teardown E_TEARDOWN "docker stop failed for $WORKTREE_PATH" 1
+  fi
+}
+
+on_exit() {
+  local rc=$?
+  trap - EXIT INT TERM
+  [[ "$CONTAINER_STARTED" == "1" ]] && stop_container
+  log_line "bin/wt exiting with status $rc"
+  exit "$rc"
+}
+trap on_exit EXIT INT TERM
+
+# =============================================================================
+# Preflight
+# =============================================================================
+if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
+  fail E_TRUNK_BRANCH preflight \
+    "Refusing to create a worktree/container for '$BRANCH' -- it's the trunk; work never happens there."
+fi
+
+if ! command -v devcontainer >/dev/null 2>&1; then
+  fail E_NO_DEVCONTAINER_CLI preflight \
+    "The devcontainer CLI was not found on PATH." \
+    "Install it with: npm install -g @devcontainers/cli"
+fi
+
+if ! command -v docker >/dev/null 2>&1; then
+  fail E_NO_DOCKER_CLI preflight \
+    "The docker CLI was not found on PATH -- the devcontainer CLI cannot work without it."
+fi
+
+# `devcontainer up` fails with a raw, hard-to-read docker error when the
+# daemon is simply not running (Docker Desktop asleep, most often). Say so
+# in one line instead, and record it as its own code so a run of
+# "errors starting a session" that is really just a stopped daemon is
+# obvious in `bin/wt --logs`.
+if ! docker info >/dev/null 2>&1; then
+  fail E_DOCKER_DOWN preflight \
+    "No reachable Docker daemon. Start Docker Desktop (or your docker engine) and try again."
+fi
 
 cd "$PRIMARY_REPO_ROOT"
 
@@ -135,47 +360,63 @@ done < <(git worktree list --porcelain)
 _record_worktree
 
 if [[ -n "$REGISTERED_PATH_FOR_BRANCH" && "$REGISTERED_PATH_FOR_BRANCH" != "$WORKTREE_PATH" ]]; then
-  echo "Branch '$BRANCH' is already checked out at '$REGISTERED_PATH_FOR_BRANCH', not at the expected '$WORKTREE_PATH'." >&2
-  echo "Directory name and branch name must match. Move it, then re-run:" >&2
-  echo "  git worktree move '$REGISTERED_PATH_FOR_BRANCH' '$WORKTREE_PATH'" >&2
-  echo "(A container started for the old path keeps its old WORKTREE_CONTAINER value; run 'bin/wt $BRANCH --rebuild' after moving.)" >&2
-  exit 1
+  fail E_BRANCH_PATH_MISMATCH worktree \
+    "Branch '$BRANCH' is already checked out at '$REGISTERED_PATH_FOR_BRANCH', not at the expected '$WORKTREE_PATH'." \
+    "Directory name and branch name must match. Move it, then re-run:" \
+    "  git worktree move '$REGISTERED_PATH_FOR_BRANCH' '$WORKTREE_PATH'" \
+    "(A container started for the old path keeps its old WORKTREE_CONTAINER value; run 'bin/wt $BRANCH --rebuild' after moving.)"
 fi
 
 if [[ "$WORKTREE_REGISTERED_AT_TARGET" == "1" && -z "$BRANCH_AT_TARGET_PATH" ]]; then
-  echo "'$WORKTREE_PATH' is a registered worktree but its HEAD is detached, so it is not on '$BRANCH'." >&2
-  echo "Put it back on its branch before starting a session there:" >&2
-  echo "  git -C '$WORKTREE_PATH' switch '$BRANCH'" >&2
-  exit 1
+  fail E_WORKTREE_DETACHED worktree \
+    "'$WORKTREE_PATH' is a registered worktree but its HEAD is detached, so it is not on '$BRANCH'." \
+    "Put it back on its branch before starting a session there:" \
+    "  git -C '$WORKTREE_PATH' switch '$BRANCH'"
 fi
 
 if [[ -n "$BRANCH_AT_TARGET_PATH" && "$BRANCH_AT_TARGET_PATH" != "$BRANCH" ]]; then
-  echo "'$WORKTREE_PATH' is a registered worktree, but it is on branch '$BRANCH_AT_TARGET_PATH', not '$BRANCH'." >&2
-  echo "Directory name and branch name must match. Either switch that worktree back:" >&2
-  echo "  git -C '$WORKTREE_PATH' switch '$BRANCH'" >&2
-  echo "or move it to '$PRIMARY_REPO_ROOT/.worktrees/$BRANCH_AT_TARGET_PATH' and re-run." >&2
-  exit 1
+  fail E_PATH_BRANCH_MISMATCH worktree \
+    "'$WORKTREE_PATH' is a registered worktree, but it is on branch '$BRANCH_AT_TARGET_PATH', not '$BRANCH'." \
+    "Directory name and branch name must match. Either switch that worktree back:" \
+    "  git -C '$WORKTREE_PATH' switch '$BRANCH'" \
+    "or move it to '$PRIMARY_REPO_ROOT/.worktrees/$BRANCH_AT_TARGET_PATH' and re-run."
 fi
 
 # --- Ensure the worktree exists --------------------------------------------
 if [[ "$WORKTREE_REGISTERED_AT_TARGET" == "1" ]]; then
-  echo "Worktree already registered at $WORKTREE_PATH."
+  say "Worktree already registered at $WORKTREE_PATH."
+  log_event info worktree OK_WORKTREE_EXISTS "resumed existing worktree" 0
+  # --base only ever applies when the branch is being created. Saying so
+  # beats silently ignoring it, which read as "wt used the wrong base".
+  if [[ "$BASE_GIVEN" == "1" ]]; then
+    warn "Note: --base=$BASE ignored -- '$BRANCH' already exists. Rebase it yourself if you meant to move it onto '$BASE'."
+    log_event warn worktree W_BASE_IGNORED "--base=$BASE ignored; branch already exists" 0
+  fi
 elif [[ -e "$WORKTREE_PATH" ]]; then
-  echo "'$WORKTREE_PATH' exists but is not a registered git worktree -- not touching it. Resolve manually (see if it's stale)." >&2
-  exit 1
+  fail E_PATH_OCCUPIED worktree \
+    "'$WORKTREE_PATH' exists but is not a registered git worktree -- not touching it. Resolve manually (see if it's stale)."
 elif git show-ref --verify --quiet "refs/heads/$BRANCH"; then
-  echo "Creating worktree for existing local branch '$BRANCH'..."
-  git worktree add --relative-paths "$WORKTREE_PATH" "$BRANCH"
+  say "Creating worktree for existing local branch '$BRANCH'..."
+  if ! git worktree add --relative-paths "$WORKTREE_PATH" "$BRANCH" 2>&1 | tee -a "${RUN_LOG:-/dev/null}"; then
+    fail E_WORKTREE_ADD worktree "git worktree add failed for existing branch '$BRANCH'."
+  fi
+  log_event info worktree OK_WORKTREE_CREATED "created worktree from local branch" 0
 elif git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
-  echo "Creating worktree tracking 'origin/$BRANCH'..."
-  git worktree add --relative-paths "$WORKTREE_PATH" -b "$BRANCH" "origin/$BRANCH"
+  say "Creating worktree tracking 'origin/$BRANCH'..."
+  if ! git worktree add --relative-paths "$WORKTREE_PATH" -b "$BRANCH" "origin/$BRANCH" 2>&1 | tee -a "${RUN_LOG:-/dev/null}"; then
+    fail E_WORKTREE_ADD worktree "git worktree add failed tracking 'origin/$BRANCH'."
+  fi
+  log_event info worktree OK_WORKTREE_CREATED "created worktree tracking origin/$BRANCH" 0
 else
   if ! git show-ref --verify --quiet "refs/heads/$BASE"; then
-    echo "Base branch '$BASE' does not exist locally -- cannot branch '$BRANCH' from it." >&2
-    exit 1
+    fail E_BASE_MISSING worktree \
+      "Base branch '$BASE' does not exist locally -- cannot branch '$BRANCH' from it."
   fi
-  echo "Creating new branch '$BRANCH' from '$BASE'..."
-  git worktree add --relative-paths "$WORKTREE_PATH" -b "$BRANCH" "$BASE"
+  say "Creating new branch '$BRANCH' from '$BASE'..."
+  if ! git worktree add --relative-paths "$WORKTREE_PATH" -b "$BRANCH" "$BASE" 2>&1 | tee -a "${RUN_LOG:-/dev/null}"; then
+    fail E_WORKTREE_ADD worktree "git worktree add failed creating '$BRANCH' from '$BASE'."
+  fi
+  log_event info worktree OK_WORKTREE_CREATED "created branch $BRANCH from $BASE" 0
 fi
 
 # Bootstrap .specify/feature.json the same way speckit-branch-ensure does,
@@ -193,14 +434,17 @@ fi
 SYNC_SCRIPT="$PRIMARY_REPO_ROOT/bin/wt-sync"
 if [[ -x "$SYNC_SCRIPT" ]]; then
   set +e
-  "$SYNC_SCRIPT" "$BRANCH"
-  SYNC_EXIT=$?
+  "$SYNC_SCRIPT" "$BRANCH" 2>&1 | tee -a "${RUN_LOG:-/dev/null}"
+  SYNC_EXIT="${PIPESTATUS[0]}"
   set -e
-  if [[ "$SYNC_EXIT" == "2" && "$ALLOW_STALE" != "1" ]]; then
-    echo "Refusing to start '$BRANCH': its constitution is a major version behind (see above)." >&2
-    echo "Rebase it onto main first:  git -C '$WORKTREE_PATH' rebase origin/main" >&2
-    echo "Or, if you know what you are doing:  bin/wt $BRANCH --allow-stale" >&2
-    exit 1
+  if [[ "$SYNC_EXIT" == "2" ]]; then
+    if [[ "$ALLOW_STALE" != "1" ]]; then
+      fail E_STALE_CONSTITUTION sync \
+        "Refusing to start '$BRANCH': its constitution is a major version behind (see above)." \
+        "Rebase it onto main first:  git -C '$WORKTREE_PATH' rebase origin/main" \
+        "Or, if you know what you are doing:  bin/wt $BRANCH --allow-stale"
+    fi
+    log_event warn sync W_STALE_OVERRIDDEN "constitution major-version gap overridden by --allow-stale" 0
   fi
 fi
 
@@ -219,8 +463,41 @@ UP_ARGS=(
 )
 [[ "$REBUILD" == "1" ]] && UP_ARGS+=(--remove-existing-container)
 
-echo "Bringing up container for worktree '$BRANCH'..."
-devcontainer "${UP_ARGS[@]}"
+say "Bringing up container for worktree '$BRANCH'..."
+
+# The devcontainer CLI streams its build/feature/postCreate progress to
+# stderr and prints a single JSON result object to stdout. Keep stderr live
+# (a first build takes minutes -- a silent one looks hung) while teeing it
+# into the run log, and capture stdout so the outcome can be recorded
+# rather than just flashing past.
+UP_STDOUT="$(mktemp)"
+set +e
+if [[ -n "$RUN_LOG" ]]; then
+  devcontainer "${UP_ARGS[@]}" >"$UP_STDOUT" 2> >(tee -a "$RUN_LOG" >&2)
+else
+  devcontainer "${UP_ARGS[@]}" >"$UP_STDOUT"
+fi
+UP_EXIT=$?
+set -e
+if [[ -n "$RUN_LOG" ]]; then cat "$UP_STDOUT" >>"$RUN_LOG" 2>/dev/null || true; fi
+
+UP_OUTCOME="$(sed -n 's/.*"outcome":"\([a-z]*\)".*/\1/p' "$UP_STDOUT" | tail -1)"
+UP_MESSAGE="$(sed -n 's/.*"message":"\([^"]*\)".*/\1/p' "$UP_STDOUT" | tail -1)"
+UP_DESCRIPTION="$(sed -n 's/.*"description":"\([^"]*\)".*/\1/p' "$UP_STDOUT" | tail -1)"
+rm -f "$UP_STDOUT"
+
+if [[ "$UP_EXIT" != "0" || "$UP_OUTCOME" == "error" ]]; then
+  CONTAINER_STARTED=1  # `up` may have started something before failing; clean it up.
+  UP_REPORT=("devcontainer up failed for '$BRANCH' (exit $UP_EXIT${UP_OUTCOME:+, outcome=$UP_OUTCOME}).")
+  [[ -n "$UP_MESSAGE" ]] && UP_REPORT+=("$UP_MESSAGE")
+  [[ -n "$UP_DESCRIPTION" ]] && UP_REPORT+=("$UP_DESCRIPTION")
+  UP_REPORT+=("Full output: ${RUN_LOG:-<logging disabled>}")
+  UP_REPORT+=("If the container itself is wedged, recreate it: bin/wt $BRANCH --rebuild")
+  fail E_CONTAINER_UP up "${UP_REPORT[@]}"
+fi
+
+CONTAINER_STARTED=1
+log_event info up OK_CONTAINER_UP "container up (outcome=${UP_OUTCOME:-unknown})" 0
 
 EXEC_ARGS=(
   exec
@@ -228,6 +505,36 @@ EXEC_ARGS=(
   --mount-git-worktree-common-dir
   --remote-env "WORKTREE_CONTAINER=$BRANCH"
 )
+
+# --- Is `claude` actually installed in there? -------------------------------
+# postCreateCommand (.devcontainer/post-create.sh) is what installs uv and
+# the Claude Code CLI, and it runs ONCE, at container creation. If it fails
+# -- its retry loop gives up after three attempts, and a full Docker VM
+# disk has done exactly that here before -- the container still exists, so
+# every later `devcontainer up` *resumes* it and never re-runs postCreate.
+# The old behaviour was to exec `claude` anyway and surface whatever the
+# CLI said, identically, on every single run, with nothing pointing at the
+# real cause or at --rebuild as the fix.
+#
+# Probing with a login shell matches how the binary is found in practice:
+# it lives in ~/.local/bin, which reaches PATH through the conditional
+# snippet in ~/.profile. Only a probe that *ran* and came back empty is
+# treated as proof of absence -- if the probe itself could not run, fall
+# through and let the real exec produce the real error.
+if [[ "$MODE" == "claude" ]]; then
+  set +e
+  PROBE_OUT="$(devcontainer "${EXEC_ARGS[@]}" -- bash -lc 'command -v claude' 2>/dev/null)"
+  PROBE_EXIT=$?
+  set -e
+  if [[ "$PROBE_EXIT" == "0" && -z "${PROBE_OUT//[[:space:]]/}" ]]; then
+    fail E_CLAUDE_MISSING probe \
+      "'claude' is not installed in the container for '$BRANCH'." \
+      "postCreateCommand (.devcontainer/post-create.sh) installs it, and only runs at container creation --" \
+      "so a failure there is permanent until the container is recreated:" \
+      "  bin/wt $BRANCH --rebuild"
+  fi
+  log_line "probe: claude at ${PROBE_OUT:-<probe could not run>}"
+fi
 
 set +e
 case "$MODE" in
@@ -237,15 +544,13 @@ esac
 SESSION_EXIT=$?
 set -e
 
-# Stop (not remove) this worktree's container once the session inside it
-# ends, to free CPU/RAM -- caches and any uncommitted worktree state are
-# preserved, so the next `bin/wt <branch>` resumes quickly. This has to
-# happen out here on the host, after `devcontainer exec` returns: a
-# container cannot reliably stop itself from a hook running inside it.
-CONTAINER_ID="$(docker ps -q --filter "label=devcontainer.local_folder=$WORKTREE_PATH" 2>/dev/null || true)"
-if [[ -n "$CONTAINER_ID" ]]; then
-  echo "Session ended -- stopping container for worktree '$BRANCH'..."
-  docker stop "$CONTAINER_ID" >/dev/null 2>&1 || true
+# A non-zero exit is normal for an interrupted session, so this is recorded
+# and not treated as a failure of bin/wt itself -- but it is recorded, so a
+# session that dies immediately on every start is visible in --logs.
+if [[ "$SESSION_EXIT" == "0" ]]; then
+  log_event info session OK_SESSION_END "session ended cleanly" 0
+else
+  log_event warn session E_SESSION_NONZERO "session ($MODE) exited with status $SESSION_EXIT" "$SESSION_EXIT"
 fi
 
 exit "$SESSION_EXIT"

@@ -163,12 +163,20 @@ expect_equal "main" "$(branch_of "$repo")" "and the primary checkout is untouche
 
 echo
 echo "bin/wt* — argument handling and refusals"
+# bin/wt writes its run log to <primary checkout>/.wt-logs by default. Point
+# it at a throwaway directory so exercising the refusals here never appends
+# to the real repository's diagnostics.
+WT_TEST_LOGS="$WORKDIR/wt-logs"
+export WT_LOG_DIR="$WT_TEST_LOGS"
+
 "$REPO_ROOT/bin/wt" --help >/dev/null 2>&1
 expect_status 0 $? "bin/wt --help"
 "$REPO_ROOT/bin/wt" main >/dev/null 2>&1
 expect_status 1 $? "bin/wt refuses to make a worktree for the trunk"
 "$REPO_ROOT/bin/wt" >/dev/null 2>&1
 expect_status 1 $? "bin/wt with no branch"
+"$REPO_ROOT/bin/wt" --nonsense >/dev/null 2>&1
+expect_status 1 $? "bin/wt rejects unknown options"
 
 "$REPO_ROOT/bin/wt-prune" --help >/dev/null 2>&1
 expect_status 0 $? "bin/wt-prune --help"
@@ -242,6 +250,63 @@ expect_status 0 $? "after rebasing onto the ref, nothing blocks"
 repo="$(new_repo sync-empty)"
 ( cd "$repo" && "$REPO_ROOT/bin/wt-sync" --ref=main >/dev/null 2>&1 )
 expect_status 0 $? "no worktrees at all"
+
+echo
+echo "bin/wt — run logging"
+# The whole point of the log is to still be readable after the terminal has
+# scrolled away, so these assert on the file, not on what was printed.
+expect_equal "yes" "$([ -f "$WT_TEST_LOGS/events.jsonl" ] && echo yes || echo no)" \
+  "a refused run still records an event"
+
+case "$(cat "$WT_TEST_LOGS/events.jsonl")" in
+  *'"code":"E_TRUNK_BRANCH"'*) ok "the trunk refusal is recorded under its own error code" ;;
+  *) bad "expected E_TRUNK_BRANCH in events.jsonl" ;;
+esac
+
+case "$(cat "$WT_TEST_LOGS/events.jsonl")" in
+  *'"code":"OK_START"'*) ok "each run records where it started" ;;
+  *) bad "expected OK_START in events.jsonl" ;;
+esac
+
+# Every line must be a self-contained JSON object: the file is append-only
+# from several runs at once, so anything else makes the whole log unreadable.
+if command -v jq >/dev/null 2>&1; then
+  if jq -e -c . "$WT_TEST_LOGS/events.jsonl" >/dev/null 2>&1; then
+    ok "every events.jsonl line is valid JSON"
+  else
+    bad "events.jsonl contains a line that is not valid JSON"
+  fi
+else
+  ok "events.jsonl JSON validity (skipped — no jq)"
+fi
+
+# A branch name with a slash must not create a directory inside the log dir.
+expect_equal "0" "$(find "$WT_TEST_LOGS" -mindepth 2 -type f 2>/dev/null | wc -l | tr -d " ")" \
+  "run transcripts stay flat (branch slashes are slugged, not nested)"
+
+"$REPO_ROOT/bin/wt" --logs >/dev/null 2>&1
+expect_status 0 $? "bin/wt --logs summarises without needing a branch"
+
+out="$("$REPO_ROOT/bin/wt" --logs 2>&1)"
+case "$out" in
+  *E_TRUNK_BRANCH*) ok "--logs groups past failures by error code" ;;
+  *) bad "expected E_TRUNK_BRANCH in the --logs summary: $out" ;;
+esac
+
+WT_NO_LOG_DIR="$WORKDIR/wt-logs-disabled"
+WT_NO_LOG=1 WT_LOG_DIR="$WT_NO_LOG_DIR" "$REPO_ROOT/bin/wt" main >/dev/null 2>&1
+expect_equal "no" "$([ -d "$WT_NO_LOG_DIR" ] && echo yes || echo no)" \
+  "WT_NO_LOG=1 writes nothing at all"
+
+# Logging is a diagnostic, never a gate: an unwritable log directory must
+# not be the reason a session refuses to start.
+out="$(WT_LOG_DIR=/dev/null/nope "$REPO_ROOT/bin/wt" main 2>&1)"
+case "$out" in
+  *"it's the trunk"*) ok "an unwritable log directory degrades quietly" ;;
+  *) bad "expected the normal trunk refusal with an unwritable log dir: $out" ;;
+esac
+
+unset WT_LOG_DIR
 
 echo
 echo "$passes passed, $failures failed"
