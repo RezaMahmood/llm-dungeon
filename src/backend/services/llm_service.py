@@ -101,12 +101,15 @@ MAX_NARRATIVE_WORDS = 150
 
 # Reasoning effort per call, set against what each call has to work out. The gameplay turn
 # judges whether the player's action satisfied a completion condition and that verdict is
-# persisted, so it keeps the API's default; the others expand or condense prose.
-REASONING_EFFORT_WORLD_PROMPT = "minimal"
-REASONING_EFFORT_GENERATION = "low"
-REASONING_EFFORT_STARTING_POINT = "low"
-REASONING_EFFORT_GAMEPLAY_TURN = "medium"
-REASONING_EFFORT_GAMEPLAY_SUMMARY = "minimal"
+# persisted, so it keeps the API's default; the others expand or condense prose. Each is
+# individually overridable via its own LLM_REASONING_EFFORT_* app setting (config.py) so a
+# single call's latency/quality trade-off can be retuned without a code deploy; the blanket
+# LLM_REASONING_EFFORT setting still wins over all of these when set (_resolve_reasoning_effort).
+REASONING_EFFORT_WORLD_PROMPT = config.LLM_REASONING_EFFORT_WORLD_PROMPT or "minimal"
+REASONING_EFFORT_GENERATION = config.LLM_REASONING_EFFORT_GENERATION or "low"
+REASONING_EFFORT_STARTING_POINT = config.LLM_REASONING_EFFORT_STARTING_POINT or "low"
+REASONING_EFFORT_GAMEPLAY_TURN = config.LLM_REASONING_EFFORT_GAMEPLAY_TURN or "medium"
+REASONING_EFFORT_GAMEPLAY_SUMMARY = config.LLM_REASONING_EFFORT_GAMEPLAY_SUMMARY or "minimal"
 
 # config.LLM_REASONING_EFFORT set to this omits the parameter, for a model that rejects it.
 REASONING_EFFORT_OFF = "off"
