@@ -1,285 +1,44 @@
 <!--
 Sync Impact Report
-Version change: 6.0.0 -> 6.1.0
-Modified principles: none - no principle's text, name, or normative force changes.
-Added principles: none
-Removed principles: none
-Added sections: none
-Modified sections:
-  - Development Workflow & Quality Gates - four changes. (1) The bullet requiring
-    "code review by at least one other contributor" is replaced by one describing the
-    review pass this project actually has: Principle XIII's `/code-review` skill, at a
-    tier chosen by an explicit triage rule, with a floor requiring the deepest tier for
-    blast-radius changes (auth/secrets/permissions, CI/CD, deploy, infrastructure,
-    persisted-data schema, release machinery, governance files). The old bullet
-    contradicted Principle XIII, which since v5.0.0 has said the GitHub-side pass
-    produces no approving review and that the requesting user merges; it also
-    contradicted the repository ruleset, which requires zero approving reviews. This is
-    a correction of an internal contradiction, not a change of policy: a pull request
-    that satisfied Principle XIII already satisfies the replacement, so it is MINOR
-    rather than MAJOR. (2) A new bullet requires a pull request description to carry the
-    account of the change (problem and evidence, decisions, what was actually tested and
-    what it returned, what is left undone, recommended review tier) and forbids claiming
-    unrun checks, unmeasured numbers, or an approving review; the full contract lives in
-    CLAUDE.md. (3) The worktree bullet is scoped: spec/feature work (a branch with a
-    matching specs/<branch>/ folder) MUST still run in its own worktree devcontainer,
-    while branch work carrying no spec folder MAY run in the primary checkout, which is
-    where the concurrent-spec cross-contamination the rule exists to prevent cannot
-    arise. Such a session must still be on a branch, must not reach into .worktrees/,
-    and leaves the checkout on main. No work of either kind happens on main. (4) New
-    bullets record the worktree lifecycle established by issue #293(b): directory name
-    must equal branch name; pruning is driven by GitHub's record of the pull request
-    rather than git ancestry, because squash merges make every ancestry test report
-    merged work as unmerged; pruning never touches dirty worktrees or branches without a
-    merged pull request; and a worktree whose constitution is a MAJOR version behind
-    origin/main must not be worked in until rebased, with lesser bootstrap drift warned
-    rather than blocked.
-  - AI Agent / GitHub Handoff Requirements - the merge prohibition is made explicit
-    about route: auto-merge, `gh api --method PUT .../merge` and a GraphQL
-    `mergePullRequest` mutation are prohibited on the same footing as `gh pr merge`,
-    and the rule holds regardless of what a tool's configuration permits. This
-    clarifies rather than extends the existing prohibition.
-Source: issue #293 part (c) - governance docs. Parts (a) (PR #294) and (b) (PR #295)
-  are merged; this amendment records what they established and removes the
-  contradictions the issue's audit found between the written rules and the executable
-  ones.
-Templates requiring follow-up: none - CLAUDE.md (restructured, with the new PR content
-  contract and review-triage table), CONTRIBUTING.md (realigned) and
-  `.github/skills/repo-constitution-review/SKILL.md` are updated in the same pull
-  request as this amendment.
-Deferred/TODO placeholders: none.
-
-Previous report (5.0.0 -> 6.0.0)
-Version change: 5.0.0 -> 6.0.0
+Version change: 6.1.0 -> 6.2.0
 Modified principles:
-  - XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, CodeRabbit Reviews,
-    Human Merges (NON-NEGOTIABLE) -> XIII. AI Agent Division of Labor: Local LLM Pushes
-    & Opens PRs, Claude Code Review Skill Reviews, Human Merges (NON-NEGOTIABLE) -
-    CodeRabbit is removed; the GitHub-side review pass is now performed via Claude
-    Code's `/code-review` skill (`/code-review ultra <PR#>` for a full multi-agent
-    cloud review posted to the PR). Unlike CodeRabbit, this review is not automatic on
-    push - it is triggered explicitly by the requesting user, or by Claude Code when
-    asked, before merge. The division of labor is otherwise UNCHANGED: the local AI
-    agent still pushes and opens the pull request, the reviewer still posts findings
-    without a formal approving review, and the requesting user or product owner still
-    merges manually. The prohibitions on a local AI agent merging a pull request or
-    enabling auto-merge, and the conditions under which it may close an issue, are
-    UNCHANGED and stay non-negotiable. Backward-incompatible: a NON-NEGOTIABLE
-    principle names a different required actor and review trigger, so a pull request
-    reviewed under the old rule does not satisfy the new one, hence MAJOR.
-Added principles: none
-Removed principles: none
-Added sections: none
-Modified sections:
-  - AI Agent / GitHub Handoff Requirements - the post-push review bullet and the
-    exception bullet name Claude Code's `/code-review` skill instead of CodeRabbit,
-    and note the review is user-triggered rather than automatic.
-  - Development Workflow & Quality Gates - the bullet summarizing the AI agent
-    push/PR/review/merge flow names the `/code-review` skill as the reviewer.
-Removed sections: none
-Source: direct user instruction (2026-09-09) - CodeRabbit did not fit the requesting
-  user's workflow and is removed from the repository and from GitHub; Claude Code's own
-  `/code-review` skill takes over the GitHub-side review pass instead.
-Templates requiring follow-up: none - CLAUDE.md's mirrored Git / PR workflow rules,
-  `.github/skills/repo-constitution-review/SKILL.md`, and `.coderabbit.yaml` (deleted)
-  are updated in the same pull request as this amendment.
+  - XIII renamed: "AI Agent Division of Labor: Local LLM Pushes & Opens PRs, Claude Code
+    Review Skill Reviews, Human Merges (NON-NEGOTIABLE)" -> "AI Agent Division of Labor:
+    Agents Push & Open PRs, Humans Merge (NON-NEGOTIABLE)". Same actors, same rules; the
+    title no longer restates the body.
+  - No principle is added, removed, or changed in normative force. Every MUST, MUST NOT,
+    and MAY in v6.1.0 survives; the document is rewritten for concision and precision.
+Added sections: none. Removed sections: none. All headings and principle numbers are
+  unchanged, so external references (CLAUDE.md, CONTRIBUTING.md, README.md,
+  .github/skills/repo-constitution-review/SKILL.md) still resolve.
+Editorial changes:
+  - The file drops from 1076 to ~470 lines. Roughly half of that is the Sync Impact
+    Report block, which had accumulated every prior amendment's report (283 lines);
+    it now carries only the current amendment, per Principle XIV.
+  - Duplication removed: rules that appeared in a principle, again in a requirements
+    section, and again in Development Workflow & Quality Gates are now stated once, in
+    the section that owns them, with a cross-reference from the others. Affected:
+    Managed Identity / Private Endpoints (VII vs Security), PII surfaces (X vs PII),
+    LTS majors (III vs Dependency), local stubs (I vs Environments), and the AI agent
+    push/review/merge flow (XIII vs AI Agent Handoff vs Workflow). Principle XIII also
+    stated its own auto-merge prohibition twice.
+  - Rationales are cut to the reason a rule exists. Narrative recording how a decision
+    was reached or reversed is removed, per Principle XIV, which the document was
+    violating: the 003-account-provisioning test-count story (IX), the account of
+    auto-merge being dropped (XIII), and the note about what Principle XI's earlier
+    version required.
+Precision (the only changes that alter what review enforces, hence MINOR not PATCH):
+  - Readability rule 1: "a minimum comfortable reading size" -> at or above the design
+    system's body size, with its line-height or greater.
+  - Readability rule 2: the unmeasurable "minimum legible size" clause is dropped; the
+    measurable rule it duplicated (a label below body size MUST be uppercase with
+    letter-spacing) remains.
+  - Readability rule 3: "a minimum size in their shorter dimension" -> 24x24 CSS px
+    (WCAG 2.5.8 AA), matching the WCAG AA basis the Accessibility section already uses.
+  - Layout rule 4: "a defined minimum viewport width" -> 320 px, the floor already
+    recorded in specs/002-login-and-access-control-done/plan.md.
 Deferred/TODO placeholders: none.
-
-Previous report (4.0.0 -> 5.0.0)
-Modified principles:
-  - XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, GitHub Copilot
-    Reviews, Human Merges (NON-NEGOTIABLE) -> XIII. AI Agent Division of Labor: Local
-    LLM Pushes & Opens PRs, CodeRabbit Reviews, Human Merges (NON-NEGOTIABLE) -
-    CodeRabbit replaces GitHub Copilot as the GitHub-side automated review pass. The
-    division of labor is otherwise UNCHANGED: the local AI agent still pushes and opens
-    the pull request, the automated reviewer still posts findings without a formal
-    approving review, and the requesting user or product owner still merges manually.
-    The prohibitions on a local AI agent merging a pull request or enabling auto-merge,
-    and the conditions under which it may close an issue, are UNCHANGED and stay
-    non-negotiable. Backward-incompatible: a NON-NEGOTIABLE principle names a different
-    required actor, so a pull request reviewed under the old rule does not satisfy the
-    new one, hence MAJOR.
-Added principles: none
-Removed principles: none
-Added sections: none
-Modified sections:
-  - AI Agent / GitHub Handoff Requirements - the post-push review bullet and the
-    exception bullet name CodeRabbit instead of GitHub Copilot.
-  - Development Workflow & Quality Gates - the bullet summarizing the AI agent
-    push/PR/review/merge flow names CodeRabbit as the reviewer.
-Removed sections: none
-Source: direct user instruction (2026-09-09) - GitHub Copilot no longer reviews code on
-  this repository. CodeRabbit was installed and configured via `.coderabbit.yaml`, and
-  the `copilot_code_review` rule was removed from the `main` branch ruleset.
-Templates requiring follow-up: none - CLAUDE.md's mirrored Git / PR workflow rules and
-  `.github/skills/repo-constitution-review/SKILL.md` are updated, and
-  `.github/copilot-instructions.md` is deleted, in the same pull request as this
-  amendment.
-Deferred/TODO placeholders: none.
-
-Previous report (3.1.0 -> 4.0.0)
-Modified principles:
-  - XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, GitHub Copilot
-    Reviews, Human Merges (NON-NEGOTIABLE) - a local AI agent MAY now close a GitHub
-    issue directly (e.g. `gh issue close`), where the requesting user has asked it to
-    close that issue and the agent has verified the resolving work is merged to
-    `origin/main`. Closing on its own initiative, or on unmerged work, remains
-    prohibited. The prohibition on a local AI agent merging a pull request or enabling
-    auto-merge is UNCHANGED and stays non-negotiable. Backward-incompatible: this
-    withdraws a previously NON-NEGOTIABLE restriction, hence MAJOR.
-Added principles: none
-Removed principles: none
-Added sections: none
-Modified sections:
-  - AI Agent / GitHub Handoff Requirements - the "MUST NOT merge a pull request or close
-    a GitHub issue" bullet now covers merging only; a new bullet states the two
-    conditions under which an agent may close an issue and requires it to state what it
-    verified. The "This division applies to GitHub-hosted actions only" bullet notes the
-    close/merge asymmetry.
-  - Development Workflow & Quality Gates - the bullet summarizing the AI agent
-    push/PR/review/merge flow notes that the agent may close the originating issue on
-    request once the merge is on `origin/main`.
-Removed sections: none
-Source: direct user instruction (2026-09-08), prompted by issue #227: its fix had
-  already merged in PR #276, the agent verified that and declined to close the issue
-  under the then-current rule, and the user judged the restriction wrong for a close that
-  only records an already-merged, already-reviewed decision.
-Templates requiring follow-up: CLAUDE.md carries a mirrored copy of this rule (Git / PR
-  workflow section); that edit lands in the same pull request as this amendment, so there
-  is no outstanding follow-up.
-Deferred/TODO placeholders: none.
-
-Previous report (3.0.0 -> 3.1.0)
-Modified principles: none
-Added principles: XIV. Spec Artifacts and Code Stay Clean — Git Is the History
-Removed principles: none
-Added sections: none
-Modified sections: none
-Source: direct user instruction (2026-09-07) — spec artifacts (spec/plan/research/
-  tasks/etc.) and source code comments must rely on git history rather than in-file
-  narrative; a short line of current rationale is fine, but multi-line narrative
-  explaining why a decision was made or reversed is not, and a superseding decision
-  overwrites the old one with a very short note instead of retaining the old
-  explanation. Extends the same restraint to code comments: no narrating what code
-  does, no restating spec-documented behavior, no changelog-in-comments. Additive-only
-  new principle, hence MINOR. This amendment was authored in parallel with the
-  2.3.0 -> 3.0.0 amendment below on a separate branch and is folded in here, on top of
-  3.0.0, now that this branch has caught up with `origin/main`.
-Templates requiring follow-up: none - dependent templates read this file at runtime and
-  are not modified by this command.
-Deferred/TODO placeholders: none.
-
-Previous report (2.3.0 -> 3.0.0)
-Modified principles:
-  - XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, GitHub Copilot
-    Reviews, Human Merges (NON-NEGOTIABLE) - removed the requirement that GitHub issue
-    resolution (bug reports, dependency-update issues, and fixes) MUST be performed via
-    GitHub Copilot. A local AI agent MAY now resolve an issue end-to-end - writing the
-    fix, pushing the branch, and opening the pull request - the same as any other local
-    development work; GitHub Copilot's role is the PR review pass, not a required
-    intermediary for issue resolution. The narrower prohibition on a local AI agent
-    itself merging a pull request or closing a GitHub issue (a GitHub-side action,
-    distinct from writing the fix) is unchanged. Backward-incompatible: this withdraws a
-    previously NON-NEGOTIABLE restriction, hence MAJOR.
-Added principles: none
-Removed principles: none
-Added sections: none
-Modified sections:
-  - AI Agent / GitHub Handoff Requirements - removed the bullet requiring GitHub issue
-    resolution to be assigned to or driven by GitHub Copilot; clarified the remaining
-    "MUST NOT merge a pull request or close a GitHub issue" bullet to state that
-    resolving the issue (fix, push, PR) is ordinary local work and not restricted by it.
-  - Development Workflow & Quality Gates - removed the clause requiring GitHub issue
-    resolution to go via GitHub Copilot from the bullet summarizing the AI agent
-    push/PR/review/merge flow.
-Removed sections: none
-Source: direct user instruction (2026-09-07). The user asked to resolve issue #260,
-  which itself (correctly, per the then-current constitution) declined to be resolved by
-  a local agent and named GitHub Copilot as the required path for issue resolution. On
-  review the user judged that restriction wrong - GitHub Copilot's role in this project
-  is PR code review, not issue resolution - and directed that it be removed so a local
-  AI agent can resolve issues (including #260 itself) the same way it does any other
-  local development work, subject to the unchanged no-merge/no-auto-merge/labelling
-  rules.
-Templates requiring follow-up: CLAUDE.md carried a mirrored copy of the old
-  Copilot-only issue-resolution rule (Git / PR workflow section); that edit landed in the
-  same pull request as this amendment (#272), so there is no outstanding follow-up here.
-Deferred/TODO placeholders: none.
-
-Previous report (2.2.0 -> 2.3.0)
-Version change: 2.2.0 -> 2.3.0
-Modified principles: none
-Added principles: none
-Removed principles: none
-Added sections: none
-Modified sections:
-  - Screen contracts - added a sixth contract, "Administrator - stories &
-    configuration", covering the administrator story list (published status, publish/
-    unpublish entry point per 005-story-publishing FR-010, and the entry point for
-    uploading a story configuration file per 011-story-import FR-001) and the read-only
-    story configuration viewer introduced by 012-story-editing-and-review. Also
-    corrected the stale "five screens" count in the section preamble to six (06-game-setup.html has
-    been in specs/designs/ since 006-adventure-and-character-setup), and stated
-    explicitly that a screen contract MAY exist without a prototype screen when a spec
-    defers visual design, in which case the contract text is the sole acceptance
-    reference for that screen.
-Removed sections: none
-Source: 012-story-editing-and-review's cross-artifact analysis (2026-09-07) found its
-  read-only configuration viewer to be a new screen traceable to no screen contract,
-  which Governance forbids shipping. The requesting user chose to extend the screen
-  contracts rather than take an exception. This is additive guidance only - no existing
-  contract, principle, or requirement changes meaning, hence MINOR. This amendment was
-  authored in parallel with the 2.1.0 -> 2.2.0 amendment below on a separate branch and
-  is folded in here, on top of 2.2.0, when that branch caught up with `origin/main`.
-Templates requiring follow-up: none - dependent templates read this file at runtime and
-  are not modified by this command.
-Deferred/TODO placeholders: none.
-
-Previous report (2.1.0 -> 2.2.0)
-Modified principles:
-  - XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, GitHub Copilot
-    Reviews, Human Merges (NON-NEGOTIABLE) - materially expanded, not redefined. Added a
-    sync-before-work rule: before any development or spec-related work begins on a feature
-    branch - planning (plan, tasks, clarify, analyze) included, not implementation alone -
-    that branch MUST be brought up to date with `origin/main`, and a divergence MUST be
-    resolved or reported rather than worked around. Where an artifact then states that
-    code already exists, that statement MUST match the synced tree or `origin/main`, never
-    an unmerged local branch, another worktree, or a stale local `main`. Identifiers an
-    artifact proposes to create are expressly exempt - a plan is expected to name code
-    that does not exist yet - and a dependency on unmerged work MUST be named as such.
-    Backward-compatible: nothing previously permitted is withdrawn, and the existing
-    push/open-PR authorization, no-auto-merge and no-merge rules, the merged/closed-PR
-    push prohibition, the Copilot review pass, and the manual human merge are all
-    unchanged.
-Added principles: none
-Removed principles: none
-Added sections: none
-Modified sections:
-  - AI Agent / GitHub Handoff Requirements - added a bullet stating the rule operationally
-    (fetch and fast-forward/merge `origin/main` before spec-related work; read existing
-    code from the synced tree or `git show origin/main:<path>`, never from another branch
-    or worktree).
-  - Development Workflow & Quality Gates - added a bullet making a claim that code already
-    exists, where it is absent from `origin/main` and not declared as a named unmerged
-    dependency, a blocking cross-artifact consistency analysis finding. Proposed
-    identifiers are explicitly not findings.
-Removed sections: none
-Source: direct user instruction (2026-09-06), prompted by a concrete failure during
-  010-story-test-play planning. The plan was written by reading the then-unmerged local
-  `008-core-gameplay` branch, and asserted a service method `list_saved_games()` that does
-  not exist; the real method on `origin/main` is `list_player_sessions()`. The error was
-  caught only when the artifacts were re-verified against `origin/main` after that work
-  merged. The project's existing `speckit.git.pull` hook did not prevent it: it runs only
-  on `before_implement`, fast-forwards a feature branch from its own upstream rather than
-  from the trunk, and skips silently when a branch has no upstream - which was the case
-  here. Nothing in the constitution required syncing before planning.
-Templates requiring follow-up: `.specify/extensions.yml` registers `speckit.git.pull` on
-  `before_implement` only, and `.claude/skills/speckit-git-pull/SKILL.md` fast-forwards
-  from the branch's own upstream rather than from `origin/main`. Bringing that tooling in
-  line with this rule (running before the planning commands, and syncing the trunk) is
-  tracked as issue #260, deliberately not bundled into this governance amendment. Until
-  that lands, this rule is enforced by convention rather than by tooling.
-Deferred/TODO placeholders: none.
+Earlier Sync Impact Reports are in this file's git history.
 -->
 
 # LLM Dungeon Adventure Constitution
@@ -287,630 +46,439 @@ Deferred/TODO placeholders: none.
 ## Core Principles
 
 ### I. Meaningful, Automated Testing (NON-NEGOTIABLE)
-Every functionality and edge case MUST have a corresponding automated test before that
-work is considered complete. Tests MUST exercise meaningful behavior, real failure modes,
-and boundary/edge conditions — tests written merely to inflate a coverage number are
-prohibited. There is NO 100% code coverage requirement or goal; coverage is a signal, not
-a target. All tests MUST be fully automatable (no manual steps) and MUST run as part of
-every pull request; a pull request MUST NOT be merged while any required test is failing.
-Automated integration tests MUST run locally against stubbed/emulated external cloud
-dependencies (e.g., a CosmosDB emulator or an equivalent local stub, per Dependency &
-Supply Chain Security Requirements) rather than requiring the live Azure environment,
-since this project maintains only the two environments defined in Environments &
-Deployment Pipeline — local and live — with no dedicated test-only cloud environment to
-run against. As much automated testing as practical MUST run locally for speed and
-tight feedback; the live environment is not a substitute for local automated testing.
+Every behavior and edge case MUST have an automated test before that work is complete.
+Tests MUST exercise real behavior, real failure modes, and boundary conditions; tests
+written to inflate a coverage number are prohibited. There is no coverage target —
+coverage is a signal, not a goal. Tests MUST be fully automated with no manual steps,
+MUST run on every pull request, and a pull request MUST NOT merge while a required test
+is failing. Integration tests MUST run locally against stubs or emulators of external
+cloud dependencies rather than live Azure resources (see Environments & Deployment
+Pipeline). As much testing as is practical MUST run locally; the live environment is not
+a substitute for local automated testing.
 
-Rationale: The team explicitly wants confidence from tests that verify real behavior,
-not a coverage metric. Automating tests in the PR pipeline is the only way to enforce
-this consistently as the game's dungeon logic, LLM interactions, and API surface grow.
-Because Principle XII deliberately rules out a dedicated test/staging cloud environment,
-local stubs of cloud dependencies are the only way to keep integration tests both fast
-and fully automated.
+Rationale: confidence comes from tests that verify real behavior, not from a metric, and
+only a PR-gated suite enforces that consistently. The project maintains no test-only
+cloud environment (Principle XII), so local stubs are the only way to keep integration
+tests both fast and fully automated.
 
 ### II. Secure-by-Default Access (NON-NEGOTIABLE)
-The application MUST require sign-in via Microsoft Entra ID for every user-facing page
-and every API endpoint — there is no public or anonymous access to any part of the
-system, including status/health endpoints that reveal application details. Access MUST
-be restricted to an explicit allow-list of specific Microsoft accounts; there is no
-open sign-up or tenant-wide access by default. Authorization checks MUST be enforced
-server-side in the Azure Functions backend; a client-side (ReactJS) check alone is never
-sufficient, since it can be bypassed. The one narrow exception is local automated
-testing: a dedicated automation identity MAY bypass interactive Entra ID sign-in when
-running locally, strictly under the guardrails in Security & Access Control
-Requirements below — this exception MUST NOT be reachable, configurable, or present as
-live code/config in the deployed live environment.
+Every user-facing page and every API endpoint — including status and health endpoints
+that reveal application detail — MUST require Microsoft Entra ID sign-in. Nothing is
+anonymous. Access MUST be limited to an explicit allow-list of Microsoft accounts; there
+is no open sign-up and no tenant-wide access. Authorization MUST be enforced server-side
+in the Azure Functions backend; a client-side check alone is never sufficient. The one
+exception: a dedicated automation identity MAY bypass interactive sign-in for local
+automated tests, under the guardrails in Security & Access Control Requirements. That
+bypass MUST NOT be reachable, configurable, or present as code or configuration in the
+live environment.
 
-Rationale: The project is explicitly scoped as a private application for a specific,
-named set of Microsoft accounts, not a public product. Server-side enforcement is
-required because client-side gating is trivially bypassable. Requiring an interactive
-Entra ID sign-in for every local automated test run would make the fast, frequent local
-testing this project relies on (Principle I) impractical, so a strictly local-only,
-non-deployable bypass is permitted instead of weakening production auth.
+Rationale: this is a private application for a named set of accounts, and client-side
+gating is trivially bypassed. Requiring interactive sign-in on every local test run would
+make Principle I's fast, frequent local testing impractical, so a strictly local,
+non-deployable bypass is permitted instead of weakening live authentication.
 
 ### III. Defined Technology Stack
-The backend MUST be implemented in Python and deployed as Azure Functions. The frontend
-MUST be implemented in ReactJS and run in a standard web browser. Any deviation from
-this stack (a different language, framework, or hosting model) requires a documented
-justification and an amendment to this constitution before adoption. New code MUST
-target the latest long-term-support (LTS) major version of each runtime in the stack
-(Node.js for frontend tooling, Python for the backend) and the latest stable major
-version of each core framework (e.g., React) at the time the code is written; the
-project MUST NOT knowingly adopt or remain pinned to a runtime/framework major version
-that is approaching end-of-support when a current LTS/stable major is available. Detailed
-rules are in the Dependency & Supply Chain Security Requirements section below.
+The backend MUST be Python deployed as Azure Functions; the frontend MUST be ReactJS
+running in a standard web browser. Any deviation — a different language, framework, or
+hosting model — requires a documented justification and a constitution amendment before
+adoption. New code MUST target the latest LTS major of each runtime (Node.js for frontend
+tooling, Python for the backend) and the latest stable major of each core framework
+(e.g. React) at the time it is written; the project MUST NOT knowingly adopt or stay
+pinned to a major approaching end-of-support while a current one is available.
 
-Rationale: A fixed, agreed stack keeps the small initial build focused and avoids
-architectural churn while the game's core mechanics are still being established.
-Deliberately starting on the current LTS/stable major of each runtime and framework —
-rather than an older one — avoids accumulating a forced, disruptive major-version
-migration later; the project explicitly wants to avoid regularly refactoring for newer
-majors (e.g., a React major upgrade) that a more current starting point would have
-avoided.
+Rationale: a fixed stack keeps the build focused while core mechanics are still being
+established, and starting from current majors avoids accumulating a forced, disruptive
+migration later.
 
 ### IV. Simplicity Over Premature Scale (YAGNI)
-The project currently has no defined scale, performance, or throughput requirements.
-Designs, infrastructure, and code MUST NOT be built to anticipate scale that has not
-been specified. Prefer the simplest design that correctly satisfies the current, known
-requirements; add scaling mechanisms only when a real, stated requirement calls for them.
+The project has no defined scale, performance, or throughput requirements. Designs,
+infrastructure, and code MUST NOT anticipate scale that has not been specified. Prefer
+the simplest design that correctly satisfies the current stated requirements; add a
+scaling mechanism only when a stated requirement calls for one.
 
-Rationale: Building for hypothetical scale now would add complexity and cost with no
-corresponding, documented need, and would slow down early iteration on gameplay and the
-LLM-driven dungeon experience.
+Rationale: building for hypothetical scale adds complexity and cost against no documented
+need, and slows early iteration on gameplay.
 
 ### V. Continuous Integration Gate
-GitHub is the system of record for source code, and Azure is the exclusive cloud hosting
-provider for this application. Every pull request MUST automatically trigger the full
-automated test suite via CI. A pull request MUST be blocked from merging while the CI
-test run has not passed.
+GitHub is the system of record for source code; Azure is the exclusive cloud host. Every
+pull request MUST automatically trigger the full automated test suite in CI, and MUST be
+blocked from merging until that run passes.
 
-Rationale: Automated, PR-gated testing (Principle I) is only effective if it is actually
-enforced by the repository's merge process, not left to manual discipline.
+Rationale: PR-gated testing (Principle I) is only effective if the repository enforces it
+rather than leaving it to manual discipline.
 
 ### VI. Observability & AI Cost Transparency (NON-NEGOTIABLE)
-The application MUST emit telemetry via OpenTelemetry as the instrumentation/collection
-layer, with Azure Application Insights as the telemetry sink; no alternate collector or
-sink may replace this pairing without a constitution amendment. Every LLM interaction
-MUST be observable: the prompt sent and the response received MUST be captured in
-telemetry, alongside per-prompt token usage (input/output), per-prompt cost, and
-latency/performance data. This data MUST be queryable well enough to answer, at any
-time, "what did our AI usage cost, and how well did it perform" without ad-hoc log
-spelunking.
+Telemetry MUST be collected through OpenTelemetry and exported to Azure Application
+Insights; replacing either half of that pairing requires an amendment. Every LLM
+interaction MUST be observable — prompt sent, response received, input and output token
+counts, computed cost, and latency — captured as structured telemetry that can answer, at
+any time, "what did our AI usage cost, and how well did it perform" without ad-hoc log
+spelunking. Detail: Observability & Telemetry Requirements.
 
-Rationale: LLM calls are both the core gameplay mechanism and the primary variable cost
-of this project. Without structured, standardized telemetry, the team cannot track
-runaway spend, diagnose slow or failing prompts, or reason about the dungeon experience
-LLM users are actually getting.
+Rationale: LLM calls are both the core gameplay mechanism and the primary variable cost.
+Without structured telemetry the team cannot track runaway spend, diagnose slow or failing
+prompts, or reason about the experience players actually get.
 
 ### VII. Zero-Trust Azure Resource Communication (NON-NEGOTIABLE)
-All authentication between Azure resources (e.g., Azure Functions calling Storage, Key
-Vault, an LLM/AI service, Application Insights, or any other first-party Azure service)
-MUST use Managed Identities, not shared keys, connection strings, or service principal
-secrets, wherever the target service supports Managed Identity authentication. All
-network connectivity between Azure resources MUST use Private Endpoints (or equivalent
-private networking); public network access MUST be disabled on backend Azure resources
-wherever a private connectivity path is available. Any exception (a service that
-genuinely cannot use Managed Identity or Private Endpoints) MUST be explicitly
-documented and justified.
+Authentication between Azure resources (Functions to Storage, Key Vault, the LLM service,
+Application Insights, or any other first-party Azure service) MUST use Managed Identities
+— never shared keys, connection strings, or service principal secrets — wherever the
+target service supports Managed Identity. Connectivity between backend Azure resources
+MUST use Private Endpoints or equivalent private networking, with public network access
+disabled wherever a private path is available. Any exception MUST be documented and
+justified.
 
-Rationale: This is a backend where every dependency is a first-party Azure service, so
-there is no reason to rely on long-lived secrets or public network paths between them —
-doing so would needlessly widen the credential-leakage and network-exposure surface for
-an application that is already required to have no public access (Principle II).
+Rationale: every dependency here is a first-party Azure service, so long-lived secrets and
+public network paths would needlessly widen the credential-leakage and network-exposure
+surface of an application that is already required to have no public access
+(Principle II).
 
 ### VIII. UI Design System & Accessibility Compliance (NON-NEGOTIABLE)
 The frontend MUST be built exclusively on this project's design-token layer and shared
-component classes — no ad hoc colors, fonts, spacing, or one-off component
-reimplementations. The interface MUST meet the visual, interaction-state, readability,
-layout, and accessibility requirements detailed in the UI Design System Requirements
-section below. Every implementation plan MUST include a Constitution Check confirming
-these UI requirements are satisfied, or requesting an explicit, justified exception.
+component classes — no ad hoc colors, fonts, spacing, or one-off reimplementations of a
+component the system already provides. The interface MUST meet the visual, interaction-
+state, readability, layout, and accessibility requirements in UI Design System
+Requirements. Every implementation plan MUST include a Constitution Check confirming
+those requirements are satisfied or requesting an explicit, justified exception.
 
-Rationale: This project's specs are built incrementally across many features (login,
-story authoring, gameplay, save/continue); without a single enforced design system and
-accessibility bar, screens built in different cycles would visually and behaviorally
-drift apart, degrading the experience and making the interface harder to maintain.
+Rationale: this project's screens are built incrementally across many features; without
+one enforced design system and accessibility bar, screens built in different cycles drift
+apart visually and behaviorally and become harder to maintain.
 
 ### IX. Playtesting-Driven Quality (Post-Ship Verification, Non-Blocking)
 A feature is complete once its automated tests (Principle I) pass and it merges through
-the CI gate (Principle V) — human verification against the real deployed environment is
-NOT a precondition for completion or merge, and MUST NOT be used to block a pull request
-or hold a feature open. Human playtesting against the deployed environment still
-happens, but as an ongoing, post-ship activity: issues it surfaces are captured (e.g., as
-GitHub issues) and fixed in follow-up work, not treated as proof the original work was
-incomplete. A feature's task list MAY include a playtesting/acceptance task, but it is
-informational and non-blocking, not a required gate, unless a specific feature's plan
-explicitly opts back into a blocking check for a named, high-risk area.
+the CI gate (Principle V). Human verification against the deployed environment is NOT a
+precondition for completion or merge and MUST NOT be used to block a pull request or hold
+a feature open. Playtesting still happens, as an ongoing post-ship activity: what it
+surfaces is captured as issues and fixed in follow-up work, not treated as proof the
+original work was incomplete. A task list MAY include a playtesting task, but it is
+informational and non-blocking unless a specific feature's plan explicitly opts into a
+blocking check for a named, high-risk area.
 
-Rationale: The team has explicitly deprioritized getting every feature right on first
-delivery in favor of development speed and shipping an MVP; issues are expected to be
-found and fixed through live play rather than prevented upfront by a human sign-off gate.
-This principle previously required human verification before completion specifically
-because automated tests missed real deployment-wiring failures (e.g., during
-003-account-provisioning-done, where all 82 backend and 31 frontend tests passed while
-sign-in was broken in production for five separate reasons). That risk has not
-disappeared, but the team has decided the cost of a mandatory pre-completion human gate
-now outweighs it for MVP velocity — automated tests (Principle I) remain the safety net,
-and issues that slip through are expected to be caught and fixed via playtesting after
-the fact instead of before merge.
+Rationale: the team has deliberately chosen MVP velocity over getting every feature right
+on first delivery, accepting that issues are found through live play. Automated tests
+remain the safety net.
 
 ### X. PII Protection by Design (NON-NEGOTIABLE)
-Personally identifiable information (PII) — a real person's email address, name, phone
-number, physical address, or any other data that identifies a specific individual — MUST
-live only in a secure, access-controlled, purpose-built data store: the application's
-database, Azure Key Vault, or an equivalent managed secret/credential store. PII MUST NOT
-be committed to the GitHub repository, written into commit messages, or posted into GitHub
-issues, pull request descriptions, or comments, and MUST NOT be written to application
-logs, traces, or telemetry. Where an issue, PR, commit, or log entry must discuss a record
-that involves PII, it MUST reference that record indirectly (e.g., a role, an internal
-identifier, or "the seed administrator's entry") rather than including the PII itself. The
-detailed rules are in the PII & Data Protection Requirements section below.
+Personally identifiable information — a real person's email address, name, phone number,
+physical address, or any other data identifying a specific individual — MUST live only in
+a secure, access-controlled store: the application's database, Azure Key Vault, or an
+equivalent managed secret store. PII MUST NOT appear in the GitHub repository, in commit
+messages, in issues, pull request descriptions or comments, or in application logs,
+traces, or telemetry. Where such a surface must discuss a record involving PII, it MUST
+reference that record indirectly — a role, an internal identifier, or a phrase such as
+"the seed administrator's entry". Detail: PII & Data Protection Requirements.
 
-Rationale: GitHub issues, pull requests, comments, and commit history are effectively
-public or broadly-accessible-forever records for this project — indexed, cached, and
-retained indefinitely — and are not access-controlled the way the application's own data
-stores are. Including a real person's PII on any of these surfaces defeats the purpose of
-restricting where that data is allowed to live, and cannot be reliably un-published once
-posted.
+Rationale: GitHub issues, pull requests, and commit history are broadly accessible and
+retained indefinitely, and are not access-controlled the way the application's own stores
+are. PII posted there cannot reliably be un-published, which defeats the point of
+restricting where that data may live.
 
 ### XI. Implementer Design Latitude (Non-Blocking)
-For a feature that includes a user-facing UI, the implementing agent or team MAY proceed
-directly to implementation using its own design judgment, guided by the existing design
-system and screen contracts (Principle VIII, UI Design System Requirements) — a
-pre-implementation design mockup/sign-off from the requesting user or product owner is
-NOT required to start implementation, and MUST NOT be used to block or delay it. A
-feature's task list MAY include a design walkthrough or mockup review, but only as an
-optional, non-blocking checkpoint at the author's discretion, not a required gate.
-Design issues (a layout that doesn't fit, a flow that confuses players) are expected to
-surface through playtesting (Principle IX) and are fixed as follow-up work rather than
-prevented upfront through mandatory pre-approval.
+For a feature with a user-facing UI, the implementing agent or team MAY proceed straight
+to implementation on its own design judgment, guided by the design system and screen
+contracts (Principle VIII, UI Design System Requirements). A pre-implementation mockup or
+sign-off from the requesting user or product owner is NOT required and MUST NOT be used to
+block or delay implementation. A task list MAY include a design walkthrough as an optional,
+non-blocking checkpoint at the author's discretion.
 
-Rationale: The team has explicitly deprioritized getting the design right on the first
-attempt in favor of development speed toward an MVP, accepting that some design rework
-will be discovered and fixed via playtesting instead of avoided by an upfront sign-off
-gate. Principle VIII still enforces that any UI built stays inside this project's design
-system, token layer, and accessibility bar regardless of who approved the specific
-layout — that constraint is unaffected and remains NON-NEGOTIABLE; only the requirement
-that the requesting user pre-approve the specific screen design before coding starts is
-removed.
+Rationale: the team has chosen speed toward an MVP over getting the design right on the
+first attempt, accepting that design rework surfaces through playtesting (Principle IX).
+Principle VIII still constrains whatever is built to this project's design system, token
+layer, and accessibility bar, regardless of who approved the layout.
 
 ### XII. Right-Sized Scope — Not Enterprise-Grade (NON-NEGOTIABLE)
-This project is a small application for a specific, named set of users, not an
-enterprise product, and MUST NOT be designed or specified as if it were one. A spec,
-plan, or task MUST NOT introduce an enterprise-grade pattern — including, but not
-limited to, single sign-on or federated identity beyond the already-mandated Entra ID
-allow-list (Principle II), multi-tenant architecture, additional non-production
-environments beyond local development and the single live environment (see
-Environments & Deployment Pipeline below), elaborate role/permission hierarchies beyond
-the allow-list's roles, or dedicated scaling/high-availability infrastructure — unless a
-concrete, stated requirement calls for it. Whenever work on a spec, plan, or task starts
-trending toward an enterprise-grade pattern, the author (human or AI) MUST stop and
-explicitly ask the requesting user whether it is actually needed, rather than assuming
-it is or silently including it. For example, SSO beyond the mandated Entra ID sign-in is
-out of scope by default and MUST be confirmed with the user before being specified.
+This is a small application for a specific, named set of users, not an enterprise product,
+and MUST NOT be designed or specified as one. A spec, plan, or task MUST NOT introduce an
+enterprise-grade pattern — including single sign-on or federated identity beyond the
+mandated Entra ID allow-list (Principle II), multi-tenant architecture, any persistent
+environment beyond local development and the single live one (Environments & Deployment
+Pipeline), role or permission hierarchies beyond the allow-list's roles, or dedicated
+scaling and high-availability infrastructure — unless a concrete, stated requirement calls
+for it. Where work starts trending toward such a pattern, the author (human or AI) MUST
+stop and ask the requesting user whether it is actually needed rather than assuming it or
+silently including it.
 
-Rationale: "Enterprise-grade" defaults (extra environments, broader identity
-federation, elaborate RBAC, scale-out infrastructure) are easy to reach for out of habit
-and quietly inflate scope, cost, and complexity for a project that has neither the user
-base nor the stated requirements to justify them. This principle extends Principle IV's
-general YAGNI stance into an explicit, enforced process check specifically for
-enterprise-shaped patterns, since those are the ones most likely to be assumed rather
-than requested.
+Rationale: enterprise defaults are reached for out of habit and quietly inflate scope,
+cost, and complexity for a project with neither the user base nor the requirements to
+justify them. This turns Principle IV's general YAGNI stance into an enforced process
+check for the patterns most likely to be assumed rather than requested.
 
-### XIII. AI Agent Division of Labor: Local LLM Pushes & Opens PRs, Claude Code Review Skill Reviews, Human Merges (NON-NEGOTIABLE)
-Local AI agent development — writing code, running local tests, and spec-related work
-(intake, specify, clarify, plan, tasks, analyze) — MAY be performed by Claude Code or
-another local LLM-based coding assistant (e.g., Cursor or an equivalent). Spec-related
-work MUST stay local: it MUST be performed by the local AI agent and MUST NOT be
-delegated to Claude Code's `/code-review` skill or another GitHub-side review agent.
-Once that local work is ready, the local AI agent MUST push the branch and open the
-pull request itself (e.g., `gh pr create`), labelled per the AI Agent / GitHub Handoff
-Requirements below. The local AI agent MUST NOT enable auto-merge and MUST NOT merge
-the pull request itself. From there, the pull request MUST be reviewed via Claude
-Code's `/code-review` skill (`/code-review ultra <PR#>` for a full multi-agent cloud
-review, posted to the PR as findings) — triggered explicitly by the requesting user, or
-by Claude Code when asked, rather than automatically on push. This review does not
-produce a formal approving review or perform the merge on a clean pass. The requesting
-user or product owner MUST review the code-review skill's findings together with the
-required CI/status checks and code-quality gate, and then merge the pull request
-manually. A local AI agent MAY resolve a GitHub issue end-to-end — writing the fix,
-pushing the branch, and opening the pull request itself — the same as any other local
-development work; the code-review skill's role is the PR review pass described above,
-not a required intermediary for issue resolution. A
-local AI agent MUST NOT merge a pull request itself and MUST NOT enable auto-merge on
-one, even where the tool has the technical means to do so — merging stays a manual
-action for the requesting user or product owner. A local AI agent MAY close a GitHub
-issue directly (e.g., via `gh issue close`), but only where the requesting user has
-asked it to close that issue and the agent has verified that the work resolving it is
-merged to `origin/main`. Absent that request, an issue is closed by its resolving pull
-request merging or manually by the requesting user; an agent MUST NOT close an issue on
-its own initiative. Work MUST start from a synced tree: before any development or
-spec-related work begins on a feature branch — planning (plan, tasks, clarify, analyze)
-included, not implementation alone — that branch MUST be brought up to date with
-`origin/main`, and a divergence MUST be resolved or reported rather than worked around.
-Where an artifact then states that code already exists — a module path, a class or
-function name, a constant, a field, an endpoint, or a configuration value — that
-statement MUST match the synced tree or `origin/main` itself, never an unmerged local
-branch, another worktree's checkout, or a stale local `main`. Identifiers an artifact
-proposes to create are expressly exempt: a plan is expected to name files, symbols, and
-fields that do not exist yet, and MUST simply make clear which it proposes and which it
-claims already exist. A dependency on work that has not yet merged MUST be named
-explicitly rather than described as if it had already landed. Every push of new work
-MUST be visible as its own open pull request: a local AI agent MUST NOT push follow-up
+### XIII. AI Agent Division of Labor: Agents Push & Open PRs, Humans Merge (NON-NEGOTIABLE)
+Local AI agents (Claude Code, Cursor, or an equivalent local LLM-based assistant) MAY
+write code, run local tests, and perform all spec-related work — intake, specify, clarify,
+plan, tasks, analyze. Spec-related work MUST stay local: it MUST NOT be delegated to
+Claude Code's `/code-review` skill or another GitHub-side review agent.
+
+Work MUST start from a synced tree. Before any development or spec-related work begins on
+a branch — planning, tasks, clarify, and analyze included, not implementation alone — that
+branch MUST be brought up to date with `origin/main`, and a divergence MUST be resolved or
+reported rather than worked around. Where an artifact states that code already exists — a
+module path, symbol, constant, field, endpoint, or configuration value — that statement
+MUST match `origin/main`, never an unmerged local branch, another worktree's checkout, or
+a stale local `main`. Identifiers an artifact proposes to create are exempt; a dependency
+on unmerged work MUST be named as such rather than described as already landed.
+
+Once local work is ready, the agent MUST push the branch and open the pull request itself
+(e.g. `gh pr create`), labelled per AI Agent / GitHub Handoff Requirements. Every push of
+new work MUST be visible as its own open pull request: an agent MUST NOT push follow-up
 commits onto the branch of a pull request that has already been merged or closed, even
-where that branch still exists and the push would technically succeed. Such work MUST go
-onto a fresh branch behind a new pull request. Detailed rules are in the AI Agent /
-GitHub Handoff Requirements section below.
+where that branch still exists and the push would succeed. Such work MUST go onto a fresh
+branch behind a new pull request.
 
-Rationale: A bot-authored pull request (one opened by an automation identity via a
-GitHub Actions workflow) is treated by GitHub the same way as an outside contributor's
-PR — its required checks sit pending a manual "approve and run workflows" click every
-time, which defeats a hands-off pipeline. Having the local AI agent open the PR as the
-developer's own authenticated action avoids that gate, while Claude Code's
-`/code-review` skill still provides a consistent review pass regardless of which local
-LLM tool pushed the branch, run explicitly against the PR before merge rather than
-automatically on every push. Auto-completing the merge once that review finishes was
-dropped because a review pass does not produce a formal approving review before
-merge — wiring auto-merge to it would let a pull request merge without anyone actually
-having weighed its findings. Requiring the requesting user to read the code-review
-skill's findings and merge manually keeps a real decision point in the loop while still
-using that skill for the GitHub-side review pass. Closing an issue is a
-different action from merging and is not gated the same way: a close only records a
-decision a human already took when they merged the change, so a local AI agent may
-perform it on request once it has confirmed the fix is on the trunk. Merging stays
-manual because that is where the decision to accept a change is actually made.
-Reusing the branch of an
-already-merged or closed pull request hides the new work: the merged PR is no longer
-part of anyone's review queue, it is not re-reviewed, and the commits reach
-the repository without ever appearing as something a human was asked to look at.
+An agent MUST NOT merge a pull request and MUST NOT enable auto-merge on one, by any
+route, even where it has the technical means. The pull request MUST instead be reviewed
+via Claude Code's `/code-review` skill (`/code-review ultra <PR#>` for a full multi-agent
+cloud review posted to the PR), triggered explicitly by the requesting user or by Claude
+Code when asked — not automatically on push. That review posts findings; it does not
+produce a formal approving review and does not merge. The requesting user or product owner
+MUST read those findings together with the required CI and status checks, then merge
+manually.
 
-Rationale for the sync-before-work rule: a local AI agent can read any branch or
-worktree the machine happens to hold, and code read from an unmerged branch looks exactly
-like code that already exists. A plan built that way asserts identifiers that are not on
-the trunk — a defect that survives review precisely because the artifact reads as
-authoritative. Syncing first is the root prevention: once the branch carries `origin/main`,
-reading the working tree *is* reading the trunk, and the failure cannot arise. The project
-already had a pull step, but only as a pre-implementation hook that fast-forwards a
-feature branch from its own upstream — it does not run before planning, does not sync with
-the trunk, and skips silently on a branch with no upstream, so it did not prevent this.
-Exempting proposed identifiers keeps the rule from blocking the ordinary business of a
-plan, which is to describe code that does not exist yet; naming an unmerged dependency
-keeps that legitimate case available without disguising it as fact.
+An agent MAY resolve a GitHub issue end-to-end — writing the fix, pushing the branch, and
+opening the pull request — as ordinary local development work. An agent MAY close a GitHub
+issue (e.g. `gh issue close`) only where the requesting user has asked it to close that
+issue and it has verified the resolving work is merged to `origin/main`. Absent that, the
+issue is closed by its pull request merging or by the requesting user; an agent MUST NOT
+close one on its own initiative.
+
+Rationale: a pull request opened by an automation identity through a GitHub Actions
+workflow is treated as an outside contributor's, so its checks sit pending a manual
+"approve and run workflows" click every time; having the agent open the PR as the
+developer's own authenticated action avoids that gate while the `/code-review` skill still
+gives a consistent review pass whichever local tool pushed the branch. Merging stays manual
+because that is where the decision to accept a change is made, and a findings-only review
+pass would otherwise let a change land with nobody having weighed it. Closing an issue is
+not the same act: it records a decision a human already made at merge, so an agent may do
+it on request once the fix is on the trunk. Reusing a merged or closed pull request's
+branch hides new work, since that PR is no longer in anyone's review queue. Syncing before
+work is the root prevention for artifacts that assert identifiers existing only on an
+unmerged branch: once the branch carries `origin/main`, reading the tree is reading the
+trunk.
 
 ### XIV. Spec Artifacts and Code Stay Clean — Git Is the History
-A feature's spec-related artifacts (`spec.md`, `plan.md`, `research.md`, `data-model.md`,
-`quickstart.md`, `tasks.md`, and any other file under that feature's `specs/` folder,
-excluding this constitution's own Sync Impact Report) rely on git history, not narrative
-prose, to record why a decision was made or later changed. A line or two of rationale
-next to a decision is fine. Multiple lines of narrative explaining why a decision was
-made or reversed are NOT permitted in these files — that belongs in the commit message
-or PR description, not the artifact. When a decision supersedes an earlier one, the
-artifact MUST be edited in place to reflect the new decision, with only a very short
-note marking the change (e.g. "Supersedes: <old approach>, in <15 words> why") — not a
-retained explanation of the old decision alongside the new.
+A feature's spec artifacts (`spec.md`, `plan.md`, `research.md`, `data-model.md`,
+`quickstart.md`, `tasks.md`, and anything else under that feature's `specs/` folder)
+record decisions, not the history of decisions. A line or two of rationale beside a
+decision is fine; multiple lines of narrative explaining why a decision was made or
+reversed are NOT permitted — that belongs in the commit message or pull request
+description. A superseded decision MUST be edited in place, carrying at most a short note
+(e.g. "Supersedes: <old approach>, <why in under 15 words>"), never a retained explanation
+of the old decision beside the new one.
 
-The same restraint applies to source code comments. A comment MAY note a short,
-non-obvious reason for a line of code (e.g. a workaround for a specific external
-constraint) but MUST NOT narrate what the code does, restate implementation detail the
-governing spec already documents, or explain the history of how the implementation
-arrived at its current form — no changelog-in-comments, no "previously this did X,
-changed to Y because Z". That detail belongs in the feature's spec/plan (current
-behavior) and git history (why it changed), not in a block comment at the call site.
+Source code comments follow the same restraint. A comment MAY note a short, non-obvious
+reason for a line (e.g. a workaround for a specific external constraint) but MUST NOT
+narrate what the code does, restate implementation detail the governing spec already
+documents, or record how the implementation reached its current form.
 
-Rationale: Spec artifacts are working documents read repeatedly during a feature's life;
-narrative justifying past reversals bloats them and makes the current, authoritative
-decision harder to find. Git history already preserves that reasoning at the commit
-that made it, so the artifact itself should show only what is true now, briefly why.
-The same applies to code: a spec is the intended place to document what a feature does
-and why, so a comment repeating that or narrating its edit history is duplicated,
-drifts out of sync with the spec as the code evolves, and clutters the code itself.
+This constitution's own Sync Impact Report is the single exception, and it carries only
+the current amendment; earlier reports live in git history.
+
+Rationale: spec artifacts are working documents read repeatedly through a feature's life,
+and narrative about past reversals buries the decision actually in force. Git already
+preserves that reasoning at the commit that made it. The same holds for code: a comment
+restating the spec drifts out of sync with it as the code evolves.
 
 ## Security & Access Control Requirements
 
-- Authentication MUST use Microsoft Entra ID; the frontend MUST use a supported
-  Microsoft identity library (e.g., MSAL) to obtain tokens, and the Azure Functions
-  backend MUST validate those tokens on every request.
-- Authorization MUST be allow-list based: only specific, pre-approved Microsoft accounts
-  may access the application. Adding or removing an account from the allow-list MUST be
-  an explicit, auditable change (e.g., Entra ID app role assignment or an equivalent
-  managed configuration), not an implicit or self-service action.
-- No Azure Function endpoint may be configured with anonymous access; every endpoint
-  MUST require an authenticated, authorized identity.
-- Secrets and credentials (e.g., LLM API keys, Entra ID client secrets) MUST NOT be
-  committed to the GitHub repository; they MUST be stored in Azure-managed configuration
-  (e.g., Function App application settings or Key Vault references).
-- The Azure Functions backend MUST authenticate to other Azure resources it depends on
-  (Storage, Key Vault, the LLM/AI service, Application Insights, etc.) using a Managed
-  Identity (system-assigned or user-assigned) rather than a stored key, connection
-  string, or client secret, wherever that resource supports Managed Identity auth.
-- Backend Azure resources MUST be connected via Private Endpoints for inter-resource
-  traffic, with public network access disabled on those resources, unless a specific,
-  documented exception applies.
-- Application code and design MUST follow OWASP Top 10 practices appropriate to the
-  stack in use (e.g., input validation and output encoding, parameterized data access,
-  proper authentication/session handling, access-control checks on every server-side
-  entry point, secure default configuration, and safe handling of dependencies known to
-  carry vulnerabilities). This is a baseline practice expectation proportionate to this
-  project's size, not a request for enterprise-grade security tooling or process
+- The frontend MUST obtain tokens through a supported Microsoft identity library (e.g.
+  MSAL), and the Azure Functions backend MUST validate that token on every request.
+- Authorization MUST be allow-list based. Adding or removing an account MUST be an
+  explicit, auditable change — an Entra ID app role assignment or equivalent managed
+  configuration — never an implicit or self-service action.
+- No Azure Function endpoint may be configured with anonymous access.
+- Secrets and credentials (LLM API keys, Entra ID client secrets) MUST NOT be committed to
+  the repository; they MUST live in Azure-managed configuration (Function App settings or
+  Key Vault references).
+- Backend authentication to Azure dependencies and private connectivity between them are
+  governed by Principle VII.
+- Application code and design MUST follow OWASP Top 10 practices appropriate to the stack:
+  input validation and output encoding, parameterized data access, sound authentication and
+  session handling, an access-control check at every server-side entry point, secure default
+  configuration, and safe handling of dependencies with known vulnerabilities. This is a
+  baseline proportionate to the project's size, not enterprise security tooling
   (Principle XII).
-- A local-only automation identity/bypass for automated integration tests (Principle I,
-  Principle II) MUST be gated by a build-time or deploy-time condition that is
-  structurally absent from the live environment's build/deploy configuration (e.g., a
-  code path compiled or wired in only for local test runs) — never a runtime
-  environment-variable or request-header check alone, since either could be
-  misconfigured or spoofed against the live deployment. The live environment's Entra ID
-  sign-in and server-side authorization checks (this section, above) MUST have no
-  disable path, flag, or override of any kind.
-- The automation identity used for local bypass MUST carry no real user's credentials
-  and MUST NOT correspond to a real Microsoft account on the production allow-list; it
-  exists only to let local automated tests exercise authorized-user code paths without
-  an interactive sign-in.
-- Any change that touches the local automation bypass or the Entra ID sign-in/
-  authorization path MUST be reviewed with this section in mind (Development Workflow &
-  Quality Gates) — the reviewer explicitly confirms the bypass remains unreachable from
-  the live environment.
+- The local automation bypass (Principle I, Principle II) MUST be gated by a build-time or
+  deploy-time condition that is structurally absent from the live environment's build and
+  deploy configuration — for example a code path wired in only for local test runs — never a
+  runtime environment variable or request header alone, since either could be misconfigured
+  or spoofed against the live deployment. Live sign-in and server-side authorization MUST
+  have no disable path, flag, or override of any kind.
+- The automation identity MUST carry no real user's credentials and MUST NOT correspond to a
+  real Microsoft account on the live allow-list. It exists only so local automated tests can
+  exercise authorized-user code paths without an interactive sign-in.
+- Any change touching the automation bypass or the Entra ID sign-in and authorization path
+  MUST receive the deepest review tier (Development Workflow & Quality Gates), with the
+  reviewer explicitly confirming the bypass remains unreachable from the live environment.
 
 ## Dependency & Supply Chain Security Requirements
 
-- Dependencies (Python packages, npm packages, GitHub Actions, container base images)
-  MUST be pulled only from official, public package registries/marketplaces; MUST use a
-  committed lockfile (e.g., `requirements.txt`/`poetry.lock`, `package-lock.json`) so
-  builds are reproducible; and MUST NOT pin to a package version already flagged with a
-  known, unpatched critical or high-severity vulnerability when an updated version
-  exists.
-- Automated dependency vulnerability scanning (e.g., GitHub Dependabot alerts or
-  equivalent) MUST be enabled on the repository, and a critical or high-severity
-  advisory affecting a dependency in use MUST be remediated (upgrade, patch, or
-  documented accepted-risk exception) rather than silently ignored.
-- New code MUST target the latest LTS major version of each runtime (Node.js, Python)
-  and the latest stable major version of each core framework (e.g., React) at the time
-  it is written, per Principle III — this keeps the project off soon-to-be-outdated
-  majors and avoids a disruptive forced migration later.
-- This is a proportionate, best-practices baseline for a small application's supply
-  chain — not an enterprise-grade software-supply-chain program (e.g., no SBOM
-  generation, no third-party vendor security review process) unless a concrete,
-  stated requirement calls for it (Principle XII).
+- Dependencies (Python packages, npm packages, GitHub Actions, container base images) MUST
+  come only from official public registries and marketplaces, MUST be pinned by a committed
+  lockfile (`requirements.txt` / `poetry.lock`, `package-lock.json`) so builds are
+  reproducible, and MUST NOT sit on a version carrying a known, unpatched critical or
+  high-severity vulnerability when a fixed version exists.
+- Automated dependency vulnerability scanning (GitHub Dependabot or equivalent) MUST be
+  enabled on the repository. A critical or high-severity advisory affecting a dependency in
+  use MUST be remediated — upgraded, patched, or accepted with a documented exception —
+  never silently ignored.
+- Runtime and framework major versions follow Principle III.
+- This is a proportionate baseline for a small application's supply chain, not an
+  enterprise supply-chain program: no SBOM generation and no third-party vendor security
+  review unless a concrete, stated requirement calls for it (Principle XII).
 
 ## PII & Data Protection Requirements
 
-- Personally identifiable information (PII) MUST only be stored in a secure,
-  access-controlled data store: the application's database (e.g., Cosmos DB), Azure Key
-  Vault, or an equivalent managed secret/credential store.
-- PII MUST NOT be committed to the GitHub repository in any form — source code,
-  configuration, fixtures, seed data, or documentation. Test and fixture data MUST use
-  synthetic values, never a real person's actual information.
-- PII MUST NOT be included in GitHub issues, pull request descriptions, or comments, nor
-  in commit messages. Where an issue, PR, or commit legitimately needs to discuss a
-  record that involves PII, it MUST reference that record indirectly (e.g., a role, an
-  internal identifier, or a redacted form) rather than including the PII itself.
-- PII MUST NOT be written to application logs, traces, or telemetry (see Observability &
-  Telemetry Requirements below) beyond what a feature's specification explicitly requires
-  and secures within an access-controlled data store — general-purpose logs and traces
-  MUST NOT capture a user's email, name, or other identifying data.
-- This requirement applies everywhere the project's output could become publicly
-  accessible or durably retained beyond the team's direct control (issue trackers, CI
-  logs, published artifacts, external documentation) — not solely the repository's own
-  commit history.
+Principle X fixes where PII may live and which surfaces it MUST NOT reach. These are its
+specifics:
+
+- The permitted stores are the application's database (e.g. Cosmos DB), Azure Key Vault, or
+  an equivalent managed secret store.
+- Test data, fixtures, seed data, and documentation MUST use synthetic values, never a real
+  person's actual information.
+- General-purpose logs, traces, and telemetry MUST NOT capture a user's email, name, or
+  other identifying data. A feature MAY persist PII only where its specification explicitly
+  requires it and secures it within an access-controlled store.
+- The rule reaches every surface where this project's output could become publicly
+  accessible or durably retained beyond the team's control — issue tracker, CI logs,
+  published artifacts, external documentation — not just the repository's commit history.
 
 ## Observability & Telemetry Requirements
 
-- Instrumentation MUST use OpenTelemetry (OTel) SDKs/APIs in both the Python (Azure
-  Functions) backend and the ReactJS frontend; OTel is the collector layer.
-- Azure Application Insights MUST be configured as the telemetry sink (traces, metrics,
-  and logs) that OpenTelemetry data is exported to.
-- Every call to an LLM MUST record: the full prompt sent, the full response received,
-  input token count, output token count, computed cost for that call, and call latency,
-  as structured telemetry (not free-text logs alone).
-- Prompt/response telemetry MUST be attributable to a request/session so per-prompt cost
-  and performance can be traced back to a specific player action.
-- Aggregate views (e.g., Application Insights dashboards or workbooks) MUST be
-  achievable from this telemetry to answer ongoing questions about total AI spend,
-  token consumption trends, and LLM latency/error rates over time.
-- Telemetry MUST NOT be used to bypass Principle II: captured prompts/responses are
-  operational data and MUST remain within the same access-controlled Azure environment,
-  not exposed publicly.
+- OpenTelemetry SDKs and APIs MUST instrument both the Python (Azure Functions) backend and
+  the ReactJS frontend.
+- Azure Application Insights MUST be the sink for traces, metrics, and logs.
+- Every LLM call MUST record the full prompt, the full response, input token count, output
+  token count, computed cost for that call, and latency, as structured telemetry rather
+  than free-text logs.
+- Prompt and response telemetry MUST be attributable to a request or session, so cost and
+  performance trace back to a specific player action.
+- The telemetry MUST support aggregate views (Application Insights dashboards or workbooks)
+  of total AI spend, token consumption trends, and LLM latency and error rates over time.
+- Captured prompts and responses are operational data and MUST remain inside the same
+  access-controlled Azure environment; telemetry MUST NOT become a way around Principle II.
 
 ## AI Agent / GitHub Handoff Requirements
 
-- Local AI agent tools (Claude Code or another local LLM-based coding assistant, e.g.
-  Cursor or an equivalent) are authorized for: writing and editing code, running local
-  and automated tests, all spec-related work (intake, specify, clarify, plan, tasks,
-  analyze) via this project's Spec Kit workflow, and — once that work is ready — pushing
-  the branch and opening the pull request for it.
-- Before a local AI agent begins spec-related work on a branch — writing or updating
-  `plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md`, or `tasks.md`,
-  not only implementing — it MUST sync that branch with `origin/main` (e.g. `git fetch
-  origin`, then fast-forward or merge `origin/main` into the branch), and MUST report a
-  divergence it cannot fast-forward rather than forcing or working around it. Existing
-  code an artifact describes MUST then be read from that synced tree, or from
-  `origin/main` directly (e.g. `git show origin/main:<path>`) — never from a different
-  local branch or another worktree's checkout. This applies to identifiers the artifact
-  says already exist; identifiers it proposes to create are exempt, and a dependency on
-  unmerged work MUST be named as such.
-- When a local AI agent opens a pull request, it MUST label it `AI Generated` and
-  `Claude` (both labels already exist in this repository), MUST NOT include a link to
-  the local agent's own session/transcript in the PR description, and MUST NOT enable
-  auto-merge on the PR or merge it directly.
-- Before pushing to a remote branch, a local AI agent MUST confirm the state of any
-  pull request associated with that branch (e.g., `gh pr view <branch> --json state`).
-  If the associated pull request is merged or closed, the agent MUST NOT push to that
-  branch; it MUST create a new branch off the current main branch and open a new pull
-  request for the work, labelled as above. Pushing to a branch whose pull request is
-  still open is permitted and is the normal way to address review feedback.
-- Local AI agent tools MUST NOT merge a pull request on their own behalf, even where the
-  tool has the technical means to do so (e.g., a `gh` CLI or GitHub API credential).
-  This covers every route to a merge, not only `gh pr merge`: enabling auto-merge, a
-  REST call (`gh api --method PUT .../merge`), and a GraphQL `mergePullRequest` mutation
-  are equally prohibited. Permission rules block the `gh pr merge` forms; the remaining
-  routes are governed by this rule, which holds regardless of what any tool
-  configuration happens to permit.
-  Resolving the issue — writing the fix, pushing the branch, and opening the pull
-  request — is ordinary local development work and is not restricted by this bullet;
-  only the GitHub-side merge action is.
-- A local AI agent MAY close a GitHub issue directly (e.g., `gh issue close`) where both
-  conditions hold: the requesting user has asked it to close that issue, and the agent
-  has verified that the work resolving it is merged to `origin/main` — not merely present
-  on a local branch, in a worktree, or in an open pull request. The agent MUST state what
-  it verified when it closes an issue. Where either condition fails, it MUST leave the
-  issue open and say why.
-- Once a local AI agent has pushed a branch and opened its pull request, it MUST be
-  reviewed via Claude Code's `/code-review` skill (`/code-review ultra <PR#>` for a
-  full multi-agent cloud review posted to the PR), run explicitly by the requesting
-  user or by Claude Code when asked — not automatically on push. Its required
-  CI/status checks and code-quality gate run as usual, mirroring the required checks
-  already established in Development Workflow & Quality Gates and Continuous
-  Integration Gate (Principle V). This review does not produce a formal approving
-  review or perform the merge. The requesting user or product owner MUST read the
-  code-review skill's findings and the status of the required checks, then merge the
-  pull request manually once satisfied.
-- This division applies to GitHub-hosted actions only. It does not change where code is
-  written or tested (Principle I, Environments & Deployment Pipeline) — only who is
-  authorized to create and monitor the GitHub-side artifacts (PRs and issues) that carry
-  that work, and it makes clear that merging a pull request is a manual action for the
-  requesting user or product owner, not something either AI agent performs, while closing
-  an issue is an action a local AI agent MAY perform on request under the conditions
-  above.
-- Any exception (e.g., an emergency fix where the code-review skill is skipped) MUST
-  be explicitly called out by the person directing the work and is not a default local
-  AI agent behavior.
+Principle XIII fixes the division of labor. These are its mechanics, and they govern
+GitHub-side actions only — they do not change where code is written or tested.
+
+- A pull request an agent opens MUST carry both the `AI Generated` and `Claude` labels,
+  MUST NOT link to the agent's own session or transcript, and MUST NOT have auto-merge
+  enabled.
+- Before pushing to a remote branch, an agent MUST confirm the state of any pull request
+  associated with it (e.g. `gh pr view <branch> --json state`). If that pull request is
+  merged or closed, the agent MUST NOT push; it MUST branch off the current main and open a
+  new pull request, labelled as above. Pushing to a branch whose pull request is still open
+  is permitted and is the normal way to address review feedback.
+- The merge prohibition covers every route, not only `gh pr merge`: enabling auto-merge, a
+  REST call (`gh api --method PUT .../merge`), and a GraphQL `mergePullRequest` mutation are
+  equally prohibited, and the rule holds regardless of what any tool's configuration happens
+  to permit. Writing the fix, pushing the branch, and opening the pull request are not
+  restricted by this rule; only the GitHub-side merge is.
+- When an agent closes an issue under Principle XIII's two conditions, it MUST state what it
+  verified. Where either condition fails, it MUST leave the issue open and say why.
+- Syncing a branch before spec-related work means `git fetch origin` followed by a
+  fast-forward or merge of `origin/main` into the branch. Existing code an artifact
+  describes MUST then be read from that synced tree or from `origin/main` directly (e.g.
+  `git show origin/main:<path>`), never from another local branch or worktree.
+- Skipping the `/code-review` pass — for instance an emergency fix — MUST be called out
+  explicitly by the person directing the work. It is never a default agent behavior.
 
 ## Development Workflow & Quality Gates
 
-- All changes MUST go through a pull request on GitHub; direct pushes to the main branch
-  are not permitted.
-- This repository merges exclusively by squash, so the PR title — not any individual
-  commit message — becomes the sole commit on `main` and is what semantic-release reads
-  to compute the next version. Every PR title MUST therefore follow Conventional
-  Commits format, `type(scope): description`, and MUST pass the repository's required
-  `check-title` status check before merge. The allowed `type` and `scope` values are the
-  single source of truth in `scripts/pr-title-config.js` (mirrored into
-  `.github/workflows/pr-title-check.yml`); scope is required on every PR title, even for
-  a scope (e.g., `docs`, `chore`) that never gates a version bump.
-- Every pull request MUST include automated tests for the functionality and edge cases
-  it introduces or changes, per Principle I.
-- CI MUST run the full automated test suite on every pull request, per Principle V; a
-  failing run blocks merge.
-- Every pull request MUST have a review pass before merge, focused on correctness,
-  adherence to this constitution, and meaningful test quality (not just presence of
-  tests). That pass is Claude Code's `/code-review` skill, per Principle XIII — this
-  project has one maintainer, so a second contributor's approving review is not
-  available and the repository ruleset accordingly requires zero approving reviews. The
-  review tier MUST be chosen deliberately rather than defaulted to, using the triage
-  rule recorded in `CLAUDE.md` (blast radius first, then diff size, then how the change
-  was authored). A change touching authentication, secrets, permissions, CI/CD,
-  deployment, infrastructure, persisted-data schema, release machinery, or this
-  constitution and its operational mirrors MUST receive the deepest tier
-  (`/code-review ultra <PR#>`) whatever its size. Skipping the review pass entirely is
-  the exception described at the end of the AI Agent / GitHub Handoff Requirements
-  above, not a default.
-- A pull request description MUST carry the account of the change that survives to
-  `main`: what problem it addresses and the evidence for it, what was decided and why,
-  what was actually tested and what that returned, what is deliberately left undone, and
-  the review tier being recommended. It MUST NOT claim a check that was not run, quote a
-  measurement that was not taken, or assert an approving review. The full contract is in
-  `CLAUDE.md`; a local AI agent MUST follow it on every pull request it opens.
-- A passing automated test suite (Principle I) and a green CI run (Principle V) are
-  sufficient for a feature to be considered complete and mergeable; human playtesting
-  against the deployed environment happens afterward, on an ongoing basis, per
-  Principle IX, and MUST NOT be used to block merge or hold a feature open.
-- Spec-related work MUST begin from a branch synced with `origin/main`, not from an
-  unmerged local branch, another worktree, or a stale local `main`, per Principle XIII.
-  A cross-artifact consistency analysis MUST treat as a blocking finding any statement
-  that code already exists — a module path, symbol, constant, field, or endpoint — where
-  that code is absent from `origin/main` and is not declared as a named, not-yet-merged
-  dependency. Identifiers the artifact proposes to create are not findings; a plan naming
-  code it intends to add is doing its job.
-- Issues, pull request descriptions/comments, and commit messages MUST NOT include PII
-  (Principle X, PII & Data Protection Requirements) — reference affected records
-  indirectly instead.
-- A feature with a user-facing UI is NOT required to have a pre-implementation UI design
-  agreement/sign-off task; per Principle XI, the implementer MAY proceed on its own
-  design judgment within the constraints of Principle VIII and the UI Design System
-  Requirements below. A task list MAY still include an optional, non-blocking design
-  walkthrough at the author's discretion.
-- A local AI agent completing local work — including resolving a GitHub issue —
-  pushes the branch and opens its own pull request (labelled, auto-merge NOT enabled),
-  per Principle XIII and the AI Agent / GitHub Handoff Requirements above. The PR is
-  reviewed via Claude Code's `/code-review` skill, run explicitly before merge, and its
-  findings posted as recommendations. Merging is a manual step: the requesting user or
-  product owner reviews the code-review skill's findings and the
-  required checks, then merges the pull request themselves. Once that merge is on
-  `origin/main`, the local AI agent MAY close the originating issue if the requesting
-  user asks it to.
-- Spec/feature work — work on a branch with a matching `specs/<branch>/` folder — MUST
-  happen inside that feature's own git worktree, running inside that worktree's own
-  isolated devcontainer (started via `bin/wt <branch>`), and a worktree's container MUST
-  NOT be shared with another worktree. This keeps concurrent specs from
-  cross-contaminating: a session for one spec has no filesystem access to any other
-  spec's worktree. Work on a branch carrying no spec folder (e.g. `chore/*`, `fix/*`,
-  `docs/*`, `perf/*`) MAY instead be done in the primary checkout, where that
-  cross-contamination risk does not arise; such a session MUST still work on a branch
-  rather than on `main`, MUST NOT read or write another worktree under `.worktrees/`,
-  and leaves the primary checkout returned to `main` when it ends. No work of either
-  kind happens directly on `main`.
-- A worktree MUST live at `.worktrees/<branch>`, its directory name spelling out its
-  branch name exactly; the container identity, the edit guard, and the lifecycle tools
-  all key off that equality.
-- Worktrees and branches MUST be pruned once their pull request is merged, and merge
-  MUST be determined from GitHub's record of that pull request (`bin/wt-prune`), never
-  from git ancestry — this repository merges exclusively by squash, so a merged branch's
-  tip is never an ancestor of `main` and every git-ancestry test reports merged work as
-  unmerged. Pruning MUST NOT remove a worktree holding uncommitted or untracked work, or
-  a branch whose pull request is open, closed unmerged, or absent.
-- A worktree whose copy of this constitution is a MAJOR version behind `origin/main`
-  MUST NOT be worked in until it is rebased: its session would be governed by rules the
-  current constitution has already replaced. `bin/wt-sync` detects this and `bin/wt`
-  refuses to start such a worktree. Lesser drift in the bootstrap files (`CLAUDE.md`,
-  this constitution's minor/patch versions, Claude settings, hook scripts, `bin/`,
-  `.devcontainer/`) is reported as a warning, not a block.
+- All changes MUST go through a pull request; direct pushes to `main` are not permitted.
+- This repository merges exclusively by squash, so the PR title — not any commit message —
+  becomes the sole commit on `main` and is what semantic-release reads. Every PR title MUST
+  follow Conventional Commits format, `type(scope): description`, and MUST pass the required
+  `check-title` status check. The allowed `type` and `scope` values live in
+  `scripts/pr-title-config.js` (mirrored into `.github/workflows/pr-title-check.yml`);
+  scope is required on every title, even one whose scope never gates a version bump.
+- Every pull request MUST include automated tests for the functionality and edge cases it
+  changes (Principle I), and CI MUST run the full suite on it (Principle V); a failing run
+  blocks merge.
+- Every pull request MUST have a review pass before merge, covering correctness, compliance
+  with this constitution, and meaningful test quality rather than the mere presence of
+  tests. That pass is Claude Code's `/code-review` skill (Principle XIII); this project has
+  one maintainer, so a second contributor's approving review is unavailable and the
+  repository ruleset accordingly requires zero approving reviews. The tier MUST be chosen
+  deliberately rather than defaulted to, using the triage rule in `CLAUDE.md` (blast radius
+  first, then diff size, then how the change was authored). A change touching
+  authentication, secrets, permissions, CI/CD, deployment, infrastructure, persisted-data
+  schema, release machinery, or this constitution and its operational mirrors MUST receive
+  the deepest tier (`/code-review ultra <PR#>`) whatever its size.
+- A pull request description MUST carry the account of the change that survives to `main`:
+  the problem it addresses and the evidence for it, what was decided and why, what was
+  actually tested and what that returned, what is deliberately left undone, and the review
+  tier being recommended. It MUST NOT claim a check that was not run, quote a measurement
+  that was not taken, or assert an approving review. The full contract is in `CLAUDE.md`.
+- A passing test suite and a green CI run make a feature complete and mergeable; playtesting
+  happens afterward and MUST NOT block merge (Principle IX).
+- A cross-artifact consistency analysis MUST treat as blocking any statement that code
+  already exists — a module path, symbol, constant, field, or endpoint — where that code is
+  absent from `origin/main` and is not declared as a named, not-yet-merged dependency
+  (Principle XIII). Identifiers an artifact proposes to create are not findings.
+- Spec/feature work — work on a branch with a matching `specs/<branch>/` folder — MUST run
+  inside that feature's own git worktree, in that worktree's own isolated devcontainer
+  (started via `bin/wt <branch>`), and a worktree's container MUST NOT be shared with
+  another worktree; this keeps concurrent specs from cross-contaminating. Work on a branch
+  with no spec folder (e.g. `chore/*`, `fix/*`, `docs/*`, `perf/*`) MAY instead run in the
+  primary checkout, where that risk does not arise; such a session MUST still work on a
+  branch, MUST NOT read or write another worktree under `.worktrees/`, and leaves the
+  primary checkout on `main`. No work of either kind happens directly on `main`.
+- A worktree MUST live at `.worktrees/<branch>`, its directory name spelling out its branch
+  name exactly; the container identity, the edit guard, and the lifecycle tools all key off
+  that equality.
+- Worktrees and branches MUST be pruned once their pull request is merged, and merge MUST be
+  determined from GitHub's record of that pull request (`bin/wt-prune`), never from git
+  ancestry — squash merging means a merged branch's tip is never an ancestor of `main`, so
+  every ancestry test reports merged work as unmerged. Pruning MUST NOT remove a worktree
+  holding uncommitted or untracked work, or a branch whose pull request is open, closed
+  unmerged, or absent.
+- A worktree whose copy of this constitution is a MAJOR version behind `origin/main` MUST
+  NOT be worked in until it is rebased, since its session would be governed by rules already
+  replaced; `bin/wt-sync` detects this and `bin/wt` refuses to start such a worktree. Lesser
+  drift in the bootstrap files (`CLAUDE.md`, this constitution's minor and patch versions,
+  Claude settings, hook scripts, `bin/`, `.devcontainer/`) is a warning, not a block.
 - See `docs/WORKTREE_CONTAINER_WORKFLOW.md` for the full workflow.
 
 ## Environments & Deployment Pipeline
 
 - There are exactly two places code is built and tested: a contributor's local machine
-  (including a worktree's isolated devcontainer, per Development Workflow above) and the
-  single live/production environment in Azure. The project MUST NOT stand up an
-  additional persistent environment (e.g., a separate staging, UAT, or QA deployment)
-  without a documented requirement and a constitution amendment — this is a deliberate,
-  non-enterprise-grade choice (Principle XII).
-- The only path from a merged change to the live environment is through GitHub Actions
-  workflows; there is no manual/portal deployment path for application code.
+  (including a worktree's isolated devcontainer) and the single live environment in Azure.
+  The project MUST NOT stand up an additional persistent environment — staging, UAT, QA —
+  without a documented requirement and a constitution amendment (Principle XII).
+- The only path from a merged change to the live environment is a GitHub Actions workflow;
+  there is no manual or portal deployment path for application code.
 - Credentials and configuration needed by deployment workflows MUST be stored as GitHub
-  Actions secrets (or GitHub environment secrets/variables), never committed to the
-  repository, consistent with the Security & Access Control Requirements above.
-- CI (build/test, per Principle V) and CD (deploy to the live environment) both run as
-  GitHub Actions workflows; a deployment workflow run MUST NOT deploy a change that has
-  not passed the required CI checks.
-- Because no dedicated cloud test environment exists, automated integration tests MUST
-  run against a local stub or emulator of each external cloud dependency they exercise
-  (e.g., the Azure Cosmos DB emulator, or an equivalent local/in-memory stub) instead of
-  a live Azure resource, per Principle I. A dependency without a viable local stub or
-  emulator MUST be called out explicitly in that feature's plan, with a documented
-  fallback (e.g., a narrowly-scoped contract test against the real live-environment
-  resource, run only where unavoidable).
+  Actions secrets or environment secrets and variables, never committed to the repository.
+- CI (build and test) and CD (deploy to live) both run as GitHub Actions workflows, and a
+  deployment MUST NOT deploy a change that has not passed the required CI checks.
+- Automated integration tests MUST run against a local stub or emulator of each external
+  cloud dependency they exercise (e.g. the Azure Cosmos DB emulator) instead of a live Azure
+  resource (Principle I). A dependency with no viable stub MUST be called out explicitly in
+  that feature's plan, with a documented fallback — for example a narrowly scoped contract
+  test against the real live resource, run only where unavoidable.
 
 ## UI Design System Requirements
 
 ### Design tokens & components
 
-- Every color, font, spacing, radius, and shadow value used in the frontend MUST come
-  from the project's design-token layer (CSS custom properties, e.g. `--color-*`,
-  `--font-*`, `--space-*`, `--radius-*`, `--shadow-*`); a literal hex value, a bare
-  font-family name, or a magic pixel value that a token already covers is a review
-  blocker.
-- Components MUST be built from the design system's shared component
-  classes/primitives (buttons, inputs, form fields, cards, navigation, tables, tags,
-  dialogs, dividers, segmented controls); no parallel, screen-specific reimplementation
-  of a control the system already provides.
-- The design-token stylesheet MUST be vendored into the app as a single token layer;
-  tokens are never re-derived, re-typed, or forked per screen. The current token
-  source is `specs/designs/styles.css` (the "Modernist" design system) — copy it into
-  the app unmodified, per `specs/designs/README.md`.
-- A screen MUST NOT introduce a new component or visual-style class that duplicates
-  something the design system already provides. A screen MAY introduce a small number
-  of narrowly-scoped layout/behavior utility classes (e.g., a numeral treatment, a row
-  hover tint, a scroll-container rule) that have no visual-design opinion of their own —
-  everything else MUST be a design-system class or a token-based inline style.
+- Every color, font, spacing, radius, and shadow value MUST come from the design-token layer
+  (CSS custom properties: `--color-*`, `--font-*`, `--space-*`, `--radius-*`, `--shadow-*`).
+  A literal hex value, a bare font-family name, or a magic pixel value that a token already
+  covers is a review blocker.
+- Components MUST be built from the design system's shared classes and primitives (buttons,
+  inputs, form fields, cards, navigation, tables, tags, dialogs, dividers, segmented
+  controls); a screen MUST NOT reimplement a control the system already provides, or
+  introduce a component or visual-style class duplicating one.
+- The token stylesheet MUST be vendored into the app as a single layer, never re-derived,
+  re-typed, or forked per screen. Its source is `specs/designs/styles.css` (the "Modernist"
+  design system), copied in unmodified per `specs/designs/README.md`.
+- A screen MAY introduce a small number of narrowly scoped layout or behavior utility
+  classes with no visual-design opinion of their own (a numeral treatment, a row hover tint,
+  a scroll-container rule); everything else MUST be a design-system class or a token-based
+  inline style.
 
 ### Non-negotiable visual rules
 
@@ -918,159 +486,149 @@ drifts out of sync with the spec as the code evolves, and clutters the code itse
 2. Flush-left alignment — headings, body copy, and in-control labels start at the left
    padding edge; nothing is centered.
 3. Section separation uses visible dividing rules, not whitespace alone.
-4. The accent color is used sparingly — for the primary action, small emphasis, and at
-   most one prominent field per surface; paragraph-size text never uses the raw accent
-   color, only a darker, more legible variant of it.
-5. Layout structure (grid, equal-width cells, consistent horizontal rhythm) stays
-   visible rather than hidden behind whitespace.
-6. Oversized numerals (e.g., a chapter number, a list index, a wizard step) are the one
-   permitted expressive/playful typographic device in this design system; they remain
-   type, not illustration — no illustration or emoji is used elsewhere in the product.
+4. The accent color is used sparingly — the primary action, small emphasis, and at most one
+   prominent field per surface. Paragraph-size text never uses the raw accent color, only a
+   darker, more legible variant.
+5. Layout structure (grid, equal-width cells, consistent horizontal rhythm) stays visible
+   rather than hidden behind whitespace.
+6. Oversized numerals (a chapter number, a list index, a wizard step) are the one permitted
+   expressive typographic device; they remain type, not illustration. No illustration or
+   emoji appears elsewhere in the product.
 7. Photography is rendered in grayscale; imagery is never tinted or colorized.
 8. Icons come from a single, consistent icon set, sized for interface use.
 
 ### Interaction states
 
-Every interactive element MUST ship all four states, themed through the design
-system — never left at browser defaults:
+Every interactive element MUST ship all four states, themed through the design system and
+never left at browser defaults. State styling lives in the shared design-system layer;
+screens MUST NOT restyle these locally.
 
-- Hover: an accent tint (or a mixed tint for outlined/ghost variants).
-- Pressed: one step past the base/resting accent shade.
-- Focus: a visible `:focus-visible` outline in the accent color with a small offset;
-  a default browser focus ring (e.g., unstyled blue) fails review.
+- Hover: an accent tint, or a mixed tint for outlined and ghost variants.
+- Pressed: one step past the base accent shade.
+- Focus: a visible `:focus-visible` outline in the accent color with a small offset. A
+  default browser focus ring fails review.
 - Disabled: reduced opacity paired with a `not-allowed` cursor.
-
-State styling lives in the shared design-system layer; individual screens MUST NOT
-restyle these states locally.
 
 ### Readability & interaction requirements
 
-1. Story/narrative prose renders at a minimum comfortable reading size, with generous
-   line-height and modern text-wrapping for readability.
-2. Interface labels never fall below a minimum legible size; any label styled below the
-   body-text size threshold is rendered uppercase with letter-spacing to stay legible.
-3. Touch and click targets meet a minimum size in their shorter dimension; the player's
-   free-text instruction input is taller than a standard control, for comfortable use.
-4. Player input MUST be interpreted forgivingly — the system does not require exact
-   spelling or phrasing to act on an instruction; any correction is offered as a
-   suggestion, never required, and never blocks the player's turn.
-5. Suggested actions MUST always be available as an alternative to free-text typing, so
-   a player can always proceed without composing their own sentence.
-6. Player-facing copy is plain, warm, and concrete — no technical jargon or raw error
-   codes shown to players, and every failure or dead-end state offers a next action
-   rather than leaving the player stuck.
+1. Story and narrative prose renders at or above the design system's body text size, with
+   its line-height or greater, and modern text wrapping (`text-wrap: pretty` or equivalent).
+2. An interface label rendered below the body text size MUST be uppercase with
+   letter-spacing.
+3. Touch and click targets MUST be at least 24x24 CSS px (WCAG 2.5.8). The player's
+   free-text instruction input is taller than a standard control.
+4. Player input MUST be interpreted forgivingly: exact spelling or phrasing is never
+   required to act on an instruction, and any correction is offered as a suggestion that
+   never blocks the player's turn.
+5. Suggested actions MUST always be available alongside free-text typing, so a player can
+   proceed without composing a sentence.
+6. Player-facing copy is plain, warm, and concrete — no technical jargon or raw error codes
+   — and every failure or dead-end state offers a next action.
 7. Player-facing surfaces MUST NOT use shaming language, artificial time pressure, or
-   punitive UI patterns. This governs tone and interface pressure tactics only — it does
-   not remove the game's own configured success/failure outcomes (see
-   `008-core-gameplay-done`), which remain a legitimate, narratively-framed part of gameplay.
+   punitive UI patterns. This governs tone and interface pressure only; the game's own
+   configured success and failure outcomes (`008-core-gameplay-done`) remain a legitimate,
+   narratively framed part of gameplay.
 
 ### Layout and scroll contract
 
-1. The application shell is fixed to the viewport (no page-level scroll).
-2. On the play surface, only the story pane scrolls; the title bar, instruction input,
-   suggested actions, and status panel remain fixed and always reachable.
+1. The application shell is fixed to the viewport; there is no page-level scroll.
+2. On the play surface only the story pane scrolls; the title bar, instruction input,
+   suggested actions, and status panel stay fixed and reachable.
 3. The story pane auto-scrolls to the newest turn.
-4. Each primary application surface remains usable down to a defined minimum viewport
-   width; below that floor, secondary panels (e.g., a status panel) collapse above the
-   primary content rather than disappearing, and the input row stays pinned.
+4. Every primary surface MUST remain usable down to a 320 px viewport width. Below that
+   floor, secondary panels (e.g. the status panel) collapse above the primary content rather
+   than disappearing, and the input row stays pinned.
 
 ### Screen contracts
 
-The prototype at `specs/designs/` is the acceptance reference for these screens' layout
-and copy; this constitution wins on rules where the two disagree. It contains six
-screens, a shared vendored stylesheet, and a README mapping each screen to the spec(s)
-that govern its behavior (see `specs/designs/README.md`).
+The prototype at `specs/designs/` is the acceptance reference for these screens' layout and
+copy; where it and this constitution disagree, this constitution wins. It holds six screens,
+the shared vendored stylesheet, and a README (`specs/designs/README.md`) mapping each screen
+to the specs governing its behavior.
 
-A screen contract MAY exist without a corresponding prototype screen where the governing
-spec explicitly defers visual design (recording that deferral as an exception in its
-plan's Constitution Check). For such a screen the contract text below is the sole
-acceptance reference: it fixes the screen's purpose, its required affordances, and its
-entry points, while layout and copy are the implementer's within the design-token,
-interaction-state, and accessibility requirements above — none of which the deferral
-relaxes.
+A screen contract MAY exist without a prototype screen where the governing spec explicitly
+defers visual design, recording that deferral as an exception in its plan's Constitution
+Check. For such a screen the contract text below is the sole acceptance reference: it fixes
+purpose, required affordances, and entry points, leaving layout and copy to the implementer
+within the design-token, interaction-state, and accessibility requirements above, none of
+which the deferral relaxes.
 
-- **Login** (`specs/designs/01-login.html`) — Microsoft identity sign-in only,
-  consistent with Principle II: no password field, no local accounts, no alternate
-  identity provider.
+- **Login** (`specs/designs/01-login.html`) — Microsoft identity sign-in only
+  (Principle II): no password field, no local accounts, no alternate identity provider.
 - **Adventure select** (`specs/designs/02-story-select.html`) — in-progress adventures
-  are listed first, showing progress and last-played information; not-yet-started
-  (published) adventures follow after a visible divider; resuming an in-progress
-  adventure is reachable in one action from its list row.
-- **Play surface** (`specs/designs/03-play.html`) — a persistent title/status bar
-  offering an explicit checkpoint-save action and a pause-and-exit action; a scrolling
-  story pane; an instruction input paired with suggested actions; a status panel
-  showing current location/goal/progress and a hint action. Exiting always goes through
-  the pause screen — never an unconfirmed destructive action.
-- **Administrator story-authoring wizard** (`specs/designs/04-admin-wizard.html`) — a
-  six-step, administrator-facing flow whose steps (name & cover, world & setting, tone
-  & reading level, session length, test play, publish & assign) are reachable in any
-  order; the adventure's core premise and its content-safety configuration are required
-  fields. A story MUST NOT be publishable (see `005-story-publishing-done`) until it has
-  completed a test play.
-- **Administrator — people** (`specs/designs/05-admin-users.html`) — add a new Player or
-  Administrator by email; existing accounts are listed with their role(s), and removed
-  one at a time, always behind a confirmation dialog (no bulk removal). Accounts are
-  Microsoft identities only — no password field, consistent with Principle II. See
-  `003-account-provisioning-done`.
-- **Administrator — stories & configuration** (no prototype screen; see the paragraph
-  above) — the administrator's story list shows every story with its published/
-  unpublished status conveyed as text, not color alone, and is one of the two required
-  entry points for publish/unpublish (`005-story-publishing` FR-010), enforcing the same
-  preconditions and confirmation as the authoring wizard's publish step by rendering the
-  same shared control, never a screen-specific reimplementation. Each row reaches that
-  story's read-only configuration viewer in one action. The list is also the entry point
-  for uploading a story configuration file (`011-story-import` FR-001,
+  first, showing progress and last-played information; published, not-yet-started
+  adventures follow a visible divider. Resuming is reachable in one action from a list row.
+- **Play surface** (`specs/designs/03-play.html`) — a persistent title/status bar offering
+  an explicit checkpoint-save and a pause-and-exit action; a scrolling story pane; an
+  instruction input paired with suggested actions; a status panel showing location, goal,
+  progress, and a hint action. Exiting always goes through the pause screen, never an
+  unconfirmed destructive action.
+- **Administrator story-authoring wizard** (`specs/designs/04-admin-wizard.html`) — six
+  steps (name & cover, world & setting, tone & reading level, session length, test play,
+  publish & assign) reachable in any order. The adventure's core premise and its
+  content-safety configuration are required. A story MUST NOT be publishable
+  (`005-story-publishing-done`) until it has completed a test play.
+- **Administrator — people** (`specs/designs/05-admin-users.html`) — add a Player or
+  Administrator by email; existing accounts list their roles and are removed one at a time
+  behind a confirmation dialog, never in bulk. Accounts are Microsoft identities only, with no
+  password field (Principle II). See `003-account-provisioning-done`.
+- **Administrator — stories & configuration** (no prototype screen) — the story list shows
+  every story with published/unpublished status conveyed as text, not color alone, and is
+  one of the two required entry points for publish/unpublish (`005-story-publishing`
+  FR-010), enforcing the same preconditions and confirmation as the wizard's publish step by
+  rendering the same shared control rather than a screen-specific reimplementation. Each row
+  reaches that story's read-only configuration viewer in one action. The list is also the
+  entry point for uploading a story configuration file (`011-story-import` FR-001,
   `012-story-editing-and-review` FR-005): the upload control confirms the named overwrite
-  target for a file that carries a story id, and prompts for a title for one that does
-  not. The viewer renders the story's complete configuration file exactly as the download
-  produces it, with the download action alongside it, and it is read-only — every edit
-  goes through the authoring wizard (04) or a re-upload. Introduced by
-  `012-story-editing-and-review`, whose FR-012 defers these two screens' visual design
-  to follow-up work; that deferral is recorded as an explicit exception in that
-  feature's plan and covers styling only.
+  target for a file carrying a story id, and prompts for a title for one that does not. The
+  viewer renders the story's complete configuration exactly as the download produces it,
+  with the download action alongside, and is read-only — every edit goes through the
+  authoring wizard or a re-upload. Introduced by `012-story-editing-and-review`, whose
+  FR-012 defers these two screens' visual design; that deferral is recorded as an explicit
+  exception in that feature's plan and covers styling only.
 
 ### Save and session behaviour
 
-1. Autosave after every turn is the default behavior and is stated to the player in the
-   UI.
+1. Autosave after every turn is the default and is stated to the player in the UI.
 2. A manual save creates a named checkpoint and confirms visibly and briefly.
-3. Exiting never loses a turn already taken; the pause/exit screen states where the
-   game was saved.
-4. Session length is configurable per adventure; the game offers a natural stopping
-   point rather than abruptly cutting a player off.
+3. Exiting never loses a turn already taken; the pause/exit screen states where the game was
+   saved.
+4. Session length is configurable per adventure, and the game offers a natural stopping
+   point rather than cutting a player off abruptly.
 
 ### Accessibility
 
-- Body copy meets at least a 4.5:1 contrast ratio against its background; interface
-  chrome and large type meet at least 3:1. The raw accent color at its default value is
-  roughly 3:1 and MUST NOT be used for paragraph-size text.
-- Every surface is fully operable by keyboard alone, with a visible focus indicator at
-  all times.
-- Semantic HTML is used first: real form elements, real buttons, real labels; native
-  controls are preferred over custom-built equivalents.
-- Meaning is never carried by color alone — progress indicators, states, and tags pair
-  color with text or an icon.
+- Body copy meets at least a 4.5:1 contrast ratio against its background; interface chrome
+  and large type meet at least 3:1. The raw accent color at its default value is roughly
+  3:1 and MUST NOT be used for paragraph-size text.
+- Every surface is fully operable by keyboard alone, with a visible focus indicator at all
+  times.
+- Semantic HTML comes first: real form elements, real buttons, real labels. Native controls
+  are preferred over custom equivalents.
+- Meaning is never carried by color alone — progress indicators, states, and tags pair color
+  with text or an icon.
 
 ## Governance
 
-This constitution supersedes any conflicting team practice, ad-hoc convention, or prior
-informal agreement for this project. All pull requests and reviews MUST verify
-compliance with the principles and requirements above; any added complexity (new
-services, new infrastructure, deviation from the defined stack) MUST be explicitly
-justified in the PR description.
+This constitution supersedes any conflicting team practice, convention, or prior informal
+agreement for this project. Every pull request and review MUST verify compliance with the
+principles and requirements above, and any added complexity — a new service, new
+infrastructure, a deviation from the defined stack — MUST be explicitly justified in the
+pull request description.
 
-Amendments to this constitution MUST be made via a pull request that updates this file,
-states the rationale for the change, and is reviewed and approved before merge.
-Versioning follows semantic versioning: MAJOR for backward-incompatible governance or
-principle removals/redefinitions, MINOR for new principles or materially expanded
-guidance, PATCH for clarifications and wording fixes. `LAST_AMENDED_DATE` MUST be
-updated on every change that modifies this file's content.
+Amendments MUST be made through a pull request that updates this file, states the rationale
+for the change, and passes the review gate in Development Workflow & Quality Gates before
+merge. Versioning is semantic: MAJOR for backward-incompatible
+governance or principle removals and redefinitions, MINOR for a new principle or section or
+materially expanded guidance, PATCH for clarifications and wording fixes. The Last Amended
+date MUST be updated on every change to this file's content, and the amendment's Sync Impact
+Report replaces its predecessor at the top of this file.
 
-Every implementation plan (`plan.md`) MUST include a Constitution Check section that
-states how each UI Design System requirement is satisfied, or requests an explicit,
-justified exception. A cross-artifact consistency analysis MUST treat a contradiction
-with the design-token, visual-rules, interaction-state, or layout/scroll requirements
-above as a blocking finding. No feature may ship a screen that is not traceable to a
-screen contract above or to a documented amendment extending it.
+Every implementation plan (`plan.md`) MUST include a Constitution Check stating how each UI
+Design System requirement is satisfied or requesting an explicit, justified exception. A
+cross-artifact consistency analysis MUST treat a contradiction with the design-token,
+visual-rules, interaction-state, or layout and scroll requirements as a blocking finding. No
+feature may ship a screen that is not traceable to a screen contract above or to a
+documented amendment extending one.
 
-**Version**: 6.1.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-10
+**Version**: 6.2.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-10
