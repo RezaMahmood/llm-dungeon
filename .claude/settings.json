@@ -1,4 +1,58 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(python3 .specify/scripts/python/check_prerequisites.py:*)",
+      "Bash(python3 .specify/scripts/python/setup_plan.py:*)",
+      "Bash(python3 .specify/scripts/python/setup_tasks.py:*)",
+      "Bash(python3 .specify/scripts/python/ensure_feature_branch.py:*)",
+      "Bash(gh auth status:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue create:*)",
+      "Bash(gh issue edit:*)",
+      "Bash(gh issue comment:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh pr status:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr comment:*)",
+      "Bash(gh pr edit:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh run watch:*)",
+      "Bash(npm ci:*)",
+      "Bash(npm list:*)",
+      "Bash(npm run:*)",
+      "Bash(npm test:*)",
+      "Bash(git add:*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(git merge:*)",
+      "Bash(git rebase:*)",
+      "Bash(git push:*)",
+      "Bash(git switch:*)",
+      "Bash(git checkout -b:*)",
+      "Bash(cd bin:*)",
+      "Bash(cd docs:*)",
+      "Bash(cd infrastructure:*)",
+      "Bash(cd scripts:*)",
+      "Bash(cd specs:*)",
+      "Bash(cd src:*)",
+      "Bash(cd utilities:*)",
+      "Bash(cd .github:*)",
+      "Bash(cd .specify:*)"
+    ],
+    "deny": [
+      "Bash(gh pr merge)",
+      "Bash(gh pr merge:*)",
+      "Bash(git checkout .)",
+      "Bash(git checkout --:*)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
