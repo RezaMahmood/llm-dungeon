@@ -39,6 +39,77 @@ physical guarantee, not just a convention. See
    (not removes) the container automatically. Nothing to clean up by
    hand for a normal end-of-session.
 
+## Run logs (`.wt-logs/`)
+
+Every `bin/wt` run writes to `.wt-logs/` in the **primary checkout**
+(gitignored). Before this existed, everything `bin/wt` and `devcontainer
+up` printed went to the terminal and nowhere else — so a container that
+failed to build, or a `postCreateCommand` that gave up installing
+`claude`, left no trace at all once the scrollback was gone.
+
+```
+.wt-logs/events.jsonl                  one JSON object per event, all runs
+.wt-logs/run-<branch>-<run-id>.log     full transcript of one run
+```
+
+Each event carries a stable `code`, so the question is not "what did that
+message say" but "what *kind* of failure is this, and how often has it
+happened":
+
+```bash
+bin/wt --logs        # problem counts by code, plus the last 20 events
+bin/wt --logs 100    # ...last 100 instead
+```
+
+| code | what it means |
+|---|---|
+| `E_DOCKER_DOWN` | no reachable Docker daemon — Docker Desktop is asleep |
+| `E_NO_DEVCONTAINER_CLI` / `E_NO_DOCKER_CLI` | that CLI isn't on `PATH` |
+| `E_CONTAINER_UP` | `devcontainer up` failed; the CLI's own message and description are captured with it |
+| `E_CLAUDE_MISSING` | the container exists but has no `claude` — `postCreate` failed at creation and never re-runs (see below) |
+| `E_BRANCH_PATH_MISMATCH`, `E_PATH_BRANCH_MISMATCH`, `E_WORKTREE_DETACHED`, `E_PATH_OCCUPIED` | the directory-name-equals-branch-name rules below |
+| `E_STALE_CONSTITUTION` | blocked by `bin/wt-sync` (see below) |
+| `E_INTERRUPTED` | `bin/wt` itself took a Ctrl-C or a `TERM` (during a build, say) |
+| `E_SESSION_NONZERO` | the session itself exited non-zero |
+
+A non-zero session exit is ordinary — a Ctrl-C, or a `--shell` whose last
+command failed — so it is recorded at `info` level and kept out of the
+problem counts, which would otherwise fill up with it. `--logs` reports the
+clean/non-zero split on its own `== Sessions ==` line instead; a session
+that dies on every start shows there as `0 ended cleanly`.
+
+What the log can and cannot hold: `devcontainer up`'s full output — the
+build, the feature installs, `postCreate` — is captured, and that is where
+container-start errors actually live. The `claude` session itself is an
+interactive TTY, so its stream is deliberately **not** captured (teeing it
+would record the whole terminal-UI escape sequence and nothing useful);
+what is recorded for the session is its exit status, plus the pre-flight
+probes either side of it. Errors from inside a session are in Claude
+Code's own transcripts under `~/.claude/projects/`.
+
+Logging is a diagnostic, never a gate — an unwritable log directory
+downgrades to no logging rather than refusing to start a session. Set
+`WT_LOG_DIR` to write somewhere else, or `WT_NO_LOG=1` to turn it off.
+Run transcripts are pruned to the newest 50, and `events.jsonl` is capped
+at 5000 lines.
+
+## `postCreateCommand` failure is permanent until `--rebuild`
+
+`.devcontainer/post-create.sh` is what installs `uv` and the Claude Code
+CLI *into the container* — they are not in the image. It runs **once**, at
+container creation, and its retry loop gives up after three attempts (a
+full Docker VM disk has caused exactly that here; see **Docker Desktop
+resources** below). The container is still created when it fails, so every
+later `bin/wt <branch>` *resumes* it and `postCreate` never runs again.
+
+`bin/wt` now probes for `claude` after bringing the container up and stops
+with `E_CLAUDE_MISSING` and the one fix that works, rather than exec'ing
+into a container that cannot run it:
+
+```bash
+bin/wt <branch> --rebuild
+```
+
 ## Dependent specs (spec B needs spec A's in-flight work)
 
 Don't rely on anything detecting this for you — branch B from A
@@ -412,6 +483,39 @@ too:
 ```bash
 cp "$(ls -t ~/.claude/backups/.claude.json.backup.* | head -1)" ~/.claude.json
 ```
+
+### Bootstrap noise on container creation
+
+Creating a container used to end with two messages that looked like
+failures and were not:
+
+```
+Claude configuration file not found at: /home/vscode/.claude.json
+A backup file exists at: /home/vscode/.claude/backups/.claude.json.backup.<ts>
+...
+⚠ Setup notes:
+  ● Native installation exists but ~/.local/bin is not in your PATH.
+```
+
+Both came from lifecycle ordering, and both are fixed in
+`.devcontainer/post-create.sh`:
+
+- The devcontainer lifecycle runs `postCreateCommand` (which installs
+  Claude Code) **before** `postStartCommand` (`restore-claude-config.sh`,
+  which puts `~/.claude.json` in place), so on a fresh container the
+  installer genuinely found no config. Its suggested `cp` from
+  `~/.claude/backups/` was actively wrong advice here: that directory
+  arrives through the shared `~/.claude` bind mount, so it holds the
+  *host's* backups, and `postStartCommand` overwrites the file seconds
+  later anyway. `post-create.sh` now runs the restore itself first — it is
+  idempotent and still runs again on every start.
+- Both installers put their binary in `~/.local/bin`, which is added to
+  `PATH` by a snippet in `~/.profile` that is conditional on the directory
+  *already existing* — and it does not exist in the base image. So during
+  `postCreate` it genuinely was not on `PATH`. `post-create.sh` now creates
+  and exports it before installing, which both silences the warning and
+  satisfies the `~/.profile` condition for every later login shell — which
+  is how `devcontainer exec` resolves `claude`.
 
 ## `gh` CLI auth inside the container
 

@@ -163,12 +163,20 @@ expect_equal "main" "$(branch_of "$repo")" "and the primary checkout is untouche
 
 echo
 echo "bin/wt* — argument handling and refusals"
+# bin/wt writes its run log to <primary checkout>/.wt-logs by default. Point
+# it at a throwaway directory so exercising the refusals here never appends
+# to the real repository's diagnostics.
+WT_TEST_LOGS="$WORKDIR/wt-logs"
+export WT_LOG_DIR="$WT_TEST_LOGS"
+
 "$REPO_ROOT/bin/wt" --help >/dev/null 2>&1
 expect_status 0 $? "bin/wt --help"
 "$REPO_ROOT/bin/wt" main >/dev/null 2>&1
 expect_status 1 $? "bin/wt refuses to make a worktree for the trunk"
 "$REPO_ROOT/bin/wt" >/dev/null 2>&1
 expect_status 1 $? "bin/wt with no branch"
+"$REPO_ROOT/bin/wt" --nonsense >/dev/null 2>&1
+expect_status 1 $? "bin/wt rejects unknown options"
 
 "$REPO_ROOT/bin/wt-prune" --help >/dev/null 2>&1
 expect_status 0 $? "bin/wt-prune --help"
@@ -242,6 +250,110 @@ expect_status 0 $? "after rebasing onto the ref, nothing blocks"
 repo="$(new_repo sync-empty)"
 ( cd "$repo" && "$REPO_ROOT/bin/wt-sync" --ref=main >/dev/null 2>&1 )
 expect_status 0 $? "no worktrees at all"
+
+echo
+echo "bin/wt — run logging"
+# The whole point of the log is to still be readable after the terminal has
+# scrolled away, so these assert on the file, not on what was printed.
+expect_equal "yes" "$([ -f "$WT_TEST_LOGS/events.jsonl" ] && echo yes || echo no)" \
+  "a refused run still records an event"
+
+case "$(cat "$WT_TEST_LOGS/events.jsonl")" in
+  *'"code":"E_TRUNK_BRANCH"'*) ok "the trunk refusal is recorded under its own error code" ;;
+  *) bad "expected E_TRUNK_BRANCH in events.jsonl" ;;
+esac
+
+case "$(cat "$WT_TEST_LOGS/events.jsonl")" in
+  *'"code":"OK_START"'*) ok "each run records where it started" ;;
+  *) bad "expected OK_START in events.jsonl" ;;
+esac
+
+# Every line must be a self-contained JSON object: the file is append-only
+# from several runs at once, so anything else makes the whole log unreadable.
+if command -v jq >/dev/null 2>&1; then
+  if jq -e -c . "$WT_TEST_LOGS/events.jsonl" >/dev/null 2>&1; then
+    ok "every events.jsonl line is valid JSON"
+  else
+    bad "events.jsonl contains a line that is not valid JSON"
+  fi
+else
+  ok "events.jsonl JSON validity (skipped — no jq)"
+fi
+
+# A branch name with a slash must not create a directory inside the log dir.
+# This needs a run that actually reaches log setup with a slashed branch: the
+# refusals above all use "main". Trimming PATH to the system directories drops
+# the devcontainer CLI, so the run stops at E_NO_DEVCONTAINER_CLI -- after
+# logging is initialised, and before anything touches git or docker.
+SLUG_LOGS="$WORKDIR/wt-logs-slug"
+( PATH="/usr/bin:/bin:/usr/sbin:/sbin" WT_LOG_DIR="$SLUG_LOGS" \
+    "$REPO_ROOT/bin/wt" perf/some-branch >/dev/null 2>&1 )
+expect_equal "0" "$(find "$SLUG_LOGS" -mindepth 2 -type f 2>/dev/null | wc -l | tr -d " ")" \
+  "run transcripts stay flat (branch slashes are slugged, not nested)"
+expect_equal "1" "$(find "$SLUG_LOGS" -maxdepth 1 -name "run-perf-some-branch-*.log" 2>/dev/null | wc -l | tr -d " ")" \
+  "the slashed branch name reaches the transcript filename as a slug"
+
+"$REPO_ROOT/bin/wt" --logs >/dev/null 2>&1
+expect_status 0 $? "bin/wt --logs summarises without needing a branch"
+"$REPO_ROOT/bin/wt" --logs 5 >/dev/null 2>&1
+expect_status 0 $? "bin/wt --logs <count>"
+
+# Positionals are resolved after the whole argument loop, so a bare word means
+# the same thing wherever it sits. Both of these used to print a summary and
+# exit 0, silently dropping the branch the caller asked to start a session on.
+"$REPO_ROOT/bin/wt" some-branch --logs >/dev/null 2>&1
+expect_status 1 $? "bin/wt <branch> --logs is refused, not silently summarised"
+out="$("$REPO_ROOT/bin/wt" some-branch --logs 2>&1)"
+case "$out" in
+  *"takes no branch name"*) ok "...and says which of the two was meant" ;;
+  *) bad "expected a branch-vs-count explanation, got: $out" ;;
+esac
+"$REPO_ROOT/bin/wt" 5 --logs >/dev/null 2>&1
+expect_status 0 $? "a count before --logs means the same as after it"
+"$REPO_ROOT/bin/wt" one two >/dev/null 2>&1
+expect_status 1 $? "bin/wt rejects two branches"
+
+out="$("$REPO_ROOT/bin/wt" --logs 2>&1)"
+case "$out" in
+  *E_TRUNK_BRANCH*) ok "--logs groups past failures by error code" ;;
+  *) bad "expected E_TRUNK_BRANCH in the --logs summary: $out" ;;
+esac
+
+WT_NO_LOG_DIR="$WORKDIR/wt-logs-disabled"
+WT_NO_LOG=1 WT_LOG_DIR="$WT_NO_LOG_DIR" "$REPO_ROOT/bin/wt" main >/dev/null 2>&1
+expect_equal "no" "$([ -d "$WT_NO_LOG_DIR" ] && echo yes || echo no)" \
+  "WT_NO_LOG=1 writes nothing at all"
+
+# Logging is a diagnostic, never a gate: an unwritable log directory must
+# not be the reason a session refuses to start.
+out="$(WT_LOG_DIR=/dev/null/nope "$REPO_ROOT/bin/wt" main 2>&1)"
+case "$out" in
+  *"it's the trunk"*) ok "an unwritable log directory degrades quietly" ;;
+  *) bad "expected the normal trunk refusal with an unwritable log dir: $out" ;;
+esac
+
+# The reachable version of that: a directory that exists and is writable to
+# `mkdir -p` (which succeeds on any existing directory) but not to the file
+# write inside it. That is the case where LOG_ENABLED goes to 0 while RUN_LOG
+# would otherwise stay set, and a later `tee -a` failure gets misreported as
+# the git command failing. Root ignores mode bits, so skip it there.
+if [ "$(id -u)" != "0" ]; then
+  LOCKED_LOGS="$WORKDIR/wt-logs-locked"
+  mkdir -p "$LOCKED_LOGS"
+  chmod 500 "$LOCKED_LOGS"
+  out="$(WT_LOG_DIR="$LOCKED_LOGS" "$REPO_ROOT/bin/wt" main 2>&1)"
+  status=$?
+  chmod 700 "$LOCKED_LOGS"
+  expect_status 1 $status "an existing but unwritable log directory still refuses the trunk normally"
+  case "$out" in
+    *"it's the trunk"*) ok "...and reports the real reason, not a logging failure" ;;
+    *) bad "expected the trunk refusal, got: $out" ;;
+  esac
+else
+  ok "unwritable existing log directory (skipped — running as root)"
+fi
+
+unset WT_LOG_DIR
 
 echo
 echo "$passes passed, $failures failed"

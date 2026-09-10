@@ -135,3 +135,6 @@ htmlcov/
 
 # Spec Kit per-feature worktrees (speckit-branch-ensure) — local checkouts only
 .worktrees/
+
+# bin/wt run logs (events.jsonl + per-run transcripts) — local diagnostics only
+.wt-logs/
