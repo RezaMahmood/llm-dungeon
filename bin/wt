@@ -61,6 +61,7 @@ REBUILD=0
 ALLOW_STALE=0
 LOGS_MODE=0
 LOGS_COUNT=20
+POSITIONALS=()
 
 for arg in "$@"; do
   case "$arg" in
@@ -75,23 +76,38 @@ for arg in "$@"; do
       usage >&2
       exit 1
       ;;
-    *)
-      if [[ "$LOGS_MODE" == "1" && "$arg" =~ ^[0-9]+$ ]]; then
-        LOGS_COUNT="$arg"
-        continue
-      fi
-      if [[ -n "$BRANCH" ]]; then
-        echo "Only one branch may be given (got '$BRANCH' and '$arg')." >&2
-        exit 1
-      fi
-      BRANCH="$arg"
-      ;;
+    *) POSITIONALS+=("$arg") ;;
   esac
 done
 
-if [[ "$LOGS_MODE" != "1" && -z "$BRANCH" ]]; then
-  usage >&2
-  exit 1
+# Positionals are resolved after the whole loop, not inside it: deciding what
+# a bare word means while still reading left-to-right made `bin/wt --logs 5`
+# work and `bin/wt 5 --logs` silently mean something else, and let
+# `bin/wt my-branch --logs` print a summary and exit 0 without ever starting
+# the session it was asked for.
+if [[ "$LOGS_MODE" == "1" ]]; then
+  if [[ "${#POSITIONALS[@]}" -gt 1 ]]; then
+    echo "--logs takes at most one argument (how many events to show)." >&2
+    exit 1
+  fi
+  if [[ "${#POSITIONALS[@]}" -eq 1 ]]; then
+    if [[ ! "${POSITIONALS[0]}" =~ ^[0-9]+$ ]]; then
+      echo "--logs reports on every branch and takes no branch name (got '${POSITIONALS[0]}')." >&2
+      echo "Did you mean 'bin/wt ${POSITIONALS[0]}' to start a session, or 'bin/wt --logs <count>'?" >&2
+      exit 1
+    fi
+    LOGS_COUNT="${POSITIONALS[0]}"
+  fi
+else
+  if [[ "${#POSITIONALS[@]}" -gt 1 ]]; then
+    echo "Only one branch may be given (got '${POSITIONALS[0]}' and '${POSITIONALS[1]}')." >&2
+    exit 1
+  fi
+  if [[ "${#POSITIONALS[@]}" -eq 0 ]]; then
+    usage >&2
+    exit 1
+  fi
+  BRANCH="${POSITIONALS[0]}"
 fi
 
 if ! command -v git >/dev/null 2>&1; then
@@ -141,7 +157,13 @@ if [[ "$LOG_ENABLED" == "1" ]]; then
     # --logs only reads; it should not leave an empty transcript behind.
     if [[ "$LOGS_MODE" != "1" ]]; then
       RUN_LOG="$LOG_DIR/run-${BRANCH//\//-}-$RUN_ID.log"
-      : >"$RUN_LOG" 2>/dev/null || LOG_ENABLED=0
+      # Clearing RUN_LOG alongside the flag matters: mkdir -p succeeds on an
+      # existing directory the user cannot write to, so this is the branch
+      # that actually fires there. A RUN_LOG left set would then be fed to
+      # `tee -a` below, whose failure under `set -o pipefail` would be
+      # misreported as the git command failing -- logging becoming the gate
+      # it is explicitly not allowed to be.
+      : >"$RUN_LOG" 2>/dev/null || { LOG_ENABLED=0; RUN_LOG=""; }
     fi
   else
     LOG_ENABLED=0
@@ -233,6 +255,15 @@ print_log_summary() {
   else
     printf '%s\n' "$codes" | sed 's/^/  /'
   fi
+  # Session outcomes are counted here rather than filed under "problems"
+  # above: a non-zero exit is ordinary one-off (Ctrl-C), and telling only as
+  # a ratio -- a session that dies on every start shows up as "0 clean".
+  local clean nonzero
+  clean="$(grep -c '"code":"OK_SESSION_END"' "$EVENTS_LOG" 2>/dev/null || true)"
+  nonzero="$(grep -c '"code":"E_SESSION_NONZERO"' "$EVENTS_LOG" 2>/dev/null || true)"
+  echo
+  echo "== Sessions =="
+  echo "  ${clean:-0} ended cleanly, ${nonzero:-0} exited non-zero"
   echo
   echo "== Last $LOGS_COUNT events =="
   if command -v jq >/dev/null 2>&1; then
@@ -272,10 +303,35 @@ log_line "worktree path:    $WORKTREE_PATH"
 # say) never stops a container this run did not start -- which matters if
 # another terminal happens to have the same worktree open.
 CONTAINER_STARTED=0
+# Set only when `up` failed but named the container it created: teardown then
+# targets that one id instead of everything labelled with this worktree path.
+STOP_ONLY_ID=""
+# Guards against a session ending with no record of how: the INT/TERM traps
+# below unwind straight past the logging at the end of the script.
+SESSION_LOGGED=0
+
+log_session_outcome() { # <exit-code>
+  [[ "$SESSION_LOGGED" == "1" ]] && return 0
+  SESSION_LOGGED=1
+  # A non-zero session exit is ordinary -- Ctrl-C, or a --shell whose last
+  # command failed -- so it is recorded at info level rather than counted
+  # among the problems `--logs` exists to surface. The summary reports the
+  # clean/non-zero split separately, which is where a session that dies on
+  # every single start actually shows up.
+  if [[ "$1" == "0" ]]; then
+    log_event info session OK_SESSION_END "session ($MODE) ended cleanly" 0
+  else
+    log_event info session E_SESSION_NONZERO "session ($MODE) exited with status $1" "$1"
+  fi
+}
 
 stop_container() {
   local ids
-  ids="$(docker ps -q --filter "label=devcontainer.local_folder=$WORKTREE_PATH" 2>/dev/null || true)"
+  if [[ -n "$STOP_ONLY_ID" ]]; then
+    ids="$STOP_ONLY_ID"
+  else
+    ids="$(docker ps -q --filter "label=devcontainer.local_folder=$WORKTREE_PATH" 2>/dev/null || true)"
+  fi
   [[ -z "$ids" ]] && return 0
   say "Stopping container for worktree '$BRANCH'..."
   # ids is a newline-separated list of container ids, intentionally split.
@@ -291,11 +347,32 @@ stop_container() {
 on_exit() {
   local rc=$?
   trap - EXIT INT TERM
+  # A session interrupted at the terminal unwinds through here instead of
+  # through the tail of the script, so record its outcome from whichever
+  # path gets here first -- an interrupted run is precisely the one the log
+  # most needs to tell apart from a clean one.
+  [[ "$SESSION_STARTED" == "1" ]] && log_session_outcome "$rc"
   [[ "$CONTAINER_STARTED" == "1" ]] && stop_container
   log_line "bin/wt exiting with status $rc"
   exit "$rc"
 }
-trap on_exit EXIT INT TERM
+
+# Signals get their own handlers so the transcript records the real cause: a
+# bare EXIT trap reads $? as whatever the last completed command returned,
+# which is 0 for a TERM arriving between commands.
+on_signal() { # <name> <number>
+  trap - EXIT INT TERM
+  warn "Interrupted ($1)."
+  log_event warn session E_INTERRUPTED "bin/wt received SIG$1" "$((128 + $2))"
+  SESSION_LOGGED=1
+  [[ "$CONTAINER_STARTED" == "1" ]] && stop_container
+  exit "$((128 + $2))"
+}
+
+SESSION_STARTED=0
+trap on_exit EXIT
+trap 'on_signal INT 2' INT
+trap 'on_signal TERM 15' TERM
 
 # =============================================================================
 # Preflight
@@ -383,15 +460,10 @@ if [[ -n "$BRANCH_AT_TARGET_PATH" && "$BRANCH_AT_TARGET_PATH" != "$BRANCH" ]]; t
 fi
 
 # --- Ensure the worktree exists --------------------------------------------
+BASE_USED=0
 if [[ "$WORKTREE_REGISTERED_AT_TARGET" == "1" ]]; then
   say "Worktree already registered at $WORKTREE_PATH."
   log_event info worktree OK_WORKTREE_EXISTS "resumed existing worktree" 0
-  # --base only ever applies when the branch is being created. Saying so
-  # beats silently ignoring it, which read as "wt used the wrong base".
-  if [[ "$BASE_GIVEN" == "1" ]]; then
-    warn "Note: --base=$BASE ignored -- '$BRANCH' already exists. Rebase it yourself if you meant to move it onto '$BASE'."
-    log_event warn worktree W_BASE_IGNORED "--base=$BASE ignored; branch already exists" 0
-  fi
 elif [[ -e "$WORKTREE_PATH" ]]; then
   fail E_PATH_OCCUPIED worktree \
     "'$WORKTREE_PATH' exists but is not a registered git worktree -- not touching it. Resolve manually (see if it's stale)."
@@ -417,6 +489,18 @@ else
     fail E_WORKTREE_ADD worktree "git worktree add failed creating '$BRANCH' from '$BASE'."
   fi
   log_event info worktree OK_WORKTREE_CREATED "created branch $BRANCH from $BASE" 0
+  BASE_USED=1
+fi
+
+# --base only ever applies when the branch itself is being created -- which is
+# just the final branch above. Every other path (an existing worktree, an
+# existing local branch whose worktree was pruned, a branch that already
+# exists on origin) reaches a branch that already has a history, and silently
+# dropping --base there read as "wt used the wrong base".
+if [[ "$BASE_GIVEN" == "1" && "$BASE_USED" != "1" ]]; then
+  warn "Note: --base=$BASE ignored -- '$BRANCH' already exists, so it keeps its own history."
+  warn "      Rebase it yourself if you meant to move it onto '$BASE'."
+  log_event warn worktree W_BASE_IGNORED "--base=$BASE ignored; branch already exists" 0
 fi
 
 # Bootstrap .specify/feature.json the same way speckit-branch-ensure does,
@@ -471,23 +555,42 @@ say "Bringing up container for worktree '$BRANCH'..."
 # into the run log, and capture stdout so the outcome can be recorded
 # rather than just flashing past.
 UP_STDOUT="$(mktemp)"
+UP_RC="$(mktemp)"
 set +e
 if [[ -n "$RUN_LOG" ]]; then
-  devcontainer "${UP_ARGS[@]}" >"$UP_STDOUT" 2> >(tee -a "$RUN_LOG" >&2)
+  # A pipeline, not `2> >(tee ...)`: bash waits for a pipeline to finish but
+  # does not wait for a process substitution, so on a failing build the tee
+  # could still be flushing when `fail` exits -- truncating or interleaving
+  # exactly the build output this log exists to keep. stdout goes to its own
+  # file inside the group, so only stderr reaches the pipe; the real exit
+  # status has to travel out through a file because the pipeline's own status
+  # belongs to tee.
+  { devcontainer "${UP_ARGS[@]}" >"$UP_STDOUT"; echo $? >"$UP_RC"; } 2>&1 | tee -a "$RUN_LOG" >&2
+  UP_EXIT="$(cat "$UP_RC" 2>/dev/null || echo 1)"
 else
   devcontainer "${UP_ARGS[@]}" >"$UP_STDOUT"
+  UP_EXIT=$?
 fi
-UP_EXIT=$?
 set -e
+rm -f "$UP_RC"
 if [[ -n "$RUN_LOG" ]]; then cat "$UP_STDOUT" >>"$RUN_LOG" 2>/dev/null || true; fi
 
 UP_OUTCOME="$(sed -n 's/.*"outcome":"\([a-z]*\)".*/\1/p' "$UP_STDOUT" | tail -1)"
+UP_CONTAINER_ID="$(sed -n 's/.*"containerId":"\([a-zA-Z0-9]*\)".*/\1/p' "$UP_STDOUT" | tail -1)"
 UP_MESSAGE="$(sed -n 's/.*"message":"\([^"]*\)".*/\1/p' "$UP_STDOUT" | tail -1)"
 UP_DESCRIPTION="$(sed -n 's/.*"description":"\([^"]*\)".*/\1/p' "$UP_STDOUT" | tail -1)"
 rm -f "$UP_STDOUT"
 
 if [[ "$UP_EXIT" != "0" || "$UP_OUTCOME" == "error" ]]; then
-  CONTAINER_STARTED=1  # `up` may have started something before failing; clean it up.
+  # `up` may have started something before failing, but the teardown filter
+  # matches by *worktree path*, not by anything this run created -- so a
+  # blanket cleanup here would stop a container another terminal is sitting
+  # in. Only clean up when the CLI named the container it made, and stop
+  # exactly that one. With no id, the container is left running and said so.
+  if [[ -n "$UP_CONTAINER_ID" ]]; then
+    STOP_ONLY_ID="$UP_CONTAINER_ID"
+    CONTAINER_STARTED=1
+  fi
   UP_REPORT=("devcontainer up failed for '$BRANCH' (exit $UP_EXIT${UP_OUTCOME:+, outcome=$UP_OUTCOME}).")
   [[ -n "$UP_MESSAGE" ]] && UP_REPORT+=("$UP_MESSAGE")
   [[ -n "$UP_DESCRIPTION" ]] && UP_REPORT+=("$UP_DESCRIPTION")
@@ -523,19 +626,34 @@ EXEC_ARGS=(
 # through and let the real exec produce the real error.
 if [[ "$MODE" == "claude" ]]; then
   set +e
-  PROBE_OUT="$(devcontainer "${EXEC_ARGS[@]}" -- bash -lc 'command -v claude' 2>/dev/null)"
-  PROBE_EXIT=$?
+  # The answer travels on its own marked line, and `command -v` is forced to
+  # succeed. Both matter: `command -v` exits 1 when the binary is absent, so
+  # keying "is it missing?" off the exit status made this check dead code in
+  # the one situation it exists for; and a login shell's dotfiles can print
+  # to stdout, so an emptiness test on the raw output is not reliable either.
+  # No marker line at all means the probe could not run -- fall through and
+  # let the real exec produce the real error rather than guessing.
+  PROBE_OUT="$(devcontainer "${EXEC_ARGS[@]}" -- \
+    bash -lc 'printf "WT_PROBE_CLAUDE:%s\n" "$(command -v claude || true)"' 2>/dev/null)"
   set -e
-  if [[ "$PROBE_EXIT" == "0" && -z "${PROBE_OUT//[[:space:]]/}" ]]; then
+  PROBE_RESULT="$(printf '%s\n' "$PROBE_OUT" | sed -n 's/^WT_PROBE_CLAUDE://p' | tail -1)"
+  PROBE_RAN=0
+  printf '%s\n' "$PROBE_OUT" | grep -q '^WT_PROBE_CLAUDE:' && PROBE_RAN=1
+  if [[ "$PROBE_RAN" == "1" && -z "${PROBE_RESULT//[[:space:]]/}" ]]; then
     fail E_CLAUDE_MISSING probe \
       "'claude' is not installed in the container for '$BRANCH'." \
       "postCreateCommand (.devcontainer/post-create.sh) installs it, and only runs at container creation --" \
       "so a failure there is permanent until the container is recreated:" \
       "  bin/wt $BRANCH --rebuild"
   fi
-  log_line "probe: claude at ${PROBE_OUT:-<probe could not run>}"
+  if [[ "$PROBE_RAN" == "1" ]]; then
+    log_line "probe: claude at $PROBE_RESULT"
+  else
+    log_line "probe: could not run in the container; exec will report the real error"
+  fi
 fi
 
+SESSION_STARTED=1
 set +e
 case "$MODE" in
   claude) devcontainer "${EXEC_ARGS[@]}" -- claude ;;
@@ -544,13 +662,6 @@ esac
 SESSION_EXIT=$?
 set -e
 
-# A non-zero exit is normal for an interrupted session, so this is recorded
-# and not treated as a failure of bin/wt itself -- but it is recorded, so a
-# session that dies immediately on every start is visible in --logs.
-if [[ "$SESSION_EXIT" == "0" ]]; then
-  log_event info session OK_SESSION_END "session ended cleanly" 0
-else
-  log_event warn session E_SESSION_NONZERO "session ($MODE) exited with status $SESSION_EXIT" "$SESSION_EXIT"
-fi
+log_session_outcome "$SESSION_EXIT"
 
 exit "$SESSION_EXIT"

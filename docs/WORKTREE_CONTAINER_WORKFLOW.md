@@ -69,7 +69,14 @@ bin/wt --logs 100    # ...last 100 instead
 | `E_CLAUDE_MISSING` | the container exists but has no `claude` — `postCreate` failed at creation and never re-runs (see below) |
 | `E_BRANCH_PATH_MISMATCH`, `E_PATH_BRANCH_MISMATCH`, `E_WORKTREE_DETACHED`, `E_PATH_OCCUPIED` | the directory-name-equals-branch-name rules below |
 | `E_STALE_CONSTITUTION` | blocked by `bin/wt-sync` (see below) |
-| `E_SESSION_NONZERO` | the session itself exited non-zero — normal for an interrupted one, telling if it happens on *every* start |
+| `E_INTERRUPTED` | `bin/wt` itself took a Ctrl-C or a `TERM` (during a build, say) |
+| `E_SESSION_NONZERO` | the session itself exited non-zero |
+
+A non-zero session exit is ordinary — a Ctrl-C, or a `--shell` whose last
+command failed — so it is recorded at `info` level and kept out of the
+problem counts, which would otherwise fill up with it. `--logs` reports the
+clean/non-zero split on its own `== Sessions ==` line instead; a session
+that dies on every start shows there as `0 ended cleanly`.
 
 What the log can and cannot hold: `devcontainer up`'s full output — the
 build, the feature installs, `postCreate` — is captured, and that is where
