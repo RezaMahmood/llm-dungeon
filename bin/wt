@@ -28,6 +28,9 @@ Options:
   --shell           Exec an interactive shell instead of `claude`.
   --rebuild          Force-recreate the container (passes
                      --remove-existing-container to `devcontainer up`).
+  --allow-stale      Start even when bin/wt-sync reports this worktree is
+                     blocked on a constitution major-version gap. Escape
+                     hatch only -- the fix is to rebase onto main.
   -h, --help         Show this help.
 EOF
 }
@@ -36,12 +39,14 @@ BRANCH=""
 BASE="main"
 MODE="claude"
 REBUILD=0
+ALLOW_STALE=0
 
 for arg in "$@"; do
   case "$arg" in
     --base=*) BASE="${arg#--base=}" ;;
     --shell) MODE="shell" ;;
     --rebuild) REBUILD=1 ;;
+    --allow-stale) ALLOW_STALE=1 ;;
     -h|--help) usage; exit 0 ;;
     -*)
       echo "Unknown option: $arg" >&2
@@ -98,8 +103,62 @@ WORKTREE_PATH="$PRIMARY_REPO_ROOT/.worktrees/$BRANCH"
 
 cd "$PRIMARY_REPO_ROOT"
 
+# --- Directory name must equal branch name ----------------------------------
+# The whole workflow keys off .worktrees/<branch> == <branch>: the container
+# label, WORKTREE_CONTAINER, the check-worktree-sync.sh guard, wt-prune and
+# wt-sync all assume it. Issue #293 found two worktrees where the two had
+# drifted apart (a branch checked out in a directory named after a different
+# branch), with nothing detecting it. Refuse to add a third.
+REGISTERED_PATH_FOR_BRANCH=""
+BRANCH_AT_TARGET_PATH=""
+WORKTREE_REGISTERED_AT_TARGET=0
+_wt_path=""
+_wt_branch=""
+_record_worktree() {
+  [[ -z "$_wt_path" ]] && return 0
+  if [[ "$_wt_branch" == "$BRANCH" ]]; then
+    REGISTERED_PATH_FOR_BRANCH="$_wt_path"
+  fi
+  if [[ "$_wt_path" == "$WORKTREE_PATH" ]]; then
+    WORKTREE_REGISTERED_AT_TARGET=1
+    BRANCH_AT_TARGET_PATH="$_wt_branch"
+  fi
+  _wt_path=""
+  _wt_branch=""
+}
+while IFS= read -r _line; do
+  case "$_line" in
+    "worktree "*) _record_worktree; _wt_path="${_line#worktree }" ;;
+    "branch refs/heads/"*) _wt_branch="${_line#branch refs/heads/}" ;;
+  esac
+done < <(git worktree list --porcelain)
+_record_worktree
+
+if [[ -n "$REGISTERED_PATH_FOR_BRANCH" && "$REGISTERED_PATH_FOR_BRANCH" != "$WORKTREE_PATH" ]]; then
+  echo "Branch '$BRANCH' is already checked out at '$REGISTERED_PATH_FOR_BRANCH', not at the expected '$WORKTREE_PATH'." >&2
+  echo "Directory name and branch name must match. Move it, then re-run:" >&2
+  echo "  git worktree move '$REGISTERED_PATH_FOR_BRANCH' '$WORKTREE_PATH'" >&2
+  echo "(A container started for the old path keeps its old WORKTREE_CONTAINER value; run 'bin/wt $BRANCH --rebuild' after moving.)" >&2
+  exit 1
+fi
+
+if [[ "$WORKTREE_REGISTERED_AT_TARGET" == "1" && -z "$BRANCH_AT_TARGET_PATH" ]]; then
+  echo "'$WORKTREE_PATH' is a registered worktree but its HEAD is detached, so it is not on '$BRANCH'." >&2
+  echo "Put it back on its branch before starting a session there:" >&2
+  echo "  git -C '$WORKTREE_PATH' switch '$BRANCH'" >&2
+  exit 1
+fi
+
+if [[ -n "$BRANCH_AT_TARGET_PATH" && "$BRANCH_AT_TARGET_PATH" != "$BRANCH" ]]; then
+  echo "'$WORKTREE_PATH' is a registered worktree, but it is on branch '$BRANCH_AT_TARGET_PATH', not '$BRANCH'." >&2
+  echo "Directory name and branch name must match. Either switch that worktree back:" >&2
+  echo "  git -C '$WORKTREE_PATH' switch '$BRANCH'" >&2
+  echo "or move it to '$PRIMARY_REPO_ROOT/.worktrees/$BRANCH_AT_TARGET_PATH' and re-run." >&2
+  exit 1
+fi
+
 # --- Ensure the worktree exists --------------------------------------------
-if git worktree list --porcelain | grep -qx "worktree $WORKTREE_PATH"; then
+if [[ "$WORKTREE_REGISTERED_AT_TARGET" == "1" ]]; then
   echo "Worktree already registered at $WORKTREE_PATH."
 elif [[ -e "$WORKTREE_PATH" ]]; then
   echo "'$WORKTREE_PATH' exists but is not a registered git worktree -- not touching it. Resolve manually (see if it's stale)." >&2
@@ -124,6 +183,25 @@ fi
 # is also used for non-speckit branches (e.g. chore/*).
 if [[ -d "$WORKTREE_PATH/specs/$BRANCH" && -d "$WORKTREE_PATH/.specify" ]]; then
   printf '{"feature_directory": "specs/%s"}\n' "$BRANCH" > "$WORKTREE_PATH/.specify/feature.json"
+fi
+
+# --- Refuse to start a worktree governed by a stale constitution -------------
+# bin/wt-sync exits 2 only on a constitution MAJOR-version gap; everything
+# else it reports is a warning, printed here and not acted on (issue #293,
+# "Stale governance: block on a constitution major-version gap, warn on
+# everything else").
+SYNC_SCRIPT="$PRIMARY_REPO_ROOT/bin/wt-sync"
+if [[ -x "$SYNC_SCRIPT" ]]; then
+  set +e
+  "$SYNC_SCRIPT" "$BRANCH"
+  SYNC_EXIT=$?
+  set -e
+  if [[ "$SYNC_EXIT" == "2" && "$ALLOW_STALE" != "1" ]]; then
+    echo "Refusing to start '$BRANCH': its constitution is a major version behind (see above)." >&2
+    echo "Rebase it onto main first:  git -C '$WORKTREE_PATH' rebase origin/main" >&2
+    echo "Or, if you know what you are doing:  bin/wt $BRANCH --allow-stale" >&2
+    exit 1
+  fi
 fi
 
 # --- Bring up this worktree's own container ---------------------------------
