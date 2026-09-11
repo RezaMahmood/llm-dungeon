@@ -2,9 +2,18 @@ import { resolve } from "path";
 
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { visualizer } from "rollup-plugin-visualizer";
+
+// Opt-in bundle-composition report (`npm run build:analyze`) rather than generated on every
+// build — makes future manualChunks decisions evidence-based instead of guesswork, without
+// adding a plugin pass to the build every contributor runs.
+const plugins = [react()];
+if (process.env.ANALYZE) {
+  plugins.push(visualizer({ filename: "dist/stats.html", gzipSize: true, brotliSize: true }));
+}
 
 export default defineConfig({
-  plugins: [react()],
+  plugins,
   server: {
     port: 5173,
   },
@@ -37,6 +46,9 @@ export default defineConfig({
             id.includes("node_modules/react-router/")
           ) {
             return "react";
+          }
+          if (id.includes("node_modules/axios/")) {
+            return "axios";
           }
         },
       },

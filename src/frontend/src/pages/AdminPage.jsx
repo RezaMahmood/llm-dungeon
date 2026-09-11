@@ -1,5 +1,5 @@
 import { useMsal } from "@azure/msal-react";
-import { useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import StoryConfigUpload from "../components/Admin/StoryConfigUpload.jsx";
@@ -7,6 +7,35 @@ import StoryDeleteAction from "../components/Admin/StoryDeleteAction.jsx";
 import StoryPublishActions from "../components/Admin/StoryPublishActions.jsx";
 import { loginRequest } from "../services/msalConfig.js";
 import { listStories } from "../services/storyDraftService.js";
+
+// Memoized: `handleStoryChange`/`handleStoryDeleted` update `stories` by mapping/filtering
+// in place, so a story untouched by a publish/delete action keeps its old object reference
+// — this lets an edit to one row skip re-rendering every other row in the table.
+const StoryRow = memo(function StoryRow({ story, getToken, onStoryChange, onDeleted }) {
+  return (
+    <tr>
+      <td>{story.name || "Untitled story"}</td>
+      <td>
+        {/* Status pairs color with text, never color alone (Accessibility). */}
+        <span className={story.published ? "tag tag-accent" : "tag tag-neutral"}>
+          {story.published ? "Published" : "Unpublished"}
+        </span>
+      </td>
+      <td>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", alignItems: "center" }}>
+          <Link to={`/admin/stories/${story.id}`} className="btn btn-secondary">
+            View
+          </Link>
+          <Link to={`/admin/stories/${story.id}/edit`} className="btn btn-secondary">
+            Edit
+          </Link>
+          <StoryPublishActions story={story} token={getToken} onStoryChange={onStoryChange} />
+          <StoryDeleteAction story={story} token={getToken} onDeleted={onDeleted} />
+        </div>
+      </td>
+    </tr>
+  );
+});
 
 /**
  * The admin "Stories" destination — every story with its published status, a View
@@ -106,27 +135,13 @@ export function AdminPage() {
           </thead>
           <tbody>
             {stories.map((story) => (
-              <tr key={story.id}>
-                <td>{story.name || "Untitled story"}</td>
-                <td>
-                  {/* Status pairs color with text, never color alone (Accessibility). */}
-                  <span className={story.published ? "tag tag-accent" : "tag tag-neutral"}>
-                    {story.published ? "Published" : "Unpublished"}
-                  </span>
-                </td>
-                <td>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", alignItems: "center" }}>
-                    <Link to={`/admin/stories/${story.id}`} className="btn btn-secondary">
-                      View
-                    </Link>
-                    <Link to={`/admin/stories/${story.id}/edit`} className="btn btn-secondary">
-                      Edit
-                    </Link>
-                    <StoryPublishActions story={story} token={getToken} onStoryChange={handleStoryChange} />
-                    <StoryDeleteAction story={story} token={getToken} onDeleted={handleStoryDeleted} />
-                  </div>
-                </td>
-              </tr>
+              <StoryRow
+                key={story.id}
+                story={story}
+                getToken={getToken}
+                onStoryChange={handleStoryChange}
+                onDeleted={handleStoryDeleted}
+              />
             ))}
           </tbody>
         </table>
