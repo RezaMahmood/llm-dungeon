@@ -1,5 +1,5 @@
 import { useMsal } from "@azure/msal-react";
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { getMe } from "../services/authService.js";
@@ -142,7 +142,12 @@ export function CapabilitiesProvider({ children }) {
     fetchCapabilities();
   }, [fetchCapabilities]);
 
-  const value = { ...state, refetch: fetchCapabilities };
+  // Memoized so a provider re-render that doesn't actually change `state` or
+  // `fetchCapabilities` (e.g. a parent re-render, or `navigate`'s identity
+  // churning) hands consumers the same reference — ProtectedRoute, NavBar and
+  // MainMenu all read this context and would otherwise re-render on every
+  // provider render, not just real capability changes.
+  const value = useMemo(() => ({ ...state, refetch: fetchCapabilities }), [state, fetchCapabilities]);
 
   return <CapabilitiesContext.Provider value={value}>{children}</CapabilitiesContext.Provider>;
 }

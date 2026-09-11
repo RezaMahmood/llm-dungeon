@@ -25,6 +25,12 @@ export default defineConfig({
             return "msal";
           }
           if (
+            id.includes("@microsoft/applicationinsights-web") ||
+            id.includes("@microsoft/applicationinsights-react-js")
+          ) {
+            return "appInsights";
+          }
+          if (
             id.includes("node_modules/react/") ||
             id.includes("node_modules/react-dom/") ||
             id.includes("node_modules/react-router-dom/") ||

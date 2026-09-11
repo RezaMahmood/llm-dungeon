@@ -4,6 +4,19 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>LLM Dungeon Adventure</title>
+    <!-- Discovered and fetched in parallel with the JS bundle instead of waiting for it:
+         designTokens.css also @imports this same stylesheet (vendored from
+         specs/designs/styles.css, kept there for that source-of-truth pairing), but without
+         this link the font request only starts after index.jsx -> index.css -> designTokens.css
+         have all loaded, adding a full serial hop before text renders in its real face on
+         every page, including login. The @import is a harmless cache hit once this has
+         already fetched it. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap"
+    />
   </head>
   <body>
     <div id="root"></div>
