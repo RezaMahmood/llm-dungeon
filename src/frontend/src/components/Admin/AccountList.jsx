@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useCallback, useState } from "react";
 
 import { removeAccount } from "../../services/accountService.js";
 
@@ -7,11 +7,42 @@ const ROLE_TAG_CLASS = {
   Player: "tag tag-neutral",
 };
 
+// Memoized and given a stable `onSelectRemove` so opening/closing the removal-confirm
+// dialog for one row (a `pendingEmail`/`status` state change in the parent) doesn't
+// re-render every other row in the table — only the affected row's props actually change.
+const AccountRow = memo(function AccountRow({ account, isRemovable, onSelectRemove }) {
+  return (
+    <tr>
+      <td>{account.email}</td>
+      <td>
+        {account.roles.map((role) => (
+          <span key={role} className={ROLE_TAG_CLASS[role] || "tag tag-neutral"}>
+            {role}
+          </span>
+        ))}
+      </td>
+      <td>{account.bound ? "Signed in" : "Pending first sign-in"}</td>
+      <td>
+        {isRemovable && (
+          <button type="button" className="btn btn-ghost" onClick={() => onSelectRemove(account.email)}>
+            Remove
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+});
+
 export function AccountList({ accounts = [], token, currentUserEmail, onRemoved }) {
   const [pendingEmail, setPendingEmail] = useState(null);
   const [status, setStatus] = useState("idle"); // idle | removing | error
 
   const normalizedCurrentUserEmail = (currentUserEmail || "").toLowerCase();
+
+  const handleSelectRemove = useCallback((email) => {
+    setStatus("idle");
+    setPendingEmail(email);
+  }, []);
 
   const handleConfirmRemove = async () => {
     setStatus("removing");
@@ -41,31 +72,12 @@ export function AccountList({ accounts = [], token, currentUserEmail, onRemoved 
             const isSelf = account.email.toLowerCase() === normalizedCurrentUserEmail;
             const isRemovable = !isSelf && !account.isSeedAdmin;
             return (
-              <tr key={account.email}>
-                <td>{account.email}</td>
-                <td>
-                  {account.roles.map((role) => (
-                    <span key={role} className={ROLE_TAG_CLASS[role] || "tag tag-neutral"}>
-                      {role}
-                    </span>
-                  ))}
-                </td>
-                <td>{account.bound ? "Signed in" : "Pending first sign-in"}</td>
-                <td>
-                  {isRemovable && (
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={() => {
-                        setStatus("idle");
-                        setPendingEmail(account.email);
-                      }}
-                    >
-                      Remove
-                    </button>
-                  )}
-                </td>
-              </tr>
+              <AccountRow
+                key={account.email}
+                account={account}
+                isRemovable={isRemovable}
+                onSelectRemove={handleSelectRemove}
+              />
             );
           })}
         </tbody>
