@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -50,7 +50,9 @@ describe("Home refresh (FR-001, FR-002, contracts/refresh-control.md)", () => {
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "New story" })).not.toBeInTheDocument();
     expect(getMe).toHaveBeenCalledTimes(1);
-    expect(listAdventures).toHaveBeenCalledTimes(1);
+    // Home's own data fetch is a separate effect from the capability check above, so it
+    // may still be in flight the instant the heading first appears.
+    await waitFor(() => expect(listAdventures).toHaveBeenCalledTimes(1));
 
     getMe.mockResolvedValueOnce({ capabilities: { hasPlayer: true, hasAdministrator: true } });
     await userEvent.click(screen.getByRole("button", { name: /^refresh$/i }));
@@ -62,6 +64,6 @@ describe("Home refresh (FR-001, FR-002, contracts/refresh-control.md)", () => {
     // Still on the same screen — no navigation occurred.
     expect(screen.getByRole("heading", { name: /ready to play/i })).toBeInTheDocument();
     expect(getMe).toHaveBeenCalledTimes(2);
-    expect(listAdventures).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(listAdventures).toHaveBeenCalledTimes(2));
   });
 });

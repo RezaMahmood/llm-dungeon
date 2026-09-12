@@ -4,9 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 
 const mockUseCapabilities = vi.fn();
 const mockAccounts = [{ homeAccountId: "home-1", username: "player@example.com" }];
+const mockInstance = { logoutRedirect: vi.fn(), acquireTokenSilent: vi.fn() };
 
 vi.mock("@azure/msal-react", () => ({
-  useMsal: () => ({ instance: { logoutRedirect: vi.fn(), acquireTokenSilent: vi.fn() }, accounts: mockAccounts }),
+  useMsal: () => ({ instance: mockInstance, accounts: mockAccounts }),
 }));
 
 vi.mock("../../src/hooks/useCapabilities.js", () => ({

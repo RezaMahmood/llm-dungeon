@@ -5,9 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const acquireTokenSilent = vi.fn().mockResolvedValue({ accessToken: "tok" });
 const mockAccounts = [{ homeAccountId: "home-1", username: "ada@example.test", name: "Ada B." }];
+const mockInstance = { acquireTokenSilent, logoutRedirect: vi.fn() };
 
 vi.mock("@azure/msal-react", () => ({
-  useMsal: () => ({ instance: { acquireTokenSilent, logoutRedirect: vi.fn() }, accounts: mockAccounts }),
+  useMsal: () => ({ instance: mockInstance, accounts: mockAccounts }),
 }));
 
 vi.mock("../../src/hooks/useCapabilities.js", () => ({

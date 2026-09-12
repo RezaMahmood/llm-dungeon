@@ -6,7 +6,7 @@
  * and responsive rules.
  */
 import { useMsal } from "@azure/msal-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { usePublishRefresh } from "../context/RefreshContext.jsx";
@@ -57,18 +57,15 @@ export function HomePage() {
   }, [refetch, refresh]);
   usePublishRefresh({ refresh: refreshAll, loading });
 
-  // A local, independently-mutable copy of the fetched sessions: deleting one (FR-009)
-  // updates this in place with no refetch, while still resyncing whenever a real refresh
-  // brings new server data in.
-  const [sessions, setSessions] = useState([]);
-  useEffect(() => {
-    if (data) setSessions(data.sessions);
-  }, [data]);
-
+  // Sessions the player has deleted locally (FR-009): excluded from the fetched list with
+  // no refetch. Harmless once a real refresh lands, since a genuinely deleted session is
+  // already absent from the server's own response by then.
+  const [locallyDeletedIds, setLocallyDeletedIds] = useState(() => new Set());
   const handleSessionDeleted = useCallback((sessionId) => {
-    setSessions((prev) => prev.filter((session) => session.sessionId !== sessionId));
+    setLocallyDeletedIds((prev) => new Set(prev).add(sessionId));
   }, []);
 
+  const sessions = (data?.sessions || []).filter((session) => !locallyDeletedIds.has(session.sessionId));
   const inProgressAdventureIds = new Set(sessions.map((session) => session.adventureId));
   // FR-004: a story with an active session for this player never also appears as
   // ready-to-play.

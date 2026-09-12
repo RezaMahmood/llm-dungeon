@@ -307,10 +307,10 @@ and the story reappear on the left; another player's session id is refused by th
 - [X] T040 [P] Responsive check at 1100px, 760px and 320px per §7 and quickstart.md scenario
   6: no horizontal page scroll at any width, both columns reachable, and Play/Resume/Delete
   at least 44px tall on mobile (FR-013).
-- [ ] T041 Run the full suites and fix regressions from the `MainMenu`/`GamePage` removals
+- [X] T041 Run the full suites and fix regressions from the `MainMenu`/`GamePage` removals
   and the brand rename: `pytest` for the backend and `npm --prefix src/frontend test` for
   the frontend, both inside the devcontainer. Depends on every preceding task.
-- [ ] T042 Confirm the PR description records the three deliberate departures from the
+- [X] T042 Confirm the PR description records the three deliberate departures from the
   canonical mockup — the design-system delete dialog (Decision 6), the retained "Admin" nav
   link (Decision 7) and the mobile scroll amendment (Decision 9) — and names
   `/code-review ultra` as the required tier, because `.specify/memory/constitution.md` is in

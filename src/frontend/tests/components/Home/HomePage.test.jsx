@@ -8,9 +8,10 @@ const listSavedGames = vi.fn();
 const mockUseCapabilities = vi.fn();
 
 const mockAccounts = [{ homeAccountId: "home-1", username: "ada@example.com", name: "Ada B." }];
+const mockInstance = { acquireTokenSilent, logoutRedirect: vi.fn() };
 
 vi.mock("@azure/msal-react", () => ({
-  useMsal: () => ({ instance: { acquireTokenSilent, logoutRedirect: vi.fn() }, accounts: mockAccounts }),
+  useMsal: () => ({ instance: mockInstance, accounts: mockAccounts }),
 }));
 
 vi.mock("../../../src/hooks/useCapabilities.js", () => ({
@@ -134,7 +135,8 @@ describe("HomePage", () => {
 
     await renderHome();
 
-    expect(screen.getByText(/unavailable/i)).toBeInTheDocument();
+    // Both the status tag and the disabled Resume control read "Unavailable".
+    expect(screen.getAllByText(/unavailable/i).length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByRole("button", { name: /^resume$/i })).not.toBeInTheDocument();
   });
 
