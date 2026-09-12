@@ -492,6 +492,15 @@ class PlaySessionService:
             raise ForbiddenError()
         return session
 
+    def delete_player_session(self, session_id: str, player_id: str) -> None:
+        """Permanently remove the caller's own saved session (028-home-page-redesign
+        FR-008/FR-009/FR-010) — never the story. Raises `SessionNotFoundError` if it
+        doesn't exist, `ForbiddenError` if it belongs to a different player (never trusts
+        a client-supplied owner). Same delete primitive as
+        `delete_active_sessions_for_adventure`."""
+        self.get_session_for_player(session_id, player_id)
+        self._container().delete_item(item=session_id, partition_key=session_id)
+
     def get_session_detail_for_player(self, session_id: str, player_id: str) -> dict[str, Any]:
         """The Saved Game Detail shape (data-model.md), including every turn and
         checkpoint — sufficient to rebuild the play surface exactly as the player left it

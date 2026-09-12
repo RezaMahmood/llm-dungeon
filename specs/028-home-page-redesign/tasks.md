@@ -248,12 +248,12 @@ and the story reappear on the left; another player's session id is refused by th
 
 ### Backend
 
-- [ ] T031 [P] [US3] Add `delete_player_session(session_id, player_id)` to `PlaySessionService`
+- [X] T031 [P] [US3] Add `delete_player_session(session_id, player_id)` to `PlaySessionService`
   in `src/backend/services/play_session_service.py`: read the item via `_read_item`, raise
   `SessionNotFoundError` when absent, raise `ForbiddenError` when `playerId` does not match
   the caller (FR-010), otherwise `self._container().delete_item(item=session_id, partition_key=session_id)`
   — the same primitive `delete_active_sessions_for_adventure` uses (data-model.md).
-- [ ] T032 [US3] Add a `delete_session` handler to `src/backend/api/game/sessions.py`,
+- [X] T032 [US3] Add a `delete_session` handler to `src/backend/api/game/sessions.py`,
   structured like `resume_session` in that file: `authorize_player`, read `sessionId` from
   `req.route_params`, call the service, map `SessionNotFoundError` → 404 `not_found` and
   `ForbiddenError` → `forbidden_access_not_granted()`, and return 200 with
@@ -261,7 +261,7 @@ and the story reappear on the left; another player's session id is refused by th
   `DELETE /api/game/sessions/{sessionId}` in `src/backend/function_app.py` beside the
   existing `game/sessions/{sessionId}` routes, wrapped in `_guarded` like its neighbours.
   Depends on T031.
-- [ ] T033 [US3] Backend tests: the owner's delete returns 200 and the session no longer
+- [X] T033 [US3] Backend tests: the owner's delete returns 200 and the session no longer
   appears in `list_player_sessions`; a second delete of the same id returns 404; another
   player's session returns 403 — in `src/backend/tests/unit/test_play_session_service.py`
   and `src/backend/tests/integration/test_game_sessions_endpoint.py`. Depends on T032.

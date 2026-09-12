@@ -269,3 +269,27 @@ def create_checkpoint(
         },
         status_code=201,
     )
+
+
+def delete_session(
+    req: func.HttpRequest,
+    play_session_service: PlaySessionService | None = None,
+    account_provisioning_service: AccountProvisioningService | None = None,
+) -> func.HttpResponse:
+    """DELETE /api/game/sessions/{sessionId} — permanently deletes the caller's own saved
+    session, never the story (028-home-page-redesign FR-008/FR-009/FR-010,
+    contracts/api.md)."""
+    is_authorized, user_oid, error = authorize_player(req, account_provisioning_service=account_provisioning_service)
+    if not is_authorized:
+        return error
+
+    session_id = req.route_params.get("sessionId")
+    service = play_session_service or PlaySessionService()
+    try:
+        service.delete_player_session(session_id=session_id, player_id=user_oid)
+    except SessionNotFoundError:
+        return error_response(404, "not_found", "Session not found")
+    except ForbiddenError:
+        return forbidden_access_not_granted()
+
+    return json_response({"status": "deleted", "sessionId": session_id}, status_code=200)

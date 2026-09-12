@@ -1536,3 +1536,48 @@ def test_list_player_sessions_does_not_use_the_separate_name_only_lookup():
 
     assert calls == []
     assert rows[0]["adventureName"] == story.name
+
+
+# --- delete_player_session (028-home-page-redesign FR-008/FR-009/FR-010) ---
+
+
+def test_delete_player_session_removes_the_session():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+
+    service.delete_player_session(session.id, PLAYER_ID)
+
+    assert service.list_player_sessions(PLAYER_ID) == []
+
+
+def test_delete_player_session_raises_forbidden_for_non_owner_and_leaves_it_intact():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+
+    with pytest.raises(ForbiddenError):
+        service.delete_player_session(session.id, OTHER_PLAYER_ID)
+
+    assert len(service.list_player_sessions(PLAYER_ID)) == 1
+
+
+def test_delete_player_session_raises_not_found_for_missing_session():
+    story = _story()
+    service, _cosmos, _llm, _safety = _make_service(story)
+
+    with pytest.raises(SessionNotFoundError):
+        service.delete_player_session("no-such-session", PLAYER_ID)
+
+
+def test_delete_player_session_raises_not_found_on_a_second_delete():
+    """A double-click / retried delete finds nothing the second time (contracts/api.md) —
+    never a 500."""
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+
+    service.delete_player_session(session.id, PLAYER_ID)
+
+    with pytest.raises(SessionNotFoundError):
+        service.delete_player_session(session.id, PLAYER_ID)

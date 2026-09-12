@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 from azure.core import MatchConditions
 from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosResourceNotFoundError
 
-from backend.api.game.sessions import create_session, resume_session, submit_interaction
+from backend.api.game.sessions import create_session, delete_session, resume_session, submit_interaction
 from backend.config import config
 from backend.models.story import CharacterType, CompletionCriteria, StartingPoint, Story
 from backend.services.llm_service import LLMContentFilteredError
@@ -58,6 +58,11 @@ class FakeContainer:
         body["_etag"] = self._next_etag()
         self.items[item] = body
         return body
+
+    def delete_item(self, item, partition_key):  # noqa: ARG002
+        if item not in self.items:
+            raise CosmosResourceNotFoundError
+        del self.items[item]
 
 
 class FakeCosmosService:
@@ -187,6 +192,17 @@ def _resume(request_factory, service, session_id, oid=USER_OID):
     )
     with _patched_auth(oid):
         return resume_session(req, play_session_service=service, account_provisioning_service=_authorized_player())
+
+
+def _delete(request_factory, service, session_id, oid=USER_OID):
+    req = request_factory(
+        method="DELETE",
+        url=f"/api/game/sessions/{session_id}",
+        token="valid-token",
+        route_params={"sessionId": session_id},
+    )
+    with _patched_auth(oid):
+        return delete_session(req, play_session_service=service, account_provisioning_service=_authorized_player())
 
 
 def _clear_rate_limit(cosmos: FakeCosmosService, session_id: str) -> None:
@@ -691,3 +707,54 @@ def test_resume_against_unpublished_story_returns_409_story_unpublished(request_
     body = json.loads(response.get_body())
     assert body["error"] == "story_unpublished"
     assert body["promptReturnToList"] is True
+
+
+# --- DELETE /api/game/sessions/{sessionId} (028-home-page-redesign FR-008/FR-009/FR-010) ---
+
+
+def test_delete_session_returns_200_and_removes_it_from_the_list(request_factory):
+    story = _story()
+    service, cosmos, _llm, _safety = _service(story)
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    session_id = created["sessionId"]
+
+    response = _delete(request_factory, service, session_id)
+
+    assert response.status_code == 200
+    body = json.loads(response.get_body())
+    assert body == {"status": "deleted", "sessionId": session_id}
+    assert service.list_player_sessions(USER_OID) == []
+
+
+def test_delete_session_non_owner_returns_403_and_leaves_it_intact(request_factory):
+    story = _story()
+    service, cosmos, _llm, _safety = _service(story)
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    session_id = created["sessionId"]
+
+    response = _delete(request_factory, service, session_id, oid=OTHER_OID)
+
+    assert response.status_code == 403
+    assert len(service.list_player_sessions(USER_OID)) == 1
+
+
+def test_delete_session_unknown_returns_404(request_factory):
+    story = _story()
+    service, _cosmos, _llm, _safety = _service(story)
+
+    response = _delete(request_factory, service, "missing-session")
+
+    assert response.status_code == 404
+
+
+def test_delete_session_twice_returns_404_the_second_time(request_factory):
+    story = _story()
+    service, cosmos, _llm, _safety = _service(story)
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    session_id = created["sessionId"]
+
+    first = _delete(request_factory, service, session_id)
+    second = _delete(request_factory, service, session_id)
+
+    assert first.status_code == 200
+    assert second.status_code == 404
