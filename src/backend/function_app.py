@@ -9,6 +9,7 @@ from opentelemetry.propagate import extract
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from backend.api.admin.accounts import add_account, list_accounts, remove_account
+from backend.api.admin.sessions import list_sessions as list_admin_sessions
 from backend.api.admin.stories import (
     create_draft,
     create_edit_draft,
@@ -221,6 +222,11 @@ def admin_test_play_sessions_delete(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="manage/test-play-sessions/{sessionId}", methods=["GET"])
 def admin_test_play_sessions_get(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(get_test_play_session)(req)
+
+
+@app.route(route="manage/sessions", methods=["GET"])
+def admin_sessions_list(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(list_admin_sessions)(req)
 
 
 @app.route(route="game/sessions", methods=["POST"])

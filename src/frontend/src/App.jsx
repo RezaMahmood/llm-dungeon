@@ -19,6 +19,7 @@ const AdminPage = lazy(() => import("./pages/AdminPage.jsx"));
 const AdminStoryWizardPage = lazy(() => import("./pages/AdminStoryWizardPage.jsx"));
 const AdminStoryConfigurationPage = lazy(() => import("./pages/AdminStoryConfigurationPage.jsx"));
 const AdminStoryTestPlayPage = lazy(() => import("./pages/AdminStoryTestPlayPage.jsx"));
+const AdminSessionsPage = lazy(() => import("./pages/AdminSessionsPage.jsx"));
 const GamePage = lazy(() => import("./pages/GamePage.jsx"));
 
 function PageFallback() {
@@ -112,6 +113,14 @@ export function App() {
                   element={
                     <ProtectedRoute capability="Administrator">
                       <AdminStoryTestPlayPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/sessions"
+                  element={
+                    <ProtectedRoute capability="Administrator">
+                      <AdminSessionsPage />
                     </ProtectedRoute>
                   }
                 />

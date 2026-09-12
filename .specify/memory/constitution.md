@@ -1,32 +1,15 @@
 <!--
 Sync Impact Report
-Version change: 6.2.0 -> 7.0.0
-Modified principles:
-  - IX retired: "Playtesting-Driven Quality (Post-Ship Verification, Non-Blocking)" removed
-    at the user's request — manual/user-verified testing is now handled entirely outside
-    the speckit workflow, and this constitution takes no position on it (previously it
-    affirmatively made that testing non-blocking, which is itself a position). This is a
-    backward-incompatible principle removal, hence MAJOR.
-  - XI's rationale reworded to drop its "(Principle IX)" cross-reference now that IX is
-    retired; no normative change to XI itself.
-  - Development Workflow & Quality Gates: the bullet asserting playtesting "MUST NOT block
-    merge (Principle IX)" is replaced with a bullet stating this constitution neither
-    requires nor forbids a manual testing step, consistent with IX's retirement.
-Numbering: Principle IX's number is retired and left unreassigned rather than renumbering
-  X-XIV downward, so their many external references (CLAUDE.md, CONTRIBUTING.md, README.md,
-  and specs/ plan.md Constitution Checks) keep resolving unchanged. IX now carries a short
-  non-normative placeholder pointing back to this report.
-Added sections: none. Removed sections: none (IX's heading is retained as a placeholder).
-Deferred/TODO placeholders:
-  - Several active (non "-done") spec folders still cite "Principle IX" as a governing
-    testing step, some as a blocking gate predating the prior amendment that made it
-    non-blocking: specs/006-adventure-and-character-setup, specs/009-save-and-continue,
-    specs/012-story-editing-and-review, specs/013-opentelemetry-observability,
-    specs/019-spa-refresh-button, specs/023-cicd-pipeline-optimization,
-    specs/024-azure-monitoring-dashboard, specs/025-story-delete. This command's scope is
-    limited to the constitution itself; those spec artifacts need separate, manual review
-    (e.g. via /speckit-analyze per feature) to decide whether their Principle IX references
-    and any blocking acceptance tasks still apply now that the principle is retired.
+Version change: 7.0.0 -> 7.1.0
+Modified principles: none.
+Added sections:
+  - Screen contracts: new "Administrator — sessions" entry (no prototype screen) for the
+    read-only gameplay-session list introduced by 026-token-usage, following the same
+    no-prototype-screen precedent 012-story-editing-and-review set for the stories &
+    configuration entries.
+Removed sections: none. All existing headings and principle numbers are unchanged.
+Editorial changes: none beyond the added entry above.
+Deferred/TODO placeholders: none.
 Earlier Sync Impact Reports are in this file's git history.
 -->
 
@@ -570,6 +553,12 @@ which the deferral relaxes.
   authoring wizard or a re-upload. Introduced by `012-story-editing-and-review`, whose
   FR-012 defers these two screens' visual design; that deferral is recorded as an explicit
   exception in that feature's plan and covers styling only.
+- **Administrator — sessions** (no prototype screen) — a read-only list of every gameplay
+  session (real player and admin test play), each row showing its story, a session
+  identifier, its cumulative token total, and the email of whoever played it. Reachable as
+  its own admin navigation item alongside Stories and People. Introduced by
+  `026-token-usage`, whose spec defers this screen's visual design; that deferral is
+  recorded as an explicit exception in that feature's plan and covers styling only.
 
 ### Save and session behaviour
 
@@ -615,4 +604,4 @@ visual-rules, interaction-state, or layout and scroll requirements as a blocking
 feature may ship a screen that is not traceable to a screen contract above or to a
 documented amendment extending one.
 
-**Version**: 7.0.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
+**Version**: 7.1.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12

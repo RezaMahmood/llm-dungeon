@@ -88,7 +88,7 @@ def test_world_prompt_suggestion_never_generates_even_when_all_four_conditions_a
     )
     container.read_item.side_effect = None
     container.read_item.return_value = draft.to_dict()
-    llm.suggest_world_prompt.return_value = "A half-abandoned lighthouse on a cold coast."
+    llm.suggest_world_prompt.return_value = ("A half-abandoned lighthouse on a cold coast.", 12)
 
     result_draft = service.suggest_world_prompt("draft-1", "A lighthouse nobody has visited in years.")
 
@@ -104,7 +104,7 @@ def test_world_prompt_suggestion_is_one_pass_and_writes_only_world_prompt():
     draft = StoryDraft(id="draft-1", createdBy=CREATED_BY, name="The Lighthouse", rules="Nobody gets hurt.")
     container.read_item.side_effect = None
     container.read_item.return_value = draft.to_dict()
-    llm.suggest_world_prompt.return_value = "A half-abandoned lighthouse on a cold coast."
+    llm.suggest_world_prompt.return_value = ("A half-abandoned lighthouse on a cold coast.", 12)
 
     result_draft = service.suggest_world_prompt("draft-1", "A lighthouse nobody has visited in years.")
 
@@ -112,6 +112,20 @@ def test_world_prompt_suggestion_is_one_pass_and_writes_only_world_prompt():
     assert result_draft.worldPrompt == "A half-abandoned lighthouse on a cold coast."
     assert result_draft.name == "The Lighthouse"
     assert result_draft.rules == "Nobody gets hurt."
+    assert result_draft.totalTokens == 12
+
+
+def test_world_prompt_suggestion_accumulates_tokens_across_multiple_suggestions():
+    service, cosmos, llm, _stories = _service()
+    container = cosmos.get_container.return_value
+    draft = StoryDraft(id="draft-1", createdBy=CREATED_BY, totalTokens=12)
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+    llm.suggest_world_prompt.return_value = ("A different lighthouse.", 8)
+
+    result_draft = service.suggest_world_prompt("draft-1", "Try again.")
+
+    assert result_draft.totalTokens == 20
 
 
 def test_blank_idea_is_rejected_before_the_foundry_call():
@@ -144,11 +158,14 @@ def test_empty_world_prompt_suggestion_leaves_the_existing_world_prompt_alone():
     draft = StoryDraft(id="draft-1", createdBy=CREATED_BY, worldPrompt="It is 1908.")
     container.read_item.side_effect = None
     container.read_item.return_value = draft.to_dict()
-    llm.suggest_world_prompt.return_value = ""
+    llm.suggest_world_prompt.return_value = ("", 5)
 
     result_draft = service.suggest_world_prompt("draft-1", "Actually make it 1920.")
 
     assert result_draft.worldPrompt == "It is 1908."
+    # The model was still consulted, so its tokens count even though the empty
+    # suggestion itself is discarded (data-model.md → StoryDraft lifecycle).
+    assert result_draft.totalTokens == 5
 
 
 # --- Explicit generate_story action ---
@@ -192,8 +209,8 @@ def test_generate_story_succeeds_once_complete():
     draft = _complete_draft()
     container.read_item.side_effect = None
     container.read_item.return_value = draft.to_dict()
-    llm.generate_story_config.return_value = {"narrativeGuidance": "Keep it eerie but safe."}
-    llm.generate_starting_point.return_value = _make_starting_point().to_dict()
+    llm.generate_story_config.return_value = ({"narrativeGuidance": "Keep it eerie but safe."}, 30)
+    llm.generate_starting_point.return_value = (_make_starting_point().to_dict(), 40)
     generated_story = MagicMock(id="story-1")
     stories.create_story.return_value = generated_story
 
@@ -206,7 +223,26 @@ def test_generate_story_succeeds_once_complete():
     assert llm.generate_starting_point.call_args[0][1] == "Keep it eerie but safe."
     stories.create_story.assert_called_once()
     assert stories.create_story.call_args[0][2] == _make_starting_point()
+    # draft.totalTokens (0, since this draft was never given a suggestion) + both
+    # generation calls' tokens (research.md Decision 2, creation case).
+    assert stories.create_story.call_args[0][3] == 70
     container.delete_item.assert_called_once_with(item="draft-1", partition_key="draft-1")
+
+
+def test_generate_story_folds_the_drafts_accumulated_tokens_into_the_story_total():
+    service, cosmos, llm, stories = _service()
+    container = cosmos.get_container.return_value
+    draft = _complete_draft()
+    draft.totalTokens = 15
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+    llm.generate_story_config.return_value = ({"narrativeGuidance": "Keep it eerie but safe."}, 30)
+    llm.generate_starting_point.return_value = (_make_starting_point().to_dict(), 40)
+    stories.create_story.return_value = MagicMock(id="story-1")
+
+    service.generate_story("draft-1")
+
+    assert stories.create_story.call_args[0][3] == 15 + 30 + 40
 
 
 @pytest.mark.parametrize("failure", [LLMOutputError("bad json"), LLMContentFilteredError("blocked")])
@@ -219,7 +255,7 @@ def test_generate_story_leaves_the_draft_intact_when_the_opening_scene_fails(fai
     draft = _complete_draft()
     container.read_item.side_effect = None
     container.read_item.return_value = draft.to_dict()
-    llm.generate_story_config.return_value = {"narrativeGuidance": "Keep it eerie but safe."}
+    llm.generate_story_config.return_value = ({"narrativeGuidance": "Keep it eerie but safe."}, 30)
     llm.generate_starting_point.side_effect = failure
 
     with pytest.raises(GenerationFailedError):
@@ -295,7 +331,7 @@ def test_world_prompt_suggestion_overwrites_a_contradictory_earlier_answer():
     draft = StoryDraft(id="draft-1", createdBy=CREATED_BY, worldPrompt="It is 1908.")
     container.read_item.side_effect = None
     container.read_item.return_value = draft.to_dict()
-    llm.suggest_world_prompt.return_value = "It is 1920."
+    llm.suggest_world_prompt.return_value = ("It is 1920.", 10)
 
     result_draft = service.suggest_world_prompt("draft-1", "Actually make it 1920.")
 
@@ -416,6 +452,27 @@ def test_save_draft_to_story_applies_and_deletes_the_draft():
     assert args[3].narrativeGuidance == "Fresh guidance."
     assert args[3].startingPoint == _make_starting_point()
     container.delete_item.assert_called_once_with(item="draft-1", partition_key="draft-1")
+
+
+def test_save_draft_to_story_folds_the_drafts_tokens_onto_the_derived_content_before_the_write():
+    """research.md Decision 2 (edit case): the edit draft's own accumulated totalTokens
+    (from suggest_world_prompt calls) must reach apply_content_write alongside the
+    regeneration's own tokens — apply_content_write/_replaced_story then adds the combined
+    total onto the story's existing totalTokens (T041), never replacing it."""
+    service, cosmos, _llm, stories = _service()
+    container = cosmos.get_container.return_value
+    draft = _edit_draft(base_content_version=2)
+    draft.totalTokens = 12
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+    story = _make_story(id="story-1", contentVersion=2)
+    stories.get_story.return_value = story
+    stories.derived_content.return_value = DerivedContent("Fresh guidance.", _make_starting_point(), [], tokens=30)
+
+    service.save_draft_to_story("draft-1", "admin-oid")
+
+    passed_derived = stories.apply_content_write.call_args[0][3]
+    assert passed_derived.tokens == 12 + 30
 
 
 def test_save_draft_to_story_carries_hand_edited_derived_fields_into_the_write():

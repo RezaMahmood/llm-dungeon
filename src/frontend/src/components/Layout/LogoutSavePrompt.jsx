@@ -8,14 +8,16 @@ import { useEffect, useRef } from "react";
  * pattern.
  */
 export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, onCancel }) {
-  const saveButtonRef = useRef(null);
+  const dialogRef = useRef(null);
 
   useEffect(() => {
-    saveButtonRef.current?.focus();
+    dialogRef.current?.focus();
   }, []);
 
   const handleKeyDown = (event) => {
     if (event.key === "Escape" && !saving) {
+      event.preventDefault();
+      event.stopPropagation();
       onCancel();
     }
   };
@@ -23,12 +25,14 @@ export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, o
   return (
     <div className="dialog-backdrop">
       <div
+        ref={dialogRef}
         className="dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="logout-save-prompt-title"
+        tabIndex={-1}
         style={{ width: "min(520px,100%)", padding: "32px" }}
-        onKeyDown={handleKeyDown}
+        onKeyDownCapture={handleKeyDown}
       >
         <div className="dialog-title" id="logout-save-prompt-title" style={{ fontSize: "24px" }}>
           Save before you go?
@@ -44,7 +48,6 @@ export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, o
         )}
         <hr className="hr" style={{ margin: "6px 0" }} />
         <button
-          ref={saveButtonRef}
           className="btn btn-primary btn-block"
           type="button"
           style={{ padding: "14px 16px", fontSize: "16px", margin: 0 }}

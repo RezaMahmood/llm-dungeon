@@ -190,39 +190,43 @@ class LLMService:
             self._client = _shared_client(self._endpoint)
         return self._client
 
-    def suggest_world_prompt(self, draft: dict[str, Any], idea: str) -> str:
+    def suggest_world_prompt(self, draft: dict[str, Any], idea: str) -> tuple[str, int]:
         """Turn the administrator's idea into a single suggested world prompt in one pass
         (#227). Deliberately not a conversation: the model is never asked for a follow-up
-        question, and exactly one call is made per idea."""
+        question, and exactly one call is made per idea. Returns `(world_prompt,
+        tokens_used)` (research.md Decision 1)."""
         prompt = self._build_world_prompt_request(draft, idea)
-        result = self._call(
+        result, tokens_used = self._call(
             "gen_ai.story_creation.world_prompt",
             WORLD_PROMPT_SYSTEM_PROMPT,
             prompt,
             _WorldPromptResponse,
             REASONING_EFFORT_WORLD_PROMPT,
         )
-        return result.worldPrompt
+        return result.worldPrompt, tokens_used
 
-    def generate_story_config(self, draft: dict[str, Any]) -> dict[str, Any]:
+    def generate_story_config(self, draft: dict[str, Any]) -> tuple[dict[str, Any], int]:
         """Final generation call once the Completeness Rule is met. Returns
-        `{"narrativeGuidance": str}` (research.md §4)."""
+        `({"narrativeGuidance": str}, tokens_used)` (research.md §4, Decision 1)."""
         prompt = self._build_generation_prompt(draft)
-        result = self._call(
+        result, tokens_used = self._call(
             "gen_ai.story_creation.generate",
             GENERATION_SYSTEM_PROMPT,
             prompt,
             _GenerationResponse,
             REASONING_EFFORT_GENERATION,
         )
-        return result.model_dump()
+        return result.model_dump(), tokens_used
 
-    def generate_starting_point(self, draft: dict[str, Any], narrative_guidance: str) -> dict[str, Any]:
+    def generate_starting_point(
+        self, draft: dict[str, Any], narrative_guidance: str
+    ) -> tuple[dict[str, Any], int]:
         """The story's fixed opening scene, generated once per story from the freshly
         generated `narrative_guidance` and persisted on the `Story` (#271). Turn 0 of every
-        session replays it verbatim, so it is deliberately character-agnostic."""
+        session replays it verbatim, so it is deliberately character-agnostic. Returns
+        `(data, tokens_used)` (research.md Decision 1)."""
         prompt = self._build_starting_point_prompt(draft, narrative_guidance)
-        result = self._call(
+        result, tokens_used = self._call(
             "gen_ai.story_creation.starting_point",
             STARTING_POINT_SYSTEM_PROMPT,
             prompt,
@@ -231,7 +235,7 @@ class LLMService:
         )
         data = result.model_dump()
         self._warn_if_over_length(data["narrativeText"])
-        return data
+        return data, tokens_used
 
     def generate_gameplay_turn(
         self,
@@ -239,14 +243,14 @@ class LLMService:
         session: PlaySession,
         player_input: str,
         concluding_reason: Optional[str] = None,
-    ) -> dict[str, Any]:
+    ) -> tuple[dict[str, Any], int]:
         """One turn of gameplay narrative (008-core-gameplay-done research.md Decision 6).
         Turn 0 never comes from here — it is `story.startingPoint`, replayed verbatim (#271).
         `concluding_reason` asks for an ending; it travels as a narrator directive rather
         than inside `player_input`, which the system prompt instructs the model to distrust
-        for behavior changes (FR-012)."""
+        for behavior changes (FR-012). Returns `(data, tokens_used)` (research.md Decision 1)."""
         prompt = self._build_gameplay_turn_prompt(story, session, player_input, concluding_reason)
-        result = self._call(
+        result, tokens_used = self._call(
             "gen_ai.gameplay.turn",
             GAMEPLAY_TURN_SYSTEM_PROMPT,
             prompt,
@@ -255,7 +259,7 @@ class LLMService:
         )
         data = result.model_dump()
         self._warn_if_over_length(data["narrativeText"])
-        return data
+        return data, tokens_used
 
     @staticmethod
     def _warn_if_over_length(narrative_text: str) -> None:
@@ -265,21 +269,21 @@ class LLMService:
             # could itself introduce a fact-consistency contradiction.
             logger.warning("narrative exceeded %d words (got %d)", MAX_NARRATIVE_WORDS, word_count)
 
-    def summarize_session_history(self, story: Story, session: PlaySession) -> str:
+    def summarize_session_history(self, story: Story, session: PlaySession) -> tuple[str, int]:
         """Condenses `session.summary` (if any) plus the turns since
         `session.summarizedThroughTurn` into a fresh summary string (008-core-gameplay-done
         research.md Decision 10, FR-014). May use a different deployment than
         `generate_gameplay_turn` (spec.md Assumptions) — a distinct method/call site is
-        what makes that possible."""
+        what makes that possible. Returns `(summary, tokens_used)` (research.md Decision 1)."""
         prompt = self._build_summary_prompt(story, session)
-        result = self._call(
+        result, tokens_used = self._call(
             "gen_ai.gameplay.summary",
             GAMEPLAY_SUMMARY_SYSTEM_PROMPT,
             prompt,
             _SummaryResponse,
             REASONING_EFFORT_GAMEPLAY_SUMMARY,
         )
-        return result.summary
+        return result.summary, tokens_used
 
     def _call(
         self,
@@ -288,7 +292,11 @@ class LLMService:
         user_prompt: str,
         response_model: type[BaseModel],
         reasoning_effort: str,
-    ) -> BaseModel:
+    ) -> tuple[BaseModel, int]:
+        """Returns `(payload, tokens_used)`, where `tokens_used = input_tokens +
+        output_tokens` — the same counts the span below already records
+        (research.md Decision 1). Reasoning tokens are a subset of output_tokens, not an
+        addition to them, matching the existing cost_usd formula."""
         with tracer.start_as_current_span(span_name) as span:
             span.set_attribute("gen_ai.prompt", user_prompt)
             start = time.monotonic()
@@ -322,7 +330,7 @@ class LLMService:
             span.set_attribute("gen_ai.latency_ms", latency_ms)
 
             try:
-                return response.value
+                return response.value, input_tokens + output_tokens
             except (ValidationError, ValueError, json.JSONDecodeError) as exc:
                 raise LLMOutputError(f"Model response did not match the expected schema: {exc}") from exc
 

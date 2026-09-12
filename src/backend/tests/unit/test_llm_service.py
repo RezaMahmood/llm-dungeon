@@ -77,9 +77,11 @@ def test_suggest_world_prompt_returns_the_single_suggested_prompt():
     response = _mock_response(json.dumps({"worldPrompt": "A lighthouse..."}), _WorldPromptResponse)
     service = _service_with_response(response)
 
-    result = service.suggest_world_prompt({"worldPrompt": None}, "A half-abandoned lighthouse...")
+    result, tokens_used = service.suggest_world_prompt({"worldPrompt": None}, "A half-abandoned lighthouse...")
 
     assert result == "A lighthouse..."
+    # 42 input + 17 output (_mock_response's defaults) — research.md Decision 1.
+    assert tokens_used == 59
     # One pass, not a conversation (#227) — exactly one call, and nothing to follow up on.
     service.client.get_response.assert_called_once()
 
@@ -88,9 +90,10 @@ def test_generate_story_config_parses_valid_json():
     response = _mock_response(json.dumps({"narrativeGuidance": "Keep it eerie but safe."}), _GenerationResponse)
     service = _service_with_response(response)
 
-    result = service.generate_story_config({"worldPrompt": "A lighthouse..."})
+    result, tokens_used = service.generate_story_config({"worldPrompt": "A lighthouse..."})
 
     assert result == {"narrativeGuidance": "Keep it eerie but safe."}
+    assert tokens_used == 59
 
 
 def test_suggest_world_prompt_rejects_malformed_json():
@@ -295,7 +298,7 @@ def test_call_retries_then_succeeds_after_transient_rate_limit():
     service = LLMService(client=client)
 
     with patch("backend.services.llm_service.time.sleep") as sleep:
-        result = service.suggest_world_prompt({}, "hello")
+        result, _tokens_used = service.suggest_world_prompt({}, "hello")
 
     assert result == "A lighthouse..."
     assert client.get_response.call_count == 2
@@ -384,9 +387,10 @@ def test_generate_starting_point_returns_the_opening_scene_and_carries_the_guida
     )
     service = _service_with_response(response)
 
-    result = service.generate_starting_point({"worldPrompt": "A lighthouse..."}, "Keep it eerie but safe.")
+    result, tokens_used = service.generate_starting_point({"worldPrompt": "A lighthouse..."}, "Keep it eerie but safe.")
 
     assert result["narrativeText"] == "The door creaks."
+    assert tokens_used == 59
     assert result["suggestedActions"] == ["look", "listen"]
     prompt = service.client.get_response.call_args[0][0][1].contents[0].text
     assert "Keep it eerie but safe." in prompt
@@ -442,9 +446,10 @@ def test_generate_gameplay_turn_subsequent_call_uses_full_history():
     )
     service = _service_with_response(response)
 
-    result = service.generate_gameplay_turn(_story(), _session(turns=turns), "climb the stairs")
+    result, tokens_used = service.generate_gameplay_turn(_story(), _session(turns=turns), "climb the stairs")
 
     assert result["newlySatisfiedSuccessConditions"] == [0]
+    assert tokens_used == 59
     prompt = service.client.get_response.call_args[0][0][1].contents[0].text
     assert "Opening scene." in prompt
     assert "climb the stairs" in prompt
@@ -508,7 +513,7 @@ def test_generate_gameplay_turn_over_150_words_is_logged_not_truncated(caplog):
     service = _service_with_response(response)
 
     with caplog.at_level("WARNING"):
-        result = service.generate_gameplay_turn(_story(), _session(), "look")
+        result, _tokens_used = service.generate_gameplay_turn(_story(), _session(), "look")
 
     assert result["narrativeText"] == long_text
     assert any("exceeded" in message for message in caplog.messages)
@@ -529,9 +534,10 @@ def test_summarize_session_history_condenses_prior_summary_and_new_turns():
     response = _mock_response(json.dumps({"summary": "Condensed summary."}), _SummaryResponse)
     service = _service_with_response(response)
 
-    result = service.summarize_session_history(_story(), session)
+    result, tokens_used = service.summarize_session_history(_story(), session)
 
     assert result == "Condensed summary."
+    assert tokens_used == 59
 
 
 def test_generate_gameplay_turn_populates_span_attributes_like_existing_calls():

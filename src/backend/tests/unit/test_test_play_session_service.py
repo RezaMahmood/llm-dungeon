@@ -104,6 +104,15 @@ def _turn_data(text="You look around.", success=None, failure=None) -> dict:
     }
 
 
+# A fixed, arbitrary token count for LLMService.generate_gameplay_turn's mocked reply
+# (research.md Decision 1 — LLMService itself returns (payload, tokens_used)).
+DEFAULT_TURN_TOKENS = 25
+
+
+def _turn_response(data: dict, tokens: int = DEFAULT_TURN_TOKENS) -> tuple[dict, int]:
+    return data, tokens
+
+
 def _story(starting_point=STARTING_POINT, **overrides) -> Story:
     defaults = dict(
         id=str(uuid.uuid4()),
@@ -127,10 +136,10 @@ def _service(story: Story, llm_turn_data=None, cosmos: FakeCosmosService | None 
     cosmos.get_container(config.STORIES_CONTAINER).upsert_item(story.to_dict())
     llm = MagicMock()
     if isinstance(llm_turn_data, list):
-        llm.generate_gameplay_turn.side_effect = llm_turn_data
+        llm.generate_gameplay_turn.side_effect = [_turn_response(d) for d in llm_turn_data]
     else:
-        llm.generate_gameplay_turn.return_value = llm_turn_data if llm_turn_data is not None else _turn_data()
-    llm.generate_starting_point.return_value = STARTING_POINT.to_dict()
+        llm.generate_gameplay_turn.return_value = _turn_response(llm_turn_data if llm_turn_data is not None else _turn_data())
+    llm.generate_starting_point.return_value = (STARTING_POINT.to_dict(), 15)
     stories = StoryService(cosmos_service=cosmos, llm_service=llm)
     service = TestPlaySessionService(cosmos_service=cosmos, story_service=stories, llm_service=llm)
     return service, cosmos, llm, stories
@@ -424,3 +433,47 @@ def test_submit_exchange_maps_llm_output_error_to_narrative_unavailable():
         assert False, "expected NarrativeUnavailableError"
     except NarrativeUnavailableError:
         pass
+
+
+# --- Token usage (026-token-usage) ---
+
+
+def test_submit_exchange_adds_the_exchanges_tokens_to_the_session_total():
+    story = _story()
+    service, cosmos, _llm, _stories = _service(story, llm_turn_data=_turn_data())
+    session = service.create_session(story.id, ADMIN_ID)
+    assert session.totalTokens == 0
+    _clear_rate_limit(cosmos, session.id)
+
+    updated, _reason = service.submit_exchange(session.id, ADMIN_ID, "look around")
+
+    assert updated.turns[-1].tokens == DEFAULT_TURN_TOKENS
+    assert updated.totalTokens == DEFAULT_TURN_TOKENS
+
+
+def test_content_filtered_exchange_contributes_zero_tokens():
+    story = _story()
+    service, cosmos, llm, _stories = _service(story, llm_turn_data=_turn_data())
+    session = service.create_session(story.id, ADMIN_ID)
+    _clear_rate_limit(cosmos, session.id)
+    llm.generate_gameplay_turn.side_effect = LLMContentFilteredError("filtered")
+
+    updated, _reason = service.submit_exchange(session.id, ADMIN_ID, "say something unsafe")
+
+    assert updated.turns[-1].tokens == 0
+    assert updated.totalTokens == 0
+
+
+def test_submit_exchange_adds_the_same_tokens_to_both_the_session_and_the_story_totals():
+    """research.md Decision 3: a test-play exchange's tokens count twice, toward two
+    different totals answering two different questions."""
+    story = _story()
+    service, cosmos, _llm, stories = _service(story, llm_turn_data=_turn_data())
+    session = service.create_session(story.id, ADMIN_ID)
+    _clear_rate_limit(cosmos, session.id)
+
+    updated_session, _reason = service.submit_exchange(session.id, ADMIN_ID, "look around")
+
+    updated_story = stories.get_story(story.id)
+    assert updated_session.totalTokens == DEFAULT_TURN_TOKENS
+    assert updated_story.totalTokens == DEFAULT_TURN_TOKENS

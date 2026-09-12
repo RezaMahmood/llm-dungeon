@@ -18,6 +18,9 @@ class TestPlayExchange:
     playerInput: Optional[str] = None
     goalLabel: Optional[str] = None
     progress: Optional[dict[str, int]] = None
+    # This exchange's own token count; 0 for a content-filtered deflection turn
+    # (data-model.md → TestPlaySession).
+    tokens: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -29,6 +32,7 @@ class TestPlayExchange:
             "goalLabel": self.goalLabel,
             "progress": self.progress,
             "timestamp": self.timestamp,
+            "tokens": self.tokens,
         }
 
     @classmethod
@@ -42,6 +46,7 @@ class TestPlayExchange:
             goalLabel=data.get("goalLabel"),
             progress=data.get("progress"),
             timestamp=data["timestamp"],
+            tokens=data.get("tokens", 0),
         )
 
 
@@ -64,6 +69,9 @@ class TestPlaySession:
     summary: Optional[str] = None
     summarizedThroughTurn: int = 0
     entityType: str = field(default="TestPlaySession")
+    # Running cumulative token total for this test-play session (data-model.md →
+    # TestPlaySession) — also added to Story.totalTokens (research.md Decision 3).
+    totalTokens: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -84,6 +92,7 @@ class TestPlaySession:
             "endedAt": self.endedAt,
             "summary": self.summary,
             "summarizedThroughTurn": self.summarizedThroughTurn,
+            "totalTokens": self.totalTokens,
         }
 
     @classmethod
@@ -105,4 +114,5 @@ class TestPlaySession:
             endedAt=data.get("endedAt"),
             summary=data.get("summary"),
             summarizedThroughTurn=data.get("summarizedThroughTurn", 0),
+            totalTokens=data.get("totalTokens", 0),
         )

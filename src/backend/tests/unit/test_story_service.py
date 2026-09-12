@@ -41,16 +41,49 @@ def test_create_story_defaults_to_unpublished():
     cosmos = MagicMock()
     service = StoryService(cosmos_service=cosmos)
 
-    story = service.create_story(_draft(), "Keep it eerie but safe.", _starting_point())
+    story = service.create_story(_draft(), "Keep it eerie but safe.", _starting_point(), 123)
 
     assert story.published is False
     assert story.contentUpdatedAt == story.createdAt
     assert story.lastPublishedAt is None
     assert story.lastTestPlayedAt is None
+    assert story.totalTokens == 123
     cosmos.get_container.return_value.upsert_item.assert_called_once_with(story.to_dict())
 
 
 def test_list_summaries_returns_summary_shape_only():
+    cosmos = MagicMock()
+    cosmos.query.return_value = [
+        {
+            "id": "story-1",
+            "name": "The Lighthouse at Gullwing Cove",
+            "published": False,
+            "lastPublishedAt": None,
+            "createdAt": "2026-08-29T20:04:00Z",
+            "totalTokens": 48213,
+        }
+    ]
+    service = StoryService(cosmos_service=cosmos)
+
+    summaries = service.list_summaries()
+
+    assert summaries == [
+        {
+            "id": "story-1",
+            "name": "The Lighthouse at Gullwing Cove",
+            "published": False,
+            "lastPublishedAt": None,
+            "createdAt": "2026-08-29T20:04:00Z",
+            "totalTokens": 48213,
+        }
+    ]
+    query_args = cosmos.query.call_args[0]
+    assert "c.lastPublishedAt" in query_args[1]
+    assert "c.totalTokens" in query_args[1]
+
+
+def test_list_summaries_defaults_total_tokens_to_zero_for_a_legacy_row():
+    """A row persisted before this field existed (FR-004) must render 0, not a missing key."""
     cosmos = MagicMock()
     cosmos.query.return_value = [
         {
@@ -65,23 +98,13 @@ def test_list_summaries_returns_summary_shape_only():
 
     summaries = service.list_summaries()
 
-    assert summaries == [
-        {
-            "id": "story-1",
-            "name": "The Lighthouse at Gullwing Cove",
-            "published": False,
-            "lastPublishedAt": None,
-            "createdAt": "2026-08-29T20:04:00Z",
-        }
-    ]
-    query_args = cosmos.query.call_args[0]
-    assert "c.lastPublishedAt" in query_args[1]
+    assert summaries[0]["totalTokens"] == 0
 
 
 def test_get_story_returns_full_config_including_narrative_guidance():
     cosmos = MagicMock()
     service = StoryService(cosmos_service=cosmos)
-    story = service.create_story(_draft(), "Keep it eerie but safe.", _starting_point())
+    story = service.create_story(_draft(), "Keep it eerie but safe.", _starting_point(), 0)
     cosmos.get_container.return_value.read_item.return_value = story.to_dict()
 
     fetched = service.get_story(story.id)
@@ -285,23 +308,34 @@ def test_unpublish_returns_none_for_missing_story():
 
 
 def test_record_test_play_sets_last_test_played_at_and_leaves_content_updated_at_unchanged():
-    story = _story(contentUpdatedAt="2026-08-30T09:00:00Z", lastTestPlayedAt=None)
-    service = _service_with(story)
+    story = _story(id="story-1", contentUpdatedAt="2026-08-30T09:00:00Z", lastTestPlayedAt=None)
+    service, cosmos, _llm = _service_with_etag(story)
 
-    result = service.record_test_play(story.id)
+    result = service.record_test_play(story.id, 250)
 
     assert result.lastTestPlayedAt is not None
     assert result.contentUpdatedAt == "2026-08-30T09:00:00Z"
-    service._container().upsert_item.assert_called_once_with(result.to_dict())
+    assert cosmos.get_container("stories").items["story-1"]["lastTestPlayedAt"] == result.lastTestPlayedAt
+
+
+def test_record_test_play_adds_tokens_to_the_story_total():
+    """research.md Decision 3 — a test-play exchange's tokens count toward the story's
+    authoring-lifecycle total, on top of whatever it already carried."""
+    story = _story(id="story-1", totalTokens=100)
+    service, _cosmos, _llm = _service_with_etag(story)
+
+    result = service.record_test_play(story.id, 50)
+
+    assert result.totalTokens == 150
 
 
 def test_record_test_play_flips_can_publish_from_false_to_true():
-    story = _story(contentUpdatedAt="2026-08-30T09:00:00Z", lastTestPlayedAt=None)
-    service = _service_with(story)
+    story = _story(id="story-1", contentUpdatedAt="2026-08-30T09:00:00Z", lastTestPlayedAt=None)
+    service, _cosmos, _llm = _service_with_etag(story)
 
     assert service.can_publish(story) is False
 
-    result = service.record_test_play(story.id)
+    result = service.record_test_play(story.id, 0)
 
     assert service.can_publish(result) is True
 
@@ -311,7 +345,53 @@ def test_record_test_play_returns_none_for_missing_story():
     cosmos.get_container.return_value.read_item.side_effect = CosmosResourceNotFoundError
     service = StoryService(cosmos_service=cosmos)
 
-    assert service.record_test_play("missing") is None
+    assert service.record_test_play("missing", 10) is None
+
+
+def test_record_test_play_retries_against_a_fresh_read_on_a_lost_etag_race():
+    """Two test-play exchanges landing concurrently must not let one's accrual silently
+    overwrite the other's — unlike the upsert this replaced, a lost race re-reads the
+    row a concurrent writer just updated and re-applies this accrual on top of it."""
+    story = _story(id="story-1", totalTokens=100)
+    service, cosmos, _llm = _service_with_etag(story)
+    container = cosmos.get_container("stories")
+    real_replace_item = container.replace_item
+    calls = {"n": 0}
+
+    def _replace_item(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            concurrent = _story(id="story-1", totalTokens=130)
+            container.items["story-1"] = concurrent.to_dict() | {"_etag": "etag-concurrent"}
+            from azure.cosmos.exceptions import CosmosAccessConditionFailedError
+
+            raise CosmosAccessConditionFailedError
+        return real_replace_item(*args, **kwargs)
+
+    container.replace_item = _replace_item
+
+    result = service.record_test_play(story.id, 50)
+
+    assert result.totalTokens == 180
+    assert container.items["story-1"]["totalTokens"] == 180
+
+
+def test_record_test_play_gives_up_without_raising_after_repeated_conflicts():
+    """A race lost on every attempt is accepted, not raised — the test-play turn that
+    triggered this accrual already persisted successfully, and must not come back to
+    the caller as a failure (research.md Decision 2's negligible-undercount precedent)."""
+    from azure.cosmos.exceptions import CosmosAccessConditionFailedError
+
+    story = _story(id="story-1", totalTokens=100)
+    service, cosmos, _llm = _service_with_etag(story)
+    cosmos.get_container("stories").replace_item = MagicMock(side_effect=CosmosAccessConditionFailedError)
+
+    result = service.record_test_play(story.id, 50)
+
+    assert result is not None
+    assert result.totalTokens == 150
+    # Never persisted — every attempt lost the race.
+    assert cosmos.get_container("stories").items["story-1"]["totalTokens"] == 100
 
 
 def test_list_published_summaries_returns_adventure_summary_shape():
@@ -421,8 +501,8 @@ def _derived(narrative_guidance="New guidance.", starting_point=None, admin_edit
 
 def _generating_llm() -> MagicMock:
     llm = MagicMock()
-    llm.generate_story_config.return_value = {"narrativeGuidance": "Fresh guidance."}
-    llm.generate_starting_point.return_value = _starting_point(narrativeText="A fresh opening.").to_dict()
+    llm.generate_story_config.return_value = ({"narrativeGuidance": "Fresh guidance."}, 30)
+    llm.generate_starting_point.return_value = (_starting_point(narrativeText="A fresh opening.").to_dict(), 40)
     return llm
 
 
@@ -545,6 +625,9 @@ def test_import_configuration_creates_new_unpublished_story_when_id_absent():
     assert story.name == "A New Tale"
     assert story.contentVersion == 1
     assert story.lastUpdatedBy is None
+    # This branch bypasses apply_content_write/_replaced_story, so it must set
+    # totalTokens itself from derived.tokens (research.md Decision 2).
+    assert story.totalTokens == 70
 
 
 def test_import_configuration_requires_title_when_id_absent():
@@ -556,7 +639,7 @@ def test_import_configuration_requires_title_when_id_absent():
 
 
 def test_import_configuration_overwrites_when_id_matches_and_confirmed():
-    story = _story(id="story-1", contentVersion=2)
+    story = _story(id="story-1", contentVersion=2, totalTokens=100)
     service, cosmos, llm = _service_with_etag(story)
 
     outcome, updated = service.import_configuration(
@@ -566,6 +649,9 @@ def test_import_configuration_overwrites_when_id_matches_and_confirmed():
     assert outcome == "updated"
     assert updated.contentVersion == 3
     assert updated.published == story.published
+    # Routed through apply_content_write/_replaced_story, which adds derived.tokens onto
+    # the existing total rather than replacing it (research.md Decision 2).
+    assert updated.totalTokens == 100 + 70
 
 
 def test_import_configuration_requires_confirmation_matching_the_id():
@@ -647,6 +733,8 @@ def test_derived_content_generates_both_when_the_configuration_supplies_neither(
     assert derived.narrativeGuidance == "Fresh guidance."
     assert derived.startingPoint.narrativeText == "A fresh opening."
     assert derived.adminEditedFields == []
+    # Both fields were generated: 30 (guidance) + 40 (starting point).
+    assert derived.tokens == 70
     # The opening scene is anchored to the guidance generated alongside it.
     assert llm.generate_starting_point.call_args[0][1] == "Fresh guidance."
 
@@ -666,6 +754,8 @@ def test_derived_content_keeps_admin_authored_guidance_and_starting_point_verbat
     assert derived.narrativeGuidance == "Hand-edited guidance."
     assert derived.startingPoint.narrativeText == "Hand-edited opening."
     assert derived.adminEditedFields == ["narrativeGuidance", "startingPoint"]
+    # Neither field was generated, so no tokens were spent.
+    assert derived.tokens == 0
     llm.generate_story_config.assert_not_called()
     llm.generate_starting_point.assert_not_called()
 
@@ -680,6 +770,8 @@ def test_derived_content_generates_an_opening_scene_for_hand_written_guidance():
 
     assert derived.startingPoint.narrativeText == "A fresh opening."
     assert derived.adminEditedFields == ["narrativeGuidance"]
+    # Only the opening scene was generated (the guidance was supplied hand-edited).
+    assert derived.tokens == 40
     assert llm.generate_starting_point.call_args[0][1] == "Hand-edited guidance."
 
 
@@ -695,7 +787,7 @@ def test_ensure_starting_point_returns_a_story_that_already_has_one_untouched():
 
 
 def test_ensure_starting_point_generates_and_persists_one_for_a_legacy_story():
-    story = _story(id="story-1", startingPoint=None)
+    story = _story(id="story-1", startingPoint=None, totalTokens=10)
     service, cosmos, llm = _service_with_etag(story)
 
     updated = service.ensure_starting_point(story)
@@ -703,6 +795,9 @@ def test_ensure_starting_point_generates_and_persists_one_for_a_legacy_story():
     assert updated.startingPoint.narrativeText == "A fresh opening."
     stored = cosmos.get_container("stories").items["story-1"]
     assert stored["startingPoint"]["narrativeText"] == "A fresh opening."
+    # The backfill's own tokens (40) are added onto whatever the story already carried.
+    assert stored["totalTokens"] == 50
+    assert updated.totalTokens == 50
     # Generated from the story's own already-persisted guidance, not a fresh one.
     llm.generate_story_config.assert_not_called()
     assert llm.generate_starting_point.call_args[0][1] == story.narrativeGuidance

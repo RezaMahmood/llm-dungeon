@@ -168,6 +168,10 @@ class Story:
     # Which of ADMIN_EDITABLE_DERIVED_FIELDS an administrator wrote themselves. A content
     # write regenerates the derived fields it isn't given, but never one named here.
     adminEditedFields: list[str] = field(default_factory=list)
+    # Cumulative input+output tokens spent across this story's whole authoring lifecycle
+    # (draft suggestions, generation, edits/regenerations, admin test plays); never
+    # includes real player gameplay (data-model.md → Story).
+    totalTokens: int = 0
     entityType: str = field(default="Story")
 
     def __post_init__(self) -> None:
@@ -202,6 +206,7 @@ class Story:
             "lastTestPlayedAt": self.lastTestPlayedAt,
             "lastUpdatedBy": self.lastUpdatedBy,
             "contentVersion": self.contentVersion,
+            "totalTokens": self.totalTokens,
             "entityType": self.entityType,
         }
 
@@ -238,4 +243,7 @@ class Story:
             # (data-model.md → Story), matching the contentUpdatedAt precedent above.
             lastUpdatedBy=data.get("lastUpdatedBy"),
             contentVersion=data.get("contentVersion", 1),
+            # Defaults to 0 for a Story row persisted before this field existed — no
+            # historical reconstruction is attempted (data-model.md → Story).
+            totalTokens=data.get("totalTokens", 0),
         )

@@ -13,16 +13,19 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 from backend.api.admin.stories import (
     create_draft,
+    create_edit_draft,
     generate_story_from_draft,
     get_draft,
     get_story,
     list_stories,
     patch_draft,
+    save_draft,
     suggest_world_prompt,
 )
 from backend.services.llm_service import LLMOutputError, LLMRateLimitError
 from backend.services.story_draft_service import StoryDraftService
 from backend.services.story_service import StoryService
+from backend.services.test_play_session_service import TestPlaySessionService
 from backend.tests.conftest import _make_starting_point
 
 ADMIN_OID = "550e8400-e29b-41d4-a716-446655440000"
@@ -32,14 +35,39 @@ ADMIN_EMAIL = "admin@example.com"
 class FakeContainer:
     def __init__(self) -> None:
         self.items: dict[str, dict] = {}
+        self._etag_counter = 0
+
+    def _next_etag(self) -> str:
+        self._etag_counter += 1
+        return f"etag-{self._etag_counter}"
 
     def read_item(self, item, partition_key):  # noqa: ARG002
         if item not in self.items:
             raise CosmosResourceNotFoundError
         return self.items[item]
 
-    def upsert_item(self, body):
+    def create_item(self, body):
+        body = dict(body)
+        body["_etag"] = self._next_etag()
         self.items[body["id"]] = body
+        return body
+
+    def upsert_item(self, body):
+        body = dict(body)
+        body["_etag"] = self._next_etag()
+        self.items[body["id"]] = body
+        return body
+
+    def replace_item(self, item, body, etag=None, match_condition=None):
+        from azure.core import MatchConditions
+        from azure.cosmos.exceptions import CosmosAccessConditionFailedError
+
+        current = self.items.get(item)
+        if match_condition == MatchConditions.IfNotModified and current is not None and current.get("_etag") != etag:
+            raise CosmosAccessConditionFailedError
+        body = dict(body)
+        body["_etag"] = self._next_etag()
+        self.items[item] = body
         return body
 
     def delete_item(self, item, partition_key):  # noqa: ARG002
@@ -64,14 +92,23 @@ class FakeCosmosService:
         if "entityType = 'Story'" in sql:
             rows = [r for r in rows if r.get("entityType") == "Story"]
         if sql.strip().upper().startswith("SELECT C.ID"):
-            rows = [{"id": r["id"], "name": r.get("name"), "published": r.get("published"), "createdAt": r.get("createdAt")} for r in rows]
+            rows = [
+                {
+                    "id": r["id"],
+                    "name": r.get("name"),
+                    "published": r.get("published"),
+                    "createdAt": r.get("createdAt"),
+                    "totalTokens": r.get("totalTokens"),
+                }
+                for r in rows
+            ]
         return rows
 
 
 def _services():
     cosmos = FakeCosmosService()
     llm = MagicMock()
-    story_service = StoryService(cosmos_service=cosmos)
+    story_service = StoryService(cosmos_service=cosmos, llm_service=llm)
     draft_service = StoryDraftService(cosmos_service=cosmos, llm_service=llm, story_service=story_service)
     return draft_service, story_service, llm, cosmos
 
@@ -103,7 +140,7 @@ def test_idea_is_turned_into_a_world_prompt_in_one_pass(request_factory):
         create_response = create_draft(_authorized(request_factory, method="POST", url="/api/manage/stories/drafts"), story_draft_service=draft_service)
     draft_id = json.loads(create_response.get_body())["draft"]["id"]
 
-    llm.suggest_world_prompt.return_value = "A half-abandoned lighthouse on a cold northern cove."
+    llm.suggest_world_prompt.return_value = ("A half-abandoned lighthouse on a cold northern cove.", 12)
     req = _authorized(
         request_factory,
         method="POST",
@@ -178,7 +215,7 @@ def test_completing_the_draft_via_patch_does_not_generate_or_redirect(request_fa
     since that's what previously caused the wizard to redirect away without the
     administrator explicitly finishing (#33)."""
     draft_service, _stories, llm, _cosmos = _services()
-    llm.suggest_world_prompt.return_value = "A half-abandoned lighthouse."
+    llm.suggest_world_prompt.return_value = ("A half-abandoned lighthouse.", 12)
     with _patched_authorize_admin():
         create_response = create_draft(
             _authorized(
@@ -223,7 +260,7 @@ def test_completing_the_draft_via_patch_does_not_generate_or_redirect(request_fa
 
 def test_generate_action_persists_a_story_only_when_explicitly_called(request_factory):
     draft_service, story_service, llm, _cosmos = _services()
-    llm.suggest_world_prompt.return_value = "A half-abandoned lighthouse."
+    llm.suggest_world_prompt.return_value = ("A half-abandoned lighthouse.", 12)
     with _patched_authorize_admin():
         create_response = create_draft(
             _authorized(
@@ -254,8 +291,8 @@ def test_generate_action_persists_a_story_only_when_explicitly_called(request_fa
             story_draft_service=draft_service,
         )
 
-    llm.generate_story_config.return_value = {"narrativeGuidance": "Keep it eerie but never actually dangerous."}
-    llm.generate_starting_point.return_value = _make_starting_point().to_dict()
+    llm.generate_story_config.return_value = ({"narrativeGuidance": "Keep it eerie but never actually dangerous."}, 30)
+    llm.generate_starting_point.return_value = (_make_starting_point().to_dict(), 40)
     with _patched_authorize_admin():
         response = generate_story_from_draft(
             _authorized(
@@ -296,6 +333,84 @@ def test_generate_action_persists_a_story_only_when_explicitly_called(request_fa
     story_body = json.loads(story_response.get_body())["story"]
     assert story_body["contentVersion"] == 1
     assert story_body["lastUpdatedBy"] is None
+
+
+def test_generated_story_reports_its_total_tokens_in_the_stories_list(request_factory):
+    """contracts/api.md → GET /api/manage/stories: totalTokens reflects the world-prompt
+    suggestion plus the generation and starting-point calls (quickstart.md Scenario 1)."""
+    draft_service, story_service, llm, _cosmos = _services()
+    llm.suggest_world_prompt.return_value = ("A half-abandoned lighthouse.", 12)
+    with _patched_authorize_admin():
+        create_response = create_draft(
+            _authorized(
+                request_factory,
+                method="POST",
+                url="/api/manage/stories/drafts",
+                body=json.dumps({"idea": "A half-abandoned lighthouse on a cold northern cove."}).encode(),
+            ),
+            story_draft_service=draft_service,
+        )
+    draft_id = json.loads(create_response.get_body())["draft"]["id"]
+
+    with _patched_authorize_admin():
+        patch_draft(
+            _authorized(
+                request_factory,
+                method="PATCH",
+                url=f"/api/manage/stories/drafts/{draft_id}",
+                body=json.dumps(
+                    {
+                        "name": "The Lighthouse at Gullwing Cove",
+                        "characterTypes": _character_types(),
+                        "completionCriteria": _completion_criteria(),
+                    }
+                ).encode(),
+                route_params={"draftId": draft_id},
+            ),
+            story_draft_service=draft_service,
+        )
+
+    llm.generate_story_config.return_value = ({"narrativeGuidance": "Keep it eerie but safe."}, 30)
+    llm.generate_starting_point.return_value = (_make_starting_point().to_dict(), 40)
+    with _patched_authorize_admin():
+        generate_story_from_draft(
+            _authorized(
+                request_factory,
+                method="POST",
+                url=f"/api/manage/stories/drafts/{draft_id}/generate",
+                route_params={"draftId": draft_id},
+            ),
+            story_draft_service=draft_service,
+        )
+
+    with _patched_authorize_admin():
+        list_response = list_stories(_authorized(request_factory), story_service=story_service)
+
+    [story] = json.loads(list_response.get_body())["stories"]
+    assert story["totalTokens"] == 12 + 30 + 40
+
+
+def test_stories_list_defaults_total_tokens_to_zero_for_a_legacy_row(request_factory):
+    draft_service, story_service, _llm, cosmos = _services()
+    with _patched_authorize_admin():
+        create_draft(
+            _authorized(request_factory, method="POST", url="/api/manage/stories/drafts", body=json.dumps({}).encode()),
+            story_draft_service=draft_service,
+        )
+    # Simulate a story persisted before totalTokens existed: no key on the stored row.
+    cosmos.get_container("stories").items["legacy-story"] = {
+        "id": "legacy-story",
+        "entityType": "Story",
+        "name": "A Legacy Tale",
+        "published": False,
+        "createdAt": "2026-01-01T00:00:00Z",
+    }
+
+    with _patched_authorize_admin():
+        list_response = list_stories(_authorized(request_factory), story_service=story_service)
+
+    [story] = json.loads(list_response.get_body())["stories"]
+    assert story["totalTokens"] == 0
 
 
 def test_generate_action_rejects_incomplete_draft(request_factory):
@@ -354,7 +469,7 @@ def test_abandoned_draft_is_gone_after_ttl_expiry_and_never_listed(request_facto
 
 def test_starting_a_new_draft_does_not_resume_an_earlier_unfinished_one(request_factory):
     draft_service, _stories, llm, _cosmos = _services()
-    llm.suggest_world_prompt.return_value = "Idea one."
+    llm.suggest_world_prompt.return_value = ("Idea one.", 12)
     with _patched_authorize_admin():
         first = create_draft(
             _authorized(request_factory, method="POST", url="/api/manage/stories/drafts", body=json.dumps({"idea": "Idea one."}).encode()),
@@ -457,3 +572,99 @@ def test_rate_limited_world_prompt_suggestion_returns_429_and_leaves_draft_intac
 
     # Nothing from the failed suggestion was persisted.
     assert cosmos.get_container("storyDrafts").items[draft_id]["worldPrompt"] is None
+
+
+# --- Token totals stay accurate across edit + test-play (026-token-usage, T047) ---
+
+
+def test_editing_and_test_playing_a_story_increases_its_total_tokens(request_factory):
+    """quickstart.md Scenario 2 / SC-003: a story's token total keeps growing across an
+    edit-triggered regeneration and an admin test-play, on top of its creation total."""
+    draft_service, story_service, llm, cosmos = _services()
+    llm.suggest_world_prompt.return_value = ("A half-abandoned lighthouse.", 12)
+    with _patched_authorize_admin():
+        create_response = create_draft(
+            _authorized(
+                request_factory,
+                method="POST",
+                url="/api/manage/stories/drafts",
+                body=json.dumps({"idea": "A half-abandoned lighthouse on a cold northern cove."}).encode(),
+            ),
+            story_draft_service=draft_service,
+        )
+    draft_id = json.loads(create_response.get_body())["draft"]["id"]
+    with _patched_authorize_admin():
+        patch_draft(
+            _authorized(
+                request_factory,
+                method="PATCH",
+                url=f"/api/manage/stories/drafts/{draft_id}",
+                body=json.dumps(
+                    {"name": "The Lighthouse at Gullwing Cove", "characterTypes": _character_types(), "completionCriteria": _completion_criteria()}
+                ).encode(),
+                route_params={"draftId": draft_id},
+            ),
+            story_draft_service=draft_service,
+        )
+    llm.generate_story_config.return_value = ({"narrativeGuidance": "Keep it eerie but safe."}, 30)
+    llm.generate_starting_point.return_value = (_make_starting_point().to_dict(), 40)
+    with _patched_authorize_admin():
+        generate_response = generate_story_from_draft(
+            _authorized(
+                request_factory, method="POST", url=f"/api/manage/stories/drafts/{draft_id}/generate", route_params={"draftId": draft_id}
+            ),
+            story_draft_service=draft_service,
+        )
+    story_id = json.loads(generate_response.get_body())["storyId"]
+    creation_total = 12 + 30 + 40
+
+    with _patched_authorize_admin():
+        list_response = list_stories(_authorized(request_factory), story_service=story_service)
+    [story_row] = json.loads(list_response.get_body())["stories"]
+    assert story_row["totalTokens"] == creation_total
+
+    # Edit: reopen the story and save it in a way that triggers regeneration (no
+    # narrativeGuidance/startingPoint supplied, so both are regenerated).
+    with _patched_authorize_admin():
+        edit_response = create_edit_draft(
+            _authorized(request_factory, method="POST", url=f"/api/manage/stories/{story_id}/edit-drafts", route_params={"storyId": story_id}),
+            story_service=story_service,
+            story_draft_service=draft_service,
+        )
+    edit_draft_id = json.loads(edit_response.get_body())["draft"]["id"]
+    llm.generate_story_config.return_value = ({"narrativeGuidance": "Even eerier now."}, 20)
+    llm.generate_starting_point.return_value = (_make_starting_point(narrativeText="A revised opening.").to_dict(), 25)
+    with _patched_authorize_admin():
+        save_response = save_draft(
+            _authorized(request_factory, method="POST", url=f"/api/manage/stories/drafts/{edit_draft_id}/save", route_params={"draftId": edit_draft_id}),
+            story_draft_service=draft_service,
+        )
+    assert save_response.status_code == 200
+    after_edit_total = creation_total + 20 + 25
+    assert story_service.get_story(story_id).totalTokens == after_edit_total
+
+    # Test-play: a couple of exchanges, each adding to both the test session's own total
+    # and the story's total (research.md Decision 3).
+    test_play_service = TestPlaySessionService(cosmos_service=cosmos, story_service=story_service, llm_service=llm)
+    llm.generate_gameplay_turn.return_value = (
+        {
+            "narrativeText": "You look around.",
+            "suggestedActions": ["look", "wait"],
+            "locationLabel": "The cove",
+            "goalLabel": None,
+            "progress": None,
+            "newlySatisfiedSuccessConditions": [],
+            "newlySatisfiedFailureConditions": [],
+        },
+        50,
+    )
+    session = test_play_service.create_session(story_id, ADMIN_OID)
+    cosmos.get_container("testPlaySessions").items[session.id]["lastInteractionAt"] = "2020-01-01T00:00:00Z"
+    test_play_service.submit_exchange(session.id, ADMIN_OID, "look around")
+    cosmos.get_container("testPlaySessions").items[session.id]["lastInteractionAt"] = "2020-01-01T00:00:00Z"
+    test_play_service.submit_exchange(session.id, ADMIN_OID, "look again")
+
+    with _patched_authorize_admin():
+        reload_response = list_stories(_authorized(request_factory), story_service=story_service)
+    [reloaded_row] = json.loads(reload_response.get_body())["stories"]
+    assert reloaded_row["totalTokens"] == after_edit_total + 50 + 50

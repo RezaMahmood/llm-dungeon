@@ -65,8 +65,8 @@ class FakeCosmosService:
 def _services():
     cosmos = FakeCosmosService()
     llm = MagicMock()
-    llm.generate_story_config.return_value = {"narrativeGuidance": "Refreshed guidance."}
-    llm.generate_starting_point.return_value = _make_starting_point().to_dict()
+    llm.generate_story_config.return_value = ({"narrativeGuidance": "Refreshed guidance."}, 30)
+    llm.generate_starting_point.return_value = (_make_starting_point().to_dict(), 40)
     story_service = StoryService(cosmos_service=cosmos, llm_service=llm)
     draft_service = StoryDraftService(cosmos_service=cosmos, llm_service=llm, story_service=story_service)
     return story_service, draft_service, llm, cosmos
@@ -205,7 +205,7 @@ def test_save_draft_preserves_hand_edited_guidance_and_opening_but_regenerates_t
         adminEditedFields=["narrativeGuidance"],
         contentVersion=1,
     )
-    llm.generate_starting_point.return_value = _make_starting_point(narrativeText="Regenerated opening.").to_dict()
+    llm.generate_starting_point.return_value = (_make_starting_point(narrativeText="Regenerated opening.").to_dict(), 40)
     draft_id = _open_edit_draft(request_factory, story_service, draft_service)
 
     with _patched_authorize_admin():

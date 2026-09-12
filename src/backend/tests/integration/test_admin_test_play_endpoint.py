@@ -119,15 +119,19 @@ def _story(**overrides) -> Story:
     return Story(**defaults)
 
 
+def _turn_response(data: dict, tokens: int = 25) -> tuple[dict, int]:
+    return data, tokens
+
+
 def _service(story: Story, llm_turn_data=None):
     cosmos = FakeCosmosService()
     cosmos.get_container(config.STORIES_CONTAINER).upsert_item(story.to_dict())
     llm = MagicMock()
     if isinstance(llm_turn_data, list):
-        llm.generate_gameplay_turn.side_effect = llm_turn_data
+        llm.generate_gameplay_turn.side_effect = [_turn_response(d) for d in llm_turn_data]
     else:
-        llm.generate_gameplay_turn.return_value = llm_turn_data if llm_turn_data is not None else _turn_data()
-    llm.generate_starting_point.return_value = STARTING_POINT.to_dict()
+        llm.generate_gameplay_turn.return_value = _turn_response(llm_turn_data if llm_turn_data is not None else _turn_data())
+    llm.generate_starting_point.return_value = (STARTING_POINT.to_dict(), 15)
     stories = StoryService(cosmos_service=cosmos, llm_service=llm)
     service = TestPlaySessionService(cosmos_service=cosmos, story_service=stories, llm_service=llm)
     return service, cosmos, llm, stories

@@ -78,11 +78,14 @@ PUBLISH_GATE_NOT_SATISFIED = _PublishGateNotSatisfied()
 @dataclass(frozen=True)
 class DerivedContent:
     """What a content write persists for the two LLM-generated fields, and which of them
-    the administrator wrote themselves (`Story.adminEditedFields`)."""
+    the administrator wrote themselves (`Story.adminEditedFields`). `tokens` is the total
+    spent generating whichever of the two fields were not supplied verbatim (0 if both
+    were hand-authored or otherwise supplied) — research.md Decision 2."""
 
     narrativeGuidance: str
     startingPoint: StartingPoint
     adminEditedFields: list[str]
+    tokens: int = 0
 
 
 def _now() -> str:
@@ -119,22 +122,25 @@ class StoryService:
         value is judged hand-edited or not."""
         draft_like = self._draft_like(configuration, name)
         admin_edited: list[str] = []
+        tokens = 0
 
         narrative_guidance = configuration.narrativeGuidance
         if narrative_guidance:
             if self._is_admin_edited("narrativeGuidance", narrative_guidance, existing):
                 admin_edited.append("narrativeGuidance")
         else:
-            narrative_guidance = self._generate_narrative_guidance(draft_like)
+            narrative_guidance, guidance_tokens = self._generate_narrative_guidance(draft_like)
+            tokens += guidance_tokens
 
         starting_point = configuration.startingPoint
         if starting_point:
             if self._is_admin_edited("startingPoint", starting_point, existing):
                 admin_edited.append("startingPoint")
         else:
-            starting_point = self._generate_starting_point(draft_like, narrative_guidance)
+            starting_point, starting_point_tokens = self._generate_starting_point(draft_like, narrative_guidance)
+            tokens += starting_point_tokens
 
-        return DerivedContent(narrative_guidance, starting_point, admin_edited)
+        return DerivedContent(narrative_guidance, starting_point, admin_edited, tokens)
 
     @staticmethod
     def _is_admin_edited(field_name: str, supplied: Any, existing: Optional[Story]) -> bool:
@@ -171,10 +177,11 @@ class StoryService:
             "completionCriteria": source.completionCriteria.to_dict(),
         }
 
-    def _generate_narrative_guidance(self, draft_like: dict[str, Any]) -> str:
-        """Reuses the creation path's generation call (research.md §5)."""
+    def _generate_narrative_guidance(self, draft_like: dict[str, Any]) -> tuple[str, int]:
+        """Reuses the creation path's generation call (research.md §5). Returns
+        `(narrative_guidance, tokens_used)`."""
         try:
-            generation = self._llm.generate_story_config(draft_like)
+            generation, tokens_used = self._llm.generate_story_config(draft_like)
             narrative_guidance = generation["narrativeGuidance"]
             if not narrative_guidance:
                 raise LLMOutputError("narrativeGuidance was empty")
@@ -182,11 +189,15 @@ class StoryService:
             raise ContentGenerationRateLimitedError(str(exc)) from exc
         except (LLMOutputError, LLMContentFilteredError) as exc:
             raise ContentGenerationFailedError(str(exc)) from exc
-        return narrative_guidance
+        return narrative_guidance, tokens_used
 
-    def _generate_starting_point(self, draft_like: dict[str, Any], narrative_guidance: str) -> StartingPoint:
+    def _generate_starting_point(
+        self, draft_like: dict[str, Any], narrative_guidance: str
+    ) -> tuple[StartingPoint, int]:
+        """Returns `(starting_point, tokens_used)`."""
         try:
-            return StartingPoint.from_dict(self._llm.generate_starting_point(draft_like, narrative_guidance))
+            data, tokens_used = self._llm.generate_starting_point(draft_like, narrative_guidance)
+            return StartingPoint.from_dict(data), tokens_used
         except LLMRateLimitError as exc:
             raise ContentGenerationRateLimitedError(str(exc)) from exc
         except (LLMOutputError, LLMContentFilteredError, ValueError, KeyError) as exc:
@@ -198,12 +209,14 @@ class StoryService:
         """Backfill for a `Story` persisted before `startingPoint` existed (#271): generate
         one from the story's own content and write it back, so this costs one LLM call for
         that story's first session and none thereafter. A lost `_etag` race adopts the
-        winner's opening, so concurrent first sessions still converge on one turn 0."""
+        winner's opening, so concurrent first sessions still converge on one turn 0 — the
+        losing attempt's tokens are not added, an accepted negligible undercount
+        (research.md Decision 2, Principle XII)."""
         if story.startingPoint:
             return story
 
         draft_like = self._draft_like(story, story.name)
-        story.startingPoint = self._generate_starting_point(draft_like, story.narrativeGuidance)
+        story.startingPoint, tokens_used = self._generate_starting_point(draft_like, story.narrativeGuidance)
 
         item = self._read_item(story.id)
         if item is None:
@@ -211,8 +224,10 @@ class StoryService:
         persisted = Story.from_dict(item)
         if persisted.startingPoint:
             story.startingPoint = persisted.startingPoint
+            story.totalTokens = persisted.totalTokens
             return story
         persisted.startingPoint = story.startingPoint
+        persisted.totalTokens += tokens_used
         try:
             self._container().replace_item(
                 item=persisted.id,
@@ -231,11 +246,16 @@ class StoryService:
                 raise StoryNotFoundError() from None
             if winner.get("startingPoint"):
                 story.startingPoint = StartingPoint.from_dict(winner["startingPoint"])
+        else:
+            story.totalTokens = persisted.totalTokens
         return story
 
-    def create_story(self, draft: StoryDraft, narrative_guidance: str, starting_point: StartingPoint) -> Story:
+    def create_story(
+        self, draft: StoryDraft, narrative_guidance: str, starting_point: StartingPoint, tokens_used: int
+    ) -> Story:
         """Persist a complete `Story` from a draft that just met the Completeness Rule,
-        `published=False` by default (FR-006)."""
+        `published=False` by default (FR-006). `tokens_used` is the draft's accumulated
+        total plus this generation's own calls (research.md Decision 2)."""
         created_at = _now()
         story = Story(
             id=str(uuid.uuid4()),
@@ -255,6 +275,7 @@ class StoryService:
             createdBy=draft.createdBy,
             createdAt=created_at,
             contentUpdatedAt=created_at,
+            totalTokens=tokens_used,
         )
         self._container().upsert_item(story.to_dict())
         logger.info("Story persisted", extra={"story_id": story.id, "created_by": story.createdBy})
@@ -302,12 +323,17 @@ class StoryService:
         }
 
     def list_summaries(self) -> list[dict[str, Any]]:
-        """Summary shape only (`id`, `name`, `published`, `lastPublishedAt`, `createdAt`) —
-        full detail is fetched via `get_story` (contracts/api.md)."""
-        return self._cosmos.query(
+        """Summary shape only (`id`, `name`, `published`, `lastPublishedAt`, `createdAt`,
+        `totalTokens`) — full detail is fetched via `get_story` (contracts/api.md).
+        `totalTokens` defaults to `0` for a pre-existing row missing the field (FR-004)."""
+        rows = self._cosmos.query(
             config.STORIES_CONTAINER,
-            "SELECT c.id, c.name, c.published, c.lastPublishedAt, c.createdAt FROM c WHERE c.entityType = 'Story'",
+            "SELECT c.id, c.name, c.published, c.lastPublishedAt, c.createdAt, c.totalTokens "
+            "FROM c WHERE c.entityType = 'Story'",
         )
+        for row in rows:
+            row["totalTokens"] = row.get("totalTokens") or 0
+        return rows
 
     def can_publish(self, story: Story) -> bool:
         """FR-008 gate: a qualifying test play must exist since content was last saved."""
@@ -327,16 +353,42 @@ class StoryService:
         self._container().upsert_item(story.to_dict())
         return story
 
-    def record_test_play(self, story_id: str) -> Optional[Story]:
+    def record_test_play(self, story_id: str, tokens_used: int) -> Optional[Story]:
         """010-story-test-play-done FR-004/FR-010: stamp `lastTestPlayedAt` on a qualifying
         test-play exchange. Must not touch `contentUpdatedAt` — doing so would re-arm the
-        very gate this write satisfies (`can_publish()`)."""
-        story = self.get_story(story_id)
-        if story is None:
-            return None
-        story.lastTestPlayedAt = _now()
-        self._container().upsert_item(story.to_dict())
-        return story
+        very gate this write satisfies (`can_publish()`). `tokens_used` is also added to
+        `Story.totalTokens` in the same read-modify-write (research.md Decision 3) — a
+        test-play exchange counts toward the story's authoring-lifecycle total as well as
+        the test session's own total. Guarded by the Cosmos `_etag` and retried against a
+        fresh read on a lost race, like every other `Story.totalTokens` write path in this
+        file — two test-play exchanges landing concurrently must not let one's accrual
+        silently overwrite the other's. A race lost on every attempt is logged and
+        accepted rather than raised, so a pile-up of concurrent test plays never turns an
+        otherwise-successful turn into a 500 for its caller (research.md Decision 2's
+        negligible-undercount precedent)."""
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            item = self._read_item(story_id)
+            if item is None:
+                return None
+            story = Story.from_dict(item)
+            story.lastTestPlayedAt = _now()
+            story.totalTokens += tokens_used
+            try:
+                self._container().replace_item(
+                    item=story.id,
+                    body=story.to_dict(),
+                    etag=item["_etag"],
+                    match_condition=MatchConditions.IfNotModified,
+                )
+                return story
+            except CosmosAccessConditionFailedError:
+                if attempt >= max_attempts:
+                    logger.warning(
+                        "Test-play token accrual lost a repeated etag race; giving up",
+                        extra={"story_id": story_id},
+                    )
+                    return story
 
     def unpublish(self, story_id: str) -> Optional[Story]:
         """Unpublish `story_id` (FR-004), idempotent (FR-006); `lastPublishedAt` is left
@@ -387,6 +439,10 @@ class StoryService:
             lastTestPlayedAt=story.lastTestPlayedAt,
             lastUpdatedBy=admin_oid,
             contentVersion=story.contentVersion + 1,
+            # Added to, never replacing, what the story already carries (research.md
+            # Decision 2) — this is the one place a content write's regeneration tokens
+            # land.
+            totalTokens=story.totalTokens + derived.tokens,
         )
 
     def apply_content_write(
@@ -481,6 +537,9 @@ class StoryService:
             contentUpdatedAt=created_at,
             lastUpdatedBy=None,
             contentVersion=1,
+            # This branch builds its Story(...) directly, bypassing apply_content_write/
+            # _replaced_story, so it must set totalTokens itself (research.md Decision 2).
+            totalTokens=derived.tokens,
         )
         self._container().upsert_item(story.to_dict())
         return "created", story
