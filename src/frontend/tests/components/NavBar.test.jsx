@@ -215,7 +215,7 @@ describe("NavBar sign-out save prompt (009-save-and-continue, FR-004, research.m
 
   it("shows the prompt when a session is active and isActiveForPlayer", async () => {
     listSavedGames.mockResolvedValue({
-      sessions: [{ sessionId: "s1", status: "active", isActiveForPlayer: true }],
+      sessions: [{ sessionId: "s1", isActiveForPlayer: true }],
     });
     const user = userEvent.setup();
     renderAt("/menu");
@@ -251,7 +251,7 @@ describe("NavBar sign-out save prompt (009-save-and-continue, FR-004, research.m
 
   it("signs out directly when no returned session is active for this player", async () => {
     listSavedGames.mockResolvedValue({
-      sessions: [{ sessionId: "s1", status: "active", isActiveForPlayer: false }],
+      sessions: [{ sessionId: "s1", isActiveForPlayer: false }],
     });
     const user = userEvent.setup();
     renderAt("/menu");
@@ -275,7 +275,7 @@ describe("NavBar sign-out save prompt (009-save-and-continue, FR-004, research.m
 
   it("accepting the prompt records a checkpoint then signs out", async () => {
     listSavedGames.mockResolvedValue({
-      sessions: [{ sessionId: "s1", status: "active", isActiveForPlayer: true }],
+      sessions: [{ sessionId: "s1", isActiveForPlayer: true }],
     });
     saveCheckpoint.mockResolvedValue({ checkpoint: { label: "Entrance", turnNumber: 0, createdAt: "now" } });
     const user = userEvent.setup();
@@ -291,7 +291,7 @@ describe("NavBar sign-out save prompt (009-save-and-continue, FR-004, research.m
 
   it("declining the prompt signs out with no checkpoint call", async () => {
     listSavedGames.mockResolvedValue({
-      sessions: [{ sessionId: "s1", status: "active", isActiveForPlayer: true }],
+      sessions: [{ sessionId: "s1", isActiveForPlayer: true }],
     });
     const user = userEvent.setup();
     renderAt("/menu");
@@ -306,7 +306,7 @@ describe("NavBar sign-out save prompt (009-save-and-continue, FR-004, research.m
 
   it("cancelling the prompt does neither", async () => {
     listSavedGames.mockResolvedValue({
-      sessions: [{ sessionId: "s1", status: "active", isActiveForPlayer: true }],
+      sessions: [{ sessionId: "s1", isActiveForPlayer: true }],
     });
     const user = userEvent.setup();
     renderAt("/menu");
@@ -322,7 +322,7 @@ describe("NavBar sign-out save prompt (009-save-and-continue, FR-004, research.m
 
   it("a failed checkpoint still completes the sign-out with the failure notice rendered (FR-006a)", async () => {
     listSavedGames.mockResolvedValue({
-      sessions: [{ sessionId: "s1", status: "active", isActiveForPlayer: true }],
+      sessions: [{ sessionId: "s1", isActiveForPlayer: true }],
     });
     saveCheckpoint.mockRejectedValue(new Error("network error"));
     const user = userEvent.setup();
