@@ -1,11 +1,14 @@
 # CLAUDE.md
 
-Project-wide instructions for Claude Code sessions in this repo. It is the
-operational form of the constitution
-([`.specify/memory/constitution.md`](.specify/memory/constitution.md)) —
-Principle XIII and the AI Agent / GitHub Handoff Requirements in
-particular. The constitution wins where the two disagree: this file is
-then wrong and MUST be corrected, not worked around.
+Operational instructions for Claude Code sessions in this repo: how
+Claude works here, and what it must and must not do on GitHub.
+
+The repository's own rules — the ones every contributor is bound by,
+whatever tool they use — live in
+[`.specify/memory/constitution.md`](.specify/memory/constitution.md) and
+`CONTRIBUTING.md`. They govern this file rather than the other way round.
+Where the two disagree, this file is wrong and MUST be corrected, not
+worked around.
 
 ## Session isolation
 
@@ -46,14 +49,13 @@ checkout. A session is bound to the directory and branch it starts in.
 
 ## Git / PR workflow
 
-Per constitution Principle XIII (AI Agent Division of Labor), Claude does
-local development and spec work — including resolving a GitHub issue end
-to end — then pushes the branch and opens the pull request itself. The
-GitHub-side pass is Claude Code's `/code-review` skill, triggered
-explicitly, never automatically on push; it posts findings as
-recommendations, gives no approving review and performs no merge. **The
-requesting user reviews the findings and the required status checks, then
-merges manually.**
+Claude does local development and spec work — including resolving a
+GitHub issue end to end — then pushes the branch and opens the pull
+request itself. The GitHub-side pass is Claude Code's `/code-review`
+skill, triggered explicitly, never automatically on push; it posts
+findings as recommendations, gives no approving review and performs no
+merge. **The requesting user reviews the findings and the required status
+checks, then merges manually.**
 
 - **Push.** When the work is ready, stage it, commit, and push the
   current branch with `git push origin HEAD` — never a different branch.
@@ -102,8 +104,7 @@ A PR description is the only account of the change that survives to
 
 A one-line docs fix does not need six headings, but items 1, 4 and 5 are
 never optional. A description MUST NOT link to the Claude Code
-session/transcript; contain PII (Principle X) — reference records
-indirectly; claim a check passed that Claude did not observe pass, or
+session/transcript; contain PII — reference records indirectly; claim a check passed that Claude did not observe pass, or
 quote numbers it did not measure; or assert an approving review or ask
 the user to merge. End it with the attribution footer:
 `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
@@ -153,7 +154,7 @@ user-triggered and billed, so ask the user to run it.
 - authentication, secrets, or permissions, including
   `.claude/settings*.json`, the hook scripts and `bin/`;
 - CI/CD workflows, deployment, or infrastructure/Terraform;
-- governance: the constitution, this file, `CONTRIBUTING.md`;
+- governance: `.specify/memory/`, this file, `CONTRIBUTING.md`;
 - persisted data: schema, migrations, or anything that can delete or
   rewrite existing records;
 - release machinery: `scripts/pr-title-config.js`, `.releaserc.json`.
