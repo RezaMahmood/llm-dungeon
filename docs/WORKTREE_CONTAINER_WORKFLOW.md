@@ -1,70 +1,55 @@
 # Per-worktree workflow
 
-**Every branch gets its own worktree. Only spec branches also get a
-container.**
+**Optional.** Work happens on a branch; which checkout that branch lives
+in is your call. The primary checkout is fine, and is the simplest thing
+when you are working on one bug or feature at a time — which is how this
+project takes work. Nothing in the constitution requires a worktree or a
+container for any branch type, and nothing forbids reading or editing
+across them.
 
-Each branch — spec, chore, fix, docs, perf — gets its own git worktree,
-so several pieces of work can be in flight at once and no session's
-branch switch ever moves the ground under another. The primary checkout
-stays on `main` and is reserved for the lifecycle tooling that has to see
-every worktree at once.
+A worktree earns its keep when you want more than one piece of work in
+flight: each gets its own directory on its own branch, so neither moves
+the ground under the other, and the primary checkout stays free for the
+lifecycle tooling that has to see every worktree at once.
 
-On top of that, each *spec/feature* worktree gets its own devcontainer.
-Claude Code runs *inside* that container, so a session working on one
-spec has no filesystem path to any other worktree — a physical
-guarantee, not just a convention. Non-spec work carries no cross-spec
-contamination risk, so it skips the container and runs on the host in its
-own worktree (`--no-container`) — no Docker, no image build, no
-`postCreate`.
-
-That split is deliberate: paying a container for a one-line docs fix is
-what used to push that work back into the primary checkout, where it
-queued behind everything else and got branched from whatever `HEAD`
-happened to be.
+A devcontainer on top of that gives the session a ready toolchain without
+installing anything on the host. `bin/wt <branch>` sets up worktree plus
+container; `bin/wt <branch> --no-container` sets up the worktree and runs
+the session on the host instead — no Docker, no image build, no
+`postCreate`. Either works for any branch.
 
 See [`.specify/memory/constitution.md`](../.specify/memory/constitution.md)
-(Development Workflow & Quality Gates) for the rule this enforces, and
-`bin/wt` for the script that implements it.
+(Development Workflow & Quality Gates) for where this sits in the rules,
+and `bin/wt` for the script that implements it.
 
 ## Prerequisites (one-time, per machine)
 
 - The Claude Code CLI on the host (needed by `--no-container` sessions;
   container sessions get their own copy via `postCreate`).
-- Docker Desktop (or another Docker engine) running — **only** for spec
-  branches. A `--no-container` run never touches Docker and does not
-  check for it.
+- Docker Desktop (or another Docker engine) running — **only** for
+  container sessions. A `--no-container` run never touches Docker and
+  does not check for it.
 - The devcontainer CLI: `npm install -g @devcontainers/cli` — likewise
-  only needed for spec branches.
+  only for container sessions.
 - `bin/wt` on your `PATH`, or just call it as `bin/wt` from the repo root
   or any of its worktrees (it resolves the primary repo root itself).
 
 ## Which command do I run?
 
-| The branch | Command | What you get |
+| What you want | Command | What you get |
 |---|---|---|
-| Named `<number>-<slug>`, or has a `specs/<branch>/` folder | `bin/wt <branch>` | Worktree **+ its own container**. Required — `bin/wt` refuses `--no-container` here. |
-| `chore/*`, `fix/*`, `docs/*`, `perf/*`, `infra` | `bin/wt <branch> --no-container` | Worktree, `claude` on the host, no Docker. |
-| `main` | — | Never. `bin/wt` refuses the trunk outright. |
+| A branch, nothing special | `git switch -c <branch> main` | Work in the checkout you are already in. |
+| A separate directory with its own toolchain | `bin/wt <branch>` | Worktree + its own container. |
+| A separate directory, no Docker | `bin/wt <branch> --no-container` | Worktree, `claude` on the host. |
+| `main` | — | Never. `bin/wt` refuses the trunk outright, and no work happens there. |
 
-Both forms create the worktree the same way, enforce the same
-directory-name-equals-branch-name rules, and run the same
-constitution-staleness gate. The only difference is where the session
-runs.
+Both `bin/wt` forms create the worktree the same way, enforce the same
+directory-name-equals-branch-name rules, and report the same
+constitution staleness. The only difference is where the session runs.
 
-**How `bin/wt` decides a branch is spec work** — two signals, either one
-enough:
-
-- **The branch name**, speckit's `<number>-<slug>` form. This is the only
-  signal available before the work exists: a brand-new spec branch has no
-  `specs/` folder until `/speckit-specify` creates one from inside the
-  session, so a folder test alone would wave the whole spec-authoring
-  session through and catch it only on the *second* start. Refused in
-  preflight, before any worktree is made.
-- **A `specs/<branch>/` folder in the worktree.** Catches a spec branch
-  named against convention, so a `chore/*` name cannot opt real spec work
-  out of isolation. This one can only run after the worktree exists, so
-  the refusal leaves that worktree behind — harmless, and plain
-  `bin/wt <branch>` picks it straight back up.
+`bin/wt` still recognises spec work — a `<number>-<slug>` branch name, or
+a `specs/<branch>/` folder — but only to bootstrap that worktree's
+`.specify/feature.json`. It no longer decides anything about containers.
 
 `--no-container` and `--rebuild` cannot be combined — there is no
 container to rebuild.
@@ -88,7 +73,8 @@ container to rebuild.
 3. You're now talking to Claude Code running inside a container whose
    filesystem view is *only* this worktree (plus the shared `.git`). `cd
    ..` or `ls ../other-branch` inside that session has nothing to find —
-   that's the isolation working, not a bug.
+   that is the container's mount, not a rule; a host session has no such
+   limit.
 4. When you exit the `claude` session (Ctrl-D / `exit`), `bin/wt` stops
    (not removes) the container automatically. Nothing to clean up by
    hand for a normal end-of-session.
@@ -122,10 +108,9 @@ bin/wt --logs 100    # ...last 100 instead
 | `E_CONTAINER_UP` | `devcontainer up` failed; the CLI's own message and description are captured with it |
 | `E_CLAUDE_MISSING` | the container exists but has no `claude` — `postCreate` failed at creation and never re-runs (see below) |
 | `E_CLAUDE_MISSING_HOST` | a `--no-container` run found no `claude` on the host's `PATH` |
-| `E_SPEC_NEEDS_CONTAINER` | `--no-container` was used on spec work — a `<number>-<slug>` branch name, or a `specs/<branch>/` folder — which must be isolated |
 | `E_FLAG_CONFLICT` | `--no-container` and `--rebuild` were given together; there is no container to rebuild |
 | `E_BRANCH_PATH_MISMATCH`, `E_PATH_BRANCH_MISMATCH`, `E_WORKTREE_DETACHED`, `E_PATH_OCCUPIED` | the directory-name-equals-branch-name rules below |
-| `E_STALE_CONSTITUTION` | blocked by `bin/wt-sync` (see below) |
+| `W_STALE_CONSTITUTION` | `bin/wt-sync` found a constitution major-version gap; the session started anyway (see below) |
 | `E_INTERRUPTED` | `bin/wt` itself took a Ctrl-C or a `TERM` (during a build, say) |
 | `E_SESSION_NONZERO` | the session itself exited non-zero |
 
@@ -183,22 +168,10 @@ directory. Nothing is built and nothing is stopped on exit — there is no
 container in play, so the teardown that stops a spec's container on exit
 simply does not apply.
 
-Two things still hold that are easy to assume don't:
-
-- **The wrong-branch guard is still armed.** `bin/wt` exports
-  `WORKTREE_CONTAINER=<branch>` into the host session too, which is the
-  variable `check-worktree-sync.sh` reads to block an edit whose `HEAD`
-  has drifted off the branch the session was started for. Without it that
-  guard would be dead on exactly the branches this mode creates.
-- **Siblings are reachable, and still off limits.** Every worktree lives
-  under the same `.worktrees/` root, so from `.worktrees/chore/foo` a
-  sibling is `../bar` or `../../028-some-spec` depending on how deep the
-  branch name nests — ordinary paths, with no mount boundary in front of
-  them. The `Read(.worktrees/**)` / `Edit(.worktrees/**)` deny rules are
-  resolved against the session's own directory, so inside a worktree they
-  match nothing at all and are inert. For non-spec work the separation is
-  a rule, not a wall — which is exactly why spec work keeps its container
-  instead of also moving to the host.
+`bin/wt` exports `WORKTREE_CONTAINER=<branch>` into the host session,
+naming the branch the session was started for. Siblings are ordinary
+paths from there (`../bar`, `../../028-some-spec`), and reaching them is
+allowed — they are just other directories in the same repository.
 
 ## Dependent specs (spec B needs spec A's in-flight work)
 
@@ -308,20 +281,20 @@ The rule it enforces:
 
 | drift | result |
 |---|---|
-| constitution **major**-version gap | **blocks** (exit 2) — `bin/wt` refuses to start that worktree |
+| constitution **major**-version gap | `wt-sync` exits 2 and `bin/wt` warns loudly — the session starts |
 | constitution minor/patch, `CLAUDE.md`, settings, skills, hooks, `bin/` | warns |
 | `.devcontainer/` changed | warns, and says the fix also needs `bin/wt <branch> --rebuild` |
 
 `bin/wt` runs this itself before bringing a container up, so a worktree
-two constitution majors behind cannot quietly start a session. The fix is
-always to rebase:
+governed by superseded rules says so at the top of the session. It no
+longer refuses: the session being blocked was usually the session that
+would have done the rebase. The fix is always to rebase:
 
 ```bash
 git -C .worktrees/<branch> rebase origin/main
 ```
 
-`bin/wt <branch> --allow-stale` overrides the block if you genuinely need
-it. Staleness is measured against the **merge base**, so a branch that
+Staleness is measured against the **merge base**, so a branch that
 deliberately edits `CLAUDE.md` or a hook counts as ahead, not stale.
 
 ## Directory name must equal branch name
@@ -333,39 +306,31 @@ container label, `WORKTREE_CONTAINER`, the edit guard, `bin/wt-prune` and
 session where the two have drifted apart (issue #293 found two such cases)
 and tells you which `git worktree move` or `git switch` fixes it.
 
-## The primary checkout returns to `main`
+## The primary checkout's branch
 
-Feature work happens in worktrees, so the primary checkout should be
-sitting on `main` whenever nobody is using it. Left on the last branch
-worked on there, it silently becomes the wrong `--base` for the next
-`bin/wt` run.
+The primary checkout is free to sit on a working branch — that is where
+most work happens now. One thing to know: `bin/wt <branch>` without
+`--base` creates the new branch from `main`, not from whatever the
+primary checkout is on, so a branch left checked out there cannot become
+the wrong base by accident.
 
-`.specify/scripts/bash/return-to-main.sh` runs on `SessionEnd` and switches
-the primary checkout back to `main` — but only when the tree is clean and
-no rebase/merge is in progress; otherwise it says why it left things alone.
-On `SessionStart` it only *reports* a non-trunk branch, never switches:
-moving HEAD out from under a session that was deliberately put there would
-be worse than the drift. It is a no-op inside any worktree or container.
+There is no longer a session hook that switches the primary checkout back
+to `main`; `return-to-main.sh` was removed along with the rest of the
+isolation enforcement. Switch it back yourself when you want to.
 
 ## What Claude can and cannot see
 
-- **Denied**: `Read(.worktrees/**)` and `Edit(.worktrees/**)` in the
-  tracked `.claude/settings.json`, so a Claude session in the primary
-  checkout cannot read or edit any worktree — the same blindness a
-  containerised session has, from the other direction. VS Code is a host
-  application and is unaffected, so you keep full visibility.
-- **Enforced on every branch**: the `Edit|Write|NotebookEdit` guard
-  `check-worktree-sync.sh` compares `WORKTREE_CONTAINER` against `HEAD`.
-  It used to exit early whenever `.specify/feature.json` was absent, which
-  disabled it for every `chore/*`, `fix/*`, `perf/*` and `issue/*` worktree
-  (issue #293, Leak B). It stands down mid-rebase/merge, so it can never
-  block the conflict resolution that brings a stale worktree back in line.
-- **Known limits**: `Bash` permission rules are prefix matches, so
-  `Bash(cd .worktrees:*)` and friends catch the obvious shell paths but not
-  every possible one (`cat ./.worktrees/x/y`). And the shared `.git`
-  directory lets any container read *committed* content on other branches —
-  closing that would break rebasing onto `main`, so it is an accepted limit,
-  not an oversight.
+A Claude session on the host reads and edits anywhere in the repository,
+worktrees included, and may switch branches as the work requires. There
+are no deny rules for `.worktrees/`, and no hook comparing `HEAD` against
+the branch a session started on — both were removed when the project
+dropped the session-isolation requirement (it takes work one item at a
+time, so there is no concurrent session to protect).
+
+A *containerised* session is the one exception, and it is a side effect
+rather than a rule: only that worktree is mounted into the container, so
+sibling worktrees have no path inside it. The shared `.git` directory
+still lets it read committed content on any branch.
 
 ## Forcing a rebuild
 
@@ -433,8 +398,7 @@ writing it. Confirmed working: `git status`/`git log` inside a container
 that only has this one worktree mounted (via `--mount-git-worktree-common-dir`
 + `git worktree add --relative-paths`); `/workspaces` inside the container
 shows only this worktree, no siblings; `WORKTREE_CONTAINER` reaches the
-session and `check-worktree-sync.sh`'s container-identity check correctly
-blocks on a mismatch and passes on a match; Claude Code and `gh` CLI auth
+session; Claude Code and `gh` CLI auth
 both carried over from the host with no interactive login needed,
 including across a `--rebuild` (verified by force-recreating containers
 and running `claude -p "..."` non-interactively — no login prompt).

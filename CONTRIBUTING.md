@@ -41,17 +41,22 @@ is the operational form of the same rules.
 
 ## 2. Where the work happens
 
-Spec/feature work runs inside that feature's own git worktree and that
-worktree's own devcontainer:
+On a branch, in whichever checkout suits you — the primary one, a git
+worktree, or a devcontainer. Nothing about a change decides that for you;
+the one fixed rule is that no work happens on `main`.
+
+The project takes work one bug or feature at a time, so there is no
+requirement to keep sessions or specs separated, and no rule against
+reading or editing across branches and worktrees. Sync a branch with
+`origin/main` and resolve conflicts on it as you go.
+
+Worktrees remain available when you do want more than one thing in
+flight:
 
 ```bash
 bin/wt <branch-name>          # creates .worktrees/<branch>, starts its container
+bin/wt <branch-name> --no-container   # same worktree, session on the host
 ```
-
-A session for one spec then has no filesystem path to any other spec's
-worktree. Branch work with no `specs/<branch>/` folder (`chore/*`,
-`fix/*`, `docs/*`, `perf/*`) may instead be done in the primary checkout,
-on a branch — never on `main`.
 
 Housekeeping, run from the primary checkout:
 
@@ -61,8 +66,7 @@ bin/wt-prune --yes            # actually remove them
 bin/wt-sync                   # worktrees running stale CLAUDE.md/constitution/hooks
 ```
 
-Full details, including the container auth mounts and the known limits of
-the isolation: [`docs/WORKTREE_CONTAINER_WORKFLOW.md`](docs/WORKTREE_CONTAINER_WORKFLOW.md).
+Full details: [`docs/WORKTREE_CONTAINER_WORKFLOW.md`](docs/WORKTREE_CONTAINER_WORKFLOW.md).
 
 ---
 

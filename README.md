@@ -157,9 +157,9 @@ Detail: [.github/workflows/README.md](.github/workflows/README.md),
   through Claude Code's `/code-review` skill on request; a human merges.
   Claude never merges. See [CLAUDE.md](CLAUDE.md) and Constitution
   Principle XIII.
-- **One worktree and devcontainer per spec.** [`bin/wt`](bin/wt) creates an
-  isolated git worktree with its own container so several specs can be worked
-  in parallel —
+- **Worktrees and devcontainers, optional.** Work happens on a branch in
+  whichever checkout suits; [`bin/wt`](bin/wt) sets up a worktree with its own
+  container when you want more than one thing in flight —
   [docs/WORKTREE_CONTAINER_WORKFLOW.md](docs/WORKTREE_CONTAINER_WORKFLOW.md).
 - **Dependency hygiene.** Dependabot watches frontend npm packages weekly and
   `npm run audit:frontend` fails on high-severity advisories.
@@ -185,5 +185,5 @@ Detail: [.github/workflows/README.md](.github/workflows/README.md),
 - Infrastructure (Terraform, CI/CD, bootstrap): [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md)
 - Signing in and administering access: [docs/LOGIN_INSTRUCTIONS.md](docs/LOGIN_INSTRUCTIONS.md), [docs/ADMIN_SETUP.md](docs/ADMIN_SETUP.md)
 - Contributing and the PR workflow: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Working on a spec in its own worktree/container: [docs/WORKTREE_CONTAINER_WORKFLOW.md](docs/WORKTREE_CONTAINER_WORKFLOW.md)
+- Using a worktree/container for a branch (optional): [docs/WORKTREE_CONTAINER_WORKFLOW.md](docs/WORKTREE_CONTAINER_WORKFLOW.md)
 - First-time login/access-control deployment steps: [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)

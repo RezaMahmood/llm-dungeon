@@ -1,6 +1,6 @@
 ---
 name: "speckit-branch-ensure"
-description: "Ensure a dedicated git worktree for the active feature's branch exists and that the session is positioned inside it (creating both if needed) before spec-kit planning/task/clarify/analyze/implement commands run."
+description: "Ensure the session is on the active feature's branch (creating it from main if needed) before spec-kit planning/task/clarify/analyze/implement commands run. Uses an existing worktree for that branch if there is one."
 argument-hint: "(none — operates on the currently active feature)"
 compatibility: "Requires spec-kit project structure with .specify/ directory"
 metadata:
@@ -15,20 +15,15 @@ disable-model-invocation: false
 This command is normally invoked **automatically** as a mandatory pre-hook
 (`hooks.before_plan`, `hooks.before_tasks`, `hooks.before_clarify`,
 `hooks.before_analyze`, `hooks.before_implement` in `.specify/extensions.yml`)
-so that each spec-kit feature is worked on in its own **git worktree** —
-a separate working-tree directory sharing the same `.git`, checked out to
-that feature's branch — so multiple features (and multiple concurrent
-sessions) can be in progress at once without one session's branch switch
-ever touching another session's files. It can also be run manually
+so that a feature's work lands on that feature's branch rather than on
+whatever branch the session happened to start on. It can also be run manually
 (`/speckit-branch-ensure`) at any time.
 
-Convention: every feature's worktree lives at
-`{primary repo root}/.worktrees/{branch}`, where the "primary repo root" is
-the one canonical checkout every worktree shares (resolved via
-`git rev-parse --git-common-dir`, not `--show-toplevel`, so this still
-resolves correctly when invoked from inside an existing worktree rather
-than the primary one). The primary root itself is expected to stay on
-`main` — feature work never happens there once a worktree exists for it.
+**The branch is what matters, not the directory.** A worktree is optional
+(Constitution, Development Workflow & Quality Gates): if one already exists
+for the feature's branch, this command moves the session there, because the
+branch cannot be checked out twice. If there is no worktree, it simply
+switches the current checkout onto the branch. It never creates a worktree.
 
 It never touches `main`/`master` as a *target* branch, and never runs on
 `/speckit-specify`, which creates the feature directory in the first place —
@@ -36,41 +31,35 @@ there is nothing to branch-match yet.
 
 ## Outline
 
-1. **Resolve state**: Run `python3 .specify/scripts/python/ensure_feature_branch.py --json` from the current working directory. Parse the JSON for `REPO_ROOT` (repo root as seen from *here*, right now), `PRIMARY_REPO_ROOT`, `FEATURE_DIR`, `TARGET_BRANCH`, `CURRENT_BRANCH`, `ON_TARGET_BRANCH`, `LOCAL_BRANCH_EXISTS`, `REMOTE_TRACKING_BRANCH_EXISTS`, `WORKTREE_PATH`, `ON_TARGET_WORKTREE`, `WORKTREE_EXISTS_AT_TARGET_PATH`, `BRANCH_CHECKED_OUT_ELSEWHERE`, `PRIMARY_ROOT_CURRENT_BRANCH`, `PRIMARY_ROOT_IS_ON_TARGET_BRANCH`. This script is read-only — it does not modify git state.
+1. **Resolve state**: Run `python3 .specify/scripts/python/ensure_feature_branch.py --json` from the current working directory. Parse the JSON for `REPO_ROOT`, `PRIMARY_REPO_ROOT`, `FEATURE_DIR`, `TARGET_BRANCH`, `CURRENT_BRANCH`, `ON_TARGET_BRANCH`, `LOCAL_BRANCH_EXISTS`, `REMOTE_TRACKING_BRANCH_EXISTS`, `WORKTREE_PATH`, `ON_TARGET_WORKTREE`, `WORKTREE_EXISTS_AT_TARGET_PATH`, `BRANCH_CHECKED_OUT_ELSEWHERE`. This script is read-only — it does not modify git state.
 
 2. **Never touch main/master as a target**: If `TARGET_BRANCH` is `main` or `master`, stop and report the anomaly (no active feature to match) instead of acting.
 
-3. **Already positioned correctly**: If `ON_TARGET_WORKTREE` is `true`, report `Already in feature worktree at \`{WORKTREE_PATH}\` on branch \`{TARGET_BRANCH}\`.` and stop — nothing else to do.
+3. **Already on the branch**: If `ON_TARGET_BRANCH` is `true`, report `Already on \`{TARGET_BRANCH}\`.` and go to step 7 — nothing to move.
 
-4. **Worktree already exists at the conventional path**: If `WORKTREE_EXISTS_AT_TARGET_PATH` is `true` but step 3 didn't already match (i.e. the session's cwd isn't inside it yet), just switch there: run `cd {WORKTREE_PATH}` (a plain shell change of directory, not a git operation — persists for the rest of this session's shell commands). Skip to step 8.
+4. **The branch is checked out in another worktree**: If `BRANCH_CHECKED_OUT_ELSEWHERE` is non-empty, `cd` there (a plain shell change of directory, not a git operation — it persists for the rest of this session's shell commands) and report the path. Git will not let the same branch be checked out twice, so this is the one case where the session has to move directories. Go to step 7.
 
-5. **The feature's branch is checked out somewhere unexpected**: If `BRANCH_CHECKED_OUT_ELSEWHERE` is non-empty:
-   - **If it equals `PRIMARY_REPO_ROOT`** (the primary checkout itself is sitting on this feature branch — a legacy/pre-worktree state): first move the primary checkout back to `main` with `git -C {PRIMARY_REPO_ROOT} checkout main`. If that fails (uncommitted changes would conflict), **STOP** per step 7's failure handling — do not force it. On success, remove `{PRIMARY_REPO_ROOT}/.specify/feature.json` if it exists — the primary root no longer belongs to `{TARGET_BRANCH}`, and leaving it behind would make a later, unrelated checkout there look like it still points at this feature (this is exactly the drift the `check-worktree-sync.sh` PreToolUse hook watches for). Then create the worktree: `git -C {PRIMARY_REPO_ROOT} worktree add {WORKTREE_PATH} {TARGET_BRANCH}`, then `cd {WORKTREE_PATH}`. Continue to step 6.
-   - **Otherwise** (checked out at some other, non-conventional path — e.g. a manually created worktree): **STOP**. Report the path found and ask the user whether to adopt that existing path (and treat it as this feature's worktree going forward) or remove it so a fresh one can be created at the conventional path. Do not move or delete another worktree yourself.
+5. **Protect uncommitted work before switching**: Run `git status --porcelain`. If anything is uncommitted, **STOP** and ask whether to commit or stash it. Do not stash, commit, or discard on the user's behalf, and do not switch branches over the top of it.
 
-6. **No worktree exists yet for this branch**: Otherwise (branch isn't checked out anywhere as a worktree):
-   - If `LOCAL_BRANCH_EXISTS` is `true`: `git -C {PRIMARY_REPO_ROOT} worktree add {WORKTREE_PATH} {TARGET_BRANCH}`
-   - Else if `REMOTE_TRACKING_BRANCH_EXISTS` is `true`: `git -C {PRIMARY_REPO_ROOT} worktree add {WORKTREE_PATH} -b {TARGET_BRANCH} origin/{TARGET_BRANCH}`
-   - Else: `git -C {PRIMARY_REPO_ROOT} worktree add {WORKTREE_PATH} -b {TARGET_BRANCH} main` (branch from `main` explicitly — see Key Rules on why this changed from "whatever HEAD happens to be")
+6. **Switch the current checkout onto the branch**:
+   - If `LOCAL_BRANCH_EXISTS` is `true`: `git switch {TARGET_BRANCH}`
+   - Else if `REMOTE_TRACKING_BRANCH_EXISTS` is `true`: `git switch -c {TARGET_BRANCH} origin/{TARGET_BRANCH}`
+   - Else: `git switch -c {TARGET_BRANCH} main` (branch from `main` explicitly, never from whatever `HEAD` happens to be)
 
-   Then `cd {WORKTREE_PATH}`.
+   On a git failure, **STOP**: show the exact error, say which branch you were trying to reach and why (feature `{FEATURE_DIR}` maps to branch `{TARGET_BRANCH}`), and ask how to proceed before the calling command continues.
 
-7. **On any git failure** in steps 5–6 (e.g. `checkout`/`worktree add` refuses because of uncommitted local changes, or the target path already exists and isn't empty): **STOP**. Do not stash, commit, discard, `worktree remove --force`, or otherwise force anything on the user's behalf. Show the exact git error, explain which worktree/branch you were trying to reach and why (feature `{FEATURE_DIR}` maps to branch `{TARGET_BRANCH}` at `{WORKTREE_PATH}`), and ask the user how to proceed before the calling spec-kit command continues.
+7. **Bootstrap the local feature pointer**: `.specify/feature.json` is gitignored per-checkout local state (see `.specify/.gitignore`), so a checkout may have none, or a stale one from earlier work. Ensure the `.specify/feature.json` in the current working directory contains `{"feature_directory": "specs/{TARGET_BRANCH}"}` — write it if missing or different.
 
-8. **Bootstrap the worktree's local feature pointer**: `.specify/feature.json` is gitignored per-checkout local state (see `.specify/.gitignore`), so a freshly created worktree starts without one and would otherwise fail to self-resolve if a later command runs there without `SPECIFY_FEATURE_DIRECTORY` set. Once positioned in `{WORKTREE_PATH}` (whether just created or already existing), ensure `.specify/feature.json` there contains `{"feature_directory": "specs/{TARGET_BRANCH}"}` — write it if missing or different from that.
-
-9. **On success**, report the outcome in one line, e.g. `Switched to feature worktree at \`{WORKTREE_PATH}\`.` or `Created feature worktree at \`{WORKTREE_PATH}\` (branch \`{TARGET_BRANCH}\`).`, then let the calling command proceed. All of this session's subsequent shell commands now run from `{WORKTREE_PATH}` by default (the shell's working directory persists across tool calls), and every `.specify/scripts/*` invocation from here on should keep using **relative** paths (e.g. `python3 .specify/scripts/python/...`) so resolution stays anchored to this worktree rather than accidentally reaching back to `PRIMARY_REPO_ROOT`.
+8. **On success**, report the outcome in one line, e.g. `Switched to \`{TARGET_BRANCH}\`.` or `Created \`{TARGET_BRANCH}\` from main.`, then let the calling command proceed.
 
 ## Key rules
 
-- Never use `git checkout -f`, `git reset --hard`, `git stash`, `git clean`, or `git worktree remove --force` to force a switch — surface conflicts to the user instead (see step 7).
-- Never switch onto or create a worktree for `main` or `master` as a *target* — if `TARGET_BRANCH` ever resolves to one of those (e.g. no feature is active), stop and report the anomaly instead of acting. The primary checkout moving *back to* `main` (step 5's legacy-migration case) is the one exception, since that's restoring the primary root to its expected resting state, not treating `main` as a feature.
-- New branches are created explicitly from `main`, not "whatever `HEAD` currently points to" (a change from this hook's pre-worktree behavior). With multiple worktrees potentially checked out to different branches at once, "current HEAD" no longer reliably means "the trunk" — `main` is the one stable, unambiguous base to fork from.
-- Do not delete, move, or `git worktree remove` a worktree that isn't the one this run is trying to create or enter — another feature's (or another session's) worktree is not this hook's to touch.
-- This hook only creates/enters worktrees; it does not prune stale ones after a feature branch is merged. Removing a finished feature's worktree (`git worktree remove {path}` once its branch is merged and no session needs it) is a separate, manual cleanup step, not automated here.
-- The one `feature.json` cleanup this hook does perform is narrow: deleting it from `PRIMARY_REPO_ROOT` in step 5's legacy-migration case, since that's the one place this hook itself moves a checkout *off* a feature branch. It never touches `feature.json` in any other worktree — a feature's own worktree keeps its `feature.json` for its whole lifetime; removing it once the feature is done is `speckit-mark-done`'s job, not this hook's.
+- Never use `git checkout -f`, `git reset --hard`, `git stash`, or `git clean` to force a switch — surface the conflict to the user instead (step 5).
+- Never switch onto or create a branch for `main` or `master` as a *target* — if `TARGET_BRANCH` ever resolves to one of those (e.g. no feature is active), stop and report the anomaly.
+- New branches are created explicitly from `main`, not from "whatever `HEAD` currently points to".
+- Do not create, move, or remove worktrees. This command uses one that already exists and otherwise works in the checkout it is in; `bin/wt` is the human entrypoint for creating one.
 
 ## Done When
 
-- [ ] The session's current working directory is `{WORKTREE_PATH}`, checked out to `TARGET_BRANCH`, with `.specify/feature.json` pointing at `FEATURE_DIR` (either it already was, or the hook created/switched to it), **or**
-- [ ] The hook stopped and reported a blocking git error, or an unexpected-existing-worktree conflict, for the user to resolve.
+- [ ] The session is on `TARGET_BRANCH` — in the current checkout, or in the existing worktree that already had it checked out — with `.specify/feature.json` pointing at `FEATURE_DIR`, **or**
+- [ ] The command stopped and reported uncommitted work or a git error for the user to resolve.

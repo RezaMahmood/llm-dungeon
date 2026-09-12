@@ -1,28 +1,28 @@
 <!--
 Sync Impact Report
-Version change: 8.0.0 -> 8.1.0
-Modified principles: XIII (AI Agent Division of Labor) — wording only; the division of
-  labor, the sync requirement, the merge prohibition and the issue-closing conditions are
-  unchanged.
+Version change: 8.1.0 -> 9.0.0
+Modified principles: XIII (AI Agent Division of Labor) — the sync requirement is kept but
+  no longer forbids reading another checkout; the division of labor, the merge prohibition
+  and the issue-closing conditions are unchanged.
 Modified sections:
-  - Principle XIII, AI Agent / GitHub Handoff Requirements, and Development Workflow &
-    Quality Gates: references to one specific vendor's agent and to that agent's
-    instruction file are replaced with agent-neutral wording. The mandatory pre-merge AI
-    review pass, its deliberate tier choice (blast radius, then diff size, then how the
-    change was authored) and the deepest-tier list are unchanged; the pass is no longer
-    described as one named product's command. The `AI Generated` label stays mandatory and
-    is now joined by "a label naming the agent that produced it" rather than one fixed
-    agent name. The pull request description contract is stated here in full instead of
-    deferring to an agent instruction file, and the bootstrap-staleness list names "agent
-    instruction and settings files" generically.
+  - Development Workflow & Quality Gates: the session-isolation requirement ("A session
+    MUST NOT read or write another session's checkout or worktree") is REMOVED, and the
+    worktree/container bullets are restated as tools a contributor may use rather than a
+    separation anyone must maintain. The constitution-staleness gate is downgraded from a
+    block to a warning.
+  - Principle XIII and AI Agent / GitHub Handoff Requirements: the requirement that an
+    artifact's claims about existing code match `origin/main` is unchanged, but it is now
+    stated as an accuracy rule about the trunk rather than a ban on reading other
+    branches, worktrees or checkouts.
 Added sections: none.
-Removed sections: none.
-Rationale for MINOR: no requirement is added or withdrawn, but the set of tools that can
-  satisfy the review-pass requirement is materially widened — a contributor using a
-  different agent is no longer non-compliant by definition. That is expanded guidance
-  rather than a clarification, and it removes the assumption that everyone working this
-  repository uses the same assistant. A constitution governs the project; a vendor's
-  instruction file governs that vendor's agent, and neither should depend on the other.
+Removed sections: the session-isolation requirement (see above).
+Rationale for MAJOR: a governance requirement is withdrawn, not clarified. Concurrent
+  multi-session work is no longer a project requirement — work is taken one bug or feature
+  at a time — so the isolation rule and the hooks enforcing it were blocking ordinary
+  work (a session unable to edit after a branch change, unable to resolve a conflict
+  locally, or forced into a container for a one-line change) while protecting against a
+  collision that no longer occurs. Worktrees and containers survive as options; only their
+  compulsory, enforced separation is gone.
 Deferred/TODO placeholders: none.
 Earlier Sync Impact Reports are in this file's git history.
 --># LLM Dungeon Adventure Constitution
@@ -189,12 +189,14 @@ it MUST NOT be delegated to a GitHub-side review agent.
 
 Work MUST start from a synced tree. Before any development or spec-related work begins on
 a branch — planning, tasks, clarify, and analyze included, not implementation alone — that
-branch MUST be brought up to date with `origin/main`, and a divergence MUST be resolved or
-reported rather than worked around. Where an artifact states that code already exists — a
-module path, symbol, constant, field, endpoint, or configuration value — that statement
-MUST match `origin/main`, never an unmerged local branch, another worktree's checkout, or
-a stale local `main`. Identifiers an artifact proposes to create are exempt; a dependency
-on unmerged work MUST be named as such rather than described as already landed.
+branch MUST be brought up to date with `origin/main`. A conflict with `origin/main` MUST
+be resolved on the branch, by whoever or whatever is doing the work, rather than worked
+around or deferred; resolving it MUST preserve both sides' intent, never discard one side
+to clear the conflict. Where an artifact states that code already exists — a module path,
+symbol, constant, field, endpoint, or configuration value — that statement MUST match
+`origin/main`, not an unmerged branch or a stale local `main`. Identifiers an artifact
+proposes to create are exempt; a dependency on unmerged work MUST be named as such rather
+than described as already landed.
 
 Once local work is ready, the agent MUST push the branch and open the pull request itself
 (e.g. `gh pr create`), labelled per AI Agent / GitHub Handoff Requirements. Every push of
@@ -355,9 +357,10 @@ GitHub-side actions only — they do not change where code is written or tested.
 - When an agent closes an issue under Principle XIII's two conditions, it MUST state what it
   verified. Where either condition fails, it MUST leave the issue open and say why.
 - Syncing a branch before spec-related work means `git fetch origin` followed by a
-  fast-forward or merge of `origin/main` into the branch. Existing code an artifact
-  describes MUST then be read from that synced tree or from `origin/main` directly (e.g.
-  `git show origin/main:<path>`), never from another local branch or worktree.
+  fast-forward, merge or rebase of `origin/main` into the branch, resolving any conflict
+  in the process. Existing code an artifact describes MUST then be read from that synced
+  tree or from `origin/main` directly (e.g. `git show origin/main:<path>`), so that what
+  it asserts is true of the trunk rather than of one branch's unmerged state.
 - Skipping the review pass — for instance an emergency fix — MUST be called out explicitly
   by the person directing the work. It is never a default agent behavior.
 
@@ -396,36 +399,37 @@ GitHub-side actions only — they do not change where code is written or tested.
   absent from `origin/main` and is not declared as a named, not-yet-merged dependency
   (Principle XIII). Identifiers an artifact proposes to create are not findings.
 - Work MAY run in the primary checkout, in a git worktree (`bin/wt <branch>`), or in a
-  devcontainer. No branch type requires any of them, and none is refused any of them.
-  Worktrees and containers remain the way to keep several pieces of work in flight at
-  once without one session's branch switch moving the ground under another, and spec work
-  in a container remains the way to keep concurrent specs from cross-contaminating; both
-  are now the user's call per session rather than a precondition for working.
-- A session MUST NOT read or write another session's checkout or worktree. Where that
-  separation is not enforced by a container boundary it is a rule the agent keeps.
+  devcontainer. No branch type requires any of them, and none is refused any of them; the
+  choice is the contributor's per session, never a precondition for working. Worktrees and
+  containers remain useful for keeping more than one piece of work in flight, but the
+  project takes work one bug or feature at a time and requires no separation between
+  sessions.
+- A session MAY read and edit anywhere in the repository it is working in, including
+  another checkout or worktree, and MAY switch branches as the work requires. Uncommitted
+  work MUST be committed or stashed before a switch that would otherwise carry or lose it.
 - No work of any kind happens directly on `main`.
 - A worktree that is created MUST live at `.worktrees/<branch>`, its directory name spelling
-  out its branch name exactly; the container identity, the edit guard, and the lifecycle
-  tools all key off that equality.
+  out its branch name exactly; the container identity and the lifecycle tools key off that
+  equality.
 - Worktrees and branches MUST be pruned once their pull request is merged, and merge MUST be
   determined from GitHub's record of that pull request (`bin/wt-prune`), never from git
   ancestry — squash merging means a merged branch's tip is never an ancestor of `main`, so
   every ancestry test reports merged work as unmerged. Pruning MUST NOT remove a worktree
   holding uncommitted or untracked work, or a branch whose pull request is open, closed
   unmerged, or absent.
-- A worktree whose copy of this constitution is a MAJOR version behind `origin/main` MUST
-  NOT be worked in until it is rebased, since its session would be governed by rules already
-  replaced; `bin/wt-sync` detects this and `bin/wt` refuses to start such a worktree. Lesser
-  drift in the bootstrap files (agent instruction and settings files, this constitution's
-  minor and patch versions, hook scripts, `bin/`, `.devcontainer/`) is a warning, not a
-  block.
+- A worktree whose copy of this constitution is behind `origin/main` SHOULD be synced
+  before work continues in it, since it is otherwise governed by superseded rules;
+  `bin/wt-sync` reports this, and a MAJOR-version gap is reported prominently. Staleness is
+  a warning, not a block: syncing the branch is the fix, and refusing to start the session
+  that would do the syncing helps nobody.
 - See `docs/WORKTREE_CONTAINER_WORKFLOW.md` for how worktrees and containers work when a
   session uses them; that document describes an option, not a required workflow.
 
 ## Environments & Deployment Pipeline
 
 - There are exactly two places code is built and tested: a contributor's local machine
-  (including a worktree's isolated devcontainer) and the single live environment in Azure.
+  (including a worktree's devcontainer, where one is used) and the single live environment
+  in Azure.
   The project MUST NOT stand up an additional persistent environment — staging, UAT, QA —
   without a documented requirement and a constitution amendment (Principle XII).
 - The only path from a merged change to the live environment is a GitHub Actions workflow;
@@ -617,4 +621,4 @@ visual-rules, interaction-state, or layout and scroll requirements as a blocking
 feature may ship a screen that is not traceable to a screen contract above or to a
 documented amendment extending one.
 
-**Version**: 8.1.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
+**Version**: 9.0.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12

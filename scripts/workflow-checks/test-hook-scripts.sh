@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
-# Smoke tests for the workflow guard scripts: .specify/scripts/bash/*.sh and
-# bin/wt*. These run on every session (the PreToolUse and SessionStart/
-# SessionEnd hooks in .claude/settings.json) or against real worktrees, and
-# they are edited from inside the very worktrees they protect — so a syntax
-# error or an inverted condition fails open, silently, exactly where nobody
-# is looking (issue #293, problem 5).
+# Smoke tests for the workflow scripts: .specify/scripts/bash/*.sh and
+# bin/wt*. These run from session hooks in .claude/settings.json or against
+# real worktrees, so a syntax error or an inverted condition fails silently,
+# exactly where nobody is looking (issue #293, problem 5).
 #
 # Everything here runs against throwaway git repositories in $TMPDIR. No
 # docker, no gh, no network.
@@ -13,8 +11,6 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-SYNC_HOOK="$REPO_ROOT/.specify/scripts/bash/check-worktree-sync.sh"
-RETURN_HOOK="$REPO_ROOT/.specify/scripts/bash/return-to-main.sh"
 
 passes=0
 failures=0
@@ -61,105 +57,6 @@ done
 for f in "$REPO_ROOT"/.specify/scripts/bash/*.sh "$REPO_ROOT"/bin/wt "$REPO_ROOT"/bin/wt-prune "$REPO_ROOT"/bin/wt-sync; do
   [ -x "$f" ] || bad "not executable: ${f#"$REPO_ROOT"/}"
 done
-
-echo
-echo "check-worktree-sync.sh — container identity vs HEAD (no feature.json)"
-repo="$(new_repo sync-basic)"
-( cd "$repo" && "$SYNC_HOOK" >/dev/null 2>&1 )
-expect_status 0 $? "plain repo, nothing to compare, allows the edit"
-
-( cd "$repo" && WORKTREE_CONTAINER=main "$SYNC_HOOK" >/dev/null 2>&1 )
-expect_status 0 $? "container branch matches HEAD"
-
-# The regression that matters: before issue #293 this script exited 0 on the
-# missing feature.json above and never reached the container check at all.
-( cd "$repo" && WORKTREE_CONTAINER=perf/iframes "$SYNC_HOOK" >/dev/null 2>&1 )
-expect_status 2 $? "container started for another branch blocks the edit"
-
-git_q -C "$repo" checkout -q --detach
-( cd "$repo" && WORKTREE_CONTAINER=main "$SYNC_HOOK" >/dev/null 2>&1 )
-expect_status 2 $? "detached HEAD inside a worktree container blocks the edit"
-git_q -C "$repo" checkout -q main
-
-# Conflict resolution must not be blocked: a rebase onto main is the fix for
-# a stale worktree, and it moves HEAD by design.
-touch "$repo/.git/MERGE_HEAD"
-( cd "$repo" && WORKTREE_CONTAINER=perf/iframes "$SYNC_HOOK" >/dev/null 2>&1 )
-expect_status 0 $? "mid-merge, the mismatch check stands down"
-rm -f "$repo/.git/MERGE_HEAD"
-
-mkdir -p "$repo/.git/rebase-merge"
-( cd "$repo" && WORKTREE_CONTAINER=perf/iframes "$SYNC_HOOK" >/dev/null 2>&1 )
-expect_status 0 $? "mid-rebase, the mismatch check stands down"
-rm -rf "$repo/.git/rebase-merge"
-
-( cd "$WORKDIR" && WORKTREE_CONTAINER=whatever "$SYNC_HOOK" >/dev/null 2>&1 )
-expect_status 0 $? "outside a git repository, no-op"
-
-echo
-echo "check-worktree-sync.sh — feature.json expectation vs HEAD"
-repo="$(new_repo sync-feature)"
-mkdir -p "$repo/.specify"
-printf '{"feature_directory": "specs/010-story-test-play-done"}\n' >"$repo/.specify/feature.json"
-( cd "$repo" && "$SYNC_HOOK" >/dev/null 2>&1 )
-expect_status 2 $? "HEAD is on main but feature.json expects the feature branch"
-
-git_q -C "$repo" checkout -q -b 010-story-test-play-done
-( cd "$repo" && "$SYNC_HOOK" >/dev/null 2>&1 )
-expect_status 0 $? "HEAD matches feature.json"
-
-( cd "$repo" && WORKTREE_CONTAINER=010-story-test-play-done "$SYNC_HOOK" >/dev/null 2>&1 )
-expect_status 0 $? "container, HEAD and feature.json all agree"
-
-printf 'not json at all\n' >"$repo/.specify/feature.json"
-( cd "$repo" && "$SYNC_HOOK" >/dev/null 2>&1 )
-expect_status 0 $? "unparseable feature.json is ignored, not fatal"
-
-echo
-echo "return-to-main.sh — SessionEnd returns the primary checkout to main"
-repo="$(new_repo return-clean)"
-git_q -C "$repo" checkout -q -b perf/slow-page-load
-( cd "$repo" && "$RETURN_HOOK" SessionEnd >/dev/null 2>&1 )
-expect_equal "main" "$(branch_of "$repo")" "clean tree returns to main"
-
-repo="$(new_repo return-stdin)"
-git_q -C "$repo" checkout -q -b perf/slow-page-load
-( cd "$repo" && echo '{"hook_event_name":"SessionEnd"}' | "$RETURN_HOOK" >/dev/null 2>&1 )
-expect_equal "main" "$(branch_of "$repo")" "event read from the hook's stdin payload"
-
-repo="$(new_repo return-dirty)"
-git_q -C "$repo" checkout -q -b perf/slow-page-load
-echo "work in progress" >>"$repo/README.md"
-( cd "$repo" && "$RETURN_HOOK" SessionEnd >/dev/null 2>&1 )
-expect_equal "perf/slow-page-load" "$(branch_of "$repo")" "uncommitted tracked work is never switched away from"
-
-repo="$(new_repo return-rebase)"
-git_q -C "$repo" checkout -q -b perf/slow-page-load
-mkdir -p "$repo/.git/rebase-merge"
-( cd "$repo" && "$RETURN_HOOK" SessionEnd >/dev/null 2>&1 )
-expect_equal "perf/slow-page-load" "$(branch_of "$repo")" "an in-progress rebase is left alone"
-rm -rf "$repo/.git/rebase-merge"
-
-repo="$(new_repo return-start)"
-git_q -C "$repo" checkout -q -b perf/slow-page-load
-out="$( cd "$repo" && "$RETURN_HOOK" SessionStart 2>&1 )"
-expect_equal "perf/slow-page-load" "$(branch_of "$repo")" "SessionStart reports but never switches"
-case "$out" in
-  *"not 'main'"*) ok "SessionStart says which branch the checkout is parked on" ;;
-  *) bad "SessionStart produced no notice: $out" ;;
-esac
-
-repo="$(new_repo return-container)"
-git_q -C "$repo" checkout -q -b perf/slow-page-load
-( cd "$repo" && WORKTREE_CONTAINER=perf/slow-page-load "$RETURN_HOOK" SessionEnd >/dev/null 2>&1 )
-expect_equal "perf/slow-page-load" "$(branch_of "$repo")" "no-op inside a worktree container"
-
-repo="$(new_repo return-worktree)"
-git_q -C "$repo" branch -q perf/iframes
-git_q -C "$repo" worktree add -q "$repo/.worktrees/perf/iframes" perf/iframes 2>/dev/null
-( cd "$repo/.worktrees/perf/iframes" && "$RETURN_HOOK" SessionEnd >/dev/null 2>&1 )
-expect_equal "perf/iframes" "$(branch_of "$repo/.worktrees/perf/iframes")" "a linked worktree is left on its own branch"
-expect_equal "main" "$(branch_of "$repo")" "and the primary checkout is untouched by it"
 
 echo
 echo "bin/wt* — argument handling and refusals"
@@ -246,13 +143,11 @@ expect_equal "$repo_real/.worktrees/chore/host-demo" \
   "$(sed -n 's/^PWD=//p' "$host_out" | tail -1)" \
   "the session runs with its cwd inside that branch's worktree"
 
-# Not cosmetic: WORKTREE_CONTAINER is what check-worktree-sync.sh compares
-# HEAD against. If a host session did not export it, the wrong-branch guard
-# would be dead on every branch this mode creates -- which is the whole
-# chore/fix/docs/perf population.
+# WORKTREE_CONTAINER names the branch the session was started for; wt-prune
+# and the container label read it, and it is the session's own breadcrumb.
 expect_equal "chore/host-demo" \
   "$(sed -n 's/^WTC=//p' "$host_out" | tail -1)" \
-  "the host session exports WORKTREE_CONTAINER, arming the wrong-branch guard"
+  "the host session exports WORKTREE_CONTAINER"
 
 expect_equal "chore/host-demo" \
   "$(sed -n 's/^HEAD=//p' "$host_out" | tail -1)" \
@@ -264,44 +159,28 @@ expect_equal "chore/host-demo" "$(branch_of "$repo/.worktrees/chore/host-demo")"
 expect_equal "main" "$(branch_of "$repo")" \
   "the primary checkout is left on main, not moved to the new branch"
 
-# The case a folder test cannot catch: a brand-new spec branch has no
-# specs/ folder yet -- /speckit-specify creates it from inside the session
-# -- so without the name check the whole spec-authoring session would run
-# uncontained, and only the SECOND start would refuse.
+# A spec branch is no longer forced into a container: the constitution
+# leaves that choice to whoever starts the session, so --no-container has
+# to work here exactly as it does for chore/*.
 repo="$(new_repo host-session-newspec)"
-newspec_out="$WORKDIR/host-session-newspec.out"
-( cd "$repo" && "$REPO_ROOT/bin/wt" 028-brand-new --no-container --shell ) >"$newspec_out" 2>&1 </dev/null
-expect_status 1 $? "--no-container is refused for a spec-numbered branch that does not exist yet"
-if [ -e "$repo/.worktrees/028-brand-new" ]; then
-  bad "...but a worktree was created for it before the refusal"
-else
-  ok "...before any worktree is created for it"
-fi
-
-# A spec branch must not be able to opt out of its container by asking
-# nicely under another name either. The second half of the check reads the
-# worktree's own specs/ directory, so a chore/* name does not get round it.
-repo="$(new_repo host-session-spec)"
-git_q -C "$repo" switch -q -c feat/has-spec
-mkdir -p "$repo/specs/feat/has-spec"
-echo "spec" >"$repo/specs/feat/has-spec/spec.md"
+mkdir -p "$repo/.specify"
+echo "speckit" >"$repo/.specify/README.md"
 git_q -C "$repo" add -A
-git_q -C "$repo" commit -q -m "add spec folder"
-git_q -C "$repo" switch -q main
-spec_out="$WORKDIR/host-session-spec.out"
-( cd "$repo" && "$REPO_ROOT/bin/wt" feat/has-spec --no-container --shell ) >"$spec_out" 2>&1 </dev/null
-expect_status 1 $? "--no-container is refused for a branch with a spec folder"
+git_q -C "$repo" commit -q -m "add .specify"
+newspec_out="$WORKDIR/host-session-newspec.out"
+printf 'printf "HEAD=%%s\\n" "$(git rev-parse --abbrev-ref HEAD)"\n' \
+  | ( cd "$repo" && "$REPO_ROOT/bin/wt" 028-brand-new --no-container --shell ) >"$newspec_out" 2>&1
+expect_status 0 $? "a spec-numbered branch may run --no-container"
+expect_equal "028-brand-new" "$(branch_of "$repo/.worktrees/028-brand-new")" \
+  "...in a worktree on its own branch"
 
-if grep -q "MUST run in its own container" "$spec_out"; then
-  ok "...and says why, naming the spec folder"
+# The feature pointer is still bootstrapped for a spec branch, container or
+# not: it is what the speckit commands resolve the active feature from.
+if grep -q '"feature_directory": "specs/028-brand-new"' \
+    "$repo/.worktrees/028-brand-new/.specify/feature.json" 2>/dev/null; then
+  ok "...with .specify/feature.json pointing at its spec folder"
 else
-  bad "...but did not explain that spec work needs its own container"
-fi
-
-if grep -q '"code":"E_SPEC_NEEDS_CONTAINER"' "$WT_TEST_LOGS/events.jsonl" 2>/dev/null; then
-  ok "...and the refusal is recorded under its own error code"
-else
-  bad "...but no E_SPEC_NEEDS_CONTAINER event was logged"
+  bad "...but .specify/feature.json was not bootstrapped"
 fi
 
 echo
@@ -351,7 +230,7 @@ echo "CLAUDE.md as it is now" >"$repo/CLAUDE.md"
 git_q -C "$repo" add -A
 git_q -C "$repo" commit -q -m "constitution v6.0.0"
 ( cd "$repo" && "$REPO_ROOT/bin/wt-sync" --ref=main >/dev/null 2>&1 )
-expect_status 2 $? "a worktree three majors behind blocks"
+expect_status 2 $? "a worktree three majors behind is reported"
 
 out="$( cd "$repo" && "$REPO_ROOT/bin/wt-sync" --ref=main 2>&1 )"
 case "$out" in
