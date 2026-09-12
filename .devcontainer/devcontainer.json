@@ -21,7 +21,16 @@
 		// image once per worktree, which docker-in-docker would do (and
 		// would need a privileged container to do it). See
 		// specs/027-local-offline-test-harness/research.md D2.
-		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+		//
+		// "moby": false pins this to the upstream Docker CE CLI from
+		// download.docker.com. The feature's default ("moby": true) installs
+		// Microsoft's moby-cli/moby-buildx packages, which are not published
+		// for Debian trixie -- the base image's distribution -- so the build
+		// fails outright at feature-install time. Only the client is
+		// installed either way; the daemon is the host's.
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+			"moby": false
+		}
 	},
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},
