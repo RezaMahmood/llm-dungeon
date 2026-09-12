@@ -14,7 +14,7 @@ both require an automated test for every functional requirement and edge case in
 
 **Organization**: This feature has a single user story (US1, P1) per spec.md. Tasks are grouped
 by phase: Setup → Foundational → **UI Design Sign-off (Constitution Principle XI gate)** →
-User Story 1 → Polish (including the Principle IX final acceptance task).
+User Story 1 → Polish.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -186,12 +186,6 @@ Independent Test criterion above.
 
 - [ ] T021 [P] Run `quickstart.md`'s 10 backend contract checks and 8 frontend end-to-end checks
   against a local (or dev-deployed) environment; fix any discrepancy found before proceeding
-- [ ] T022 Constitution Principle IX (NON-NEGOTIABLE) final acceptance: the requesting user or
-  product owner exercises the complete setup flow end-to-end against the real deployed
-  environment (or the most representative environment available) and explicitly confirms it
-  behaves as intended — not satisfied by any automated test result or by the implementing
-  agent's own testing. This task is the last one in this feature and is not complete until that
-  confirmation is recorded.
 
 ---
 
@@ -252,7 +246,7 @@ minimum shippable increment is:
 1. Phase 2: Foundational (`authorize_player`)
 2. Phase 3: UI design sign-off (Principle XI gate)
 3. Phase 4: User Story 1, backend then frontend
-4. Phase 5: Polish — quickstart validation, then the Principle IX user-verified acceptance task
+4. Phase 5: Polish — quickstart validation
 
 ### Incremental Delivery
 
