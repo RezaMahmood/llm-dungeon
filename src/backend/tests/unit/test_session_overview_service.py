@@ -126,3 +126,27 @@ def test_list_sessions_returns_empty_list_when_nothing_exists():
     service = _service()
 
     assert service.list_sessions() == []
+
+
+def test_list_sessions_queries_regardless_of_status(monkeypatch):
+    """data-model.md → Session Overview Row: 'every session appears exactly once,
+    regardless of status (active/concluded)' — spot-checked here since neither query
+    string filters on it (026-token-usage tasks.md T050)."""
+    cosmos = MagicMock()
+    queries = []
+
+    def query(container_name, sql, params=None, partition_key=None):  # noqa: ARG001
+        queries.append(sql)
+        return []
+
+    cosmos.query.side_effect = query
+    service = SessionOverviewService(
+        cosmos_service=cosmos,
+        story_service=MagicMock(),
+        account_provisioning_service=MagicMock(list_all=MagicMock(return_value=[])),
+    )
+
+    service.list_sessions()
+
+    assert len(queries) == 2
+    assert all("status" not in sql for sql in queries)

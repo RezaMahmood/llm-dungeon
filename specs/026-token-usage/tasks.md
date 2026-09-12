@@ -211,12 +211,12 @@ Scenarios 5–8).
   /api/manage/sessions)
 - [X] T029 [US4] Register `GET manage/sessions` in `src/backend/function_app.py`, following
   the existing `@app.route(...)` + `_guarded(...)` pattern used by every other admin route
-- [ ] T030 [US4] [P] Update `src/backend/tests/unit/test_play_session_service.py` for
+- [X] T030 [US4] [P] Update `src/backend/tests/unit/test_play_session_service.py` for
   per-turn `tokens`, `session.totalTokens` accumulation (including summarization tokens and
   a zero-token content-filtered/turn-0 case), player-facing stripping in
   `get_session_detail_for_player`, and confirmation that no player-session tokens reach
   `Story.totalTokens`
-- [ ] T031 [US4] [P] Update `src/backend/tests/unit/test_story_service.py` for `record_test_play`'s
+- [X] T031 [US4] [P] Update `src/backend/tests/unit/test_story_service.py` for `record_test_play`'s
   new `tokens_used` parameter and its `Story.totalTokens` increment (T025); and
   `src/backend/tests/unit/test_test_play_session_service.py` for per-exchange `tokens`,
   `session.totalTokens` accumulation, and the dual contribution to `Story.totalTokens` via
@@ -311,11 +311,11 @@ Story 3 end-to-end.
 
 **Purpose**: Whole-feature verification once every story phase is complete.
 
-- [ ] T048 [P] Run the full backend pytest suite and the full frontend Vitest suite;
+- [X] T048 [P] Run the full backend pytest suite and the full frontend Vitest suite;
   confirm both are green (Principle V, Constitution Check)
 - [ ] T049 Walk through quickstart.md Scenarios 1–8 end-to-end against a running dev
   instance, confirming SC-001 through SC-006
-- [ ] T050 [P] Spot-check the Edge Cases in spec.md not already covered by a specific
+- [X] T050 [P] Spot-check the Edge Cases in spec.md not already covered by a specific
   story's tests: a very large `totalTokens` still renders with thousands separators
   (FR-010), a session still in progress renders its running total, and a session whose
   story was deleted still renders using the `"(deleted story)"` fallback
