@@ -152,9 +152,11 @@ at 5000 lines.
 
 ## `postCreateCommand` failure is permanent until `--rebuild`
 
-`.devcontainer/post-create.sh` is what installs `uv` and the Claude Code
-CLI *into the container* — they are not in the image. It runs **once**, at
-container creation, and its retry loop gives up after three attempts (a
+`.devcontainer/post-create.sh` is what installs `uv`, the Claude Code CLI
+and the local offline test harness's toolchain — a Python 3.11 virtualenv
+with the project's requirements, Azure Functions Core Tools v4, Azurite and
+the Static Web Apps CLI — *into the container*; none of them are in the
+image. It runs **once**, at container creation, and its retry loop gives up after three attempts (a
 full Docker VM disk has caused exactly that here; see **Docker Desktop
 resources** below). The container is still created when it fails, so every
 later `bin/wt <branch>` *resumes* it and `postCreate` never runs again.
@@ -408,16 +410,21 @@ extra bookkeeping.
 
 ## Shared caches
 
-The uv download cache and Terraform provider plugin cache are Docker
-named volumes shared across *every* worktree's container (declared in
-[`.devcontainer/devcontainer.json`](../.devcontainer/devcontainer.json)),
-so `uv sync` / `terraform init` only pay the download cost once, not per
-worktree. The container image itself is also shared — `devcontainer up`
+The uv download cache, the Terraform provider plugin cache and the tool
+cache holding the pinned Azure Functions Core Tools archive (~250MB) are
+Docker named volumes shared across *every* worktree's container (declared
+in [`.devcontainer/devcontainer.json`](../.devcontainer/devcontainer.json)),
+so `uv sync` / `terraform init` / the Core Tools download only pay the
+download cost once, not per worktree. The cached archive is re-verified
+against the checksum pinned in `post-create.sh` before it is reused, so a
+cache shared between worktrees never widens what is trusted. The container image itself is also shared — `devcontainer up`
 keys the built image off `devcontainer.json` content, not the workspace
 path, so the azure-cli/dotnet/terraform/gh feature layers build once
-regardless of how many worktrees you have open. Only `.venv` stays
-per-worktree (not shared), since different branches may pin different
-dependency versions.
+regardless of how many worktrees you have open. The Python environment
+stays per-container (`~/.venvs/llm-dungeon`, not a shared volume), since
+different branches may pin different dependency versions — which is also
+why a branch that changes a requirements file needs
+`bin/wt <branch> --rebuild` to pick it up.
 
 ## Verified end-to-end (2026-08-31)
 

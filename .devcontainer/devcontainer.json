@@ -9,16 +9,50 @@
 		"ghcr.io/devcontainers/features/dotnet:2": {},
 		"ghcr.io/devcontainers/features/github-cli:1": {},
 		"ghcr.io/devcontainers/features/terraform:1": {},
-		"ghcr.io/devcontainers/features/node:1": {}
+		"ghcr.io/devcontainers/features/node:1": {},
+		// Docker access for the local offline test harness
+		// (specs/027-local-offline-test-harness, FR-012): the Cosmos DB
+		// emulator and Azurite run as *sibling* containers on the host
+		// daemon, not nested inside this one. That is the daemon already in
+		// play -- bin/wt runs `docker info` and `docker ps` against it
+		// before `devcontainer up` -- so no new infrastructure is
+		// introduced, and siblings share the host's image cache across
+		// every worktree container rather than pulling the ~1GB emulator
+		// image once per worktree, which docker-in-docker would do (and
+		// would need a privileged container to do it). See
+		// specs/027-local-offline-test-harness/research.md D2.
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
 	},
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	// "forwardPorts": [],
+	// The local offline stack's in-container ports, forwarded so the host's
+	// browser can reach them (specs/027-local-offline-test-harness,
+	// contracts/local-stack.md). Only these three run *inside* this
+	// container: the SWA CLI is the stack's entry point (it is the only
+	// component that reads staticwebapp.config.json), fronting the Vite dev
+	// server and proxying /api to the Functions host.
+	//
+	// The Cosmos emulator and Azurite are deliberately absent: they run as
+	// sibling containers and publish onto the *host's* port space directly,
+	// so there is nothing for this container to forward. That same fact is
+	// why several worktree containers running at once makes a port collision
+	// the normal case rather than bad luck -- ports are derived per worktree
+	// by tools/local-stack/ports.sh (research.md D8), which lands with the
+	// stack itself in phase 5. The numbers below are that contract's *base*
+	// ports.
+	"forwardPorts": [
+		4280, // SWA CLI -- the entry point; use this, not 5173
+		5173, // Vite dev server
+		7071 // Azure Functions host (`func start`)
+	],
 	// Use 'postCreateCommand' to run commands after the container is created.
 	// See .devcontainer/post-create.sh -- installs uv and the Claude Code
 	// CLI, with retries: their downloads were observed to fail
 	// intermittently right after this container's image finished building.
+	// It also installs the local offline test harness's toolchain at build
+	// time (FR-012): a pinned Python 3.11 virtualenv with the project's
+	// requirements, Azure Functions Core Tools v4, Azurite and the SWA CLI,
+	// so a fresh container runs the full local suite with no manual setup.
 	"postCreateCommand": "bash .devcontainer/post-create.sh",
 	// Runs on every container start (create AND resume), unlike
 	// postCreateCommand above which only fires once at creation -- needed
@@ -98,11 +132,28 @@
 		"source=${localEnv:HOME}/.config/gh,target=/home/vscode/.config/gh,type=bind",
 		"source=${localEnv:HOME}/.azure,target=/home/vscode/.azure,type=bind",
 		"source=llmdungeon-uv-cache,target=/home/vscode/.cache/uv,type=volume",
-		"source=llmdungeon-tf-plugin-cache,target=/home/vscode/.terraform.d/plugin-cache,type=volume"
+		"source=llmdungeon-tf-plugin-cache,target=/home/vscode/.terraform.d/plugin-cache,type=volume",
+		//  - llmdungeon-tool-cache holds the pinned Azure Functions Core
+		//    Tools archive (~250MB). Shared like the two caches above, so
+		//    it is downloaded once per host rather than once per worktree
+		//    container; post-create.sh re-verifies its checksum before
+		//    reusing it.
+		"source=llmdungeon-tool-cache,target=/home/vscode/.cache/llm-dungeon-tools,type=volume"
 	],
 	"remoteEnv": {
 		"UV_CACHE_DIR": "/home/vscode/.cache/uv",
-		"TF_PLUGIN_CACHE_DIR": "/home/vscode/.terraform.d/plugin-cache"
+		"TF_PLUGIN_CACHE_DIR": "/home/vscode/.terraform.d/plugin-cache",
+		// Put the Python 3.11 virtualenv that post-create.sh builds ahead of
+		// the image's own 3.14 interpreter, so `python`, `pip` and `pytest`
+		// resolve to it in every shell and every `devcontainer exec` -- which
+		// is what makes `python --version` report 3.11.x, the version CI and
+		// production actually run (SC-007). It also puts that interpreter on
+		// PATH for `func start`, whose Python worker has no build for 3.14.
+		//
+		// This directory does not exist yet while postCreateCommand itself is
+		// running; a missing PATH entry is simply skipped, and the venv is on
+		// PATH from the first shell afterwards.
+		"PATH": "/home/vscode/.venvs/llm-dungeon/bin:${containerEnv:PATH}"
 	}
 	// Configure tool-specific properties.
 	// "customizations": {},
