@@ -42,6 +42,9 @@ class StoryDraft:
     # Story and pinned to the contentVersion it was seeded from (data-model.md → StoryDraft).
     sourceStoryId: Optional[str] = None
     baseContentVersion: Optional[int] = None
+    # Tokens spent by suggest_world_prompt calls made against this draft (data-model.md →
+    # StoryDraft); folded into the Story's totalTokens when this draft converts.
+    totalTokens: int = 0
 
     def is_complete(self) -> bool:
         """The Completeness Rule (data-model.md) — generation triggers on the write that
@@ -79,6 +82,7 @@ class StoryDraft:
             "entityType": self.entityType,
             "sourceStoryId": self.sourceStoryId,
             "baseContentVersion": self.baseContentVersion,
+            "totalTokens": self.totalTokens,
         }
 
     @classmethod
@@ -102,4 +106,5 @@ class StoryDraft:
             ttl=data.get("ttl", DRAFT_TTL_SECONDS),
             sourceStoryId=data.get("sourceStoryId"),
             baseContentVersion=data.get("baseContentVersion"),
+            totalTokens=data.get("totalTokens", 0),
         )

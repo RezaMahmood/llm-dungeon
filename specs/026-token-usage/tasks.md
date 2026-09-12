@@ -35,7 +35,7 @@ Dependencies & Execution Order below.
 everything else reuses the existing stack, containers, and dependencies unchanged
 (plan.md Technical Context: "No new dependencies").
 
-- [ ] T001 Amend `.specify/memory/constitution.md`'s Screen contracts section to add the
+- [X] T001 Amend `.specify/memory/constitution.md`'s Screen contracts section to add the
   **Administrator — sessions** entry (no prototype screen) exactly as drafted in plan.md's
   "Constitution amendment" section, and bump the constitution's version per its own
   Governance/versioning rule (MINOR — new contract entry) (research.md Decision 9)
@@ -53,28 +53,28 @@ phase introduces.
 temporarily unpacking a tuple incorrectly; do not consider the app deployable again until
 at least one user story phase (which fixes its owned call sites) is also complete.
 
-- [ ] T002 [P] Add `totalTokens: int = 0` to `Story` in `src/backend/models/story.py`,
+- [X] T002 [P] Add `totalTokens: int = 0` to `Story` in `src/backend/models/story.py`,
   including `to_dict`/`from_dict` (data-model.md → Story)
-- [ ] T003 [P] Add `totalTokens: int = 0` to `StoryDraft` in
+- [X] T003 [P] Add `totalTokens: int = 0` to `StoryDraft` in
   `src/backend/models/story_draft.py`, including `to_dict`/`from_dict` (data-model.md →
   StoryDraft)
-- [ ] T004 [P] Add `totalTokens: int = 0` to `PlaySession` and `tokens: int = 0` to
+- [X] T004 [P] Add `totalTokens: int = 0` to `PlaySession` and `tokens: int = 0` to
   `PlayerInteraction` in `src/backend/models/play_session.py`, including both classes'
   `to_dict`/`from_dict` (data-model.md → PlaySession)
-- [ ] T005 [P] Add `totalTokens: int = 0` to `TestPlaySession` and `tokens: int = 0` to
+- [X] T005 [P] Add `totalTokens: int = 0` to `TestPlaySession` and `tokens: int = 0` to
   `TestPlayExchange` in `src/backend/models/test_play_session.py`, including both classes'
   `to_dict`/`from_dict` (data-model.md → TestPlaySession)
-- [ ] T006 [P] Add `"totalTokens"` to `SYSTEM_MANAGED_KEYS` in
+- [X] T006 [P] Add `"totalTokens"` to `SYSTEM_MANAGED_KEYS` in
   `src/backend/services/story_config_file.py` so it never round-trips through Story
   Configuration File export/import (data-model.md → Story, "Excluded from the Story
   Configuration File")
-- [ ] T007 Change `LLMService._call()` and every public generation method
+- [X] T007 Change `LLMService._call()` and every public generation method
   (`suggest_world_prompt`, `generate_story_config`, `generate_starting_point`,
   `generate_gameplay_turn`, `summarize_session_history`) in
   `src/backend/services/llm_service.py` to each return a `(payload, tokens_used)` pair,
   where `tokens_used = input_tokens + output_tokens` read from the same usage data the
   existing OpenTelemetry span already computes (research.md Decision 1)
-- [ ] T008 Update `src/backend/tests/unit/test_llm_service.py` so every public method's
+- [X] T008 Update `src/backend/tests/unit/test_llm_service.py` so every public method's
   assertions match its new `(payload, tokens)` return shape
 
 **Checkpoint**: Foundation ready — model fields exist and `LLMService` hands back token

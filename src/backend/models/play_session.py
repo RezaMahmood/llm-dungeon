@@ -18,6 +18,9 @@ class PlayerInteraction:
     playerInput: Optional[str] = None
     goalLabel: Optional[str] = None
     progress: Optional[dict[str, int]] = None
+    # This turn's own token count; 0 for turn 0 (replayed verbatim, no LLM call) and for a
+    # content-filtered deflection turn (data-model.md → PlaySession).
+    tokens: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -29,6 +32,7 @@ class PlayerInteraction:
             "goalLabel": self.goalLabel,
             "progress": self.progress,
             "timestamp": self.timestamp,
+            "tokens": self.tokens,
         }
 
     @classmethod
@@ -42,6 +46,7 @@ class PlayerInteraction:
             goalLabel=data.get("goalLabel"),
             progress=data.get("progress"),
             timestamp=data["timestamp"],
+            tokens=data.get("tokens", 0),
         )
 
 
@@ -91,6 +96,9 @@ class PlaySession:
     summarizedThroughTurn: int = 0
     checkpoints: list[CheckpointMarker] = field(default_factory=list)
     entityType: str = field(default="PlaySession")
+    # Running cumulative token total across every turn and summarization call in this
+    # session; never contributes to Story.totalTokens (data-model.md → PlaySession).
+    totalTokens: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -113,6 +121,7 @@ class PlaySession:
             "summary": self.summary,
             "summarizedThroughTurn": self.summarizedThroughTurn,
             "checkpoints": [checkpoint.to_dict() for checkpoint in self.checkpoints],
+            "totalTokens": self.totalTokens,
         }
 
     @classmethod
@@ -136,4 +145,5 @@ class PlaySession:
             summary=data.get("summary"),
             summarizedThroughTurn=data.get("summarizedThroughTurn", 0),
             checkpoints=[CheckpointMarker.from_dict(checkpoint) for checkpoint in data.get("checkpoints", [])],
+            totalTokens=data.get("totalTokens", 0),
         )

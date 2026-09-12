@@ -25,6 +25,7 @@ SYSTEM_MANAGED_KEYS = {
     "contentVersion",
     "entityType",
     "adminEditedFields",
+    "totalTokens",
 }
 
 # Every key this feature ever emits or accepts, in the exact order serialize() emits them
