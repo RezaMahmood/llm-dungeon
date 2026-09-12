@@ -381,7 +381,7 @@ def test_resuming_never_rewinds_a_checkpointed_session(request_factory):
     assert body["checkpoints"][0]["turnNumber"] == checkpointed_turn_number
 
 
-# --- Story deleted / unpublished (025-story-delete FR-007, FR-008, T016) ---
+# --- Story deleted / unpublished (025-story-delete-done FR-007, FR-008, T016) ---
 
 
 def test_get_session_against_deleted_story_returns_404_story_deleted(request_factory):
@@ -423,7 +423,7 @@ def test_get_session_against_unpublished_story_still_succeeds_for_a_concluded_se
     assert response.status_code == 200
 
 
-# --- list_sessions `available` field (025-story-delete FR-009, FR-011) ---
+# --- list_sessions `available` field (025-story-delete-done FR-009, FR-011) ---
 
 
 def test_list_sessions_marks_row_unavailable_when_story_unpublished(request_factory):

@@ -36,7 +36,7 @@ const waitForLoad = () => waitForElementToBeRemoved(() => screen.queryByText(/lo
 
 const rowFor = (name) => screen.getByText(name).closest("tr");
 
-describe("Admin stories list delete (025-story-delete FR-001, FR-002, FR-012, SC-001, SC-004)", () => {
+describe("Admin stories list delete (025-story-delete-done FR-001, FR-002, FR-012, SC-001, SC-004)", () => {
   beforeEach(() => {
     acquireTokenSilent.mockReset().mockResolvedValue({ accessToken: "tok" });
     listStories.mockReset();

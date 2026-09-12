@@ -182,7 +182,7 @@ export function GamePage() {
         initialTurns: data.session.turns,
       });
     } catch (err) {
-      // 025-story-delete FR-007/FR-008: both calls above report a story that became
+      // 025-story-delete-done FR-007/FR-008: both calls above report a story that became
       // unavailable while this row sat on screen, and each reason gets its own
       // specific message rather than the generic one below (contracts/api.md). The
       // player is already on their in-progress-games list here, so the response's

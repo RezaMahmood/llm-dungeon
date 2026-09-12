@@ -1094,7 +1094,7 @@ def test_list_player_sessions_falls_back_to_adventure_label_when_story_unreadabl
 
 
 def test_list_player_sessions_marks_unavailable_when_story_unreadable():
-    """025-story-delete PR #274 review: a session whose story can no longer be read at
+    """025-story-delete-done PR #274 review: a session whose story can no longer be read at
     all (e.g. a narrow cascade-delete race) must default `available` to False, not
     True — the very next turn/resume/detail request against it would raise
     `AdventureNotFoundError` (story_deleted), so showing it as available would invite a
@@ -1276,7 +1276,7 @@ def test_record_checkpoint_gives_up_after_one_retry():
         service.record_checkpoint(session.id, PLAYER_ID)
 
 
-# --- delete_active_sessions_for_adventure (025-story-delete FR-004, T013) ---
+# --- delete_active_sessions_for_adventure (025-story-delete-done FR-004, T013) ---
 
 
 def test_delete_active_sessions_for_adventure_removes_active_sessions_across_players():
@@ -1347,7 +1347,7 @@ def test_delete_active_sessions_for_adventure_is_idempotent_per_row(monkeypatch)
     assert session_b.id not in container.items
 
 
-# --- Story-unpublished check (025-story-delete FR-005, FR-007, FR-008, T014) ---
+# --- Story-unpublished check (025-story-delete-done FR-005, FR-007, FR-008, T014) ---
 
 
 def test_submit_interaction_against_unpublished_story_raises_story_unpublished_and_leaves_session_unchanged():
@@ -1393,7 +1393,7 @@ def test_get_session_detail_for_player_against_unpublished_story_raises_story_un
         service.get_session_detail_for_player(session.id, PLAYER_ID)
 
 
-# --- list_player_sessions `available` field (025-story-delete FR-009, FR-011, T015) ---
+# --- list_player_sessions `available` field (025-story-delete-done FR-009, FR-011, T015) ---
 
 
 def test_list_player_sessions_marks_published_story_session_as_available():

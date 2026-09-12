@@ -233,8 +233,8 @@ describe("Save and continue: sign-out round trip (009-save-and-continue, US2 Acc
 // submitting a turn — is where they normally first meet a story that became
 // unavailable while the row sat on their screen. Both calls `handleResume` makes can
 // report it, and each reason gets its own specific message rather than the shared
-// generic one (025-story-delete FR-007, FR-008, contracts/api.md Validation Rules).
-describe("Resuming a story that became unavailable (025-story-delete FR-007, FR-008)", () => {
+// generic one (025-story-delete-done FR-007, FR-008, contracts/api.md Validation Rules).
+describe("Resuming a story that became unavailable (025-story-delete-done FR-007, FR-008)", () => {
   const DELETED = {
     response: {
       status: 404,

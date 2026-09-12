@@ -1,6 +1,6 @@
 """TestPlaySession and TestPlayExchange — an administrator's interactive test playthrough
 of a draft story, persisted separately from `playSessions` so no player route can ever
-reach it (010-story-test-play data-model.md)."""
+reach it (010-story-test-play-done data-model.md)."""
 
 from __future__ import annotations
 
