@@ -14,11 +14,18 @@ export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, o
     saveButtonRef.current?.focus();
   }, []);
 
-  const handleKeyDown = (event) => {
-    if (event.key === "Escape" && !saving) {
-      onCancel();
-    }
-  };
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === "Escape" && !saving) {
+        onCancel();
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [onCancel, saving]);
 
   return (
     <div className="dialog-backdrop">
@@ -28,7 +35,6 @@ export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, o
         aria-modal="true"
         aria-labelledby="logout-save-prompt-title"
         style={{ width: "min(520px,100%)", padding: "32px" }}
-        onKeyDown={handleKeyDown}
       >
         <div className="dialog-title" id="logout-save-prompt-title" style={{ fontSize: "24px" }}>
           Save before you go?
