@@ -80,6 +80,16 @@ export async function saveCheckpoint(token, sessionId) {
   return response.data;
 }
 
+/** Permanently deletes the caller's own saved session, never the story
+ * (028-home-page-redesign FR-008/FR-009/FR-010). A 404 (already gone) is left for the
+ * caller to treat as success — the session is gone either way. */
+export async function deleteSession(token, sessionId) {
+  const response = await client.delete(`/game/sessions/${sessionId}`, {
+    headers: { "X-Custom-Authorization": `Bearer ${token}` },
+  });
+  return response.data;
+}
+
 export default {
   listAdventures,
   getAdventure,
@@ -89,4 +99,5 @@ export default {
   listSavedGames,
   getSession,
   saveCheckpoint,
+  deleteSession,
 };

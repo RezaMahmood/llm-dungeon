@@ -6,7 +6,7 @@
  * and responsive rules.
  */
 import { useMsal } from "@azure/msal-react";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { usePublishRefresh } from "../context/RefreshContext.jsx";
@@ -18,6 +18,7 @@ import "../components/Home/Home.css";
 import AccessDeniedScreen from "../components/Login/AccessDeniedScreen.jsx";
 import InProgressList from "../components/Home/InProgressList.jsx";
 import ReadyToPlayList from "../components/Home/ReadyToPlayList.jsx";
+import SessionDeleteAction from "../components/Home/SessionDeleteAction.jsx";
 import WelcomeBand from "../components/Home/WelcomeBand.jsx";
 
 export function HomePage() {
@@ -56,7 +57,18 @@ export function HomePage() {
   }, [refetch, refresh]);
   usePublishRefresh({ refresh: refreshAll, loading });
 
-  const sessions = data?.sessions || [];
+  // A local, independently-mutable copy of the fetched sessions: deleting one (FR-009)
+  // updates this in place with no refetch, while still resyncing whenever a real refresh
+  // brings new server data in.
+  const [sessions, setSessions] = useState([]);
+  useEffect(() => {
+    if (data) setSessions(data.sessions);
+  }, [data]);
+
+  const handleSessionDeleted = useCallback((sessionId) => {
+    setSessions((prev) => prev.filter((session) => session.sessionId !== sessionId));
+  }, []);
+
   const inProgressAdventureIds = new Set(sessions.map((session) => session.adventureId));
   // FR-004: a story with an active session for this player never also appears as
   // ready-to-play.
@@ -130,7 +142,15 @@ export function HomePage() {
       <WelcomeBand firstName={firstName} inProgressCount={sessions.length} />
       <div className="home-cols">
         <ReadyToPlayList stories={readyToPlay} loading={loading} error={error} onPlay={handlePlay} />
-        <InProgressList sessions={sessions} loading={loading} error={error} onResume={handleResume} />
+        <InProgressList
+          sessions={sessions}
+          loading={loading}
+          error={error}
+          onResume={handleResume}
+          renderDeleteAction={(session) => (
+            <SessionDeleteAction session={session} token={getToken} onDeleted={handleSessionDeleted} />
+          )}
+        />
       </div>
     </div>
   );

@@ -268,15 +268,15 @@ and the story reappear on the left; another player's session id is refused by th
 
 ### Frontend
 
-- [ ] T034 [P] [US3] Add `deleteSession(token, sessionId)` to
+- [X] T034 [P] [US3] Add `deleteSession(token, sessionId)` to
   `src/frontend/src/services/gameService.js`, following that file's existing axios +
   `X-Custom-Authorization` pattern, calling `DELETE /game/sessions/{sessionId}`.
-- [ ] T035 [US3] Add `src/frontend/src/hooks/useDeleteSession.js`, mirroring
+- [X] T035 [US3] Add `src/frontend/src/hooks/useDeleteSession.js`, mirroring
   `src/frontend/src/hooks/useDeleteStory.js`: `status` (idle|working|error),
   `confirmingDelete`, and `requestDelete`/`confirmDelete`/`cancelDelete`, calling
   `deleteSession` and invoking `onDeleted(sessionId)` on success. A 404 counts as success —
   the session is gone, which is what was asked (contracts/api.md). Depends on T034.
-- [ ] T036 [US3] Add `src/frontend/src/components/Home/SessionDeleteAction.jsx`, mirroring
+- [X] T036 [US3] Add `src/frontend/src/components/Home/SessionDeleteAction.jsx`, mirroring
   `src/frontend/src/components/Admin/StoryDeleteAction.jsx`: a Delete `.btn` that
   `preventDefault`/`stopPropagation`s so it never triggers the card's resume link, and the
   design-system dialog (FR-008; `.dialog-backdrop`, `.dialog`, `role="dialog"`,
@@ -284,11 +284,11 @@ and the story reappear on the left; another player's session id is refused by th
   saved session for “{title}”? Your progress will be lost." — with a cancel action and a
   confirm action, plus the error message shown when the call fails (research.md Decisions 6
   and 11). Not `window.confirm`. Depends on T035.
-- [ ] T037 [US3] Render `SessionDeleteAction` in `SessionCard.jsx`'s placeholder slot
+- [X] T037 [US3] Render `SessionDeleteAction` in `SessionCard.jsx`'s placeholder slot
   (T016) and have `HomePage` drop the deleted session from its own state via `onDeleted`,
   which returns that story to "Ready to play" through T019's existing derivation — no
   refetch (FR-009). Depends on T016, T019, T036.
-- [ ] T038 [P] [US3] Frontend tests: cancel leaves the card in place; confirm removes it and
+- [X] T038 [P] [US3] Frontend tests: cancel leaves the card in place; confirm removes it and
   the story reappears in "Ready to play"; deleting the only session falls back to the
   zero state; a failed call surfaces the error and keeps the card — in
   `src/frontend/tests/components/Home/SessionDeleteAction.test.jsx` and
