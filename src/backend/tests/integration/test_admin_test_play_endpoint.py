@@ -1,4 +1,4 @@
-"""Integration tests for the four test-play routes (010-story-test-play, contracts/api.md):
+"""Integration tests for the four test-play routes (010-story-test-play-done, contracts/api.md):
 status codes, `authorize_admin` enforcement, the full error table, and that a successful
 exchange stamps `Story.lastTestPlayedAt`."""
 

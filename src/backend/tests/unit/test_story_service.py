@@ -281,7 +281,7 @@ def test_unpublish_returns_none_for_missing_story():
     assert service.unpublish("missing") is None
 
 
-# --- record_test_play (010-story-test-play FR-004, FR-010) ---
+# --- record_test_play (010-story-test-play-done FR-004, FR-010) ---
 
 
 def test_record_test_play_sets_last_test_played_at_and_leaves_content_updated_at_unchanged():
@@ -588,7 +588,7 @@ def test_import_configuration_raises_story_not_found_for_unmatched_id():
         )
 
 
-# --- delete_story (025-story-delete FR-003, FR-013) ---
+# --- delete_story (025-story-delete-done FR-003, FR-013) ---
 
 
 def test_delete_story_removes_existing_story():

@@ -83,7 +83,7 @@ describe("StoriesInProgress (009-save-and-continue, FR-001, FR-002)", () => {
     expect(onResume).toHaveBeenCalledWith(SESSION_A);
   });
 
-  // --- 025-story-delete (FR-009, FR-011, SC-005): availability ---
+  // --- 025-story-delete-done (FR-009, FR-011, SC-005): availability ---
 
   it("renders a row with available: false greyed out and non-continuable", async () => {
     const onResume = vi.fn();

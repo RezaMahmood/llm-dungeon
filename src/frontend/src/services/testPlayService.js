@@ -5,7 +5,7 @@ const client = axios.create({
 });
 
 /** Starts a test-play session against a story's current saved configuration — works on an
- * unpublished story (010-story-test-play, contracts/api.md FR-001). */
+ * unpublished story (010-story-test-play-done, contracts/api.md FR-001). */
 export async function startTestPlay(token, storyId) {
   const response = await client.post(
     `/manage/stories/${storyId}/test-play`,

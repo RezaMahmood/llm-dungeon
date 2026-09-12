@@ -1,4 +1,4 @@
-"""Unit tests for TestPlaySessionService (010-story-test-play). Cosmos and LLMService are
+"""Unit tests for TestPlaySessionService (010-story-test-play-done). Cosmos and LLMService are
 faked/mocked in-memory, matching this repo's other unit tests.
 
 T010-T013 all write to this one file, so they run sequentially with respect to each other

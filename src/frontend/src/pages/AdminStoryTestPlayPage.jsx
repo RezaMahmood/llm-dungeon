@@ -1,5 +1,5 @@
 /**
- * Administrator test-play screen (010-story-test-play, contracts/api.md) — starts a
+ * Administrator test-play screen (010-story-test-play-done, contracts/api.md) — starts a
  * session against a draft story's current saved configuration, reusing the same
  * presentational play components as real gameplay (research.md Decision 8). FR-011 defers
  * a visual design pass only; accessibility, semantic HTML, and design-system tokens are
