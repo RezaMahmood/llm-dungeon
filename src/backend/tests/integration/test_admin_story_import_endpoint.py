@@ -72,8 +72,8 @@ def _valid_payload(**overrides):
 def _services():
     cosmos = FakeCosmosService()
     llm = MagicMock()
-    llm.generate_story_config.return_value = {"narrativeGuidance": "Refreshed guidance."}
-    llm.generate_starting_point.return_value = _make_starting_point().to_dict()
+    llm.generate_story_config.return_value = ({"narrativeGuidance": "Refreshed guidance."}, 30)
+    llm.generate_starting_point.return_value = (_make_starting_point().to_dict(), 40)
     return StoryService(cosmos_service=cosmos, llm_service=llm), cosmos, llm
 
 

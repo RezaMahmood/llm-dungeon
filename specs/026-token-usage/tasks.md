@@ -115,7 +115,7 @@ creating it (quickstart.md Scenario 1).
 - [X] T014 [US1] [P] Update `src/backend/tests/unit/test_story_service.py` for
   `create_story`'s `totalTokens` assignment and `list_summaries`' projection, including a
   legacy-row-with-no-field case defaulting to `0`
-- [ ] T015 [US1] [P] Update `src/backend/tests/integration/test_admin_stories_endpoint.py`
+- [X] T015 [US1] [P] Update `src/backend/tests/integration/test_admin_stories_endpoint.py`
   to assert `totalTokens` is present and correct in `GET /api/manage/stories` list
   responses (contracts/api.md)
 - [ ] T016 [US1] In `src/frontend/src/pages/AdminPage.jsx`, add a "Tokens" column: a
@@ -199,17 +199,17 @@ Scenarios 5–8).
   `session.totalTokens`, and pass the same `tokens` value to
   `self._stories.record_test_play(story.id, tokens)` — now that T025's signature accepts it
   (research.md Decision 3)
-- [ ] T027 [US4] Create `src/backend/services/session_overview_service.py`:
+- [X] T027 [US4] Create `src/backend/services/session_overview_service.py`:
   `SessionOverviewService.list_sessions()` projecting both `playSessions` and
   `testPlaySessions` containers into the Session Overview Row shape, resolving story name
   live (fallback `"(deleted story)"`) and email via one `AccountProvisioningService.list_all()`
   in-memory `objectId -> email` index (fallback `"(no longer provisioned)"`) (data-model.md
   → Read model: Session Overview Row; research.md Decision 7)
-- [ ] T028 [US4] Create `src/backend/api/admin/sessions.py`: a `list_sessions` handler
+- [X] T028 [US4] Create `src/backend/api/admin/sessions.py`: a `list_sessions` handler
   gated by `authorize_admin`, calling `SessionOverviewService.list_sessions()` and
   returning the `{"status": "success", "sessions": [...]}` shape (contracts/api.md → GET
   /api/manage/sessions)
-- [ ] T029 [US4] Register `GET manage/sessions` in `src/backend/function_app.py`, following
+- [X] T029 [US4] Register `GET manage/sessions` in `src/backend/function_app.py`, following
   the existing `@app.route(...)` + `_guarded(...)` pattern used by every other admin route
 - [ ] T030 [US4] [P] Update `src/backend/tests/unit/test_play_session_service.py` for
   per-turn `tokens`, `session.totalTokens` accumulation (including summarization tokens and
@@ -221,10 +221,10 @@ Scenarios 5–8).
   `src/backend/tests/unit/test_test_play_session_service.py` for per-exchange `tokens`,
   `session.totalTokens` accumulation, and the dual contribution to `Story.totalTokens` via
   `record_test_play`
-- [ ] T032 [US4] [P] Create `src/backend/tests/unit/test_session_overview_service.py`:
+- [X] T032 [US4] [P] Create `src/backend/tests/unit/test_session_overview_service.py`:
   combined player+test listing, the deleted-story fallback, the unprovisioned-account
   fallback, and a zero-turn session rendering `totalTokens: 0`
-- [ ] T033 [US4] [P] Create `src/backend/tests/integration/test_admin_sessions_endpoint.py`:
+- [X] T033 [US4] [P] Create `src/backend/tests/integration/test_admin_sessions_endpoint.py`:
   the full `GET /api/manage/sessions` lifecycle, `401`/`403` without admin auth, and an
   empty-list `200` response
 - [ ] T034 [US4] Create `src/frontend/src/services/sessionService.js`: `listSessions(token)`
@@ -297,7 +297,7 @@ Scenario 2).
 - [X] T046 [US3] [P] Update `src/backend/tests/unit/test_story_draft_service.py` for
   `save_draft_to_story` folding both the draft's and the regeneration's tokens into the
   existing story's total
-- [ ] T047 [US3] [P] Update `src/backend/tests/integration/test_admin_stories_endpoint.py`
+- [X] T047 [US3] [P] Update `src/backend/tests/integration/test_admin_stories_endpoint.py`
   with an edit-then-test-play-then-reload scenario showing `totalTokens` reflects both
   increases
 
