@@ -51,11 +51,6 @@ done
 
 TRUNK="main"
 
-if [[ -n "${WORKTREE_CONTAINER:-}" ]]; then
-  echo "Refusing to run inside the session for worktree '$WORKTREE_CONTAINER': pruning needs to see every worktree at once, and decides what to delete from that view. Run this from the primary checkout, which is the one checkout that has it." >&2
-  exit 1
-fi
-
 for _cmd in git gh; do
   command -v "$_cmd" >/dev/null 2>&1 || { echo "$_cmd is required on PATH." >&2; exit 1; }
 done
@@ -68,6 +63,30 @@ fi
 _common_dir="$(git rev-parse --path-format=absolute --git-common-dir)"
 PRIMARY_REPO_ROOT="$(CDPATH= cd "$(dirname "$_common_dir")" && pwd -P)"
 WORKTREES_ROOT="$PRIMARY_REPO_ROOT/.worktrees"
+
+# Pruning decides what to delete from a view of every worktree at once, so it
+# must run where that view exists. The test is the caller's LOCATION, not the
+# WORKTREE_CONTAINER environment variable: that variable is now set for
+# host sessions too, and refusing on it would reject a user who had already
+# done as the message asked and moved to the primary checkout -- with nothing
+# in the message pointing at an inherited variable as the real cause.
+_toplevel="$(git rev-parse --path-format=absolute --show-toplevel 2>/dev/null || true)"
+_toplevel="$(CDPATH= cd "$_toplevel" && pwd -P 2>/dev/null || printf '%s' "$_toplevel")"
+if [[ "$_toplevel" != "$PRIMARY_REPO_ROOT" ]]; then
+  echo "Refusing to run from the worktree at '$_toplevel': pruning needs to see every worktree at once, and decides what to delete from that view." >&2
+  echo "Run it from the primary checkout instead:  (cd '$PRIMARY_REPO_ROOT' && bin/wt-prune)" >&2
+  exit 1
+fi
+
+# Inside a container the primary checkout's own .worktrees/ is not mounted,
+# so even standing in what looks like the right place there is nothing to
+# enumerate. Catch that separately from the location test above, which a
+# container session can pass.
+if [[ ! -d "$WORKTREES_ROOT" && -n "${WORKTREE_CONTAINER:-}" ]]; then
+  echo "Refusing to run inside the container for '$WORKTREE_CONTAINER': sibling worktrees are not mounted here, so pruning cannot see what it would delete. Run it from the primary checkout on the host." >&2
+  exit 1
+fi
+
 cd "$PRIMARY_REPO_ROOT"
 
 if [[ "$DO_IT" == "1" ]]; then

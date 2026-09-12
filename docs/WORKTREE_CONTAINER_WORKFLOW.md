@@ -42,7 +42,7 @@ See [`.specify/memory/constitution.md`](../.specify/memory/constitution.md)
 
 | The branch | Command | What you get |
 |---|---|---|
-| Has a `specs/<branch>/` folder | `bin/wt <branch>` | Worktree **+ its own container**. Required — `bin/wt` refuses `--no-container` here. |
+| Named `<number>-<slug>`, or has a `specs/<branch>/` folder | `bin/wt <branch>` | Worktree **+ its own container**. Required — `bin/wt` refuses `--no-container` here. |
 | `chore/*`, `fix/*`, `docs/*`, `perf/*`, `infra` | `bin/wt <branch> --no-container` | Worktree, `claude` on the host, no Docker. |
 | `main` | — | Never. `bin/wt` refuses the trunk outright. |
 
@@ -50,6 +50,21 @@ Both forms create the worktree the same way, enforce the same
 directory-name-equals-branch-name rules, and run the same
 constitution-staleness gate. The only difference is where the session
 runs.
+
+**How `bin/wt` decides a branch is spec work** — two signals, either one
+enough:
+
+- **The branch name**, speckit's `<number>-<slug>` form. This is the only
+  signal available before the work exists: a brand-new spec branch has no
+  `specs/` folder until `/speckit-specify` creates one from inside the
+  session, so a folder test alone would wave the whole spec-authoring
+  session through and catch it only on the *second* start. Refused in
+  preflight, before any worktree is made.
+- **A `specs/<branch>/` folder in the worktree.** Catches a spec branch
+  named against convention, so a `chore/*` name cannot opt real spec work
+  out of isolation. This one can only run after the worktree exists, so
+  the refusal leaves that worktree behind — harmless, and plain
+  `bin/wt <branch>` picks it straight back up.
 
 `--no-container` and `--rebuild` cannot be combined — there is no
 container to rebuild.
@@ -107,7 +122,8 @@ bin/wt --logs 100    # ...last 100 instead
 | `E_CONTAINER_UP` | `devcontainer up` failed; the CLI's own message and description are captured with it |
 | `E_CLAUDE_MISSING` | the container exists but has no `claude` — `postCreate` failed at creation and never re-runs (see below) |
 | `E_CLAUDE_MISSING_HOST` | a `--no-container` run found no `claude` on the host's `PATH` |
-| `E_SPEC_NEEDS_CONTAINER` | `--no-container` was used on a branch that has a `specs/<branch>/` folder — spec work must be isolated |
+| `E_SPEC_NEEDS_CONTAINER` | `--no-container` was used on spec work — a `<number>-<slug>` branch name, or a `specs/<branch>/` folder — which must be isolated |
+| `E_FLAG_CONFLICT` | `--no-container` and `--rebuild` were given together; there is no container to rebuild |
 | `E_BRANCH_PATH_MISMATCH`, `E_PATH_BRANCH_MISMATCH`, `E_WORKTREE_DETACHED`, `E_PATH_OCCUPIED` | the directory-name-equals-branch-name rules below |
 | `E_STALE_CONSTITUTION` | blocked by `bin/wt-sync` (see below) |
 | `E_INTERRUPTED` | `bin/wt` itself took a Ctrl-C or a `TERM` (during a build, say) |
@@ -172,12 +188,15 @@ Two things still hold that are easy to assume don't:
   variable `check-worktree-sync.sh` reads to block an edit whose `HEAD`
   has drifted off the branch the session was started for. Without it that
   guard would be dead on exactly the branches this mode creates.
-- **Siblings are reachable, and still off limits.** From
-  `.worktrees/chore/foo`, another worktree sits at `../<branch>` — a real
-  path with no mount boundary in front of it. The `Read(.worktrees/**)`
-  deny rules are written relative to the project directory and do not
-  match it. This is a rule, not a wall, which is exactly why spec work
-  keeps its container instead of also moving to the host.
+- **Siblings are reachable, and still off limits.** Every worktree lives
+  under the same `.worktrees/` root, so from `.worktrees/chore/foo` a
+  sibling is `../bar` or `../../028-some-spec` depending on how deep the
+  branch name nests — ordinary paths, with no mount boundary in front of
+  them. The `Read(.worktrees/**)` / `Edit(.worktrees/**)` deny rules are
+  resolved against the session's own directory, so inside a worktree they
+  match nothing at all and are inert. For non-spec work the separation is
+  a rule, not a wall — which is exactly why spec work keeps its container
+  instead of also moving to the host.
 
 ## Dependent specs (spec B needs spec A's in-flight work)
 

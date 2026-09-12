@@ -38,10 +38,13 @@ then wrong and MUST be corrected, not worked around.
   edit or list another worktree's files, and MUST NOT route around the
   deny rules with `Bash` (`cat`, `find`, `git -C`, …). If a task seems to
   need it, say so and let the user do it. In a container-less worktree
-  this rule is doing the work alone: a sibling sits at `../<branch>`,
-  which those patterns do not match and no mount boundary blocks. Treat
-  everything outside the current worktree as another session's, and never
-  reach for a relative path that leaves it.
+  this rule is doing the work alone. The deny patterns are resolved
+  against the session's own directory, so inside `.worktrees/<branch>`
+  they match nothing, and every sibling under the shared `.worktrees/`
+  root is an ordinary readable path away — `../<other>` for a sibling at
+  the same depth, `../../<other>` from a slash-named branch like
+  `chore/foo`. Treat everything outside the current worktree as another
+  session's, and never follow a relative path out of it.
 - **Lifecycle tooling.** `bin/wt-prune` removes worktrees, branches and
   containers whose PR GitHub reports as merged; `bin/wt-sync` reports
   worktrees running stale bootstrap files. Claude MAY run either in its

@@ -409,7 +409,10 @@ GitHub-side actions only — they do not change where code is written or tested.
   cross-contaminating. Work on a branch with no spec folder (e.g. `chore/*`, `fix/*`,
   `docs/*`, `perf/*`) MAY run without a container, on the host in its own worktree
   (`bin/wt <branch> --no-container`), since it carries no cross-spec contamination risk.
-  A branch that has a spec folder MUST NOT be started this way, and `bin/wt` refuses it.
+  A branch that is spec work MUST NOT be started this way, and `bin/wt` refuses it —
+  identifying it from speckit's `<number>-<slug>` branch name before the worktree exists,
+  and from a `specs/<branch>/` folder once it does, so that neither a branch too new to
+  have a spec folder nor one named against convention can opt out.
 - A session in a container-less worktree MUST NOT read or write another worktree under
   `.worktrees/`. On the host that separation is a rule rather than an enforced boundary —
   a sibling worktree is reachable by relative path, where from inside a container it is

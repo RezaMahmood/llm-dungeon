@@ -7,21 +7,21 @@
 #
 # Every branch gets its own worktree -- that is what lets several pieces
 # of work be in flight at once without any of them switching branches
-# under another. Whether that worktree also gets a container depends on
-# what the branch is:
+# under another.
 #
-#   spec/feature branch (has specs/<branch>/)  container, always. Brings
-#     up (or resumes) that worktree's OWN devcontainer instance and execs
-#     `claude` inside it, so Claude's process and filesystem view are
-#     confined to that one worktree. Concurrent specs cannot contaminate
-#     each other because there is no path between them.
+# A container is the default, for every branch. It brings up (or resumes)
+# that worktree's OWN devcontainer instance and execs `claude` inside it,
+# so Claude's process and filesystem view are confined to that one
+# worktree; concurrent specs cannot contaminate each other because there
+# is no path between them.
 #
-#   everything else (chore/*, fix/*, docs/*, perf/*)  --no-container runs
-#     `claude` on the host, in that worktree's directory. No Docker, no
-#     image build, no postCreate -- a chore does not carry the
-#     cross-spec contamination risk the container exists to contain, and
-#     paying a container for it is what pushed this work back into the
-#     primary checkout, where it serialised.
+# --no-container opts out, running `claude` on the host in the worktree's
+# directory instead: no Docker, no image build, no postCreate. It is for
+# chore/*, fix/*, docs/* and perf/* work, which carries none of the
+# cross-spec contamination risk the container exists to contain -- paying
+# a container for a one-line docs fix is what pushed that work back into
+# the primary checkout, where it serialised. Opting out is REFUSED for
+# spec/feature branches (see is-this-spec-work, below).
 #
 # This is plain, static bash -- not a Claude skill, and not something
 # Claude decides to run on its own. You run it yourself, once per
@@ -134,14 +134,6 @@ else
     exit 1
   fi
   BRANCH="${POSITIONALS[0]}"
-fi
-
-# --rebuild recreates a container; --no-container says there is none to
-# recreate. Taking both would silently ignore one, and which one was
-# ignored would only show up as a session running somewhere unexpected.
-if [[ "$NO_CONTAINER" == "1" && "$REBUILD" == "1" ]]; then
-  echo "--no-container and --rebuild cannot be combined: there is no container to rebuild." >&2
-  exit 1
 fi
 
 if ! command -v git >/dev/null 2>&1; then
@@ -416,6 +408,43 @@ if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
     "Refusing to create a worktree/container for '$BRANCH' -- it's the trunk; work never happens there."
 fi
 
+# --rebuild recreates a container; --no-container says there is none to
+# recreate. Taking both would silently ignore one, and which one was ignored
+# would only show up later as a session running somewhere unexpected. This
+# sits here rather than beside the other argument checks so it goes through
+# `fail`: a refusal that exits without an event is invisible to the
+# `bin/wt --logs` summary those events exist for.
+if [[ "$NO_CONTAINER" == "1" && "$REBUILD" == "1" ]]; then
+  fail E_FLAG_CONFLICT preflight \
+    "--no-container and --rebuild cannot be combined: there is no container to rebuild."
+fi
+
+# --- Is this spec work? -----------------------------------------------------
+# Spec/feature work is the only kind the constitution requires a container
+# for, and two independent signals identify it. Both are needed:
+#
+#   the branch name  speckit names every feature branch <number>-<slug>
+#     (create-new-feature.sh). This is the only signal available for a
+#     branch that does not exist yet -- a brand-new spec branch has no
+#     specs/ folder until /speckit-specify creates one from inside the
+#     session, so a folder test alone would wave through the entire
+#     spec-authoring session and only catch it on the SECOND start.
+#
+#   the specs/<branch>/ folder  checked further down, once the worktree
+#     exists. This catches a spec branch named against convention, so a
+#     chore/* name cannot be used to opt real spec work out of isolation.
+IS_SPEC_BRANCH=0
+if [[ "$BRANCH" =~ ^[0-9]+- ]]; then
+  IS_SPEC_BRANCH=1
+fi
+
+if [[ "$NO_CONTAINER" == "1" && "$IS_SPEC_BRANCH" == "1" ]]; then
+  fail E_SPEC_NEEDS_CONTAINER preflight \
+    "'$BRANCH' is named as spec/feature work (speckit's <number>-<slug> form), which MUST run in its own container." \
+    "Constitution, Development Workflow & Quality Gates: a spec's worktree container is what keeps concurrent specs from contaminating each other." \
+    "Start it with:  bin/wt $BRANCH"
+fi
+
 # Every check in this block is about the container toolchain, so a
 # --no-container run skips the lot: needing Docker Desktop awake to start
 # a docs branch is exactly the friction --no-container exists to remove.
@@ -542,17 +571,19 @@ if [[ "$BASE_GIVEN" == "1" && "$BASE_USED" != "1" ]]; then
   log_event warn worktree W_BASE_IGNORED "--base=$BASE ignored; branch already exists" 0
 fi
 
-# A spec folder is what makes a branch spec/feature work, and spec work is
-# the only kind the constitution requires a container for. Deciding it from
-# the worktree's own specs/ directory rather than from the branch name
-# means a branch that acquires a spec folder later is caught the next time
-# it is started, and a `chore/*` name cannot be used to opt spec work out
-# of its isolation.
-IS_SPEC_BRANCH=0
-[[ -d "$WORKTREE_PATH/specs/$BRANCH" ]] && IS_SPEC_BRANCH=1
+# The second half of the spec test (the first, by branch name, ran in
+# preflight): a specs/<branch>/ folder settles it regardless of how the
+# branch is named. This can only run once the worktree exists, so unlike
+# the name check it cannot refuse before creating one -- a worktree left
+# behind by this refusal is harmless, and plain `bin/wt <branch>` picks it
+# straight back up. Tagged `worktree`, not `preflight`, so log triage
+# attributes it to the phase it actually ran in.
+if [[ -d "$WORKTREE_PATH/specs/$BRANCH" ]]; then
+  IS_SPEC_BRANCH=1
+fi
 
 if [[ "$NO_CONTAINER" == "1" && "$IS_SPEC_BRANCH" == "1" ]]; then
-  fail E_SPEC_NEEDS_CONTAINER preflight \
+  fail E_SPEC_NEEDS_CONTAINER worktree \
     "'$BRANCH' has a spec folder (specs/$BRANCH), so it is spec/feature work and MUST run in its own container." \
     "Constitution, Development Workflow & Quality Gates: a spec's worktree container is what keeps concurrent specs from contaminating each other." \
     "Start it with:  bin/wt $BRANCH"
