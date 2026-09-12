@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 /**
  * Save-before-sign-out prompt (009-save-and-continue, FR-004, FR-005) — offered only
  * when the player has an active game in progress (NavBar decides that). Progress is
@@ -6,6 +8,18 @@
  * pattern.
  */
 export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, onCancel }) {
+  const saveButtonRef = useRef(null);
+
+  useEffect(() => {
+    saveButtonRef.current?.focus();
+  }, []);
+
+  const handleKeyDown = (event) => {
+    if (event.key === "Escape") {
+      onCancel();
+    }
+  };
+
   return (
     <div className="dialog-backdrop">
       <div
@@ -14,6 +28,7 @@ export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, o
         aria-modal="true"
         aria-labelledby="logout-save-prompt-title"
         style={{ width: "min(520px,100%)", padding: "32px" }}
+        onKeyDown={handleKeyDown}
       >
         <div className="dialog-title" id="logout-save-prompt-title" style={{ fontSize: "24px" }}>
           Save before you go?
@@ -29,6 +44,7 @@ export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, o
         )}
         <hr className="hr" style={{ margin: "6px 0" }} />
         <button
+          ref={saveButtonRef}
           className="btn btn-primary btn-block"
           type="button"
           style={{ padding: "14px 16px", fontSize: "16px", margin: 0 }}

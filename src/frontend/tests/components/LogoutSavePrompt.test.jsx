@@ -70,4 +70,24 @@ describe("LogoutSavePrompt (009-save-and-continue, FR-004, FR-005)", () => {
       expect(screen.getByRole("button", { name })).toBeVisible();
     }
   });
+
+  it("moves focus onto the primary action when it opens", () => {
+    render(<LogoutSavePrompt saving={false} failureMessage={null} onSave={() => {}} onDontSave={() => {}} onCancel={() => {}} />);
+
+    expect(screen.getByRole("button", { name: /save and sign out/i })).toHaveFocus();
+  });
+
+  it("calls onCancel and does neither save nor sign out when Escape is pressed", async () => {
+    const onSave = vi.fn();
+    const onDontSave = vi.fn();
+    const onCancel = vi.fn();
+    const user = userEvent.setup();
+    render(<LogoutSavePrompt saving={false} failureMessage={null} onSave={onSave} onDontSave={onDontSave} onCancel={onCancel} />);
+
+    await user.keyboard("{Escape}");
+
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onDontSave).not.toHaveBeenCalled();
+  });
 });
