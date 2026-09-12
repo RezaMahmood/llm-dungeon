@@ -4,7 +4,10 @@
 
 **Created**: 2026-08-29
 
-**Status**: Draft
+**Status**: Abandoned — not proceeding. The safeguards cost more than they are worth at
+this application's scale, and FR-002b is not achievable as written: the Application
+Insights JS SDK hardcodes the `traceparent` sampled flag, so the browser cannot hand its
+keep-or-drop decision to the backend without owning the propagation itself.
 
 **Input**: Split out of `013-opentelemetry-observability` on 2026-08-29, so that spec covers at most two user stories. This spec covers the third user story originally specified there — "Observability Keeps Working When Application Insights Is Unavailable or Unconfigured" — along with the data-volume-pressure and error-burst edge cases that originally accompanied it.
 
