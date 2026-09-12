@@ -1,28 +1,29 @@
 <!--
 Sync Impact Report
-Version change: 7.1.0 -> 7.2.0
+Version change: 7.2.0 -> 8.0.0
 Modified principles: none. All principle numbers and headings are unchanged.
 Modified sections:
   - Development Workflow & Quality Gates: the worktree requirement and the container
-    requirement, previously one rule, are now two. Every branch gets its own worktree;
-    only spec/feature branches additionally get a container. Non-spec work (chore/*,
-    fix/*, docs/*, perf/*) previously MAY have run in the primary checkout, which made
-    that single directory the one place most of the repo's work had to queue for — and
-    the source of the branch drift it was meant to prevent. It now runs in its own
-    worktree, on the host, without a container.
+    requirement are both removed. Work is no longer required to run in a worktree
+    dedicated to its branch, spec/feature work is no longer required to run in that
+    worktree's own devcontainer, and no branch type is refused a location. Worktrees and
+    containers remain supported and their lifecycle rules (naming, pruning, staleness)
+    still apply to worktrees that exist — they are now a choice the user makes per
+    session, not a precondition for working. The prohibition on working directly on
+    `main` is unchanged, as is the rule that a session MUST NOT read or write another
+    session's checkout. `docs/WORKTREE_CONTAINER_WORKFLOW.md` is now referenced as an
+    option rather than as the required workflow.
 Added sections: none.
 Removed sections: none.
-Rationale for MINOR rather than MAJOR: no principle is removed or redefined, and the
-  isolation guarantee this section exists to provide is unchanged — spec work keeps its
-  container, and a worktree's container still MUST NOT be shared. The change expands
-  where the existing worktree requirement applies. This also matters operationally: a
-  MAJOR bump blocks every worktree that has not yet rebased (see the staleness rule in
-  this section), which would have stopped in-flight sessions mid-task for a change that
-  does not alter what they are permitted to do.
+Rationale for MAJOR: a requirement every session was previously bound by is withdrawn, so
+  sessions governed by 8.0.0 are permitted to work where 7.2.0 forbade it. That is a
+  backward-incompatible governance change under the amendment rule, even though it only
+  relaxes. The staleness rule means worktrees a MAJOR behind must rebase before further
+  work; that is the intended effect here, since their sessions would otherwise keep
+  enforcing a workflow the project has retired.
 Deferred/TODO placeholders: none.
 Earlier Sync Impact Reports are in this file's git history.
 -->
-
 # LLM Dungeon Adventure Constitution
 
 ## Core Principles
@@ -395,33 +396,18 @@ GitHub-side actions only — they do not change where code is written or tested.
   already exists — a module path, symbol, constant, field, or endpoint — where that code is
   absent from `origin/main` and is not declared as a named, not-yet-merged dependency
   (Principle XIII). Identifiers an artifact proposes to create are not findings.
-- All work MUST run inside a git worktree dedicated to its own branch, started via
-  `bin/wt <branch>`. The primary checkout stays on the trunk, and is reserved for the
-  cross-worktree lifecycle tooling (`bin/wt-prune`, `bin/wt-sync`) that by design cannot
-  see a worktree's siblings from inside one. Giving every branch its own worktree is what
-  lets several pieces of work be in flight at once without one session's branch switch
-  moving the ground under another — the primary checkout holds one branch at a time, so
-  routing work through it serialises that work and is how branches came to be cut from
-  whatever `HEAD` happened to be.
-- Spec/feature work — work on a branch with a matching `specs/<branch>/` folder — MUST
-  additionally run in that worktree's own isolated devcontainer, and a worktree's container
-  MUST NOT be shared with another worktree; this keeps concurrent specs from
-  cross-contaminating. Work on a branch with no spec folder (e.g. `chore/*`, `fix/*`,
-  `docs/*`, `perf/*`) MAY run without a container, on the host in its own worktree
-  (`bin/wt <branch> --no-container`), since it carries no cross-spec contamination risk.
-  A branch that is spec work MUST NOT be started this way, and `bin/wt` refuses it —
-  identifying it from speckit's `<number>-<slug>` branch name before the worktree exists,
-  and from a `specs/<branch>/` folder once it does, so that neither a branch too new to
-  have a spec folder nor one named against convention can opt out.
-- A session in a container-less worktree MUST NOT read or write another worktree under
-  `.worktrees/`. On the host that separation is a rule rather than an enforced boundary —
-  a sibling worktree is reachable by relative path, where from inside a container it is
-  not present at all. That asymmetry is the reason the container requirement is kept for
-  spec work rather than dropped everywhere.
+- Work MAY run in the primary checkout, in a git worktree (`bin/wt <branch>`), or in a
+  devcontainer. No branch type requires any of them, and none is refused any of them.
+  Worktrees and containers remain the way to keep several pieces of work in flight at
+  once without one session's branch switch moving the ground under another, and spec work
+  in a container remains the way to keep concurrent specs from cross-contaminating; both
+  are now the user's call per session rather than a precondition for working.
+- A session MUST NOT read or write another session's checkout or worktree. Where that
+  separation is not enforced by a container boundary it is a rule the agent keeps.
 - No work of any kind happens directly on `main`.
-- A worktree MUST live at `.worktrees/<branch>`, its directory name spelling out its branch
-  name exactly; the container identity, the edit guard, and the lifecycle tools all key off
-  that equality.
+- A worktree that is created MUST live at `.worktrees/<branch>`, its directory name spelling
+  out its branch name exactly; the container identity, the edit guard, and the lifecycle
+  tools all key off that equality.
 - Worktrees and branches MUST be pruned once their pull request is merged, and merge MUST be
   determined from GitHub's record of that pull request (`bin/wt-prune`), never from git
   ancestry — squash merging means a merged branch's tip is never an ancestor of `main`, so
@@ -433,7 +419,8 @@ GitHub-side actions only — they do not change where code is written or tested.
   replaced; `bin/wt-sync` detects this and `bin/wt` refuses to start such a worktree. Lesser
   drift in the bootstrap files (`CLAUDE.md`, this constitution's minor and patch versions,
   Claude settings, hook scripts, `bin/`, `.devcontainer/`) is a warning, not a block.
-- See `docs/WORKTREE_CONTAINER_WORKFLOW.md` for the full workflow.
+- See `docs/WORKTREE_CONTAINER_WORKFLOW.md` for how worktrees and containers work when a
+  session uses them; that document describes an option, not a required workflow.
 
 ## Environments & Deployment Pipeline
 
@@ -630,4 +617,4 @@ visual-rules, interaction-state, or layout and scroll requirements as a blocking
 feature may ship a screen that is not traceable to a screen contract above or to a
 documented amendment extending one.
 
-**Version**: 7.2.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
+**Version**: 8.0.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
