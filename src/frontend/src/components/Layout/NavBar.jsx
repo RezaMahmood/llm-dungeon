@@ -56,7 +56,9 @@ export function NavBar() {
     try {
       const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
       const data = await listSavedGames(tokenResponse.accessToken);
-      const active = (data.sessions || []).find((s) => s.status === "active" && s.isActiveForPlayer);
+      // The list is already server-filtered to status == "active" sessions
+      // (contracts/api.md) — it carries no `status` field of its own.
+      const active = (data.sessions || []).find((s) => s.isActiveForPlayer);
       if (active) {
         setActiveSessionId(active.sessionId);
         setFailureMessage(null);

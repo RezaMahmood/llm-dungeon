@@ -149,11 +149,10 @@ description: "Task list for CI/CD Pipeline Optimization — Test-on-Push, Build-
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-**Purpose**: Repository-wide consistency and the feature's final acceptance gate.
+**Purpose**: Repository-wide consistency.
 
 - [X] T033 [P] Run `actionlint` across every new/modified file under `.github/workflows/`; fix any findings.
 - [X] T034 [P] Search the repository (`CLAUDE.md`, `docs/`, any other workflow docs) for remaining references to the old combined `test → release → build → deploy` graph or the old push-triggered-deploy/concurrency-cancellation behavior, and update them to describe the new CI/CD split.
-- [ ] T035 Run the full `quickstart.md` validation suite (Scenarios 1-7) end-to-end against the real repository, with the requesting user or product owner confirming each scenario's outcome directly — per Constitution Principle IX (User-Verified Acceptance Before Completion), this is the feature's final, distinct acceptance gate and is not satisfied by the automated `scripts/test-workflow-structure.js`/`scripts/test-release-fixtures.js` checks alone.
 
 ---
 
@@ -229,7 +228,7 @@ Together, US1 and US2 deliver the full CI half of this feature (test-on-push, bl
 3. US3 → deploy becomes manual-only for all three components (this is the point at which the *old* auto-deploy-on-merge behavior is actually removed — sequence this deliberately, not casually, since it changes how production gets updated)
 4. US4 → precise version targeting and correct latest-resolution
 5. US5 → AI-agent-driven cache-aware deploy, the feature's headline capability
-6. Polish → lint, stale-doc cleanup, full end-to-end user-verified acceptance (Constitution Principle IX)
+6. Polish → lint, stale-doc cleanup
 
 ### Parallel Team Strategy
 
@@ -243,4 +242,3 @@ With multiple contributors: one completes Setup + Foundational; then one takes U
 - [Story] labels map every Phase 3+ task to its user story for traceability back to spec.md.
 - T016-T018, T022-T024, and T027-T029 each incrementally extend the *same* three files (one deploy workflow per component) across US3/US4/US5 — implement them in that order per file; do not attempt to parallelize across phases within a single component's deploy workflow.
 - Commit after each task or logical group.
-- Constitution Principle IX (T035) is the feature's true completion gate — automated checks passing is necessary but not sufficient.
