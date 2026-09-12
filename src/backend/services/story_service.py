@@ -224,6 +224,7 @@ class StoryService:
         persisted = Story.from_dict(item)
         if persisted.startingPoint:
             story.startingPoint = persisted.startingPoint
+            story.totalTokens = persisted.totalTokens
             return story
         persisted.startingPoint = story.startingPoint
         persisted.totalTokens += tokens_used
@@ -358,14 +359,36 @@ class StoryService:
         very gate this write satisfies (`can_publish()`). `tokens_used` is also added to
         `Story.totalTokens` in the same read-modify-write (research.md Decision 3) — a
         test-play exchange counts toward the story's authoring-lifecycle total as well as
-        the test session's own total."""
-        story = self.get_story(story_id)
-        if story is None:
-            return None
-        story.lastTestPlayedAt = _now()
-        story.totalTokens += tokens_used
-        self._container().upsert_item(story.to_dict())
-        return story
+        the test session's own total. Guarded by the Cosmos `_etag` and retried against a
+        fresh read on a lost race, like every other `Story.totalTokens` write path in this
+        file — two test-play exchanges landing concurrently must not let one's accrual
+        silently overwrite the other's. A race lost on every attempt is logged and
+        accepted rather than raised, so a pile-up of concurrent test plays never turns an
+        otherwise-successful turn into a 500 for its caller (research.md Decision 2's
+        negligible-undercount precedent)."""
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            item = self._read_item(story_id)
+            if item is None:
+                return None
+            story = Story.from_dict(item)
+            story.lastTestPlayedAt = _now()
+            story.totalTokens += tokens_used
+            try:
+                self._container().replace_item(
+                    item=story.id,
+                    body=story.to_dict(),
+                    etag=item["_etag"],
+                    match_condition=MatchConditions.IfNotModified,
+                )
+                return story
+            except CosmosAccessConditionFailedError:
+                if attempt >= max_attempts:
+                    logger.warning(
+                        "Test-play token accrual lost a repeated etag race; giving up",
+                        extra={"story_id": story_id},
+                    )
+                    return story
 
     def unpublish(self, story_id: str) -> Optional[Story]:
         """Unpublish `story_id` (FR-004), idempotent (FR-006); `lastPublishedAt` is left

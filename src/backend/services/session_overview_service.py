@@ -44,35 +44,24 @@ class SessionOverviewService:
         def _email(object_id: Optional[str]) -> str:
             return email_by_object_id.get(object_id, UNPROVISIONED_ACCOUNT_LABEL)
 
-        player_rows = self._cosmos.query(
-            config.PLAY_SESSIONS_CONTAINER,
-            "SELECT c.id, c.adventureId, c.playerId, c.totalTokens FROM c WHERE c.entityType = 'PlaySession'",
-        )
-        test_rows = self._cosmos.query(
-            config.TEST_PLAY_SESSIONS_CONTAINER,
-            "SELECT c.id, c.storyId, c.administratorId, c.totalTokens FROM c WHERE c.entityType = 'TestPlaySession'",
-        )
+        def _rows(session_type: str, container: str, entity_type: str, story_id_field: str, account_id_field: str):
+            rows = self._cosmos.query(
+                container,
+                f"SELECT c.id, c.{story_id_field}, c.{account_id_field}, c.totalTokens "
+                f"FROM c WHERE c.entityType = '{entity_type}'",
+            )
+            return [
+                {
+                    "sessionId": row["id"],
+                    "sessionType": session_type,
+                    "storyId": row[story_id_field],
+                    "storyName": _story_name(row[story_id_field]),
+                    "totalTokens": row.get("totalTokens") or 0,
+                    "email": _email(row.get(account_id_field)),
+                }
+                for row in rows
+            ]
 
-        sessions = [
-            {
-                "sessionId": row["id"],
-                "sessionType": "player",
-                "storyId": row["adventureId"],
-                "storyName": _story_name(row["adventureId"]),
-                "totalTokens": row.get("totalTokens") or 0,
-                "email": _email(row.get("playerId")),
-            }
-            for row in player_rows
-        ]
-        sessions.extend(
-            {
-                "sessionId": row["id"],
-                "sessionType": "test",
-                "storyId": row["storyId"],
-                "storyName": _story_name(row["storyId"]),
-                "totalTokens": row.get("totalTokens") or 0,
-                "email": _email(row.get("administratorId")),
-            }
-            for row in test_rows
+        return _rows("player", config.PLAY_SESSIONS_CONTAINER, "PlaySession", "adventureId", "playerId") + _rows(
+            "test", config.TEST_PLAY_SESSIONS_CONTAINER, "TestPlaySession", "storyId", "administratorId"
         )
-        return sessions

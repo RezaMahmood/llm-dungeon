@@ -308,21 +308,21 @@ def test_unpublish_returns_none_for_missing_story():
 
 
 def test_record_test_play_sets_last_test_played_at_and_leaves_content_updated_at_unchanged():
-    story = _story(contentUpdatedAt="2026-08-30T09:00:00Z", lastTestPlayedAt=None)
-    service = _service_with(story)
+    story = _story(id="story-1", contentUpdatedAt="2026-08-30T09:00:00Z", lastTestPlayedAt=None)
+    service, cosmos, _llm = _service_with_etag(story)
 
     result = service.record_test_play(story.id, 250)
 
     assert result.lastTestPlayedAt is not None
     assert result.contentUpdatedAt == "2026-08-30T09:00:00Z"
-    service._container().upsert_item.assert_called_once_with(result.to_dict())
+    assert cosmos.get_container("stories").items["story-1"]["lastTestPlayedAt"] == result.lastTestPlayedAt
 
 
 def test_record_test_play_adds_tokens_to_the_story_total():
     """research.md Decision 3 — a test-play exchange's tokens count toward the story's
     authoring-lifecycle total, on top of whatever it already carried."""
-    story = _story(totalTokens=100)
-    service = _service_with(story)
+    story = _story(id="story-1", totalTokens=100)
+    service, _cosmos, _llm = _service_with_etag(story)
 
     result = service.record_test_play(story.id, 50)
 
@@ -330,8 +330,8 @@ def test_record_test_play_adds_tokens_to_the_story_total():
 
 
 def test_record_test_play_flips_can_publish_from_false_to_true():
-    story = _story(contentUpdatedAt="2026-08-30T09:00:00Z", lastTestPlayedAt=None)
-    service = _service_with(story)
+    story = _story(id="story-1", contentUpdatedAt="2026-08-30T09:00:00Z", lastTestPlayedAt=None)
+    service, _cosmos, _llm = _service_with_etag(story)
 
     assert service.can_publish(story) is False
 
@@ -346,6 +346,52 @@ def test_record_test_play_returns_none_for_missing_story():
     service = StoryService(cosmos_service=cosmos)
 
     assert service.record_test_play("missing", 10) is None
+
+
+def test_record_test_play_retries_against_a_fresh_read_on_a_lost_etag_race():
+    """Two test-play exchanges landing concurrently must not let one's accrual silently
+    overwrite the other's — unlike the upsert this replaced, a lost race re-reads the
+    row a concurrent writer just updated and re-applies this accrual on top of it."""
+    story = _story(id="story-1", totalTokens=100)
+    service, cosmos, _llm = _service_with_etag(story)
+    container = cosmos.get_container("stories")
+    real_replace_item = container.replace_item
+    calls = {"n": 0}
+
+    def _replace_item(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            concurrent = _story(id="story-1", totalTokens=130)
+            container.items["story-1"] = concurrent.to_dict() | {"_etag": "etag-concurrent"}
+            from azure.cosmos.exceptions import CosmosAccessConditionFailedError
+
+            raise CosmosAccessConditionFailedError
+        return real_replace_item(*args, **kwargs)
+
+    container.replace_item = _replace_item
+
+    result = service.record_test_play(story.id, 50)
+
+    assert result.totalTokens == 180
+    assert container.items["story-1"]["totalTokens"] == 180
+
+
+def test_record_test_play_gives_up_without_raising_after_repeated_conflicts():
+    """A race lost on every attempt is accepted, not raised — the test-play turn that
+    triggered this accrual already persisted successfully, and must not come back to
+    the caller as a failure (research.md Decision 2's negligible-undercount precedent)."""
+    from azure.cosmos.exceptions import CosmosAccessConditionFailedError
+
+    story = _story(id="story-1", totalTokens=100)
+    service, cosmos, _llm = _service_with_etag(story)
+    cosmos.get_container("stories").replace_item = MagicMock(side_effect=CosmosAccessConditionFailedError)
+
+    result = service.record_test_play(story.id, 50)
+
+    assert result is not None
+    assert result.totalTokens == 150
+    # Never persisted — every attempt lost the race.
+    assert cosmos.get_container("stories").items["story-1"]["totalTokens"] == 100
 
 
 def test_list_published_summaries_returns_adventure_summary_shape():
