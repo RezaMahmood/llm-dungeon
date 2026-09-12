@@ -3,12 +3,10 @@
 Operational instructions for Claude Code sessions in this repo: how
 Claude works here, and what it must and must not do on GitHub.
 
-The repository's own rules — the ones every contributor is bound by,
-whatever tool they use — live in
-[`.specify/memory/constitution.md`](.specify/memory/constitution.md) and
-`CONTRIBUTING.md`. They govern this file rather than the other way round.
-Where the two disagree, this file is wrong and MUST be corrected, not
-worked around.
+This file binds Claude only. It states no rule for the repository or for
+anyone else working in it, and it is not the authority on either: where
+it contradicts the project's own governing documents, this file is wrong
+and MUST be corrected, not worked around.
 
 ## Session isolation
 
