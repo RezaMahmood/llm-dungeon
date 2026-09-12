@@ -1,30 +1,31 @@
 <!--
 Sync Impact Report
-Version change: 7.2.0 -> 8.0.0
-Modified principles: none. All principle numbers and headings are unchanged.
+Version change: 8.0.0 -> 8.1.0
+Modified principles: XIII (AI Agent Division of Labor) — wording only; the division of
+  labor, the sync requirement, the merge prohibition and the issue-closing conditions are
+  unchanged.
 Modified sections:
-  - Development Workflow & Quality Gates: the worktree requirement and the container
-    requirement are both removed. Work is no longer required to run in a worktree
-    dedicated to its branch, spec/feature work is no longer required to run in that
-    worktree's own devcontainer, and no branch type is refused a location. Worktrees and
-    containers remain supported and their lifecycle rules (naming, pruning, staleness)
-    still apply to worktrees that exist — they are now a choice the user makes per
-    session, not a precondition for working. The prohibition on working directly on
-    `main` is unchanged, as is the rule that a session MUST NOT read or write another
-    session's checkout. `docs/WORKTREE_CONTAINER_WORKFLOW.md` is now referenced as an
-    option rather than as the required workflow.
+  - Principle XIII, AI Agent / GitHub Handoff Requirements, and Development Workflow &
+    Quality Gates: references to one specific vendor's agent and to that agent's
+    instruction file are replaced with agent-neutral wording. The mandatory pre-merge AI
+    review pass, its deliberate tier choice (blast radius, then diff size, then how the
+    change was authored) and the deepest-tier list are unchanged; the pass is no longer
+    described as one named product's command. The `AI Generated` label stays mandatory and
+    is now joined by "a label naming the agent that produced it" rather than one fixed
+    agent name. The pull request description contract is stated here in full instead of
+    deferring to an agent instruction file, and the bootstrap-staleness list names "agent
+    instruction and settings files" generically.
 Added sections: none.
 Removed sections: none.
-Rationale for MAJOR: a requirement every session was previously bound by is withdrawn, so
-  sessions governed by 8.0.0 are permitted to work where 7.2.0 forbade it. That is a
-  backward-incompatible governance change under the amendment rule, even though it only
-  relaxes. The staleness rule means worktrees a MAJOR behind must rebase before further
-  work; that is the intended effect here, since their sessions would otherwise keep
-  enforcing a workflow the project has retired.
+Rationale for MINOR: no requirement is added or withdrawn, but the set of tools that can
+  satisfy the review-pass requirement is materially widened — a contributor using a
+  different agent is no longer non-compliant by definition. That is expanded guidance
+  rather than a clarification, and it removes the assumption that everyone working this
+  repository uses the same assistant. A constitution governs the project; a vendor's
+  instruction file governs that vendor's agent, and neither should depend on the other.
 Deferred/TODO placeholders: none.
 Earlier Sync Impact Reports are in this file's git history.
--->
-# LLM Dungeon Adventure Constitution
+--># LLM Dungeon Adventure Constitution
 
 ## Core Principles
 
@@ -182,10 +183,9 @@ justify them. This turns Principle IV's general YAGNI stance into an enforced pr
 check for the patterns most likely to be assumed rather than requested.
 
 ### XIII. AI Agent Division of Labor: Agents Push & Open PRs, Humans Merge (NON-NEGOTIABLE)
-Local AI agents (Claude Code, Cursor, or an equivalent local LLM-based assistant) MAY
-write code, run local tests, and perform all spec-related work — intake, specify, clarify,
-plan, tasks, analyze. Spec-related work MUST stay local: it MUST NOT be delegated to
-Claude Code's `/code-review` skill or another GitHub-side review agent.
+A local AI coding agent MAY write code, run local tests, and perform all spec-related
+work — intake, specify, clarify, plan, tasks, analyze. Spec-related work MUST stay local:
+it MUST NOT be delegated to a GitHub-side review agent.
 
 Work MUST start from a synced tree. Before any development or spec-related work begins on
 a branch — planning, tasks, clarify, and analyze included, not implementation alone — that
@@ -204,11 +204,10 @@ where that branch still exists and the push would succeed. Such work MUST go ont
 branch behind a new pull request.
 
 An agent MUST NOT merge a pull request and MUST NOT enable auto-merge on one, by any
-route, even where it has the technical means. The pull request MUST instead be reviewed
-via Claude Code's `/code-review` skill (`/code-review ultra <PR#>` for a full multi-agent
-cloud review posted to the PR), triggered explicitly by the requesting user or by Claude
-Code when asked — not automatically on push. That review posts findings; it does not
-produce a formal approving review and does not merge. The requesting user or product owner
+route, even where it has the technical means. The pull request MUST instead go through the AI
+review pass required by Development Workflow & Quality Gates, triggered explicitly by the
+requesting user or by the agent when asked — never automatically on push. That review
+posts findings; it does not produce a formal approving review and does not merge. The requesting user or product owner
 MUST read those findings together with the required CI and status checks, then merge
 manually.
 
@@ -222,8 +221,8 @@ close one on its own initiative.
 Rationale: a pull request opened by an automation identity through a GitHub Actions
 workflow is treated as an outside contributor's, so its checks sit pending a manual
 "approve and run workflows" click every time; having the agent open the PR as the
-developer's own authenticated action avoids that gate while the `/code-review` skill still
-gives a consistent review pass whichever local tool pushed the branch. Merging stays manual
+developer's own authenticated action avoids that gate, while the GitHub-side review pass
+still applies consistently whichever local tool pushed the branch. Merging stays manual
 because that is where the decision to accept a change is made, and a findings-only review
 pass would otherwise let a change land with nobody having weighed it. Closing an issue is
 not the same act: it records a decision a human already made at merge, so an agent may do
@@ -340,9 +339,9 @@ specifics:
 Principle XIII fixes the division of labor. These are its mechanics, and they govern
 GitHub-side actions only — they do not change where code is written or tested.
 
-- A pull request an agent opens MUST carry both the `AI Generated` and `Claude` labels,
-  MUST NOT link to the agent's own session or transcript, and MUST NOT have auto-merge
-  enabled.
+- A pull request an agent opens MUST carry the `AI Generated` label and a label naming the
+  agent that produced it, MUST NOT link to the agent's own session or transcript, and MUST
+  NOT have auto-merge enabled.
 - Before pushing to a remote branch, an agent MUST confirm the state of any pull request
   associated with it (e.g. `gh pr view <branch> --json state`). If that pull request is
   merged or closed, the agent MUST NOT push; it MUST branch off the current main and open a
@@ -359,8 +358,8 @@ GitHub-side actions only — they do not change where code is written or tested.
   fast-forward or merge of `origin/main` into the branch. Existing code an artifact
   describes MUST then be read from that synced tree or from `origin/main` directly (e.g.
   `git show origin/main:<path>`), never from another local branch or worktree.
-- Skipping the `/code-review` pass — for instance an emergency fix — MUST be called out
-  explicitly by the person directing the work. It is never a default agent behavior.
+- Skipping the review pass — for instance an emergency fix — MUST be called out explicitly
+  by the person directing the work. It is never a default agent behavior.
 
 ## Development Workflow & Quality Gates
 
@@ -376,19 +375,19 @@ GitHub-side actions only — they do not change where code is written or tested.
   blocks merge.
 - Every pull request MUST have a review pass before merge, covering correctness, compliance
   with this constitution, and meaningful test quality rather than the mere presence of
-  tests. That pass is Claude Code's `/code-review` skill (Principle XIII); this project has
-  one maintainer, so a second contributor's approving review is unavailable and the
-  repository ruleset accordingly requires zero approving reviews. The tier MUST be chosen
-  deliberately rather than defaulted to, using the triage rule in `CLAUDE.md` (blast radius
-  first, then diff size, then how the change was authored). A change touching
+  tests. That pass is performed by an AI review agent on the pull request (Principle XIII);
+  this project has one maintainer, so a second contributor's approving review is
+  unavailable and the repository ruleset accordingly requires zero approving reviews.
+  Review depth MUST be chosen deliberately rather than defaulted to, weighing blast radius
+  first, then diff size, then how the change was authored. A change touching
   authentication, secrets, permissions, CI/CD, deployment, infrastructure, persisted-data
-  schema, release machinery, or this constitution and its operational mirrors MUST receive
-  the deepest tier (`/code-review ultra <PR#>`) whatever its size.
+  schema, release machinery, or this constitution and the agent instruction files that
+  mirror it MUST receive the deepest review available, whatever its size.
 - A pull request description MUST carry the account of the change that survives to `main`:
   the problem it addresses and the evidence for it, what was decided and why, what was
   actually tested and what that returned, what is deliberately left undone, and the review
   tier being recommended. It MUST NOT claim a check that was not run, quote a measurement
-  that was not taken, or assert an approving review. The full contract is in `CLAUDE.md`.
+  that was not taken, or assert an approving review.
 - A passing test suite and a green CI run make a feature complete and mergeable. This
   constitution does not require, or forbid, any manual or user-verified testing step beyond
   that; where the project wants one, it happens outside the speckit workflow.
@@ -417,8 +416,9 @@ GitHub-side actions only — they do not change where code is written or tested.
 - A worktree whose copy of this constitution is a MAJOR version behind `origin/main` MUST
   NOT be worked in until it is rebased, since its session would be governed by rules already
   replaced; `bin/wt-sync` detects this and `bin/wt` refuses to start such a worktree. Lesser
-  drift in the bootstrap files (`CLAUDE.md`, this constitution's minor and patch versions,
-  Claude settings, hook scripts, `bin/`, `.devcontainer/`) is a warning, not a block.
+  drift in the bootstrap files (agent instruction and settings files, this constitution's
+  minor and patch versions, hook scripts, `bin/`, `.devcontainer/`) is a warning, not a
+  block.
 - See `docs/WORKTREE_CONTAINER_WORKFLOW.md` for how worktrees and containers work when a
   session uses them; that document describes an option, not a required workflow.
 
@@ -617,4 +617,4 @@ visual-rules, interaction-state, or layout and scroll requirements as a blocking
 feature may ship a screen that is not traceable to a screen contract above or to a
 documented amendment extending one.
 
-**Version**: 8.0.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
+**Version**: 8.1.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
