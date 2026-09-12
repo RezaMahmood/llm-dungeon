@@ -9,7 +9,7 @@
 
 All decisions below were taken against the code as it exists on `main` today
 (`004-story-creation-done`, `005-story-publishing-done`, `008-core-gameplay-done` are implemented;
-`010-story-test-play`, `011-story-import`, `017-story-publish-test-play-gate` are spec-only).
+`010-story-test-play-done`, `011-story-import`, `017-story-publish-test-play-gate` are spec-only).
 
 ---
 

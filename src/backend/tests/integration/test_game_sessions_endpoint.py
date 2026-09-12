@@ -624,7 +624,7 @@ def test_success_condition_completion_returns_matched_detail(request_factory):
     assert body["completionReason"]["detail"] == "the player says the word lighthouse"
 
 
-# --- Story deleted / unpublished (025-story-delete FR-007, FR-008, T016) ---
+# --- Story deleted / unpublished (025-story-delete-done FR-007, FR-008, T016) ---
 
 
 def test_submit_interaction_against_deleted_story_returns_404_story_deleted(request_factory):

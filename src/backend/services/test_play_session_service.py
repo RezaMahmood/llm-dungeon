@@ -1,5 +1,5 @@
 """TestPlaySessionService — an administrator's interactive test playthrough of a draft
-story (010-story-test-play research.md, data-model.md). Reuses `LLMService.generate_gameplay_turn()`
+story (010-story-test-play-done research.md, data-model.md). Reuses `LLMService.generate_gameplay_turn()`
 for turns 1+ and `StoryService.ensure_starting_point()`/`story.startingPoint` for turn 0,
 plus the shared `completion_rules` module, rather than the player session lifecycle: no
 `published` gate, no per-player exclusivity, no content-safety accrual against the

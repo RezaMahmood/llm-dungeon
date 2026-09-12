@@ -120,11 +120,24 @@ different status or message that would confirm the id exists.
 **Response (404 Not Found)**:
 
 ```json
-{ "error": "not_found", "message": "Session not found" }
+{
+  "error": "story_deleted",
+  "message": "Story has been deleted. You can no longer continue this story.",
+  "promptReturnToList": true
+}
 ```
 
 Concluded sessions **are** readable here (a player may open a finished game's record);
 only the *list* excludes them.
+
+**Note (post-`025-story-delete`)**: this handler's 404 reuses the same
+`story_deleted`/`promptReturnToList` body it returns when the session's story was
+deleted, because both a missing session and a deleted-story session resolve the same
+way for this endpoint — there is nothing left to rebuild the play surface from either
+way. `POST .../checkpoints` below was not touched by `025-story-delete` and still
+returns the plain `{"error": "not_found", "message": "Session not found"}` body for an
+unknown id, so the two endpoints now intentionally differ: only the detail read needs
+to tell the client to prompt a return to the stories list.
 
 ---
 

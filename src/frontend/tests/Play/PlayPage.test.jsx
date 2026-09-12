@@ -150,7 +150,7 @@ describe("PlayPage (008-core-gameplay-done)", () => {
     expect(screen.getByLabelText(/what do you do next/i)).toBeDisabled();
   });
 
-  // --- 025-story-delete (FR-007, FR-008): story deleted / unpublished ---
+  // --- 025-story-delete-done (FR-007, FR-008): story deleted / unpublished ---
 
   it("shows the specific deleted notice with a return-to-list action on a 404 story_deleted", async () => {
     submitInteraction.mockRejectedValue({

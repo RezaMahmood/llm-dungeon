@@ -175,7 +175,7 @@ describe("Save and continue: sign-out round trip (009-save-and-continue, US2 Acc
 
   it("accepting the prompt records a marker and the resumed game later shows every turn plus the marker", async () => {
     listSavedGames.mockResolvedValue({
-      sessions: [{ ...SAVED_GAME, status: "active", isActiveForPlayer: true }],
+      sessions: [{ ...SAVED_GAME, isActiveForPlayer: true }],
     });
     saveCheckpoint.mockResolvedValue({ checkpoint: { label: "The keeper's stairs", turnNumber: 1, createdAt: "now" } });
     const user = userEvent.setup();
@@ -205,7 +205,7 @@ describe("Save and continue: sign-out round trip (009-save-and-continue, US2 Acc
 
   it("declining records none and the resumed game shows exactly the same turns", async () => {
     listSavedGames.mockResolvedValue({
-      sessions: [{ ...SAVED_GAME, status: "active", isActiveForPlayer: true }],
+      sessions: [{ ...SAVED_GAME, isActiveForPlayer: true }],
     });
     const user = userEvent.setup();
     render(
@@ -233,8 +233,8 @@ describe("Save and continue: sign-out round trip (009-save-and-continue, US2 Acc
 // submitting a turn — is where they normally first meet a story that became
 // unavailable while the row sat on their screen. Both calls `handleResume` makes can
 // report it, and each reason gets its own specific message rather than the shared
-// generic one (025-story-delete FR-007, FR-008, contracts/api.md Validation Rules).
-describe("Resuming a story that became unavailable (025-story-delete FR-007, FR-008)", () => {
+// generic one (025-story-delete-done FR-007, FR-008, contracts/api.md Validation Rules).
+describe("Resuming a story that became unavailable (025-story-delete-done FR-007, FR-008)", () => {
   const DELETED = {
     response: {
       status: 404,

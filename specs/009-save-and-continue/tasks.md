@@ -263,3 +263,16 @@ never read one back.
   server's own active-game flag (research.md Decision 6, spec Assumptions)
 - Commit after each task or logical group; stop at either story checkpoint to validate
   independently
+
+---
+
+## Phase 6: Convergence
+
+**Purpose**: Close gaps found by `/speckit-converge` between the shipped code and this
+feature's spec/plan/contracts. See the Convergence Findings summary produced alongside this
+run for full evidence.
+
+- [X] T048 Fix `NavBar`'s active-game predicate in `src/frontend/src/components/Layout/NavBar.jsx` to check only `isActiveForPlayer` (the list row carries no `status` field) so the sign-out save prompt actually fires against the real backend, per FR-004/FR-005 (contradicts)
+- [X] T049 Rebuild the sign-out-prompt fixtures in `src/frontend/tests/components/NavBar.test.jsx` and `src/frontend/tests/integration/save_and_continue.test.jsx` to match the real `GET /api/game/sessions` row shape (no `status` field) per contracts/api.md, so FR-007's sign-out coverage actually exercises production behavior (contradicts)
+- [X] T050 Add initial focus-on-open and Escape-to-cancel to `src/frontend/src/components/Layout/LogoutSavePrompt.jsx`, per Constitution "Accessibility" and T028 (partial)
+- [X] T051 Reconcile `contracts/api.md`'s `GET /api/game/sessions/{sessionId}` 404 response shape with the story-deleted body `src/backend/api/game/sessions.py` now returns (introduced by `025-story-delete`) — update the doc or record the intentional divergence (contradicts)

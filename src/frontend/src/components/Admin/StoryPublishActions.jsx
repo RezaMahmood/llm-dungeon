@@ -3,7 +3,7 @@ import { usePublishToggle } from "../../hooks/usePublishToggle.js";
 /**
  * Publish/unpublish for one story plus its confirmation dialogs — shared by the story
  * wizard's terminal step, each row of the admin story list, and the test-play conclusion
- * screen (FR-011, research.md §11; amended `005` FR-013, 010-story-test-play), so every
+ * screen (FR-011, research.md §11; amended `005` FR-013, 010-story-test-play-done), so every
  * entry point enforces the identical `005` FR-010 precondition, gate explanation, and
  * publish confirmation rather than a parallel reimplementation (Principle VIII).
  *
@@ -11,7 +11,7 @@ import { usePublishToggle } from "../../hooks/usePublishToggle.js";
  * renders) or an async function returning one (the story list resolves it lazily per click
  * via `usePublishToggle`, so a click is never sent with a stale or missing token).
  *
- * `onPublished` (010-story-test-play, optional): called after a confirmed publish
+ * `onPublished` (010-story-test-play-done, optional): called after a confirmed publish
  * succeeds. Omitted by the story list and `StepPublish`, which keep their in-place
  * behavior; the test-play conclusion screen passes it to navigate to `/admin`.
  */

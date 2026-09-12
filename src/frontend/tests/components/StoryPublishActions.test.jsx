@@ -80,7 +80,7 @@ describe("StoryPublishActions (005 FR-010/FR-011/FR-013, extracted per research.
     expect(onStoryChange).toHaveBeenCalledWith(expect.objectContaining({ published: true }));
   });
 
-  it("calls the optional onPublished callback after a confirmed publish succeeds (010-story-test-play)", async () => {
+  it("calls the optional onPublished callback after a confirmed publish succeeds (010-story-test-play-done)", async () => {
     const publishedStory = { ...UNPUBLISHED_STORY, published: true, lastPublishedAt: "2026-08-30T14:22:00Z" };
     publishStory.mockResolvedValueOnce({ status: "success", story: publishedStory });
     const onPublished = vi.fn();

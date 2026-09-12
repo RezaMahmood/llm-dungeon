@@ -12,7 +12,7 @@ import { publishStory, unpublishStory } from "../services/storyDraftService.js";
  * an async function returning one (the story list acquires it lazily per
  * click via `acquireTokenSilent`).
  *
- * `onPublished` (010-story-test-play, optional): called with the updated story after a
+ * `onPublished` (010-story-test-play-done, optional): called with the updated story after a
  * confirmed publish succeeds, in addition to `onStoryChange`. Lets the test-play
  * conclusion screen navigate away on success without a separate publish path.
  */

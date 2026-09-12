@@ -1,4 +1,4 @@
-"""Integration tests for DELETE /api/manage/stories/{storyId} (025-story-delete,
+"""Integration tests for DELETE /api/manage/stories/{storyId} (025-story-delete-done,
 contracts/api.md, spec.md Edge Cases, SC-001). Cosmos is faked in-memory, following the
 FakeCosmosService pattern in test_admin_stories_publish_endpoint.py. Also covers the
 delete cascade against PlaySession (FR-004) via HTTP (quickstart.md Scenario 4)."""

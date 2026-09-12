@@ -15,7 +15,7 @@ const STORY = {
   name: "The Lighthouse at Gullwing Cove",
 };
 
-describe("StoryDeleteAction (025-story-delete FR-001, FR-002)", () => {
+describe("StoryDeleteAction (025-story-delete-done FR-001, FR-002)", () => {
   beforeEach(() => {
     deleteStory.mockReset();
   });
