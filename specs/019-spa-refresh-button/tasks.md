@@ -123,14 +123,12 @@ Frontend-only feature within the existing web-application layout: `src/frontend/
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-**Purpose**: Final validation against the real deployed environment, per Constitution Principle IX.
+**Purpose**: Implementation self-check against `quickstart.md`'s scenarios.
 
-- [ ] T023 Run all 8 scenarios in `quickstart.md` against a local/staging build as an implementation self-check (agent-run; does not satisfy T024). **Blocked 2026-08-31**: the implementing agent's environment has no Node.js/npm installed (`src/frontend`'s toolchain — CI uses Node 24 per `.github/workflows/test.yml`), so neither `npm test` (Vitest suite for T002–T022's new/extended tests) nor a served build for the manual quickstart walkthrough could be run here. All T002–T022 code and tests were written and self-reviewed for consistency with their contracts, but are unverified by an actual test run. Whoever picks this up next with a working Node environment should run `npm test` in `src/frontend` first before attempting T023's manual scenarios.
+- [ ] T023 Run all 8 scenarios in `quickstart.md` against a local/staging build as an implementation self-check. **Blocked 2026-08-31**: the implementing agent's environment has no Node.js/npm installed (`src/frontend`'s toolchain — CI uses Node 24 per `.github/workflows/test.yml`), so neither `npm test` (Vitest suite for T002–T022's new/extended tests) nor a served build for the manual quickstart walkthrough could be run here. All T002–T022 code and tests were written and self-reviewed for consistency with their contracts, but are unverified by an actual test run. Whoever picks this up next with a working Node environment should run `npm test` in `src/frontend` first before attempting T023's manual scenarios.
 **Additional fix found during T024 (2026-08-31)**: reloading any Administrator-only route (`/admin`, `/admin/accounts`, `/admin/stories/new`) permanently showed "Access not granted" even for an account `/api/auth/me` genuinely reported `hasAdministrator: true` for. Root cause: `ProtectedRoute`, `NavBar`, and `MainMenu` each called `useCapabilities()` independently — three separate, concurrently-racing `/api/auth/me` fetches per page load — and `ProtectedRoute`'s own instance could resolve to (or get stuck at) the default `hasAdministrator: false` in scenarios where a sibling instance's fetch had already succeeded. Fixed by moving the fetch into a single `CapabilitiesProvider` (`src/frontend/src/context/CapabilitiesContext.jsx`) mounted once in `App.jsx`, with `useCapabilities()` becoming a context consumer (re-exported from the same `src/frontend/src/hooks/useCapabilities.js` path so no consumer or test mock needed to change). This also fixes FR-011's "known limitation" noted after T024's first pass — `NavBar`'s admin/player links now update on `MainMenu`'s refresh too, since it reads the same shared state.
 
 **Second additional fix found during T024 (2026-09-01)**: the shared-`CapabilitiesProvider` fix above didn't resolve reload on Administrator-only routes — the user's HAR capture showed *zero* requests to `/api/auth/me` on the failing reload, meaning `instance.acquireTokenSilent()` itself was rejecting client-side (e.g. an expired/invalid refresh token, or a consent/MFA step-up now required) before the app ever reached the backend. The existing 401-from-backend handling in `CapabilitiesContext.jsx` never applied, so this fell into the generic error branch, leaving `hasAdministrator` at its `false` default and rendering "Access not granted" — indistinguishable from a genuine permission denial. Fixed by wrapping `acquireTokenSilent` in its own try/catch and giving a client-side renewal failure the same treatment as a backend 401 (contracts/reload-resilience.md Guarantee 3, FR-008): navigate to `/login` with `reason: "session-expired"` rather than falling through to a wrong "Access not granted".
-
-- [ ] T024 **User-verified acceptance** (Constitution Principle IX, NON-NEGOTIABLE): the requesting user or product owner — not the implementing agent — runs `quickstart.md`'s full scenario set end-to-end against the real deployed environment (or the most representative environment available), including the reload-on-nested-route scenario (Scenario 4) which automated tests cannot fully validate against real Azure Static Web Apps routing (per Principle IX's own rationale). This task is not complete until that confirmation is given — depends on T023 and on all of US1/US2/US3 being implemented (no story is externally blocked as of 2026-08-31; see Dependencies & Execution Order).
 
 ---
 
@@ -146,14 +144,14 @@ Reviewing the merged code surfaced one remaining gap, not related to 022: `Authe
 - **US1's per-page mounting (T009–T011)** now only depends on T007, T007a, T008b — all in-repo, no external feature dependency remains.
 - **US2 and US3** were never dependent on 022 and remain unblocked.
 
-**Recommended build order**: **T001 → T007/T007a/T003/T003a (parallelizable) → T007b → T008/T008b → T009–T011 (US1 mounting) → US2 (T012–T018) → US3 (T019–T022) → T023/T024.** US1 can now go end-to-end first since nothing external blocks it; US2 remains equally safe to build in parallel or first if preferred (both are P1 with no shared files).
+**Recommended build order**: **T001 → T007/T007a/T003/T003a (parallelizable) → T007b → T008/T008b → T009–T011 (US1 mounting) → US2 (T012–T018) → US3 (T019–T022) → T023.** US1 can now go end-to-end first since nothing external blocks it; US2 remains equally safe to build in parallel or first if preferred (both are P1 with no shared files).
 
 ### Phase Dependencies
 
 - **Setup (Phase 1)**: T001 only — no dependencies, start immediately. Gates T008 and T009–T011.
 - **Foundational (Phase 2)**: None — proceed directly to user stories.
 - **User Stories (Phase 3+)**: US1, US2, and US3 can all start immediately and in parallel — no external blockers remain. Within US1, T009–T011 depend on T007, T007a, and T008b completing first (see task list).
-- **Polish (Phase 6)**: T023/T024 depend on all three user stories being implemented.
+- **Polish (Phase 6)**: T023 depends on all three user stories being implemented.
 
 ### Within Each User Story
 
@@ -204,7 +202,7 @@ With `022-persistent-nav-redesign-done` merged, no story is externally blocked, 
 ### Incremental Delivery From There
 
 1. Add User Story 3 (T019–T022) → test independently → deploy/demo
-2. Run T023 (self-check) then T024 (final user-verified acceptance) covering all three stories
+2. Run T023 (self-check) covering all three stories
 
 ### Parallel Team Strategy
 
