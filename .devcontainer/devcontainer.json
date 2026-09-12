@@ -162,7 +162,17 @@
 		// This directory does not exist yet while postCreateCommand itself is
 		// running; a missing PATH entry is simply skipped, and the venv is on
 		// PATH from the first shell afterwards.
-		"PATH": "/home/vscode/.venvs/llm-dungeon/bin:${containerEnv:PATH}"
+		//
+		// ~/.local/bin must be listed explicitly. It is where post-create.sh
+		// puts claude, uv and func, and it normally reaches PATH only through
+		// the conditional snippet in ~/.profile -- which `devcontainer exec`
+		// picks up via userEnvProbe's login shell. Setting PATH here overrides
+		// that probed value with ${containerEnv:PATH}, the image-level PATH,
+		// which does not contain ~/.local/bin -- so naming only the venv
+		// silently dropped every binary post-create.sh installs, and
+		// `devcontainer exec -- claude` failed with "executable file not
+		// found in $PATH" on a freshly rebuilt container.
+		"PATH": "/home/vscode/.venvs/llm-dungeon/bin:/home/vscode/.local/bin:${containerEnv:PATH}"
 	}
 	// Configure tool-specific properties.
 	// "customizations": {},
