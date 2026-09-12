@@ -8,6 +8,7 @@ import { useEffect, useRef } from "react";
  * pattern.
  */
 export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, onCancel }) {
+  const dialogRef = useRef(null);
   const saveButtonRef = useRef(null);
 
   useEffect(() => {
@@ -16,7 +17,11 @@ export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, o
 
   useEffect(() => {
     const handleEscape = (event) => {
-      if (event.key === "Escape" && !saving) {
+      if (
+        event.key === "Escape" &&
+        !saving &&
+        dialogRef.current?.contains(document.activeElement)
+      ) {
         onCancel();
       }
     };
@@ -30,6 +35,7 @@ export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, o
   return (
     <div className="dialog-backdrop">
       <div
+        ref={dialogRef}
         className="dialog"
         role="dialog"
         aria-modal="true"
