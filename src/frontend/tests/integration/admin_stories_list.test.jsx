@@ -152,4 +152,33 @@ describe("Admin stories list (FR-013, SC-007)", () => {
     expect(document.querySelector(".tag-accent").textContent).toBe("Published");
     expect(document.querySelector(".tag-neutral").textContent).toBe("Unpublished");
   });
+
+  // --- Tokens column (026-token-usage FR-003, FR-004, FR-010) ---
+
+  it("shows each story's cumulative token total formatted with thousands separators", async () => {
+    listStories.mockResolvedValue({
+      stories: [{ id: "s1", name: "The Lighthouse", published: true, totalTokens: 48213 }],
+    });
+
+    renderPage();
+    await waitForLoad();
+
+    expect(screen.getByRole("columnheader", { name: "Tokens" })).toBeInTheDocument();
+    expect(rowFor("The Lighthouse")).toHaveTextContent("48,213");
+  });
+
+  it("renders zero, not a blank cell, for a story with no tracked token usage", async () => {
+    listStories.mockResolvedValue({
+      stories: [{ id: "s1", name: "The Lighthouse", published: false }],
+    });
+
+    renderPage();
+    await waitForLoad();
+
+    expect(rowFor("The Lighthouse")).toHaveTextContent("0");
+  });
 });
+
+function rowFor(name) {
+  return screen.getByText(name).closest("tr");
+}

@@ -8,19 +8,36 @@ import StoryPublishActions from "../components/Admin/StoryPublishActions.jsx";
 import { loginRequest } from "../services/msalConfig.js";
 import { listStories } from "../services/storyDraftService.js";
 
+// Formatted for the Status tag's hover title (026-token-usage FR-006) — undefined/invalid
+// input renders no title at all, never a fabricated date.
+function formatLastPublished(iso) {
+  if (!iso) return undefined;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toLocaleString();
+}
+
 // Memoized: `handleStoryChange`/`handleStoryDeleted` update `stories` by mapping/filtering
 // in place, so a story untouched by a publish/delete action keeps its old object reference
 // — this lets an edit to one row skip re-rendering every other row in the table.
 const StoryRow = memo(function StoryRow({ story, getToken, onStoryChange, onDeleted }) {
+  const lastPublishedTitle = formatLastPublished(story.lastPublishedAt);
+
   return (
     <tr>
       <td>{story.name || "Untitled story"}</td>
       <td>
-        {/* Status pairs color with text, never color alone (Accessibility). */}
-        <span className={story.published ? "tag tag-accent" : "tag tag-neutral"}>
+        {/* Status pairs color with text, never color alone (Accessibility). The
+            last-published date moved off this line (research.md Decision 8) and onto a
+            native `title` attribute instead, freeing room for the Tokens column. */}
+        <span
+          className={story.published ? "tag tag-accent" : "tag tag-neutral"}
+          title={lastPublishedTitle}
+        >
           {story.published ? "Published" : "Unpublished"}
         </span>
       </td>
+      <td>{(story.totalTokens || 0).toLocaleString()}</td>
       <td>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", alignItems: "center" }}>
           <Link to={`/admin/stories/${story.id}`} className="btn btn-secondary">
@@ -29,7 +46,7 @@ const StoryRow = memo(function StoryRow({ story, getToken, onStoryChange, onDele
           <Link to={`/admin/stories/${story.id}/edit`} className="btn btn-secondary">
             Edit
           </Link>
-          <StoryPublishActions story={story} token={getToken} onStoryChange={onStoryChange} />
+          <StoryPublishActions story={story} token={getToken} onStoryChange={onStoryChange} hideStatusLine />
           <StoryDeleteAction story={story} token={getToken} onDeleted={onDeleted} />
         </div>
       </td>
@@ -130,6 +147,7 @@ export function AdminPage() {
             <tr>
               <th scope="col">Story</th>
               <th scope="col">Status</th>
+              <th scope="col">Tokens</th>
               <th scope="col">Actions</th>
             </tr>
           </thead>

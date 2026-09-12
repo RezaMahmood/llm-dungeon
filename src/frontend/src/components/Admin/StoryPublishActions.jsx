@@ -14,8 +14,16 @@ import { usePublishToggle } from "../../hooks/usePublishToggle.js";
  * `onPublished` (010-story-test-play-done, optional): called after a confirmed publish
  * succeeds. Omitted by the story list and `StepPublish`, which keep their in-place
  * behavior; the test-play conclusion screen passes it to navigate to `/admin`.
+ *
+ * `hideStatusLine` (026-token-usage, optional): suppresses the inline "Status: … — last
+ * published …" text below. The admin stories list passes this — its own Status column
+ * cell already conveys published/unpublished and carries the last-published date on
+ * hover instead (research.md Decision 8) — so this component would otherwise duplicate
+ * it. Every other usage (the wizard's publish step, the test-play conclusion screen, the
+ * story detail page) has no separate Status column, so it leaves this prop unset and
+ * keeps the inline text.
  */
-export function StoryPublishActions({ story, token, onStoryChange, onPublished }) {
+export function StoryPublishActions({ story, token, onStoryChange, onPublished, hideStatusLine = false }) {
   const {
     status,
     gateMessage,
@@ -35,13 +43,15 @@ export function StoryPublishActions({ story, token, onStoryChange, onPublished }
 
   return (
     <div className="field">
-      <p>
-        Status:{" "}
-        <strong>{story.published ? "Published" : "Unpublished"}</strong>
-        {story.lastPublishedAt && (
-          <span className="text-muted"> — last published {story.lastPublishedAt}</span>
-        )}
-      </p>
+      {!hideStatusLine && (
+        <p>
+          Status:{" "}
+          <strong>{story.published ? "Published" : "Unpublished"}</strong>
+          {story.lastPublishedAt && (
+            <span className="text-muted"> — last published {story.lastPublishedAt}</span>
+          )}
+        </p>
+      )}
 
       {!story.published && (
         <button type="button" className="btn btn-primary" disabled={status === "working"} onClick={requestPublish}>

@@ -116,4 +116,21 @@ describe("StoryPublishActions (005 FR-010/FR-011/FR-013, extracted per research.
     expect(unpublishStory).toHaveBeenCalledWith("tok", "story-1");
     expect(onStoryChange).toHaveBeenCalledWith(expect.objectContaining({ published: false }));
   });
+
+  // --- hideStatusLine (026-token-usage research.md Decision 8) ---
+
+  it("renders the inline status/last-published line by default", () => {
+    render(<StoryPublishActions story={PUBLISHED_STORY} token="tok" onStoryChange={vi.fn()} />);
+
+    expect(screen.getByText(/last published/i)).toBeInTheDocument();
+  });
+
+  it("suppresses the inline status/last-published line when hideStatusLine is set", () => {
+    render(<StoryPublishActions story={PUBLISHED_STORY} token="tok" onStoryChange={vi.fn()} hideStatusLine />);
+
+    expect(screen.queryByText(/status:/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/last published/i)).not.toBeInTheDocument();
+    // The publish/unpublish control itself is unaffected.
+    expect(screen.getByRole("button", { name: /^unpublish$/i })).toBeInTheDocument();
+  });
 });

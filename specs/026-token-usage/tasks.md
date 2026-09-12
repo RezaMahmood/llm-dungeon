@@ -118,10 +118,10 @@ creating it (quickstart.md Scenario 1).
 - [X] T015 [US1] [P] Update `src/backend/tests/integration/test_admin_stories_endpoint.py`
   to assert `totalTokens` is present and correct in `GET /api/manage/stories` list
   responses (contracts/api.md)
-- [ ] T016 [US1] In `src/frontend/src/pages/AdminPage.jsx`, add a "Tokens" column: a
+- [X] T016 [US1] In `src/frontend/src/pages/AdminPage.jsx`, add a "Tokens" column: a
   `<th>` header and, per row, a `<td>` rendering `story.totalTokens` (defaulting to `0`)
   formatted with thousands separators (FR-003, FR-004, FR-010)
-- [ ] T017 [US1] [P] Update `src/frontend/tests/pages/AdminPage.test.jsx` for the Tokens
+- [X] T017 [US1] [P] Update `src/frontend/tests/pages/AdminPage.test.jsx` for the Tokens
   column's rendering, the zero-token fallback, and thousands-separator formatting for a
   large total
 
@@ -141,19 +141,19 @@ story's hover shows nothing and produces no error (quickstart.md Scenario 4).
 
 ### Implementation for User Story 2
 
-- [ ] T018 [US2] In `src/frontend/src/components/Admin/StoryPublishActions.jsx`, add a
+- [X] T018 [US2] In `src/frontend/src/components/Admin/StoryPublishActions.jsx`, add a
   `hideStatusLine` prop that, when true, suppresses the inline "Status: … — last published
   …" text; leave rendering unchanged everywhere the prop is unset (research.md Decision 8)
-- [ ] T019 [US2] In `src/frontend/src/pages/AdminPage.jsx`, add a native `title` attribute
+- [X] T019 [US2] In `src/frontend/src/pages/AdminPage.jsx`, add a native `title` attribute
   to the Status cell's "Published"/"Unpublished" tag holding `story.lastPublishedAt`
   (formatted) **whenever it is set** — including a story now unpublished that was published
   before, since that past date doesn't change on unpublish — omitted only for a story with
   no `lastPublishedAt` (never published); pass `hideStatusLine` to `StoryPublishActions` in
   this row's usage (FR-005, FR-006, FR-007, Edge Cases)
-- [ ] T020 [US2] [P] Update
+- [X] T020 [US2] [P] Update
   `src/frontend/tests/components/StoryPublishActions.test.jsx`: `hideStatusLine`
   suppresses the inline text; default (unset) behavior is unchanged
-- [ ] T021 [US2] [P] Update `src/frontend/tests/pages/AdminPage.test.jsx`: the hover
+- [X] T021 [US2] [P] Update `src/frontend/tests/pages/AdminPage.test.jsx`: the hover
   `title` attribute is present with the correct date for a published story **and** for a
   story unpublished after being published before; absent (no fabricated date, no error)
   only for a story that has never been published; and the inline last-published text no

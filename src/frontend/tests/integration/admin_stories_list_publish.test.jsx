@@ -217,4 +217,48 @@ describe("Admin stories list publish/unpublish (FR-007, FR-010, FR-011, FR-013, 
     await waitFor(() => expect(statusTag(row1)).toHaveTextContent("Published"));
     expect(statusTag(rowFor("Cavern of Echoes"))).toHaveTextContent("Unpublished");
   });
+
+  // --- Last-published date moves to a hover, not an always-visible line (026-token-usage
+  // FR-005, FR-006, FR-007, Edge Cases) ---
+
+  it("shows no inline last-published text, only a hover title, for a published story", async () => {
+    listStories.mockResolvedValue({
+      stories: [
+        { id: "s1", name: "The Lighthouse", published: true, lastPublishedAt: "2026-09-01T12:00:00Z" },
+      ],
+    });
+
+    renderPage();
+    await waitForLoad();
+
+    const row = rowFor("The Lighthouse");
+    expect(row).not.toHaveTextContent(/last published/i);
+    expect(statusTag(row)).toHaveAttribute("title", expect.stringContaining("2026"));
+  });
+
+  it("carries the hover date for a story unpublished after being published before", async () => {
+    listStories.mockResolvedValue({
+      stories: [
+        { id: "s1", name: "The Lighthouse", published: false, lastPublishedAt: "2026-09-01T12:00:00Z" },
+      ],
+    });
+
+    renderPage();
+    await waitForLoad();
+
+    const row = rowFor("The Lighthouse");
+    expect(statusTag(row)).toHaveAttribute("title", expect.stringContaining("2026"));
+  });
+
+  it("has no hover title at all for a story that has never been published", async () => {
+    listStories.mockResolvedValue({
+      stories: [{ id: "s1", name: "The Lighthouse", published: false }],
+    });
+
+    renderPage();
+    await waitForLoad();
+
+    const row = rowFor("The Lighthouse");
+    expect(statusTag(row)).not.toHaveAttribute("title");
+  });
 });
