@@ -29,9 +29,9 @@ once its task list is complete; the rest are in flight.
 - [Story creation](specs/004-story-creation-done/spec.md) — guided story-creation wizard; a plain-language idea becomes a suggested world prompt, character types and completion criteria, then a persisted story
 - [Story editing and review](specs/012-story-editing-and-review/spec.md) — review and edit existing stories, view and download the full story configuration
 - [Story import](specs/011-story-import/spec.md) — upload a story configuration file, validated, as a new story or an overwrite
-- [Story test-play](specs/010-story-test-play/spec.md) and [story publish test-play gate](specs/017-story-publish-test-play-gate/spec.md) — test-play a draft before it ships, and require that test play before publishing
+- [Story test-play](specs/010-story-test-play-done/spec.md) and [story publish test-play gate](specs/017-story-publish-test-play-gate/spec.md) — test-play a draft before it ships, and require that test play before publishing
 - [Story publishing](specs/005-story-publishing-done/spec.md) — explicit publish/unpublish; publishing makes a story available to all players
-- [Story delete](specs/025-story-delete/spec.md) — confirmed, destructive delete that also removes in-progress sessions based on that story
+- [Story delete](specs/025-story-delete-done/spec.md) — confirmed, destructive delete that also removes in-progress sessions based on that story
 - [Account provisioning](specs/003-account-provisioning-done/spec.md) and [account listing](specs/014-account-listing/spec.md) — seed the first administrator, grant/revoke access by email, view provisioned accounts
 
 **Platform**

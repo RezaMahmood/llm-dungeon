@@ -1,7 +1,7 @@
 import { useDeleteStory } from "../../hooks/useDeleteStory.js";
 
 /**
- * Permanent delete for one story plus its confirmation dialog (025-story-delete FR-001,
+ * Permanent delete for one story plus its confirmation dialog (025-story-delete-done FR-001,
  * FR-002), mirroring `StoryPublishActions.jsx`'s dialog pattern (Principle VIII) but with
  * copy distinct from unpublish's — this action is permanent, cannot be undone, and also
  * removes any players' in-progress games for this story (FR-004).

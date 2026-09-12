@@ -90,7 +90,7 @@ async function reachConclusion(extraRoutes = []) {
   await screen.findByRole("heading", { name: /playthrough concluded/i });
 }
 
-describe("Admin test-play conclusion flow (010-story-test-play FR-006, FR-007, FR-008)", () => {
+describe("Admin test-play conclusion flow (010-story-test-play-done FR-006, FR-007, FR-008)", () => {
   beforeEach(() => {
     acquireTokenSilent.mockReset().mockResolvedValue({ accessToken: "tok" });
     getStory.mockReset();

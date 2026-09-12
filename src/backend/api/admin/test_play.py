@@ -1,4 +1,4 @@
-"""Administrator test-play endpoints (010-story-test-play, contracts/api.md) — start a
+"""Administrator test-play endpoints (010-story-test-play-done, contracts/api.md) — start a
 session against a story's current saved configuration (works on an unpublished story),
 submit an instruction, delete/abort, and rehydrate a session on refresh."""
 

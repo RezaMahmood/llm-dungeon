@@ -89,7 +89,7 @@ class AdventureNotFoundError(Exception):
 
 
 class StoryUnpublishedError(Exception):
-    """025-story-delete FR-005/FR-008: the session's story still exists but is currently
+    """025-story-delete-done FR-005/FR-008: the session's story still exists but is currently
     unpublished. Unlike a delete, the session itself is never touched — this is checked
     fresh on every relevant request (research.md Decision 3, 4)."""
 
@@ -284,7 +284,7 @@ class PlaySessionService:
             raise
 
     def _check_story_available(self, session: PlaySession):
-        """025-story-delete FR-005/FR-007/FR-008: raises `AdventureNotFoundError` if the
+        """025-story-delete-done FR-005/FR-007/FR-008: raises `AdventureNotFoundError` if the
         session's story is gone (a delete's cascade normally removes the session itself
         first, so this is the narrow race where a request is already in flight) or
         `StoryUnpublishedError` if it still exists but is currently unpublished. A
@@ -435,7 +435,7 @@ class PlaySessionService:
         rows.sort(key=lambda row: row["lastInteractionAt"], reverse=True)
 
         # One `get_adventure_summary` read per distinct adventureId gives both `name`
-        # and `published` together (025-story-delete PR #274 review) — this loop
+        # and `published` together (025-story-delete-done PR #274 review) — this loop
         # previously issued two separate Cosmos reads per adventure (name, then
         # availability) on what the docstring above already calls a real hot path.
         names: dict[str, str] = {}
@@ -452,7 +452,7 @@ class PlaySessionService:
         ]
 
     def delete_active_sessions_for_adventure(self, adventure_id: str) -> int:
-        """Cascade for a story delete (025-story-delete FR-004, research.md Decision 2):
+        """Cascade for a story delete (025-story-delete-done FR-004, research.md Decision 2):
         permanently remove every in-progress (`status == 'active'`) session for
         `adventure_id`, regardless of which player owns it. Concluded sessions are left
         untouched — they are history, not "in progress." Returns the count actually
@@ -551,7 +551,7 @@ class PlaySessionService:
         return name if name is not None else "Adventure"
 
     def _resolve_adventure_summary(self, adventure_id: str) -> tuple[str, bool]:
-        """`(name, available)` from a single `get_adventure_summary` read (025-story-delete
+        """`(name, available)` from a single `get_adventure_summary` read (025-story-delete-done
         PR #274 review) — `list_player_sessions`'s hot path previously issued two separate
         Cosmos reads per distinct adventureId (name, then published) where one already
         carries both fields. `available` (FR-009/FR-011, research.md Decision 5) is
@@ -590,7 +590,7 @@ class PlaySessionService:
     def _session_summary_from_row(row: dict[str, Any], adventure_name: str, available: bool) -> dict[str, Any]:
         """Same shape as `_session_summary`, but built from a projected `list_player_sessions`
         row instead of a full `PlaySession` (no `turns` to slice — Cosmos already did).
-        `available` (025-story-delete FR-009) is computed live from the story's current
+        `available` (025-story-delete-done FR-009) is computed live from the story's current
         `published` state, never stored on the session itself."""
         latest_turns = row.get("latestTurn") or []
         latest = latest_turns[0] if latest_turns else None

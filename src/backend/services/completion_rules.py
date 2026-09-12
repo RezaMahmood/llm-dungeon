@@ -1,5 +1,5 @@
 """Shared completion-rule evaluation for both real and test-play sessions
-(010-story-test-play research.md Decision 3) — extracted from
+(010-story-test-play-done research.md Decision 3) — extracted from
 `PlaySessionService._evaluate_completion`/`_rule_satisfied` so both session types enforce
 identical rules rather than a second implementation. Reproduces that logic byte-for-byte;
 `session` may be a `PlaySession` or a `TestPlaySession`, since both carry the same

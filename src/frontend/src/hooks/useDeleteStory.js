@@ -3,7 +3,7 @@ import { useState } from "react";
 import { deleteStory } from "../services/storyDraftService.js";
 
 /**
- * Delete call + confirmation state for one story (025-story-delete FR-002), mirroring
+ * Delete call + confirmation state for one story (025-story-delete-done FR-002), mirroring
  * `usePublishToggle`'s shape so the admin story list's delete action follows the same
  * pattern as its publish/unpublish action.
  *

@@ -67,7 +67,7 @@ function renderPage() {
   );
 }
 
-describe("AdminStoryTestPlayPage (010-story-test-play)", () => {
+describe("AdminStoryTestPlayPage (010-story-test-play-done)", () => {
   beforeEach(() => {
     acquireTokenSilent.mockReset().mockResolvedValue({ accessToken: "tok" });
     getStory.mockReset();

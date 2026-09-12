@@ -328,7 +328,7 @@ class StoryService:
         return story
 
     def record_test_play(self, story_id: str) -> Optional[Story]:
-        """010-story-test-play FR-004/FR-010: stamp `lastTestPlayedAt` on a qualifying
+        """010-story-test-play-done FR-004/FR-010: stamp `lastTestPlayedAt` on a qualifying
         test-play exchange. Must not touch `contentUpdatedAt` — doing so would re-arm the
         very gate this write satisfies (`can_publish()`)."""
         story = self.get_story(story_id)
@@ -349,7 +349,7 @@ class StoryService:
         return story
 
     def delete_story(self, story_id: str) -> bool:
-        """Permanently remove `story_id` (025-story-delete FR-003) — a hard delete, not a
+        """Permanently remove `story_id` (025-story-delete-done FR-003) — a hard delete, not a
         flag, unlike `unpublish` above (research.md Decision 1). Returns `False` for a
         story id that never existed or was already deleted, `True` on success."""
         try:
