@@ -8,10 +8,10 @@ import { useEffect, useRef } from "react";
  * pattern.
  */
 export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, onCancel }) {
-  const saveButtonRef = useRef(null);
+  const dialogRef = useRef(null);
 
   useEffect(() => {
-    saveButtonRef.current?.focus();
+    dialogRef.current?.focus();
   }, []);
 
   const handleKeyDown = (event) => {
@@ -23,6 +23,7 @@ export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, o
   return (
     <div className="dialog-backdrop">
       <div
+        ref={dialogRef}
         className="dialog"
         role="dialog"
         aria-modal="true"
@@ -45,7 +46,6 @@ export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, o
         )}
         <hr className="hr" style={{ margin: "6px 0" }} />
         <button
-          ref={saveButtonRef}
           className="btn btn-primary btn-block"
           type="button"
           style={{ padding: "14px 16px", fontSize: "16px", margin: 0 }}
