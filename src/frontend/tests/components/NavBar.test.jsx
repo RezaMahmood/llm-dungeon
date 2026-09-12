@@ -69,12 +69,14 @@ describe("NavBar capability-driven visibility (FR-002, FR-003, FR-008, SC-004)",
     mockUseCapabilities.mockReturnValue(capabilities(true, false));
     renderAt("/menu");
 
+    expect(screen.getByRole("link", { name: "Home" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "My stories" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Badges" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Stories" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "New story" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "People" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Users" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Sessions" })).not.toBeInTheDocument();
   });
 
@@ -91,6 +93,8 @@ describe("NavBar capability-driven visibility (FR-002, FR-003, FR-008, SC-004)",
     // On a player surface: player bar, with a way back into admin.
     renderAt("/menu");
     expect(screen.getByRole("link", { name: "Admin" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "New story" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Users" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "My stories" })).toBeInTheDocument();
   });
 
@@ -112,9 +116,20 @@ describe("NavBar capability-driven visibility (FR-002, FR-003, FR-008, SC-004)",
       const { unmount } = renderAt("/menu");
 
       expect(screen.getByRole("link", { name: "Sign out" })).toBeInTheDocument();
-      expect(screen.getByText("Ada B.")).toBeInTheDocument();
+      expect(screen.getByText(/^Ada B\. ·/)).toBeInTheDocument();
       unmount();
     }
+  });
+
+  it("suffixes the name chip with the account's role (FR-011a)", () => {
+    mockUseCapabilities.mockReturnValue(capabilities(true, false));
+    const { unmount } = renderAt("/menu");
+    expect(screen.getByText("Ada B. · Player")).toBeInTheDocument();
+    unmount();
+
+    mockUseCapabilities.mockReturnValue(capabilities(true, true));
+    renderAt("/menu");
+    expect(screen.getByText("Ada B. · Administrator")).toBeInTheDocument();
   });
 
   it("keeps a trailing-actions slot so a later Refresh control needs no restructuring", () => {
@@ -192,7 +207,7 @@ describe("NavBar current-section indication (FR-007, US4)", () => {
   });
 
   it.each([
-    ["/menu", "My stories", true, false],
+    ["/menu", "Home", true, false],
     ["/admin", "Stories", false, true],
     ["/admin/stories/new", "New story", false, true],
     ["/admin/accounts", "People", false, true],

@@ -1,0 +1,225 @@
+/*
+ * Home page layout and Home-specific interaction states (specs/designs/07-home.html,
+ * 07-home-spec.md). Colors, spacing and type all come from the design-token layer
+ * (Principle VIII); the rules below are the same page-scoped structural/interaction
+ * pattern the canonical mockup itself uses in its own <style> block, not a
+ * reimplementation of an existing shared component.
+ */
+.home-shell {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.home-hero {
+  flex: none;
+  padding: 20px 32px 18px;
+  background: var(--color-neutral-200);
+  border-bottom: 2px solid var(--color-divider);
+}
+.home-hero h1 {
+  margin: 4px 0 0;
+  font-size: 28px;
+  line-height: 1.05;
+}
+.home-kicker {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent-700);
+}
+.home-cols {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+}
+.home-col {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.home-col-main {
+  border-right: 2px solid var(--color-divider);
+}
+.home-colhead {
+  flex: none;
+  padding: 26px 32px 16px;
+}
+.home-colhead h2 {
+  margin: 6px 0 0;
+  font-size: 24px;
+}
+.home-colbody {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 32px 48px;
+}
+.home-colbody::-webkit-scrollbar { width: 10px; }
+.home-colbody::-webkit-scrollbar-thumb { background: var(--color-neutral-400); }
+
+.home-rowhov:hover {
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+}
+
+.home-listrow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  align-items: start;
+  padding: 20px 8px 33px;
+  min-height: 174px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--color-divider);
+  text-decoration: none;
+  color: inherit;
+}
+.home-listrow .btn {
+  align-self: end;
+}
+.home-listrow .btn-secondary {
+  border-width: 2px;
+}
+.home-listrow:hover .btn-secondary {
+  background: var(--color-accent);
+  color: var(--color-bg);
+  border-color: var(--color-accent);
+}
+
+.home-pcard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 18px;
+  margin-top: 16px;
+  height: 158px;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--color-bg);
+  box-shadow: 0 0 0 1px var(--color-divider);
+  text-decoration: none;
+  color: inherit;
+}
+.home-pcard:first-child {
+  margin-top: 0;
+}
+.home-pcard-title {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 19px;
+  line-height: 1.15;
+  height: 44px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.home-pcard-bars {
+  width: 100%;
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+.home-pcard-bars span {
+  height: 6px;
+  flex: 1;
+  background: var(--color-neutral-300);
+}
+.home-pcard-bars span.filled {
+  background: var(--color-accent);
+}
+.home-pcard-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  margin-top: auto;
+}
+.home-pcard .btn-secondary {
+  border-width: 2px;
+}
+
+.home-btn-danger {
+  border: 2px solid var(--color-divider);
+  background: var(--color-bg);
+  color: var(--color-neutral-700);
+}
+.home-btn-danger:hover {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-bg);
+}
+.home-btn-danger:active {
+  background: var(--color-accent-600);
+  border-color: var(--color-accent-600);
+}
+
+/* iPad */
+@media (max-width: 1100px) {
+  .home-cols {
+    grid-template-columns: 3fr 2fr;
+  }
+  .home-hero {
+    padding: 16px 24px 14px;
+  }
+  .home-colhead,
+  .home-colbody {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
+/* Mobile — the page-level scroll permitted below the mobile breakpoint by the
+   constitution's amended "Layout and scroll contract" rule 1. */
+@media (max-width: 760px) {
+  html,
+  body {
+    height: auto;
+  }
+  .home-shell {
+    height: auto;
+    overflow: visible;
+  }
+  .home-hero {
+    padding: 14px 18px 12px;
+  }
+  .home-hero h1 {
+    font-size: 21px;
+  }
+  .home-cols {
+    display: block;
+  }
+  .home-col {
+    display: block;
+  }
+  .home-col-main {
+    border-right: 0;
+  }
+  .home-col-side {
+    border-top: 2px solid var(--color-divider);
+  }
+  .home-colhead {
+    padding: 22px 18px 12px;
+  }
+  .home-colbody {
+    overflow: visible;
+    padding: 0 18px 28px;
+  }
+  .home-listrow {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    align-items: start;
+    min-height: 0;
+    padding-bottom: 20px;
+  }
+  .home-listrow .btn {
+    justify-self: start;
+  }
+  .home-pcard {
+    height: auto;
+  }
+  .home-pcard-title {
+    height: auto;
+  }
+}

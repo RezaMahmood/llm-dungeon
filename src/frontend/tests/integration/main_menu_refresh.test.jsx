@@ -16,42 +16,52 @@ vi.mock("../../src/services/authService.js", () => ({
   getMe: (...args) => getMe(...args),
 }));
 
+const listAdventures = vi.fn().mockResolvedValue({ adventures: [] });
+const listSavedGames = vi.fn().mockResolvedValue({ sessions: [] });
+vi.mock("../../src/services/gameService.js", () => ({
+  listAdventures: (...args) => listAdventures(...args),
+  listSavedGames: (...args) => listSavedGames(...args),
+}));
+
 import AuthenticatedLayout from "../../src/components/Layout/AuthenticatedLayout.jsx";
-import MainMenu from "../../src/components/Menu/MainMenu.jsx";
+import HomePage from "../../src/pages/HomePage.jsx";
 import { CapabilitiesProvider } from "../../src/hooks/useCapabilities.js";
 
-describe("Main Menu refresh (FR-001, FR-002, contracts/refresh-control.md)", () => {
+describe("Home refresh (FR-001, FR-002, contracts/refresh-control.md)", () => {
   beforeEach(() => {
     getMe.mockReset();
     sessionStorage.clear();
   });
 
-  it("selecting the shared nav refresh control re-fetches capabilities and updates both the menu and the nav bar without navigating away", async () => {
+  it("selecting the shared nav refresh control re-fetches capabilities and updates both Home's nav and its own data without navigating away", async () => {
     getMe.mockResolvedValueOnce({ capabilities: { hasPlayer: true, hasAdministrator: false } });
 
     render(
       <MemoryRouter initialEntries={["/menu"]}>
         <CapabilitiesProvider>
           <AuthenticatedLayout>
-            <MainMenu />
+            <HomePage />
           </AuthenticatedLayout>
         </CapabilitiesProvider>
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole("heading", { name: /my stories/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^administration$/i })).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /ready to play/i })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "New story" })).not.toBeInTheDocument();
     expect(getMe).toHaveBeenCalledTimes(1);
+    expect(listAdventures).toHaveBeenCalledTimes(1);
 
     getMe.mockResolvedValueOnce({ capabilities: { hasPlayer: true, hasAdministrator: true } });
     await userEvent.click(screen.getByRole("button", { name: /^refresh$/i }));
 
-    // One shared fetch updates both MainMenu's own content and NavBar's cross-link.
-    expect(await screen.findByRole("button", { name: /^administration$/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Admin" })).toBeInTheDocument();
+    // One shared refresh updates both NavBar's admin links and Home's own game data.
+    expect(await screen.findByRole("link", { name: "Admin" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "New story" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Users" })).toBeInTheDocument();
     // Still on the same screen — no navigation occurred.
-    expect(screen.getByRole("heading", { name: /my stories/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /ready to play/i })).toBeInTheDocument();
     expect(getMe).toHaveBeenCalledTimes(2);
+    expect(listAdventures).toHaveBeenCalledTimes(2);
   });
 });

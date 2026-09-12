@@ -119,25 +119,25 @@ navigation beyond sign-in. Play/Resume need not navigate yet (US2 wires them).
 
 ### Components (built before the page that composes them)
 
-- [ ] T013 [P] [US1] Create `src/frontend/src/components/Home/Home.css` implementing §2's
+- [X] T013 [P] [US1] Create `src/frontend/src/components/Home/Home.css` implementing §2's
   band structure and §7's breakpoints: the `100vh`/`overflow:hidden` shell, the
   `2fr / 1fr` grid (→ `3fr / 2fr` ≤1100px → single column ≤760px), `min-height: 0` on the
   grid and both columns so the inner scrollers work, the 174px row pitch of §5.3, and the
   mobile page-scroll rules (FR-012, FR-013). Every value comes from `specs/designs/styles.css` tokens — no
   literal hex or font names (constitution, UI Design System Requirements).
-- [ ] T014 [P] [US1] Create `src/frontend/src/components/Home/WelcomeBand.jsx` per §4: the
+- [X] T014 [P] [US1] Create `src/frontend/src/components/Home/WelcomeBand.jsx` per §4: the
   uppercase time-of-day kicker derived from the viewer's own clock (FR-020, e.g. "WEDNESDAY
   AFTERNOON"), a `Welcome back, {firstName}.` heading (first word of the MSAL account's
   display name, matching how `NavBar.jsx` reads `account?.name ?? account?.username`), and
   the lede whose wording is chosen by in-progress count — 0, 1, or n, copy verbatim from §4
   (FR-005).
-- [ ] T015 [P] [US1] Create `src/frontend/src/components/Home/StoryRow.jsx` per §5.1 (FR-002) — one
+- [X] T015 [P] [US1] Create `src/frontend/src/components/Home/StoryRow.jsx` per §5.1 (FR-002) — one
   ready-to-play row: `.card-kicker` reading `{tone} · {sessionLengthMinutes} min` (the
   canonical "genre" is the story's `tone`), the title, the `blurb`, `.card-meta` reading
   `Reading level: {readingLevel}`, and a Play `.btn.btn-secondary` bottom-aligned. The whole
   row is one link; the button is a `<span>` inside it. A `null` blurb renders as no blurb
   line, not the string "null".
-- [ ] T016 [P] [US1] Create `src/frontend/src/components/Home/SessionCard.jsx` per §5.2 (FR-003) —
+- [X] T016 [P] [US1] Create `src/frontend/src/components/Home/SessionCard.jsx` per §5.2 (FR-003) —
   title clamped to two lines, a meta line reading
   `Chapter {progress.current} · {lastPlayed} · {locationLabel}` (reuse `formatLastPlayed`'s
   behavior from `src/frontend/src/components/GameSetup/SavedGameRow.jsx`), a segmented bar
@@ -147,31 +147,31 @@ navigation beyond sign-in. Play/Resume need not navigate yet (US2 wires them).
   Resume. Leave a placeholder slot beside Resume for the Delete action — filled in US3
   (T033). A session missing `progress` renders without the chapter and bar rather than
   crashing.
-- [ ] T017 [US1] Create `src/frontend/src/components/Home/ReadyToPlayList.jsx` — the column
+- [X] T017 [US1] Create `src/frontend/src/components/Home/ReadyToPlayList.jsx` — the column
   head (kicker `START SOMETHING NEW`, heading `Ready to play`) plus the scrolling body of
   `StoryRow`s, with the loading and error states `GameSetup/AdventureList.jsx` already uses.
   Depends on T015.
-- [ ] T018 [US1] Create `src/frontend/src/components/Home/InProgressList.jsx` — the column
+- [X] T018 [US1] Create `src/frontend/src/components/Home/InProgressList.jsx` — the column
   head (kicker `KEEP GOING`, heading `In progress`, becoming `Nothing in progress` when the
   list is empty) plus the scrolling body of `SessionCard`s, and §6 state 1's zero-state
   paragraph when there are none. Depends on T016.
 
 ### The page, its route, and the nav
 
-- [ ] T019 [US1] Create `src/frontend/src/pages/HomePage.jsx` (FR-001): fetch adventures
+- [X] T019 [US1] Create `src/frontend/src/pages/HomePage.jsx` (FR-001): fetch adventures
   (`listAdventures`) and sessions (`listSavedGames`) from `src/frontend/src/services/gameService.js`,
   derive "ready to play" as published adventures having no session for this player (FR-004),
   pass sessions newest-first to `InProgressList`, compose `WelcomeBand` + both columns, and
   publish refresh through `usePublishRefresh` exactly as `components/Menu/MainMenu.jsx` does
   today so the nav's Refresh button keeps working. Depends on T013, T014, T017, T018.
-- [ ] T020 [US1] Add the account states `MainMenu` owns today to `HomePage.jsx` (FR-017):
+- [X] T020 [US1] Add the account states `MainMenu` owns today to `HomePage.jsx` (FR-017):
   `denied` renders `components/Login/AccessDeniedScreen.jsx`; an account with neither
   capability renders the "Access Pending" explanation; and an account holding Administrator
   but not Player sees an in-place explanation instead of empty columns or a raw error
   (spec.md Edge Cases), with the nav's admin destinations left usable. Depends on T019.
-- [ ] T021 [US1] Point the `/menu` route at `HomePage` in `src/frontend/src/App.jsx` (FR-001),
+- [X] T021 [US1] Point the `/menu` route at `HomePage` in `src/frontend/src/App.jsx` (FR-001),
   replacing the `MainMenu` import and element. Depends on T019.
-- [ ] T022 [US1] Update `src/frontend/src/components/Layout/NavBar.jsx`'s player variant to
+- [X] T022 [US1] Update `src/frontend/src/components/Layout/NavBar.jsx`'s player variant to
   the canonical bar of §3 (FR-011, research.md Decision 7): add "Home" (`to="/menu"`, with
   `aria-current="page"` when there); keep "My stories" as an inert placeholder following the
   `href="#"` + `preventDefault` precedent that file already uses for "Badges"; for
@@ -180,20 +180,20 @@ navigation beyond sign-in. Play/Resume need not navigate yet (US2 wires them).
   and suffix the name chip with `· Player` or
   `· Administrator` from `useCapabilities()` (FR-011a). Leave the admin-section variant
   unchanged.
-- [ ] T023 [US1] Delete the superseded `src/frontend/src/components/Menu/` files —
+- [X] T023 [US1] Delete the superseded `src/frontend/src/components/Menu/` files —
   `MainMenu.jsx`, `MainMenu.css`, `GameMenuItem.jsx`, `AdminMenuItem.jsx` — and their tests
   `src/frontend/tests/components/MainMenu.test.jsx` and
   `src/frontend/tests/components/AdminMenuItem.test.jsx`. Depends on T021, T022.
 
 ### Tests
 
-- [ ] T024 [P] [US1] Component tests for `HomePage` in
+- [X] T024 [P] [US1] Component tests for `HomePage` in
   `src/frontend/tests/components/Home/HomePage.test.jsx`: §6's six states (zero/one/many
   in-progress, one/many ready-to-play, and that a column overflowing scrolls rather than
   growing the page), a story with an active session absent from "Ready to play" (FR-004),
   the lede wording at 0/1/n (FR-005), the denied and no-capability states (FR-017), and the
   unavailable card (FR-018). Depends on T020.
-- [ ] T025 [P] [US1] Update the existing tests that assert the retired menu and the old nav:
+- [X] T025 [P] [US1] Update the existing tests that assert the retired menu and the old nav:
   `src/frontend/tests/integration/main_menu_refresh.test.jsx`,
   `src/frontend/tests/integration/main_menu_permissions_refresh.test.jsx`,
   `src/frontend/tests/integration/nav_capability_visibility.test.jsx` and

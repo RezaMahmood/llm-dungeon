@@ -6,8 +6,8 @@ import AuthProvider from "./components/Auth/AuthProvider.jsx";
 import ProtectedRoute from "./components/Auth/ProtectedRoute.jsx";
 import VersionBadge from "./components/Common/VersionBadge.jsx";
 import LoginScreen from "./components/Login/LoginScreen.jsx";
-import MainMenu from "./components/Menu/MainMenu.jsx";
 import { CapabilitiesProvider } from "./context/CapabilitiesContext.jsx";
+import HomePage from "./pages/HomePage.jsx";
 import ErrorBoundary from "./observability/ErrorBoundary.jsx";
 import { PageViewTracker } from "./observability/appInsights.js";
 
@@ -56,7 +56,7 @@ export function App() {
                   path="/menu"
                   element={
                     <ProtectedRoute>
-                      <MainMenu />
+                      <HomePage />
                     </ProtectedRoute>
                   }
                 />
