@@ -300,11 +300,11 @@ and the story reappear on the left; another player's session id is refused by th
 
 ## Phase 6: Polish & cross-cutting
 
-- [ ] T039 [P] Accessibility pass over the Home components against §8 and the constitution's
+- [X] T039 [P] Accessibility pass over the Home components against §8 and the constitution's
   Accessibility section: every control keyboard-operable (FR-014), a visible `:focus-visible` outline
   in the accent color (never the browser default), and no state carried by color alone —
   including the unavailable card of FR-018.
-- [ ] T040 [P] Responsive check at 1100px, 760px and 320px per §7 and quickstart.md scenario
+- [X] T040 [P] Responsive check at 1100px, 760px and 320px per §7 and quickstart.md scenario
   6: no horizontal page scroll at any width, both columns reachable, and Play/Resume/Delete
   at least 44px tall on mobile (FR-013).
 - [ ] T041 Run the full suites and fix regressions from the `MainMenu`/`GamePage` removals

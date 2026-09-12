@@ -222,4 +222,11 @@
   .home-pcard-title {
     height: auto;
   }
+  /* FR-013: touch targets at or above 44px on mobile, stricter than the design
+     system's general 24px minimum (WCAG 2.5.8). */
+  .home-listrow .btn,
+  .home-pcard-actions .btn,
+  .home-btn-danger {
+    min-height: 44px;
+  }
 }
