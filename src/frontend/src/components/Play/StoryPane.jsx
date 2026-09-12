@@ -1,9 +1,15 @@
+import { memo } from "react";
+
 /**
  * Scrolling narrative history for the play surface (specs/designs/03-play.html,
  * 008-core-gameplay-done). Renders every turn so far: the narrative text, and — when
  * present — the player's own input for that turn, oldest first.
+ *
+ * Memoized: PlayPage re-renders on every keystroke in InstructionInput (its own
+ * `inputValue` state), but `turns` only gets a new array reference when a turn is
+ * actually added — without this, every keystroke would re-map the whole turn history.
  */
-export function StoryPane({ turns }) {
+export const StoryPane = memo(function StoryPane({ turns }) {
   return (
     <div
       className="storyscroll"
@@ -48,6 +54,6 @@ export function StoryPane({ turns }) {
       </div>
     </div>
   );
-}
+});
 
 export default StoryPane;
