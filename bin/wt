@@ -1,11 +1,27 @@
 #!/usr/bin/env bash
 # bin/wt <branch> [options]
 #
-# Deterministic entrypoint for the per-worktree isolated-devcontainer
-# workflow (see docs/WORKTREE_CONTAINER_WORKFLOW.md). Ensures a git
-# worktree for <branch> exists, brings up (or resumes) that worktree's
-# OWN devcontainer instance, and execs `claude` inside it -- so Claude's
-# process and filesystem view are confined to that one worktree.
+# Deterministic entrypoint for the per-worktree workflow (see
+# docs/WORKTREE_CONTAINER_WORKFLOW.md). Ensures a git worktree for
+# <branch> exists, then starts a session in it.
+#
+# Every branch gets its own worktree -- that is what lets several pieces
+# of work be in flight at once without any of them switching branches
+# under another.
+#
+# A container is the default, for every branch. It brings up (or resumes)
+# that worktree's OWN devcontainer instance and execs `claude` inside it,
+# so Claude's process and filesystem view are confined to that one
+# worktree; concurrent specs cannot contaminate each other because there
+# is no path between them.
+#
+# --no-container opts out, running `claude` on the host in the worktree's
+# directory instead: no Docker, no image build, no postCreate. It is for
+# chore/*, fix/*, docs/* and perf/* work, which carries none of the
+# cross-spec contamination risk the container exists to contain -- paying
+# a container for a one-line docs fix is what pushed that work back into
+# the primary checkout, where it serialised. Opting out is REFUSED for
+# spec/feature branches (see is-this-spec-work, below).
 #
 # This is plain, static bash -- not a Claude skill, and not something
 # Claude decides to run on its own. You run it yourself, once per
@@ -31,11 +47,19 @@ Ensures a git worktree for <branch> exists at .worktrees/<branch>
 worktree's own isolated devcontainer, and execs into it. Re-running
 against an existing worktree just resumes its container.
 
+With --no-container, the worktree is created and validated the same way
+but the session runs on the host, in that worktree's directory, with no
+Docker involved. Use it for chore/*, fix/*, docs/* and perf/* branches.
+A branch with a specs/<branch>/ folder is refused: spec work must be
+isolated in its own container.
+
 Options:
   --base=<branch>   Base branch to create <branch> from if it's new
                      (default: main). Use this when <branch> depends on
                      another spec's in-flight, already-committed work.
                      Ignored (with a warning) if <branch> already exists.
+  --no-container    Run the session on the host in the worktree, with no
+                     devcontainer. Not allowed for spec branches.
   --shell           Exec an interactive shell instead of `claude`.
   --rebuild          Force-recreate the container (passes
                      --remove-existing-container to `devcontainer up`).
@@ -58,6 +82,7 @@ BASE="main"
 BASE_GIVEN=0
 MODE="claude"
 REBUILD=0
+NO_CONTAINER=0
 ALLOW_STALE=0
 LOGS_MODE=0
 LOGS_COUNT=20
@@ -68,6 +93,7 @@ for arg in "$@"; do
     --base=*) BASE="${arg#--base=}"; BASE_GIVEN=1 ;;
     --shell) MODE="shell" ;;
     --rebuild) REBUILD=1 ;;
+    --no-container) NO_CONTAINER=1 ;;
     --allow-stale) ALLOW_STALE=1 ;;
     --logs) LOGS_MODE=1 ;;
     -h|--help) usage; exit 0 ;;
@@ -283,7 +309,7 @@ if [[ "$LOGS_MODE" == "1" ]]; then
 fi
 
 rotate_logs
-log_event info start OK_START "bin/wt $* (mode=$MODE rebuild=$REBUILD)" 0
+log_event info start OK_START "bin/wt $* (mode=$MODE rebuild=$REBUILD no_container=$NO_CONTAINER)" 0
 log_line "primary checkout: $PRIMARY_REPO_ROOT"
 log_line "worktree path:    $WORKTREE_PATH"
 
@@ -382,25 +408,67 @@ if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
     "Refusing to create a worktree/container for '$BRANCH' -- it's the trunk; work never happens there."
 fi
 
-if ! command -v devcontainer >/dev/null 2>&1; then
-  fail E_NO_DEVCONTAINER_CLI preflight \
-    "The devcontainer CLI was not found on PATH." \
-    "Install it with: npm install -g @devcontainers/cli"
+# --rebuild recreates a container; --no-container says there is none to
+# recreate. Taking both would silently ignore one, and which one was ignored
+# would only show up later as a session running somewhere unexpected. This
+# sits here rather than beside the other argument checks so it goes through
+# `fail`: a refusal that exits without an event is invisible to the
+# `bin/wt --logs` summary those events exist for.
+if [[ "$NO_CONTAINER" == "1" && "$REBUILD" == "1" ]]; then
+  fail E_FLAG_CONFLICT preflight \
+    "--no-container and --rebuild cannot be combined: there is no container to rebuild."
 fi
 
-if ! command -v docker >/dev/null 2>&1; then
-  fail E_NO_DOCKER_CLI preflight \
-    "The docker CLI was not found on PATH -- the devcontainer CLI cannot work without it."
+# --- Is this spec work? -----------------------------------------------------
+# Spec/feature work is the only kind the constitution requires a container
+# for, and two independent signals identify it. Both are needed:
+#
+#   the branch name  speckit names every feature branch <number>-<slug>
+#     (create-new-feature.sh). This is the only signal available for a
+#     branch that does not exist yet -- a brand-new spec branch has no
+#     specs/ folder until /speckit-specify creates one from inside the
+#     session, so a folder test alone would wave through the entire
+#     spec-authoring session and only catch it on the SECOND start.
+#
+#   the specs/<branch>/ folder  checked further down, once the worktree
+#     exists. This catches a spec branch named against convention, so a
+#     chore/* name cannot be used to opt real spec work out of isolation.
+IS_SPEC_BRANCH=0
+if [[ "$BRANCH" =~ ^[0-9]+- ]]; then
+  IS_SPEC_BRANCH=1
 fi
 
-# `devcontainer up` fails with a raw, hard-to-read docker error when the
-# daemon is simply not running (Docker Desktop asleep, most often). Say so
-# in one line instead, and record it as its own code so a run of
-# "errors starting a session" that is really just a stopped daemon is
-# obvious in `bin/wt --logs`.
-if ! docker info >/dev/null 2>&1; then
-  fail E_DOCKER_DOWN preflight \
-    "No reachable Docker daemon. Start Docker Desktop (or your docker engine) and try again."
+if [[ "$NO_CONTAINER" == "1" && "$IS_SPEC_BRANCH" == "1" ]]; then
+  fail E_SPEC_NEEDS_CONTAINER preflight \
+    "'$BRANCH' is named as spec/feature work (speckit's <number>-<slug> form), which MUST run in its own container." \
+    "Constitution, Development Workflow & Quality Gates: a spec's worktree container is what keeps concurrent specs from contaminating each other." \
+    "Start it with:  bin/wt $BRANCH"
+fi
+
+# Every check in this block is about the container toolchain, so a
+# --no-container run skips the lot: needing Docker Desktop awake to start
+# a docs branch is exactly the friction --no-container exists to remove.
+if [[ "$NO_CONTAINER" != "1" ]]; then
+  if ! command -v devcontainer >/dev/null 2>&1; then
+    fail E_NO_DEVCONTAINER_CLI preflight \
+      "The devcontainer CLI was not found on PATH." \
+      "Install it with: npm install -g @devcontainers/cli"
+  fi
+
+  if ! command -v docker >/dev/null 2>&1; then
+    fail E_NO_DOCKER_CLI preflight \
+      "The docker CLI was not found on PATH -- the devcontainer CLI cannot work without it."
+  fi
+
+  # `devcontainer up` fails with a raw, hard-to-read docker error when the
+  # daemon is simply not running (Docker Desktop asleep, most often). Say so
+  # in one line instead, and record it as its own code so a run of
+  # "errors starting a session" that is really just a stopped daemon is
+  # obvious in `bin/wt --logs`.
+  if ! docker info >/dev/null 2>&1; then
+    fail E_DOCKER_DOWN preflight \
+      "No reachable Docker daemon. Start Docker Desktop (or your docker engine) and try again."
+  fi
 fi
 
 cd "$PRIMARY_REPO_ROOT"
@@ -503,10 +571,28 @@ if [[ "$BASE_GIVEN" == "1" && "$BASE_USED" != "1" ]]; then
   log_event warn worktree W_BASE_IGNORED "--base=$BASE ignored; branch already exists" 0
 fi
 
+# The second half of the spec test (the first, by branch name, ran in
+# preflight): a specs/<branch>/ folder settles it regardless of how the
+# branch is named. This can only run once the worktree exists, so unlike
+# the name check it cannot refuse before creating one -- a worktree left
+# behind by this refusal is harmless, and plain `bin/wt <branch>` picks it
+# straight back up. Tagged `worktree`, not `preflight`, so log triage
+# attributes it to the phase it actually ran in.
+if [[ -d "$WORKTREE_PATH/specs/$BRANCH" ]]; then
+  IS_SPEC_BRANCH=1
+fi
+
+if [[ "$NO_CONTAINER" == "1" && "$IS_SPEC_BRANCH" == "1" ]]; then
+  fail E_SPEC_NEEDS_CONTAINER worktree \
+    "'$BRANCH' has a spec folder (specs/$BRANCH), so it is spec/feature work and MUST run in its own container." \
+    "Constitution, Development Workflow & Quality Gates: a spec's worktree container is what keeps concurrent specs from contaminating each other." \
+    "Start it with:  bin/wt $BRANCH"
+fi
+
 # Bootstrap .specify/feature.json the same way speckit-branch-ensure does,
 # but only when this branch actually corresponds to a spec folder -- bin/wt
 # is also used for non-speckit branches (e.g. chore/*).
-if [[ -d "$WORKTREE_PATH/specs/$BRANCH" && -d "$WORKTREE_PATH/.specify" ]]; then
+if [[ "$IS_SPEC_BRANCH" == "1" && -d "$WORKTREE_PATH/.specify" ]]; then
   printf '{"feature_directory": "specs/%s"}\n' "$BRANCH" > "$WORKTREE_PATH/.specify/feature.json"
 fi
 
@@ -530,6 +616,44 @@ if [[ -x "$SYNC_SCRIPT" ]]; then
     fi
     log_event warn sync W_STALE_OVERRIDDEN "constitution major-version gap overridden by --allow-stale" 0
   fi
+fi
+
+# --- Container-less session (chore/*, fix/*, docs/*, perf/*) ----------------
+# Same worktree, same branch/path guarantees, same staleness gate -- the
+# only thing dropped is the container. The session runs on the host with
+# its cwd inside the worktree, so it sees that branch and no other by
+# working directory rather than by mount.
+#
+# WORKTREE_CONTAINER is exported for it anyway, despite no container being
+# involved. It is the variable check-worktree-sync.sh reads to answer "which
+# branch was this session started for?", and without it that guard's first
+# check -- the one that catches edits landing on the wrong branch -- is dead
+# on every non-spec worktree, which is precisely the population this mode
+# creates. The name is kept as-is rather than generalised because the
+# containers already running were built with it baked into their
+# environment; renaming it would disarm the guard for every live session
+# until each one was rebuilt.
+if [[ "$NO_CONTAINER" == "1" ]]; then
+  if [[ "$MODE" == "claude" ]] && ! command -v claude >/dev/null 2>&1; then
+    fail E_CLAUDE_MISSING_HOST preflight \
+      "'claude' was not found on PATH on the host, so there is nothing to start in '$WORKTREE_PATH'." \
+      "Install the Claude Code CLI on the host, or run this branch in a container instead: bin/wt $BRANCH"
+  fi
+
+  say "Starting host session for worktree '$BRANCH' (no container)."
+  log_event info up OK_HOST_SESSION "starting host session in $WORKTREE_PATH" 0
+
+  SESSION_STARTED=1
+  set +e
+  case "$MODE" in
+    claude) ( cd "$WORKTREE_PATH" && WORKTREE_CONTAINER="$BRANCH" exec claude ) ;;
+    shell)  ( cd "$WORKTREE_PATH" && WORKTREE_CONTAINER="$BRANCH" exec bash ) ;;
+  esac
+  SESSION_EXIT=$?
+  set -e
+
+  log_session_outcome "$SESSION_EXIT"
+  exit "$SESSION_EXIT"
 fi
 
 # --- Bring up this worktree's own container ---------------------------------

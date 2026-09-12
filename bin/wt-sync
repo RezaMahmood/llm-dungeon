@@ -163,7 +163,15 @@ echo
 
 # Inside a container only this worktree is mounted, so there is nothing else
 # to iterate over — check the current one and say so.
-if [[ -n "${WORKTREE_CONTAINER:-}" && -z "$ONLY_BRANCH" ]]; then
+#
+# Reachability, not WORKTREE_CONTAINER, is what decides this. That variable
+# now marks any bin/wt session, container or host, and keying off it alone
+# made a host session report on one worktree while claiming its siblings
+# were invisible — silently dropping every other worktree's staleness from
+# a report whose whole job is to find it. A container is the case where the
+# primary checkout's .worktrees/ genuinely is not mounted; on the host it is
+# right there, so fall through and iterate.
+if [[ -n "${WORKTREE_CONTAINER:-}" && -z "$ONLY_BRANCH" && ! -d "$WORKTREES_ROOT" ]]; then
   check_worktree "$(git rev-parse --show-toplevel)" "${WORKTREE_CONTAINER} (this container — siblings are not visible from here)"
 else
   FOUND=0

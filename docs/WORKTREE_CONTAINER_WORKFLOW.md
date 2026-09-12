@@ -1,19 +1,73 @@
-# Per-worktree isolated devcontainer workflow
+# Per-worktree workflow
 
-Each spec/feature gets its own git worktree, and each worktree gets its
-own devcontainer. Claude Code runs *inside* that container, so a session
-working on one spec has no filesystem path to any other worktree — it's a
-physical guarantee, not just a convention. See
-[`.specify/memory/constitution.md`](../.specify/memory/constitution.md)
+**Every branch gets its own worktree. Only spec branches also get a
+container.**
+
+Each branch — spec, chore, fix, docs, perf — gets its own git worktree,
+so several pieces of work can be in flight at once and no session's
+branch switch ever moves the ground under another. The primary checkout
+stays on `main` and is reserved for the lifecycle tooling that has to see
+every worktree at once.
+
+On top of that, each *spec/feature* worktree gets its own devcontainer.
+Claude Code runs *inside* that container, so a session working on one
+spec has no filesystem path to any other worktree — a physical
+guarantee, not just a convention. Non-spec work carries no cross-spec
+contamination risk, so it skips the container and runs on the host in its
+own worktree (`--no-container`) — no Docker, no image build, no
+`postCreate`.
+
+That split is deliberate: paying a container for a one-line docs fix is
+what used to push that work back into the primary checkout, where it
+queued behind everything else and got branched from whatever `HEAD`
+happened to be.
+
+See [`.specify/memory/constitution.md`](../.specify/memory/constitution.md)
 (Development Workflow & Quality Gates) for the rule this enforces, and
 `bin/wt` for the script that implements it.
 
 ## Prerequisites (one-time, per machine)
 
-- Docker Desktop (or another Docker engine) running.
-- The devcontainer CLI: `npm install -g @devcontainers/cli`.
+- The Claude Code CLI on the host (needed by `--no-container` sessions;
+  container sessions get their own copy via `postCreate`).
+- Docker Desktop (or another Docker engine) running — **only** for spec
+  branches. A `--no-container` run never touches Docker and does not
+  check for it.
+- The devcontainer CLI: `npm install -g @devcontainers/cli` — likewise
+  only needed for spec branches.
 - `bin/wt` on your `PATH`, or just call it as `bin/wt` from the repo root
   or any of its worktrees (it resolves the primary repo root itself).
+
+## Which command do I run?
+
+| The branch | Command | What you get |
+|---|---|---|
+| Named `<number>-<slug>`, or has a `specs/<branch>/` folder | `bin/wt <branch>` | Worktree **+ its own container**. Required — `bin/wt` refuses `--no-container` here. |
+| `chore/*`, `fix/*`, `docs/*`, `perf/*`, `infra` | `bin/wt <branch> --no-container` | Worktree, `claude` on the host, no Docker. |
+| `main` | — | Never. `bin/wt` refuses the trunk outright. |
+
+Both forms create the worktree the same way, enforce the same
+directory-name-equals-branch-name rules, and run the same
+constitution-staleness gate. The only difference is where the session
+runs.
+
+**How `bin/wt` decides a branch is spec work** — two signals, either one
+enough:
+
+- **The branch name**, speckit's `<number>-<slug>` form. This is the only
+  signal available before the work exists: a brand-new spec branch has no
+  `specs/` folder until `/speckit-specify` creates one from inside the
+  session, so a folder test alone would wave the whole spec-authoring
+  session through and catch it only on the *second* start. Refused in
+  preflight, before any worktree is made.
+- **A `specs/<branch>/` folder in the worktree.** Catches a spec branch
+  named against convention, so a `chore/*` name cannot opt real spec work
+  out of isolation. This one can only run after the worktree exists, so
+  the refusal leaves that worktree behind — harmless, and plain
+  `bin/wt <branch>` picks it straight back up.
+
+`--no-container` and `--rebuild` cannot be combined — there is no
+container to rebuild.
 
 ## Day to day: starting work on a spec
 
@@ -67,6 +121,9 @@ bin/wt --logs 100    # ...last 100 instead
 | `E_NO_DEVCONTAINER_CLI` / `E_NO_DOCKER_CLI` | that CLI isn't on `PATH` |
 | `E_CONTAINER_UP` | `devcontainer up` failed; the CLI's own message and description are captured with it |
 | `E_CLAUDE_MISSING` | the container exists but has no `claude` — `postCreate` failed at creation and never re-runs (see below) |
+| `E_CLAUDE_MISSING_HOST` | a `--no-container` run found no `claude` on the host's `PATH` |
+| `E_SPEC_NEEDS_CONTAINER` | `--no-container` was used on spec work — a `<number>-<slug>` branch name, or a `specs/<branch>/` folder — which must be isolated |
+| `E_FLAG_CONFLICT` | `--no-container` and `--rebuild` were given together; there is no container to rebuild |
 | `E_BRANCH_PATH_MISMATCH`, `E_PATH_BRANCH_MISMATCH`, `E_WORKTREE_DETACHED`, `E_PATH_OCCUPIED` | the directory-name-equals-branch-name rules below |
 | `E_STALE_CONSTITUTION` | blocked by `bin/wt-sync` (see below) |
 | `E_INTERRUPTED` | `bin/wt` itself took a Ctrl-C or a `TERM` (during a build, say) |
@@ -111,6 +168,37 @@ into a container that cannot run it:
 ```bash
 bin/wt <branch> --rebuild
 ```
+
+## Day to day: starting a chore, fix, docs or perf branch
+
+Same idea, one flag:
+
+```bash
+bin/wt chore/tidy-logging --no-container
+```
+
+You get `.worktrees/chore/tidy-logging` on branch `chore/tidy-logging`,
+branched from `main`, with `claude` running on the host in that
+directory. Nothing is built and nothing is stopped on exit — there is no
+container in play, so the teardown that stops a spec's container on exit
+simply does not apply.
+
+Two things still hold that are easy to assume don't:
+
+- **The wrong-branch guard is still armed.** `bin/wt` exports
+  `WORKTREE_CONTAINER=<branch>` into the host session too, which is the
+  variable `check-worktree-sync.sh` reads to block an edit whose `HEAD`
+  has drifted off the branch the session was started for. Without it that
+  guard would be dead on exactly the branches this mode creates.
+- **Siblings are reachable, and still off limits.** Every worktree lives
+  under the same `.worktrees/` root, so from `.worktrees/chore/foo` a
+  sibling is `../bar` or `../../028-some-spec` depending on how deep the
+  branch name nests — ordinary paths, with no mount boundary in front of
+  them. The `Read(.worktrees/**)` / `Edit(.worktrees/**)` deny rules are
+  resolved against the session's own directory, so inside a worktree they
+  match nothing at all and are inert. For non-spec work the separation is
+  a rule, not a wall — which is exactly why spec work keeps its container
+  instead of also moving to the host.
 
 ## Dependent specs (spec B needs spec A's in-flight work)
 

@@ -5,11 +5,17 @@
 #
 # Two independent checks, in order of how widely they apply:
 #
-#  1. Container identity vs HEAD -- runs on EVERY branch. bin/wt bakes
-#     WORKTREE_CONTAINER into the container's environment as the branch it
-#     was started for, so a session inside a worktree container always has
-#     something to compare HEAD against. This is the check that used to be
-#     unreachable: the script exited 0 before it whenever
+#  1. Session identity vs HEAD -- runs on EVERY branch. bin/wt sets
+#     WORKTREE_CONTAINER to the branch the session was started for, so a
+#     session started by bin/wt always has something to compare HEAD
+#     against. It is set for a --no-container session on the host too,
+#     not just inside a container: those run on exactly the chore/*,
+#     fix/*, docs/* and perf/* branches this check exists for, and without
+#     it the check would be dead on all of them. (The variable keeps its
+#     container-era name because containers already built have it baked
+#     into their environment; renaming it would disarm this check for
+#     every live session until each one was rebuilt.) This is the check
+#     that used to be unreachable: the script exited 0 before it whenever
 #     .specify/feature.json was absent, which is every chore/*, fix/*,
 #     perf/* and issue/* worktree (see issue #293, Leak B).
 #
@@ -51,13 +57,13 @@ CONTAINER_BRANCH="${WORKTREE_CONTAINER:-}"
 if [[ -n "$CONTAINER_BRANCH" ]]; then
   if [[ -z "$CURRENT_BRANCH" ]]; then
     block \
-      "BLOCKED: this container was started for worktree '$CONTAINER_BRANCH' (WORKTREE_CONTAINER) but HEAD is detached." \
+      "BLOCKED: this session was started for worktree '$CONTAINER_BRANCH' (WORKTREE_CONTAINER) but HEAD is detached." \
       "Edits made here would not land on '$CONTAINER_BRANCH' — they would be stranded on a detached HEAD." \
       "Run 'git switch $CONTAINER_BRANCH' before editing."
   fi
   if [[ "$CONTAINER_BRANCH" != "$CURRENT_BRANCH" ]]; then
     block \
-      "BLOCKED: this container was started for worktree '$CONTAINER_BRANCH' (WORKTREE_CONTAINER) but HEAD is on branch '$CURRENT_BRANCH'." \
+      "BLOCKED: this session was started for worktree '$CONTAINER_BRANCH' (WORKTREE_CONTAINER) but HEAD is on branch '$CURRENT_BRANCH'." \
       "Editing here would land this worktree's changes on the wrong branch." \
       "Run 'git switch $CONTAINER_BRANCH' before editing, or exit and start the right worktree with 'bin/wt $CURRENT_BRANCH'."
   fi

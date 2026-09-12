@@ -180,13 +180,129 @@ expect_status 1 $? "bin/wt rejects unknown options"
 
 "$REPO_ROOT/bin/wt-prune" --help >/dev/null 2>&1
 expect_status 0 $? "bin/wt-prune --help"
-WORKTREE_CONTAINER=perf/iframes "$REPO_ROOT/bin/wt-prune" >/dev/null 2>&1
-expect_status 1 $? "bin/wt-prune refuses to run inside a worktree container"
+# Refuses on WHERE it is run, not on WORKTREE_CONTAINER: that variable is
+# set for host sessions too now, so refusing on it would reject a user
+# standing in the primary checkout who had already done what the message
+# asked. A linked worktree is the thing that cannot see its siblings.
+repo="$(new_repo prune-location)"
+git_q -C "$repo" worktree add -q -b chore/elsewhere "$repo/.worktrees/chore/elsewhere" >/dev/null 2>&1
+prune_out="$WORKDIR/prune-location.out"
+( cd "$repo/.worktrees/chore/elsewhere" && "$REPO_ROOT/bin/wt-prune" ) >"$prune_out" 2>&1
+expect_status 1 $? "bin/wt-prune refuses to run from inside a worktree"
+if grep -q "Refusing to run from the worktree" "$prune_out"; then
+  ok "...naming the location as the reason, not an environment variable"
+else
+  bad "...but did not refuse on location"
+fi
+# The inherited variable alone must NOT be what refuses: standing in the
+# primary checkout is the supported way to run this, and a host session
+# leaves WORKTREE_CONTAINER set in any shell spawned from it.
+prune_env_out="$WORKDIR/prune-env.out"
+( cd "$repo" && WORKTREE_CONTAINER=chore/elsewhere "$REPO_ROOT/bin/wt-prune" ) >"$prune_env_out" 2>&1
+if grep -q "Refusing to run from the worktree" "$prune_env_out"; then
+  bad "an inherited WORKTREE_CONTAINER wrongly blocks wt-prune in the primary checkout"
+else
+  ok "an inherited WORKTREE_CONTAINER does not block wt-prune in the primary checkout"
+fi
 "$REPO_ROOT/bin/wt-prune" --nonsense >/dev/null 2>&1
 expect_status 1 $? "bin/wt-prune rejects unknown options"
 
 "$REPO_ROOT/bin/wt-sync" --help >/dev/null 2>&1
 expect_status 0 $? "bin/wt-sync --help"
+
+# Deliberately run inside a fixture, not $REPO_ROOT: if this refusal ever
+# regressed, --no-container skips the Docker preflight, and the run would
+# create a real branch and worktree in the developer's own checkout and
+# then sit on an interactive `claude` -- the suite would hang rather than
+# report a failure. Every other bin/wt case that can get past preflight
+# uses new_repo for the same reason.
+repo="$(new_repo flag-conflict)"
+( cd "$repo" && "$REPO_ROOT/bin/wt" chore/conflict --no-container --rebuild ) >/dev/null 2>&1 </dev/null
+expect_status 1 $? "bin/wt refuses --no-container together with --rebuild"
+if grep -q '"code":"E_FLAG_CONFLICT"' "$WT_TEST_LOGS/events.jsonl" 2>/dev/null; then
+  ok "...and the refusal reaches the log, like every other refusal"
+else
+  bad "...but the refusal was never logged, so bin/wt --logs cannot see it"
+fi
+
+echo
+echo "bin/wt --no-container — host sessions for non-spec branches"
+# The whole point of this mode is that it needs no Docker and no
+# devcontainer CLI, so it has to be exercisable exactly here, in the suite
+# that promises "no docker, no gh, no network". --shell is used rather than
+# the default claude mode so the test does not require the Claude Code CLI
+# on the host either; both modes take the same path to get there.
+repo="$(new_repo host-session)"
+host_out="$WORKDIR/host-session.out"
+printf 'printf "PWD=%%s\\n" "$PWD"; printf "WTC=%%s\\n" "$WORKTREE_CONTAINER"; printf "HEAD=%%s\\n" "$(git rev-parse --abbrev-ref HEAD)"\n' \
+  | ( cd "$repo" && "$REPO_ROOT/bin/wt" chore/host-demo --no-container --shell ) >"$host_out" 2>&1
+expect_status 0 $? "a non-spec branch starts a host session"
+
+# Compared against the physical path: on macOS $TMPDIR is /var/..., a
+# symlink to /private/var/..., and the session's own $PWD is the resolved
+# form. Comparing the two spellings fails on a difference that is not one.
+repo_real="$(cd "$repo" && pwd -P)"
+expect_equal "$repo_real/.worktrees/chore/host-demo" \
+  "$(sed -n 's/^PWD=//p' "$host_out" | tail -1)" \
+  "the session runs with its cwd inside that branch's worktree"
+
+# Not cosmetic: WORKTREE_CONTAINER is what check-worktree-sync.sh compares
+# HEAD against. If a host session did not export it, the wrong-branch guard
+# would be dead on every branch this mode creates -- which is the whole
+# chore/fix/docs/perf population.
+expect_equal "chore/host-demo" \
+  "$(sed -n 's/^WTC=//p' "$host_out" | tail -1)" \
+  "the host session exports WORKTREE_CONTAINER, arming the wrong-branch guard"
+
+expect_equal "chore/host-demo" \
+  "$(sed -n 's/^HEAD=//p' "$host_out" | tail -1)" \
+  "the worktree is on the branch it is named for"
+
+expect_equal "chore/host-demo" "$(branch_of "$repo/.worktrees/chore/host-demo")" \
+  "...and still is after the session ends"
+
+expect_equal "main" "$(branch_of "$repo")" \
+  "the primary checkout is left on main, not moved to the new branch"
+
+# The case a folder test cannot catch: a brand-new spec branch has no
+# specs/ folder yet -- /speckit-specify creates it from inside the session
+# -- so without the name check the whole spec-authoring session would run
+# uncontained, and only the SECOND start would refuse.
+repo="$(new_repo host-session-newspec)"
+newspec_out="$WORKDIR/host-session-newspec.out"
+( cd "$repo" && "$REPO_ROOT/bin/wt" 028-brand-new --no-container --shell ) >"$newspec_out" 2>&1 </dev/null
+expect_status 1 $? "--no-container is refused for a spec-numbered branch that does not exist yet"
+if [ -e "$repo/.worktrees/028-brand-new" ]; then
+  bad "...but a worktree was created for it before the refusal"
+else
+  ok "...before any worktree is created for it"
+fi
+
+# A spec branch must not be able to opt out of its container by asking
+# nicely under another name either. The second half of the check reads the
+# worktree's own specs/ directory, so a chore/* name does not get round it.
+repo="$(new_repo host-session-spec)"
+git_q -C "$repo" switch -q -c feat/has-spec
+mkdir -p "$repo/specs/feat/has-spec"
+echo "spec" >"$repo/specs/feat/has-spec/spec.md"
+git_q -C "$repo" add -A
+git_q -C "$repo" commit -q -m "add spec folder"
+git_q -C "$repo" switch -q main
+spec_out="$WORKDIR/host-session-spec.out"
+( cd "$repo" && "$REPO_ROOT/bin/wt" feat/has-spec --no-container --shell ) >"$spec_out" 2>&1 </dev/null
+expect_status 1 $? "--no-container is refused for a branch with a spec folder"
+
+if grep -q "MUST run in its own container" "$spec_out"; then
+  ok "...and says why, naming the spec folder"
+else
+  bad "...but did not explain that spec work needs its own container"
+fi
+
+if grep -q '"code":"E_SPEC_NEEDS_CONTAINER"' "$WT_TEST_LOGS/events.jsonl" 2>/dev/null; then
+  ok "...and the refusal is recorded under its own error code"
+else
+  bad "...but no E_SPEC_NEEDS_CONTAINER event was logged"
+fi
 
 echo
 echo "bin/wt-prune — worktree directory must spell out the branch name"
