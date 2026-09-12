@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from dataclasses import replace
 from typing import Any, Optional
 
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
@@ -211,6 +212,11 @@ class StoryDraftService:
         )
         self._stories.carry_admin_edits(story, configuration)
         derived = self._stories.derived_content(configuration, draft.name, existing=story)
+        # Folds both the draft's own accumulated tokens (suggest_world_prompt calls) and
+        # this save's regeneration tokens onto the existing story's total — apply_content_write
+        # already adds derived.tokens for us; this pre-adds the draft's own share
+        # (research.md Decision 2, edit case).
+        derived = replace(derived, tokens=derived.tokens + draft.totalTokens)
         updated = self._stories.apply_content_write(story, configuration, admin_oid, derived)
         self._container().delete_item(item=draft.id, partition_key=draft.id)
         return updated
@@ -234,13 +240,14 @@ class StoryDraftService:
             raise DraftIncompleteError("name, worldPrompt, characterTypes, and completionCriteria are all required")
 
         try:
-            generation = self._llm.generate_story_config(draft.to_dict())
+            generation, generation_tokens = self._llm.generate_story_config(draft.to_dict())
             narrative_guidance = generation["narrativeGuidance"]
             if not narrative_guidance:
                 raise LLMOutputError("narrativeGuidance was empty")
-            starting_point = StartingPoint.from_dict(
-                self._llm.generate_starting_point(draft.to_dict(), narrative_guidance)
+            starting_point_data, starting_point_tokens = self._llm.generate_starting_point(
+                draft.to_dict(), narrative_guidance
             )
+            starting_point = StartingPoint.from_dict(starting_point_data)
         except LLMRateLimitError as exc:
             logger.warning("Story generation rate-limited for draft %s: %s", draft.id, exc)
             raise LLMRateLimitedError(str(exc)) from exc
@@ -250,17 +257,21 @@ class StoryDraftService:
             logger.warning("Story generation failed for draft %s: %s", draft.id, exc)
             raise GenerationFailedError(str(exc)) from exc
 
-        story = self._stories.create_story(draft, narrative_guidance, starting_point)
+        tokens_used = draft.totalTokens + generation_tokens + starting_point_tokens
+        story = self._stories.create_story(draft, narrative_guidance, starting_point, tokens_used)
         self._container().delete_item(item=draft.id, partition_key=draft.id)
         return story
 
     def _apply_world_prompt_suggestion(self, draft: StoryDraft, idea: str) -> None:
         """The latest suggestion always wins over whatever `worldPrompt` held before
-        (Edge Cases); an empty suggestion is discarded rather than blanking the field."""
+        (Edge Cases); an empty suggestion is discarded rather than blanking the field.
+        The call's tokens are added to the draft's totalTokens regardless (data-model.md →
+        StoryDraft lifecycle) — the model was still consulted."""
         try:
-            world_prompt = self._llm.suggest_world_prompt(draft.to_dict(), idea)
+            world_prompt, tokens_used = self._llm.suggest_world_prompt(draft.to_dict(), idea)
         except LLMRateLimitError as exc:
             raise LLMRateLimitedError(str(exc)) from exc
+        draft.totalTokens += tokens_used
         if world_prompt:
             draft.worldPrompt = world_prompt
 

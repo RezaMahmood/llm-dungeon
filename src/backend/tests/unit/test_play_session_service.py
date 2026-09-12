@@ -160,6 +160,16 @@ def _turn_data(text="You look around.", success=None, failure=None) -> dict:
     }
 
 
+# A fixed, arbitrary token count for LLMService.generate_gameplay_turn's mocked reply —
+# LLMService itself already returns (payload, tokens_used) (research.md Decision 1); this
+# is just what the mock hands back for that second element.
+DEFAULT_TURN_TOKENS = 25
+
+
+def _turn_response(data: dict, tokens: int = DEFAULT_TURN_TOKENS) -> tuple[dict, int]:
+    return data, tokens
+
+
 def _story(
     success_conditions=None,
     failure_conditions=None,
@@ -193,11 +203,11 @@ def _make_service(story: Story, llm_turn_data=None, safety: PlayerContentSafetyS
     cosmos.get_container(config.STORIES_CONTAINER).upsert_item(story.to_dict())
     llm = MagicMock()
     if isinstance(llm_turn_data, list):
-        llm.generate_gameplay_turn.side_effect = llm_turn_data
+        llm.generate_gameplay_turn.side_effect = [_turn_response(d) for d in llm_turn_data]
     else:
-        llm.generate_gameplay_turn.return_value = llm_turn_data if llm_turn_data is not None else _turn_data()
-    llm.generate_starting_point.return_value = STARTING_POINT.to_dict()
-    llm.summarize_session_history.return_value = "Condensed summary."
+        llm.generate_gameplay_turn.return_value = _turn_response(llm_turn_data if llm_turn_data is not None else _turn_data())
+    llm.generate_starting_point.return_value = (STARTING_POINT.to_dict(), 15)
+    llm.summarize_session_history.return_value = ("Condensed summary.", 8)
     safety = safety or PlayerContentSafetyStandingService(cosmos_service=cosmos)
     stories = StoryService(cosmos_service=cosmos, llm_service=llm)
     service = PlaySessionService(
@@ -538,7 +548,7 @@ def test_submit_interaction_summarizes_every_20_turns_and_uses_summary_afterward
 
     # Drive turn 19 (the 20th appended interaction, turns.length becomes 20).
     llm.generate_gameplay_turn.side_effect = None
-    llm.generate_gameplay_turn.return_value = _turn_data("NARRATIVE-19")
+    llm.generate_gameplay_turn.return_value = _turn_response(_turn_data("NARRATIVE-19"))
     updated, _reason = service.submit_interaction(session.id, PLAYER_ID, "act 19")
     assert len(updated.turns) == 20
     assert updated.summary == "Condensed summary."
@@ -548,11 +558,11 @@ def test_submit_interaction_summarizes_every_20_turns_and_uses_summary_afterward
     # Turn 20 is the first turn generated after summarization: it is in neither the
     # summary nor the summarized range, so it must survive in the raw prior context.
     _clear_rate_limit(cosmos, updated.id)
-    llm.generate_gameplay_turn.return_value = _turn_data("NARRATIVE-20")
+    llm.generate_gameplay_turn.return_value = _turn_response(_turn_data("NARRATIVE-20"))
     updated, _reason = service.submit_interaction(updated.id, PLAYER_ID, "act 20")
 
     _clear_rate_limit(cosmos, updated.id)
-    llm.generate_gameplay_turn.return_value = _turn_data("NARRATIVE-21")
+    llm.generate_gameplay_turn.return_value = _turn_response(_turn_data("NARRATIVE-21"))
     service.submit_interaction(updated.id, PLAYER_ID, "act 21")
 
     context = LLMService(client=MagicMock())._prior_context(  # noqa: SLF001
@@ -684,7 +694,7 @@ def test_two_success_conditions_with_all_rule_requires_both():
     assert reason is None
     assert updated.satisfiedSuccessConditions == [0]
 
-    llm.generate_gameplay_turn.return_value = _turn_data("You light the lamp.", success=[1])
+    llm.generate_gameplay_turn.return_value = _turn_response(_turn_data("You light the lamp.", success=[1]))
     _clear_rate_limit(cosmos, updated.id)
     updated2, reason2 = service.submit_interaction(updated.id, PLAYER_ID, "light it")
 
@@ -748,7 +758,7 @@ def test_create_session_reports_not_found_when_the_story_is_deleted_mid_backfill
 
     def _delete_then_generate(*args, **kwargs):  # noqa: ARG001
         del cosmos.get_container(config.STORIES_CONTAINER).items[story.id]
-        return STARTING_POINT.to_dict()
+        return STARTING_POINT.to_dict(), 15
 
     llm.generate_starting_point.side_effect = _delete_then_generate
 
@@ -819,7 +829,7 @@ def test_failed_llm_call_releases_the_interaction_claim(monkeypatch):
 
     # ...and the session still accepts the player's next attempt.
     llm.generate_gameplay_turn.side_effect = None
-    llm.generate_gameplay_turn.return_value = _turn_data("You look around.")
+    llm.generate_gameplay_turn.return_value = _turn_response(_turn_data("You look around."))
     _clear_rate_limit(cosmos, session.id)
     updated, _reason = service.submit_interaction(session.id, PLAYER_ID, "look around")
     assert updated.turns[-1].narrativeText == "You look around."
@@ -885,7 +895,7 @@ def test_content_filtered_input_is_not_replayed_into_later_prompts():
     service.submit_interaction(session.id, PLAYER_ID, "DISALLOWED-CONTENT-XYZ")
 
     llm.generate_gameplay_turn.side_effect = None
-    llm.generate_gameplay_turn.return_value = _turn_data("A normal turn.")
+    llm.generate_gameplay_turn.return_value = _turn_response(_turn_data("A normal turn."))
     _clear_rate_limit(cosmos, session.id)
     service.submit_interaction(session.id, PLAYER_ID, "a perfectly innocent action")
 
@@ -920,7 +930,7 @@ def test_writes_never_send_cosmos_system_metadata_back_as_document_fields():
 
     # ...and creating a second session exercises the deactivation write.
     llm.generate_gameplay_turn.side_effect = None
-    llm.generate_gameplay_turn.return_value = _turn_data()
+    llm.generate_gameplay_turn.return_value = _turn_response(_turn_data())
     _clear_creation_rate_limit(cosmos)
     service.create_session(story.id, "Ash", "Detective", PLAYER_ID)
 
@@ -991,6 +1001,91 @@ def test_play_session_model_holds_no_configuration_snapshot():
     session_fields = {f.name for f in dataclasses.fields(PlaySession)}
     forbidden = {"worldPrompt", "characterTypes", "completionCriteria", "narrativeGuidance", "configuration", "story"}
     assert not (session_fields & forbidden)
+
+
+# --- Token usage (026-token-usage) ---
+
+
+def test_submit_interaction_adds_the_turns_tokens_to_the_session_total():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story, llm_turn_data=_turn_data("You look around."))
+    session = _existing_session(cosmos, story)
+    assert session.totalTokens == 0
+
+    updated, _reason = service.submit_interaction(session.id, PLAYER_ID, "look around")
+
+    assert updated.turns[-1].tokens == DEFAULT_TURN_TOKENS
+    assert updated.totalTokens == DEFAULT_TURN_TOKENS
+
+
+def test_content_filtered_deflection_turn_contributes_zero_tokens():
+    story = _story()
+    service, cosmos, llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+    llm.generate_gameplay_turn.side_effect = LLMContentFilteredError("blocked")
+
+    updated, _reason = service.submit_interaction(session.id, PLAYER_ID, "something disallowed")
+
+    assert updated.turns[-1].tokens == 0
+    assert updated.totalTokens == 0
+
+
+def test_opening_turn_contributes_zero_tokens():
+    """Turn 0 is replayed verbatim from the story's persisted startingPoint — no LLM call,
+    so no tokens (data-model.md → PlaySession)."""
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+
+    session = service.create_session(story.id, "Wren", "Curious Cousin", PLAYER_ID)
+
+    assert session.turns[0].tokens == 0
+    assert session.totalTokens == 0
+
+
+def test_summarization_tokens_are_added_to_the_session_total_without_a_turn_record():
+    story = _story()
+    service, cosmos, llm, _safety = _make_service(story, llm_turn_data=_turn_data("Turn narrative"))
+    turns = [
+        PlayerInteraction(
+            turnNumber=i, playerInput="go", narrativeText=f"Turn {i}", suggestedActions=["a"], locationLabel="x", timestamp=_now()
+        )
+        for i in range(0, 19)
+    ]
+    session = _existing_session(cosmos, story, turns=turns, totalTokens=19 * DEFAULT_TURN_TOKENS)
+
+    updated, _reason = service.submit_interaction(session.id, PLAYER_ID, "act")
+
+    # 19 prior turns' tokens + this turn's + the summarization call's own 8 (_make_service
+    # default) — no extra PlayerInteraction was created for the summary itself.
+    assert len(updated.turns) == 20
+    assert updated.totalTokens == 19 * DEFAULT_TURN_TOKENS + DEFAULT_TURN_TOKENS + 8
+
+
+def test_real_player_session_tokens_never_reach_story_total_tokens():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story, llm_turn_data=_turn_data("You look around."))
+    session = _existing_session(cosmos, story)
+
+    service.submit_interaction(session.id, PLAYER_ID, "look around")
+
+    stored_story = cosmos.get_container(config.STORIES_CONTAINER).items[story.id]
+    assert stored_story.get("totalTokens", 0) == 0
+
+
+def test_get_session_detail_for_player_strips_tokens_from_every_turn():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    turns = [
+        PlayerInteraction(
+            turnNumber=0, narrativeText="A", suggestedActions=[], locationLabel="L0", timestamp=_now(), tokens=42
+        )
+    ]
+    session = _existing_session(cosmos, story, turns=turns, totalTokens=42)
+
+    detail = service.get_session_detail_for_player(session.id, PLAYER_ID)
+
+    assert all("tokens" not in turn for turn in detail["turns"])
+    assert "totalTokens" not in detail
 
 
 # --- list_player_sessions (009-save-and-continue, T003) ---

@@ -309,7 +309,7 @@ class PlaySessionService:
 
         if self._duration_ceiling_reached(story, session):
             try:
-                turn_data = self._llm.generate_gameplay_turn(
+                turn_data, tokens_used = self._llm.generate_gameplay_turn(
                     story,
                     session,
                     trimmed_input,
@@ -317,21 +317,23 @@ class PlaySessionService:
                 )
             except (LLMOutputError, LLMRateLimitError) as exc:
                 raise NarrativeUnavailableError() from exc
-            turn = self._turn_from_data(len(session.turns), trimmed_input, turn_data, now)
+            turn = self._turn_from_data(len(session.turns), trimmed_input, turn_data, now, tokens=tokens_used)
             completion_reason = {"type": "duration", "detail": None}
         else:
             try:
-                turn_data = self._llm.generate_gameplay_turn(story, session, trimmed_input)
-                turn = self._turn_from_data(len(session.turns), trimmed_input, turn_data, now)
+                turn_data, tokens_used = self._llm.generate_gameplay_turn(story, session, trimmed_input)
+                turn = self._turn_from_data(len(session.turns), trimmed_input, turn_data, now, tokens=tokens_used)
                 completion_reason = evaluate_completion(story, session, turn_data)
             except LLMContentFilteredError:
                 standing = self._safety.record_flag(player_id)
                 turn_data = self._deflection_turn_data(session, standing)
-                turn = self._turn_from_data(len(session.turns), REDACTED_PLAYER_INPUT, turn_data, now)
+                tokens_used = 0
+                turn = self._turn_from_data(len(session.turns), REDACTED_PLAYER_INPUT, turn_data, now, tokens=0)
             except (LLMOutputError, LLMRateLimitError) as exc:
                 raise NarrativeUnavailableError() from exc
 
         session.turns.append(turn)
+        session.totalTokens += tokens_used
         session.lastInteractionAt = now
         if completion_reason is not None:
             session.status = "concluded"
@@ -354,7 +356,7 @@ class PlaySessionService:
         if len(session.turns) % SUMMARIZE_EVERY_N_TURNS != 0 or last_turn_number <= session.summarizedThroughTurn:
             return
         try:
-            summary = self._llm.summarize_session_history(story, session)
+            summary, tokens_used = self._llm.summarize_session_history(story, session)
         except (LLMOutputError, LLMRateLimitError):
             # Summarizing only bounds future context; it is not part of the turn the
             # player just earned, so a failure must not cost them that turn. The next
@@ -362,6 +364,9 @@ class PlaySessionService:
             logger.warning("Summarization failed for session %s; keeping the full history", session.id)
             return
         session.summary = summary
+        # No turn record is created for a summarization call (research.md Decision 5) —
+        # its tokens land directly on the session total.
+        session.totalTokens += tokens_used
         # data-model.md defines this as the turnNumber of the last turn folded in. Using
         # the turn count instead would be one too high, and the `turnNumber <=` filters in
         # llm_service would then also swallow the turn generated right after this one.
@@ -497,7 +502,10 @@ class PlaySessionService:
         summary["characterType"] = session.characterType
         summary["status"] = session.status
         summary["completionReason"] = session.completionReason
-        summary["turns"] = [turn.to_dict() for turn in session.turns]
+        # tokens is admin-only internal cost data — stripped before it ever reaches a
+        # player-facing response (research.md Decision 6). PlaySession.totalTokens itself
+        # is simply never included in this shape at all.
+        summary["turns"] = [{k: v for k, v in turn.to_dict().items() if k != "tokens"} for turn in session.turns]
         summary["checkpoints"] = [checkpoint.to_dict() for checkpoint in session.checkpoints]
         return summary
 
@@ -672,7 +680,7 @@ class PlaySessionService:
 
     @staticmethod
     def _turn_from_data(
-        turn_number: int, player_input: Optional[str], turn_data: dict[str, Any], timestamp: str
+        turn_number: int, player_input: Optional[str], turn_data: dict[str, Any], timestamp: str, *, tokens: int = 0
     ) -> PlayerInteraction:
         return PlayerInteraction(
             turnNumber=turn_number,
@@ -683,4 +691,5 @@ class PlaySessionService:
             goalLabel=turn_data.get("goalLabel"),
             progress=turn_data.get("progress"),
             timestamp=timestamp,
+            tokens=tokens,
         )

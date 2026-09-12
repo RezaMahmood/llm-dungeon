@@ -95,24 +95,24 @@ creating it (quickstart.md Scenario 1).
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] In `src/backend/services/story_draft_service.py`, update
+- [X] T009 [US1] In `src/backend/services/story_draft_service.py`, update
   `_apply_world_prompt_suggestion` to unpack `(world_prompt, tokens)` from
   `self._llm.suggest_world_prompt(...)` and add `tokens` to `draft.totalTokens` before the
   draft is persisted (data-model.md → StoryDraft lifecycle)
-- [ ] T010 [US1] In `src/backend/services/story_draft_service.py`, update `generate_story`
+- [X] T010 [US1] In `src/backend/services/story_draft_service.py`, update `generate_story`
   to unpack tokens from the `generate_story_config` and `generate_starting_point` calls and
   pass the draft's accumulated `totalTokens` plus both calls' tokens through to
   `StoryService.create_story` (research.md Decision 2, creation case)
-- [ ] T011 [US1] In `src/backend/services/story_service.py`, change `create_story` to
+- [X] T011 [US1] In `src/backend/services/story_service.py`, change `create_story` to
   `create_story(self, draft, narrative_guidance, starting_point, tokens_used: int)` and set
   the new `Story.totalTokens = tokens_used`
-- [ ] T012 [US1] In `src/backend/services/story_service.py`, update `list_summaries()`'s
+- [X] T012 [US1] In `src/backend/services/story_service.py`, update `list_summaries()`'s
   Cosmos projection query to also select `c.totalTokens`, defaulting to `0` for a
   pre-existing row missing the field (FR-004)
-- [ ] T013 [US1] [P] Update `src/backend/tests/unit/test_story_draft_service.py` for the
+- [X] T013 [US1] [P] Update `src/backend/tests/unit/test_story_draft_service.py` for the
   draft's `totalTokens` accumulation on `suggest_world_prompt`/`_apply_world_prompt_suggestion`
   and its folding into the newly created `Story.totalTokens` on `generate_story`
-- [ ] T014 [US1] [P] Update `src/backend/tests/unit/test_story_service.py` for
+- [X] T014 [US1] [P] Update `src/backend/tests/unit/test_story_service.py` for
   `create_story`'s `totalTokens` assignment and `list_summaries`' projection, including a
   legacy-row-with-no-field case defaulting to `0`
 - [ ] T015 [US1] [P] Update `src/backend/tests/integration/test_admin_stories_endpoint.py`
@@ -178,22 +178,22 @@ Scenarios 5–8).
 
 ### Implementation for User Story 4
 
-- [ ] T022 [US4] In `src/backend/services/play_session_service.py`, update
+- [X] T022 [US4] In `src/backend/services/play_session_service.py`, update
   `_generate_and_persist_turn` to unpack `(payload, tokens)` from every
   `generate_gameplay_turn` call, set the new turn's `tokens` (`0` for a content-filtered
   deflection turn), and add `tokens` to `session.totalTokens` (data-model.md → PlaySession)
-- [ ] T023 [US4] In `src/backend/services/play_session_service.py`, update
+- [X] T023 [US4] In `src/backend/services/play_session_service.py`, update
   `_summarize_if_due` to unpack tokens from `summarize_session_history` and add them
   directly to `session.totalTokens`, without creating a turn record (research.md Decision 5)
-- [ ] T024 [US4] In `src/backend/services/play_session_service.py`, update
+- [X] T024 [US4] In `src/backend/services/play_session_service.py`, update
   `get_session_detail_for_player` to strip `tokens` from each turn dict in
   `summary["turns"]` before returning the response (research.md Decision 6); confirm
   `PlaySession.totalTokens` is not included in any player-facing response
-- [ ] T025 [US4] In `src/backend/services/story_service.py`, change
+- [X] T025 [US4] In `src/backend/services/story_service.py`, change
   `record_test_play(self, story_id: str, tokens_used: int)` to also add `tokens_used` to
   `Story.totalTokens` in the same read-modify-write that stamps `lastTestPlayedAt`
   (research.md Decision 3)
-- [ ] T026 [US4] In `src/backend/services/test_play_session_service.py`, update
+- [X] T026 [US4] In `src/backend/services/test_play_session_service.py`, update
   `_generate_and_persist_turn` to unpack `(payload, tokens)` from `generate_gameplay_turn`
   (`0` on the content-filtered branch), set the new exchange's `tokens`, add `tokens` to
   `session.totalTokens`, and pass the same `tokens` value to
@@ -264,12 +264,12 @@ Scenario 2).
 
 ### Implementation for User Story 3
 
-- [ ] T040 [US3] In `src/backend/services/story_service.py`, change
+- [X] T040 [US3] In `src/backend/services/story_service.py`, change
   `_generate_narrative_guidance`, `_generate_starting_point`, and `derived_content` to
   unpack and accumulate the tokens spent by any LLM call they make, extending
   `DerivedContent` with a `tokens: int` field carrying that total (research.md Decision 2,
   edit/import case)
-- [ ] T041 [US3] In `src/backend/services/story_service.py`, update `apply_content_write`
+- [X] T041 [US3] In `src/backend/services/story_service.py`, update `apply_content_write`
   (used by both the wizard edit-save path and the id-matched import-overwrite path) to add
   `derived.tokens` onto the story's **existing** `totalTokens` when persisting — never
   replacing it. Note: the persisted object is actually built by the private
@@ -277,24 +277,24 @@ Scenario 2).
   updated to carry `current.totalTokens + derived.tokens` forward, or every edit-save and
   id-matched import-overwrite will silently reset the story's total to `0` (research.md
   Decision 2)
-- [ ] T042 [US3] In `src/backend/services/story_service.py`, update `import_configuration`'s
+- [X] T042 [US3] In `src/backend/services/story_service.py`, update `import_configuration`'s
   new-story branch (no `configuration.id`) to set the new `Story.totalTokens = derived.tokens`
   — this branch builds its `Story(...)` directly, bypassing `apply_content_write`/
   `_replaced_story`, so T041's fix does not cover it (research.md Decision 2)
-- [ ] T043 [US3] In `src/backend/services/story_service.py`, update `ensure_starting_point`
+- [X] T043 [US3] In `src/backend/services/story_service.py`, update `ensure_starting_point`
   to add its backfill call's tokens to `Story.totalTokens` before the read-modify-write
   persist; on a lost `_etag` race, accept the resulting undercount rather than retrying
   (research.md Decision 2, accepted per Principle XII)
-- [ ] T044 [US3] In `src/backend/services/story_draft_service.py`, update
+- [X] T044 [US3] In `src/backend/services/story_draft_service.py`, update
   `save_draft_to_story` to add the edit draft's accumulated `totalTokens` plus
   `derived_content`'s regeneration tokens (T040/T041) onto the existing story's
   `totalTokens` (research.md Decision 2, edit case)
-- [ ] T045 [US3] [P] Update `src/backend/tests/unit/test_story_service.py` for
+- [X] T045 [US3] [P] Update `src/backend/tests/unit/test_story_service.py` for
   `derived_content`/`ensure_starting_point`/`apply_content_write`/`import_configuration`
   token accumulation, including: the accepted etag-race undercount case, a concurrent
   edit-vs-test-play case proving `_replaced_story` carries `totalTokens` forward (T041),
   and an import creating a new story that also generated content (T042)
-- [ ] T046 [US3] [P] Update `src/backend/tests/unit/test_story_draft_service.py` for
+- [X] T046 [US3] [P] Update `src/backend/tests/unit/test_story_draft_service.py` for
   `save_draft_to_story` folding both the draft's and the regeneration's tokens into the
   existing story's total
 - [ ] T047 [US3] [P] Update `src/backend/tests/integration/test_admin_stories_endpoint.py`

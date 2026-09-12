@@ -144,7 +144,7 @@ class TestPlaySessionService:
             lastInteractionAt=now,
         )
 
-        session.turns.append(self._turn_from_llm_data(0, None, story.startingPoint.to_dict(), now))
+        session.turns.append(self._turn_from_llm_data(0, None, story.startingPoint.to_dict(), now, tokens=0))
         self._container().create_item(session.to_dict())
         logger.info("Test-play session created", extra={"session_id": session.id, "story_id": story_id})
         return session
@@ -195,20 +195,22 @@ class TestPlaySessionService:
         now = _now()
 
         try:
-            turn_data = self._llm.generate_gameplay_turn(story, session, trimmed_input)
-            turn = self._turn_from_llm_data(len(session.turns), trimmed_input, turn_data, now)
+            turn_data, tokens_used = self._llm.generate_gameplay_turn(story, session, trimmed_input)
+            turn = self._turn_from_llm_data(len(session.turns), trimmed_input, turn_data, now, tokens=tokens_used)
             completion_reason = completion_rules.evaluate_completion(story, session, turn_data)
         except LLMContentFilteredError:
             # T021: the in-fiction deflection turn is returned, but no safety flag is
             # recorded and no lockout is enforced — testing a story must never accrue
             # against the administrator's own gameplay standing (research.md Decision 4).
             turn_data = self._deflection_turn_data(session)
-            turn = self._turn_from_llm_data(len(session.turns), REDACTED_PLAYER_INPUT, turn_data, now)
+            tokens_used = 0
+            turn = self._turn_from_llm_data(len(session.turns), REDACTED_PLAYER_INPUT, turn_data, now, tokens=0)
             completion_reason = None
         except (LLMOutputError, LLMRateLimitError) as exc:
             raise NarrativeUnavailableError() from exc
 
         session.turns.append(turn)
+        session.totalTokens += tokens_used
         session.lastInteractionAt = now
         if completion_reason is not None:
             session.status = "concluded"
@@ -224,7 +226,7 @@ class TestPlaySessionService:
         # successfully) stamps the marker — never turn 0, never on session creation
         # (research.md Decision 9). Lives here, not in the route handler, so every
         # caller of this method stamps it.
-        self._stories.record_test_play(story.id)
+        self._stories.record_test_play(story.id, tokens_used)
 
         return session, completion_reason
 
@@ -286,7 +288,7 @@ class TestPlaySessionService:
 
     @staticmethod
     def _turn_from_llm_data(
-        turn_number: int, player_input: Optional[str], turn_data: dict[str, Any], timestamp: str
+        turn_number: int, player_input: Optional[str], turn_data: dict[str, Any], timestamp: str, *, tokens: int = 0
     ) -> TestPlayExchange:
         return TestPlayExchange(
             turnNumber=turn_number,
@@ -297,4 +299,5 @@ class TestPlaySessionService:
             goalLabel=turn_data.get("goalLabel"),
             progress=turn_data.get("progress"),
             timestamp=timestamp,
+            tokens=tokens,
         )
