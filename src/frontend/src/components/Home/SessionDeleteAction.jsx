@@ -1,11 +1,11 @@
+import ConfirmDeleteDialog from "../Common/ConfirmDeleteDialog.jsx";
 import { useDeleteSession } from "../../hooks/useDeleteSession.js";
 
 /**
  * Permanent delete for one saved session plus its confirmation dialog
- * (028-home-page-redesign FR-008/FR-009), mirroring
- * `Admin/StoryDeleteAction.jsx`'s dialog pattern (Principle VIII) — the canonical mockup's
- * `confirm()` is a static-prototype artifact, not the design's actual mechanism
- * (research.md Decision 6).
+ * (028-home-page-redesign FR-008/FR-009), sharing `Admin/StoryDeleteAction.jsx`'s
+ * `ConfirmDeleteDialog` (Principle VIII) — the canonical mockup's `confirm()` is a
+ * static-prototype artifact, not the design's actual mechanism (research.md Decision 6).
  *
  * Sits inside `SessionCard`'s whole-card `<a>` (resume link), so both the trigger and the
  * dialog's own controls stop the click from also firing that link.
@@ -53,28 +53,14 @@ export function SessionDeleteAction({ session, token, onDeleted }) {
       )}
 
       {confirmingDelete && (
-        <div className="dialog-backdrop" onClick={stopAndRun(cancelDelete)}>
-          <div
-            className="dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={dialogTitleId}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="dialog-title" id={dialogTitleId}>
-              Delete your saved session for &ldquo;{title}&rdquo;?
-            </div>
-            <div className="dialog-body">Your progress will be lost.</div>
-            <div className="dialog-actions">
-              <button type="button" className="btn btn-secondary" onClick={stopAndRun(cancelDelete)} disabled={status === "working"}>
-                Cancel
-              </button>
-              <button type="button" className="btn btn-primary" onClick={stopAndRun(confirmDelete)} disabled={status === "working"}>
-                {status === "working" ? "Deleting…" : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDeleteDialog
+          titleId={dialogTitleId}
+          title={<>Delete your saved session for &ldquo;{title}&rdquo;?</>}
+          body="Your progress will be lost."
+          working={status === "working"}
+          onCancel={stopAndRun(cancelDelete)}
+          onConfirm={stopAndRun(confirmDelete)}
+        />
       )}
     </>
   );

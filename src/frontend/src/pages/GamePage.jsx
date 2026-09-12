@@ -15,6 +15,13 @@ import { createSession, getAdventure, getSession, resumeSession } from "../servi
 import { loginRequest } from "../services/msalConfig.js";
 import PlayPage from "./PlayPage.jsx";
 
+/** The one outer gutter this whole page uses, at every stage (setup form, resuming
+ * spinner, resume-error screen) — factored out after `/code-review high` flagged the
+ * inline style object as copy-pasted verbatim across three separate returns below. */
+function PageContainer({ children }) {
+  return <div style={{ maxWidth: "1020px", padding: "var(--space-6) var(--space-4) 64px" }}>{children}</div>;
+}
+
 function nameError(name) {
   const trimmed = name.trim();
   if (!trimmed) return "Character name is required.";
@@ -183,16 +190,16 @@ export function GamePage() {
   if (resumeSessionId) {
     if (resuming) {
       return (
-        <div style={{ maxWidth: "1020px", padding: "var(--space-6) var(--space-4) 64px" }}>
+        <PageContainer>
           <p className="text-muted">Resuming your story…</p>
-        </div>
+        </PageContainer>
       );
     }
     // Reached either because resuming failed (resumeError set) or because the player
     // exited a successfully resumed session back to here (checkpointExitNotice, or
     // neither — a plain way back).
     return (
-      <div style={{ maxWidth: "1020px", padding: "var(--space-6) var(--space-4) 64px" }}>
+      <PageContainer>
         {resumeError && (
           <p role="alert" style={{ fontSize: "12px", color: "var(--color-accent-700)" }}>
             {resumeError}
@@ -206,12 +213,12 @@ export function GamePage() {
         <Link to="/menu" className="btn btn-secondary">
           Back to Home
         </Link>
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div style={{ maxWidth: "1020px", padding: "var(--space-6) var(--space-4) 64px" }}>
+    <PageContainer>
       <h1 style={{ margin: 0, fontSize: "36px" }}>{adventureName || "Set up your game"}</h1>
       <hr className="hr" style={{ margin: "22px 0 32px" }} />
       {checkpointExitNotice && (
@@ -259,7 +266,7 @@ export function GamePage() {
           {submitting ? "Starting…" : "Start playing"}
         </button>
       </div>
-    </div>
+    </PageContainer>
   );
 }
 

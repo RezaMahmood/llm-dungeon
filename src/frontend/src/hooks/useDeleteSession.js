@@ -1,11 +1,11 @@
-import { useState } from "react";
-
 import { deleteSession } from "../services/gameService.js";
+import { useDeleteWithConfirmation } from "./useDeleteWithConfirmation.js";
 
 /**
  * Delete call + confirmation state for one saved session (028-home-page-redesign
- * FR-008/FR-009), mirroring `useDeleteStory.js`'s shape so both destructive
- * confirmations in the product behave identically.
+ * FR-008/FR-009), sharing `useDeleteStory.js`'s state machine via
+ * `useDeleteWithConfirmation` so both destructive confirmations in the product behave
+ * identically.
  *
  * `token` may be a plain access-token string or an async function returning one, matching
  * `useDeleteStory`'s own `token` contract.
@@ -14,46 +14,12 @@ import { deleteSession } from "../services/gameService.js";
  * success (contracts/api.md): the caller's `onDeleted` still fires.
  */
 export function useDeleteSession(token, session, onDeleted) {
-  const [status, setStatus] = useState("idle"); // idle | working | error
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-
-  const resolveToken = async () => (typeof token === "function" ? token() : token);
-
-  const requestDelete = () => {
-    // Clears a stale error from a previous attempt so reopening the dialog doesn't
-    // show both the old error alert and the fresh confirmation at once.
-    setStatus("idle");
-    setConfirmingDelete(true);
-  };
-  const cancelDelete = () => setConfirmingDelete(false);
-
-  const confirmDelete = async () => {
-    setStatus("working");
-    try {
-      const resolvedToken = await resolveToken();
-      await deleteSession(resolvedToken, session.sessionId);
-      setStatus("idle");
-      setConfirmingDelete(false);
-      onDeleted?.(session.sessionId);
-    } catch (err) {
-      if (err.response?.status === 404) {
-        setStatus("idle");
-        setConfirmingDelete(false);
-        onDeleted?.(session.sessionId);
-        return;
-      }
-      setStatus("error");
-      setConfirmingDelete(false);
-    }
-  };
-
-  return {
-    status,
-    confirmingDelete,
-    requestDelete,
-    confirmDelete,
-    cancelDelete,
-  };
+  // A wrapper, not the bare import, so the module binding is only dereferenced when a
+  // delete is actually confirmed — not on every render (mattered for test mocks that
+  // don't stub this call because nothing in that test ever clicks Delete).
+  return useDeleteWithConfirmation(token, session.sessionId, (t, id) => deleteSession(t, id), onDeleted, {
+    treatNotFoundAsSuccess: true,
+  });
 }
 
 export default useDeleteSession;

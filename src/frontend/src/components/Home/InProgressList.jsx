@@ -1,3 +1,4 @@
+import HomeColumn from "./HomeColumn.jsx";
 import SessionCard from "./SessionCard.jsx";
 
 /** Right column — "In progress" (specs/designs/07-home-spec.md §5.2, FR-003). The
@@ -6,36 +7,33 @@ export function InProgressList({ sessions, loading, error, onResume, renderDelet
   const heading = sessions.length === 0 ? "Nothing in progress" : "In progress";
 
   return (
-    <aside className="home-col home-col-side">
-      <div className="home-colhead">
-        <div className="home-kicker">Keep going</div>
-        <h2>{heading}</h2>
-      </div>
-      <div className="home-colbody">
-        {loading ? (
-          <p className="text-muted">Loading your stories…</p>
-        ) : error ? (
-          <p role="alert" className="text-muted">
-            Couldn&rsquo;t load your stories in progress. Please try again.
+    <HomeColumn
+      as="aside"
+      className="home-col home-col-side"
+      kicker="Keep going"
+      heading={heading}
+      loading={loading}
+      loadingMessage="Loading your stories…"
+      error={error}
+      errorMessage="Couldn't load your stories in progress. Please try again."
+    >
+      {sessions.length === 0 ? (
+        <div style={{ padding: "28px 8px" }}>
+          <p style={{ margin: 0, fontSize: "15px" }}>
+            When you open a story it lands here, so you can pick it straight back up next time.
           </p>
-        ) : sessions.length === 0 ? (
-          <div style={{ padding: "28px 8px" }}>
-            <p style={{ margin: 0, fontSize: "15px" }}>
-              When you open a story it lands here, so you can pick it straight back up next time.
-            </p>
-          </div>
-        ) : (
-          sessions.map((session) => (
-            <SessionCard
-              key={session.sessionId}
-              session={session}
-              onResume={onResume}
-              deleteAction={renderDeleteAction?.(session)}
-            />
-          ))
-        )}
-      </div>
-    </aside>
+        </div>
+      ) : (
+        sessions.map((session) => (
+          <SessionCard
+            key={session.sessionId}
+            session={session}
+            onResume={onResume}
+            deleteAction={renderDeleteAction?.(session)}
+          />
+        ))
+      )}
+    </HomeColumn>
   );
 }
 
