@@ -168,7 +168,13 @@ Phase 6 depends on nothing and may be taken at any point.
 ## Live-only fallbacks
 
 Required by **FR-015** and by the constitution's *Environments & Deployment Pipeline*.
-Carried from the spec, plus four rows this plan adds.
+Carried from the spec, plus three rows this plan adds.
+
+The two *conditional* rows this table previously carried — cross-partition parallel
+query and ETag-conditional replace — **were both resolved by the T001 spike
+([#315](https://github.com/RezaMahmood/llm-dungeon/issues/315)) and are gone**. The
+emulator supports both, so US2 scenarios 2 and 3 move onto the emulator tier as
+originally planned and neither becomes a permanent fallback.
 
 | Not substitutable locally | Covered instead by |
 |---|---|
@@ -180,17 +186,24 @@ Carried from the spec, plus four rows this plan adds.
 | Real LLM output quality and prompt behaviour | Post-ship playtesting — correctly not an automated test |
 | **Microsoft Graph guest invite/remove** (added) | FR-017 makes the base URL configurable so a local substitute is *reachable*, but Graph's own invitation semantics are not reproduced. Existing `test_entra_directory_service.py` covers request shaping; real invitation flow stays live-only |
 | **Azure Monitor / Application Insights export** (added) | Already covered locally by the in-memory OTel exporters in `tests/conftest.py`. The exporter's wire behaviour to Azure Monitor stays live-only |
-| **Cosmos cross-partition parallel query** (added, *conditional*) | Emulator lists this as "not yet implemented". If T001 confirms, those assertions stay on the object-level fakes and are named here permanently |
-| **Cosmos ETag-conditional replace** (added, *conditional*) | Not listed in the emulator's feature matrix either way. If T001 shows it unsupported, US2 scenario 2 — the #281 defect class — stays on the object-level fakes, and this becomes a permanent row |
+| **Cosmos `_etag` wire format** (added) | The emulator returns `_etag` as a bare GUID (`afe238ca-…`); real Cosmos returns a quoted string (`"0000d986-…"`). Immaterial to the backend, which round-trips the value opaquely, but no local test may assert on the *shape* of an ETag — that stays live-only |
 
 ## Known limits and follow-ups
 
-- **Two decisions are unverified** (research.md D1, D3) because neither Docker nor `func`
-  exists in this container yet. Both carry a named fallback and a gating spike. They are
-  stated as risks, not as working solutions.
-- **Version pinning**: the emulator image tag, Core Tools version and SWA CLI version must
-  be pinned at implementation time (supply-chain requirement). `vnext-latest` is the
-  documented tag but is floating; pin the digest or a dated tag.
+- **D1 is now verified** (research.md D1): its gating spike,
+  [#315](https://github.com/RezaMahmood/llm-dungeon/issues/315), ran both operations
+  against the emulator and both work, so no fallback is taken. **D3 remains unverified** —
+  whether Core Tools v4 runs a Python 3.11 worker on linux-arm64 is still open, carries a
+  named fallback, and is gated by its own spike
+  ([#316](https://github.com/RezaMahmood/llm-dungeon/issues/316)). It is stated as a risk,
+  not as a working solution.
+- **Version pinning**: the Core Tools and SWA CLI versions were pinned in phase 1
+  (#324). The **emulator image tag is still floating** — `vnext-latest` is the documented
+  tag, and the supply-chain requirement wants a digest. The build the T001 spike verified
+  against is `EN20260907` at
+  `mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator@sha256:2db1f9e74c506bcf6fc347aa937aea1c00fa756061296a5a9efba530ce86ec02`;
+  pin that digest when the emulator tier lands, since it is the build the evidence above
+  actually describes.
 - **`installTokenInterceptor` is dead code** — see the deviation below. Filed as
   [#313](https://github.com/RezaMahmood/llm-dungeon/issues/313); not fixed under this feature.
 - **Python 3.14 → 3.11 locally** is a side effect of D3 with independent value (local now

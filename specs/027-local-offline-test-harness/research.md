@@ -47,24 +47,38 @@ at `:8080/ready`.
   fixture is simpler and is what CI will use anyway (D9). Rejected per Principle XII.
 - *Keeping the in-process dictionary fakes* — the status quo the spec exists to fix.
 
-**Unverified, and the reason it matters**: two entries in the emulator's published feature
-matrix bear directly on US2's two headline acceptance scenarios.
+**Verified by the T001 spike** ([#315](https://github.com/RezaMahmood/llm-dungeon/issues/315)).
+Two entries in the emulator's published feature matrix bore directly on US2's two headline
+acceptance scenarios, and both were exercised against
+`azure-cosmos-emulator:vnext-latest` (build `EN20260907`, image digest
+`sha256:2db1f9e7…`, native arm64) in `--protocol http` mode with `azure-cosmos` 4.17.0,
+on a container partitioned on `/id` — the shape `infrastructure/terraform/main.tf`
+actually provisions.
 
-| Emulator feature matrix entry | Bears on | Status |
+| Emulator feature matrix entry | Bears on | Result |
 |---|---|---|
-| **Query partitioned collection in parallel — ⚠️ Not yet implemented** | US2 scenario 3 (cross-partition query) | Unverified |
-| *(ETag-conditional replace is not listed either way; "Replace document" is ✅ Supported)* | US2 scenario 2 (ETag conflict), #281 | Unverified |
+| **Query partitioned collection in parallel — ⚠️ "Not yet implemented"** | US2 scenario 3 (cross-partition query) | ✅ **Works.** A `WHERE c.playerId = @p` filter on a non-partition-key field returned all 12 matches spread across 40 logical partitions, exactly; unchanged under `max_item_count=5` (forced paging), and `COUNT(1)` and `ORDER BY … DESC` are also correct cross-partition. The matrix entry is pessimistic for this workload |
+| *(ETag-conditional replace is not listed either way; "Replace document" is ✅ Supported)* | US2 scenario 2 (ETag conflict), #281 | ✅ **Works.** A stale ETag with `MatchConditions.IfNotModified` raises `CosmosAccessConditionFailedError` (HTTP 412) — the exact exception `play_session_service.py` catches — while the current ETag is accepted. The full claim/release sequence behind #281 reproduces: the second concurrent claim gets 412 and the claim-holder's follow-up write still lands |
 
-ETag-conditional writes are the single highest-value reason for this tier — scenario 2 is
-the defect class behind #281. A plan that assumes it works and discovers otherwise at
-phase 2 has spent the phase for nothing. **T001 is therefore a spike** (below) that runs
-both operations against the emulator before any test is migrated onto it.
+ETag-conditional writes were the single highest-value reason for this tier — scenario 2 is
+the defect class behind #281 — so **T001 ran as a spike before any test was migrated onto
+the emulator**. Both answers came back positive, so no fallback is taken and neither
+becomes a permanent row in `plan.md`'s live-only table.
 
-**Fallback if the spike fails** (FR-015): ETag-conflict and/or cross-partition coverage
-stays on the object-level fakes for those specific assertions, the gap is recorded in the
-live-only table in `plan.md`, and the emulator tier still takes everything else — real SQL
-parsing, partition-key enforcement, real serialization. The tier is not abandoned for a
-partial gap.
+The spike also confirmed the two properties the tier is worth having for independently of
+those scenarios: partition-key enforcement is real (a read with the wrong partition key
+404s rather than succeeding) and SQL is genuinely parsed (malformed SQL is rejected 400).
+
+**One fidelity difference found**: the emulator returns `_etag` as a bare GUID, where real
+Cosmos returns a quoted string. The backend round-trips the value opaquely so nothing
+breaks, but it is recorded in the live-only table because no local test may assert on an
+ETag's *shape*.
+
+**Fallback had the spike failed** (FR-015), retained for the record: ETag-conflict and/or
+cross-partition coverage would have stayed on the object-level fakes for those specific
+assertions, the gap recorded in the live-only table in `plan.md`, and the emulator tier
+would still have taken everything else. The tier was not to be abandoned for a partial
+gap.
 
 ---
 
