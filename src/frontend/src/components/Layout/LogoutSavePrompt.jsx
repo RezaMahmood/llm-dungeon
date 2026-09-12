@@ -32,7 +32,7 @@ export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, o
         aria-labelledby="logout-save-prompt-title"
         tabIndex={-1}
         style={{ width: "min(520px,100%)", padding: "32px" }}
-        onKeyDown={handleKeyDown}
+        onKeyDownCapture={handleKeyDown}
       >
         <div className="dialog-title" id="logout-save-prompt-title" style={{ fontSize: "24px" }}>
           Save before you go?
