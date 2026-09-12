@@ -1,42 +1,14 @@
 <!--
 Sync Impact Report
-Version change: 6.1.0 -> 6.2.0
-Modified principles:
-  - XIII renamed: "AI Agent Division of Labor: Local LLM Pushes & Opens PRs, Claude Code
-    Review Skill Reviews, Human Merges (NON-NEGOTIABLE)" -> "AI Agent Division of Labor:
-    Agents Push & Open PRs, Humans Merge (NON-NEGOTIABLE)". Same actors, same rules; the
-    title no longer restates the body.
-  - No principle is added, removed, or changed in normative force. Every MUST, MUST NOT,
-    and MAY in v6.1.0 survives; the document is rewritten for concision and precision.
-Added sections: none. Removed sections: none. All headings and principle numbers are
-  unchanged, so external references (CLAUDE.md, CONTRIBUTING.md, README.md,
-  .github/skills/repo-constitution-review/SKILL.md) still resolve.
-Editorial changes:
-  - The file drops from 1076 to ~470 lines. Roughly half of that is the Sync Impact
-    Report block, which had accumulated every prior amendment's report (283 lines);
-    it now carries only the current amendment, per Principle XIV.
-  - Duplication removed: rules that appeared in a principle, again in a requirements
-    section, and again in Development Workflow & Quality Gates are now stated once, in
-    the section that owns them, with a cross-reference from the others. Affected:
-    Managed Identity / Private Endpoints (VII vs Security), PII surfaces (X vs PII),
-    LTS majors (III vs Dependency), local stubs (I vs Environments), and the AI agent
-    push/review/merge flow (XIII vs AI Agent Handoff vs Workflow). Principle XIII also
-    stated its own auto-merge prohibition twice.
-  - Rationales are cut to the reason a rule exists. Narrative recording how a decision
-    was reached or reversed is removed, per Principle XIV, which the document was
-    violating: the 003-account-provisioning test-count story (IX), the account of
-    auto-merge being dropped (XIII), and the note about what Principle XI's earlier
-    version required.
-Precision (the only changes that alter what review enforces, hence MINOR not PATCH):
-  - Readability rule 1: "a minimum comfortable reading size" -> at or above the design
-    system's body size, with its line-height or greater.
-  - Readability rule 2: the unmeasurable "minimum legible size" clause is dropped; the
-    measurable rule it duplicated (a label below body size MUST be uppercase with
-    letter-spacing) remains.
-  - Readability rule 3: "a minimum size in their shorter dimension" -> 24x24 CSS px
-    (WCAG 2.5.8 AA), matching the WCAG AA basis the Accessibility section already uses.
-  - Layout rule 4: "a defined minimum viewport width" -> 320 px, the floor already
-    recorded in specs/002-login-and-access-control-done/plan.md.
+Version change: 6.2.0 -> 6.3.0
+Modified principles: none.
+Added sections:
+  - Screen contracts: new "Administrator — sessions" entry (no prototype screen) for the
+    read-only gameplay-session list introduced by 026-token-usage, following the same
+    no-prototype-screen precedent 012-story-editing-and-review set for the stories &
+    configuration entries.
+Removed sections: none. All existing headings and principle numbers are unchanged.
+Editorial changes: none beyond the added entry above.
 Deferred/TODO placeholders: none.
 Earlier Sync Impact Reports are in this file's git history.
 -->
@@ -586,6 +558,12 @@ which the deferral relaxes.
   authoring wizard or a re-upload. Introduced by `012-story-editing-and-review`, whose
   FR-012 defers these two screens' visual design; that deferral is recorded as an explicit
   exception in that feature's plan and covers styling only.
+- **Administrator — sessions** (no prototype screen) — a read-only list of every gameplay
+  session (real player and admin test play), each row showing its story, a session
+  identifier, its cumulative token total, and the email of whoever played it. Reachable as
+  its own admin navigation item alongside Stories and People. Introduced by
+  `026-token-usage`, whose spec defers this screen's visual design; that deferral is
+  recorded as an explicit exception in that feature's plan and covers styling only.
 
 ### Save and session behaviour
 
@@ -631,4 +609,4 @@ visual-rules, interaction-state, or layout and scroll requirements as a blocking
 feature may ship a screen that is not traceable to a screen contract above or to a
 documented amendment extending one.
 
-**Version**: 6.2.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-10
+**Version**: 6.3.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
