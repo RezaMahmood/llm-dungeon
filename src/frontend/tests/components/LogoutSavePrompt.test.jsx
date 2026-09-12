@@ -90,4 +90,14 @@ describe("LogoutSavePrompt (009-save-and-continue, FR-004, FR-005)", () => {
     expect(onSave).not.toHaveBeenCalled();
     expect(onDontSave).not.toHaveBeenCalled();
   });
+
+  it("ignores Escape while a save is in flight, matching the disabled buttons", async () => {
+    const onCancel = vi.fn();
+    const user = userEvent.setup();
+    render(<LogoutSavePrompt saving={true} failureMessage={null} onSave={() => {}} onDontSave={() => {}} onCancel={onCancel} />);
+
+    await user.keyboard("{Escape}");
+
+    expect(onCancel).not.toHaveBeenCalled();
+  });
 });

@@ -15,7 +15,7 @@ export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, o
   }, []);
 
   const handleKeyDown = (event) => {
-    if (event.key === "Escape") {
+    if (event.key === "Escape" && !saving) {
       onCancel();
     }
   };
