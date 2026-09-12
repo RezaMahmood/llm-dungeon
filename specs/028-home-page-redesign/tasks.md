@@ -25,25 +25,37 @@ and testable.
 **Purpose**: Vendor the new design reference and bring the constitution's screen-contract
 text in line with it, before any code changes reference it.
 
-- [ ] T001 Copy the issue's mockup to `specs/designs/07-home.html`, adjusting only its
-  internal nav `href`s to match the existing five files' conventions (see
-  `specs/designs/02-story-select.html` for the pattern); leave `specs/designs/styles.css`
-  untouched (already byte-identical to the attachment's copy).
+- [ ] T001 Vendor both canonical documents from issue #328: the mockup to
+  `specs/designs/07-home.html` (adjusting only its internal nav `href`s to match the existing
+  files' conventions — see `specs/designs/02-story-select.html`, and dropping the
+  prototype-only `.statebar` state switcher) and the written design spec to
+  `specs/designs/07-home-spec.md`. Leave `specs/designs/styles.css` untouched (already
+  byte-identical to the attachment's copy).
 - [ ] T002 Update `specs/designs/README.md`: add `07-home.html` to the screen list table and
   add an implementer note under "Notes for implementers" describing Home's relationship to
   `02-story-select.html` (superseded acceptance reference — see research.md Decision 2) and
   to `06-game-setup.html` (Home's Play action now leads directly into 06's character-name
   step, skipping its own adventure-picker step — see research.md Decision 4).
-- [ ] T003 Update `.specify/memory/constitution.md`'s "Adventure select" screen-contract
-  bullet (Screen contracts section) to name `specs/designs/07-home.html` as the current
-  acceptance reference, keep `02-story-select.html` referenced only as historical prior art,
-  and bump the constitution's version/Sync Impact Report per its own governance section
-  (a wording/reference change, not a principle change). **This file is `.specify/memory/` —
-  editing it is a blast-radius item requiring `/code-review ultra` before merge regardless
-  of the rest of this diff's size (CLAUDE.md Code review triage).**
+- [ ] T003 Update `.specify/memory/constitution.md` in one edit covering all four points:
+  (a) the "Adventure select" screen-contract bullet names `specs/designs/07-home.html` as the
+  current acceptance reference, with `02-story-select.html` kept only as historical prior
+  art; (b) the Screen contracts preamble's "It holds six screens" count becomes seven;
+  (c) the "Layout and scroll contract" rule 1 is amended to permit page-level scrolling below
+  the mobile breakpoint (research.md Decision 9), leaving desktop/tablet bound as before;
+  (d) the version and Sync Impact Report are updated per the constitution's own governance
+  section. **This file is `.specify/memory/` — editing it is a blast-radius item requiring
+  `/code-review ultra` before merge regardless of the rest of this diff's size (CLAUDE.md
+  Code review triage).**
+- [ ] T003a [P] Rename the brand "Lantern" → "LLM Dungeon" (FR-019) across
+  `src/frontend/src/components/Layout/NavBar.jsx`,
+  `src/frontend/src/components/Layout/TitleBar.jsx`,
+  `src/frontend/tests/components/TitleBar.test.jsx`, and the existing design references
+  `specs/designs/01-login.html`, `02-story-select.html`, `03-play.html`,
+  `04-admin-wizard.html`, `05-admin-users.html`, `06-game-setup.html`, `index.html` and
+  `README.md`.
 
-**Checkpoint**: Design reference and governance text match the target behavior; no code
-changed yet.
+**Checkpoint**: Canonical design reference and governance text are in the repo and agree
+with each other; the product name is consistent.
 
 ---
 
@@ -82,9 +94,10 @@ scenario 5) the two extra admin nav links only for an administrator account.
   `StoryService.list_published_summaries` (`src/backend/services/story_service.py`) so
   `GET /game/adventures` returns it (contracts/api.md).
 - [ ] T009 [P] [US1] Backend tests: draft PATCH accepts/persists `blurb`, publish carries it
-  to the `Story`, and `list_published_summaries` returns it — extend
-  `src/backend/tests/services/test_story_draft_service.py` and
-  `src/backend/tests/services/test_story_service.py`.
+  to the `Story`, `list_published_summaries` returns it, and a story exported/re-imported
+  without a blurb still loads — extend `src/backend/tests/unit/test_story_draft_service.py`,
+  `src/backend/tests/unit/test_story_service.py` and
+  `src/backend/tests/unit/test_story_config_file.py`.
 
 ### Frontend: authoring the blurb
 
@@ -96,8 +109,10 @@ scenario 5) the two extra admin nav links only for an administrator account.
 
 ### Frontend: the Home page itself
 
-- [ ] T012 [P] [US1] Create `src/frontend/src/components/Home/WelcomeBand.jsx` — kicker,
-  "Welcome back, {firstName}." heading, and the zero/one/many lede copy from spec.md §4/FR-005.
+- [ ] T012 [P] [US1] Create `src/frontend/src/components/Home/WelcomeBand.jsx` — the
+  time-of-day kicker derived from the viewer's own clock (FR-020, e.g. "WEDNESDAY
+  AFTERNOON"), the "Welcome back, {firstName}." heading, and the zero/one/many lede copy from
+  spec.md §4/FR-005.
 - [ ] T013 [P] [US1] Create `src/frontend/src/components/Home/StoryRow.jsx` — one "Ready to
   play" row (kicker `{tone} · {sessionLengthMinutes} min`, title, `blurb`,
   `Reading level: {readingLevel}`, a Play `.btn.btn-secondary`), per spec.md §5.1.
@@ -105,10 +120,12 @@ scenario 5) the two extra admin nav links only for an administrator account.
   adventures (excluding any with an active session — FR-004) to `StoryRow`s, with the
   loading/error states matching the existing `AdventureList.jsx` pattern.
 - [ ] T015 [P] [US1] Create `src/frontend/src/components/Home/SessionCard.jsx` — one
-  "In progress" card per spec.md §5.2 (title clamp, meta line, segmented progress bar via
-  the same `completed`/`total` derivation `SavedGameRow.jsx` already uses, a Resume
-  `.btn.btn-secondary`); render a disabled/placeholder Delete affordance for now — wired up
-  in US3 (T032).
+  "In progress" card per spec.md §5.2 (title clamp, `Chapter {progress.current}` meta line,
+  segmented bar filling `progress.current` of `progress.total` exactly as
+  `SavedGameRow.jsx` does, `formatLastPlayed` reused from it, a Resume `.btn.btn-secondary`);
+  carry the unavailable-story state (FR-018) that `SavedGameRow.jsx` provides today
+  (`available === false` → visibly distinguished, Resume disabled), restyled to the canonical
+  card. Render a disabled/placeholder Delete affordance for now — wired up in US3 (T032).
 - [ ] T016 [P] [US1] Create `src/frontend/src/components/Home/InProgressList.jsx` — maps
   sessions to `SessionCard`s, with the FR-005/spec.md §6 state-1 zero-state message when
   empty.
@@ -123,19 +140,33 @@ scenario 5) the two extra admin nav links only for an administrator account.
   does today.
 - [ ] T019 [US1] Point the `/menu` route at `HomePage` in `src/frontend/src/App.jsx`
   (replacing the `MainMenu` import/element).
-- [ ] T020 [US1] Update `src/frontend/src/components/Layout/NavBar.jsx`'s player nav: add a
-  "Home" link (`to="/menu"`, current page) alongside the existing "My stories"/"Badges"
-  links, per spec.md §3 — decide alongside T020 whether "My stories" still needs its own
-  destination or should be dropped now that Home absorbs its content (research.md Decision
-  1); if dropped, remove the dead link rather than pointing it at a page that no longer
-  exists.
+- [ ] T020 [US1] Update `src/frontend/src/components/Layout/NavBar.jsx`'s player nav to the
+  canonical bar (FR-011, research.md Decision 7): add "Home" (`to="/menu"`, carrying
+  `aria-current="page"` there); keep "My stories" as an inert placeholder following the
+  existing "Badges" precedent in that file; for administrators render "New story"
+  (`/admin/stories/new`), "Users" (`/admin/accounts`) **and** the retained "Admin"
+  (`/admin`) link; and give the name chip its `· Player` / `· Administrator` suffix
+  (FR-011a), derived from `useCapabilities()`.
+- [ ] T020a [US1] Preserve the two account states the removed `MainMenu` owned (FR-017) in
+  `HomePage.jsx`: `denied` renders `AccessDeniedScreen`, and an account with neither
+  capability renders the "Access Pending" explanation instead of empty story columns. Also
+  handle the administrator-without-Player case (spec.md Edge Cases) — explain in place
+  rather than rendering empty columns or a raw error, keeping the nav's admin destinations
+  usable.
+- [ ] T020b [P] [US1] Update the existing tests that assert the old menu/nav and will
+  otherwise fail: `src/frontend/tests/integration/main_menu_refresh.test.jsx`,
+  `src/frontend/tests/integration/main_menu_permissions_refresh.test.jsx`,
+  `src/frontend/tests/integration/nav_capability_visibility.test.jsx` and
+  `src/frontend/tests/components/NavBar.test.jsx`.
 - [ ] T021 [P] [US1] Remove the now-superseded `src/frontend/src/components/Menu/MainMenu.jsx`,
   `MainMenu.css`, `GameMenuItem.jsx`, `AdminMenuItem.jsx` and their tests
   (`tests/components/MainMenu.test.jsx`, `tests/components/AdminMenuItem.test.jsx`, any
   `GameMenuItem` test), replacing coverage with the new Home component tests below.
 - [ ] T022 [P] [US1] Component tests for `HomePage` covering spec.md §6's six states (zero/
-  one/many in-progress, one/many ready-to-play, overflow scrolling) and the admin-vs-player
-  nav/name-chip difference (FR-011), in `src/frontend/tests/components/Home/HomePage.test.jsx`.
+  one/many in-progress, one/many ready-to-play, overflow scrolling), the admin-vs-player
+  nav/name-chip difference (FR-011/FR-011a), the denied and no-capability states (FR-017),
+  and the unavailable-story card (FR-018) — in
+  `src/frontend/tests/components/Home/HomePage.test.jsx`.
 
 **Checkpoint**: `/menu` shows the full Home page with real data and correct states; User
 Story 1 is independently demonstrable (Play/Resume links can 404 until US2 lands, but the
@@ -189,14 +220,14 @@ delete another player's session id directly (bypassing the UI) is refused server
   `container().delete_item(...)` (data-model.md).
 - [ ] T028 [US3] Add a `delete_session` handler to `src/backend/api/game/sessions.py`
   (mirrors `resume_session`'s structure: `authorize_player`, call the service, map
-  `SessionNotFoundError`→404, `ForbiddenError`→`forbidden_access_not_granted()`, success→204
-  empty body) per contracts/api.md.
+  `SessionNotFoundError`→404, `ForbiddenError`→`forbidden_access_not_granted()`, success→200
+  with `{"status": "deleted", "sessionId": …}`) per contracts/api.md.
 - [ ] T029 [US3] Register `DELETE /api/game/sessions/{sessionId}` in
   `src/backend/function_app.py`, alongside the existing `game/sessions/{sessionId}` routes.
-- [ ] T030 [P] [US3] Backend tests: owner delete → 204 and the session is gone from
+- [ ] T030 [P] [US3] Backend tests: owner delete → 200 and the session is gone from
   `list_player_sessions`; another player's session → 403; missing id → 404 — in
-  `src/backend/tests/services/test_play_session_service.py` and
-  `src/backend/tests/api/game/test_sessions.py`.
+  `src/backend/tests/unit/test_play_session_service.py` and
+  `src/backend/tests/integration/test_game_sessions_endpoint.py`.
 
 ### Frontend
 
@@ -204,11 +235,15 @@ delete another player's session id directly (bypassing the UI) is refused server
   `src/frontend/src/services/gameService.js`, following the existing call pattern (axios +
   `X-Custom-Authorization` header).
 - [ ] T032 [US3] Wire `SessionCard.jsx`'s Delete control (replacing T015's placeholder):
-  `preventDefault`/`stopPropagation`, `window.confirm('Delete your saved session for
-  "{title}"? Your progress will be lost.')` per spec.md §5.2, then call `deleteSession` and
-  have `HomePage`/`InProgressList` remove the card and let the story reappear in
-  "Ready to play" (re-deriving from the already-fetched adventures list, or a lightweight
-  refetch — implementer's choice, either satisfies FR-009).
+  `preventDefault`/`stopPropagation`, then the design system's dialog — mirror
+  `src/frontend/src/components/Admin/StoryDeleteAction.jsx` (`.dialog-backdrop`/`.dialog`,
+  `role="dialog"`, `aria-modal="true"`, `aria-labelledby`) carrying the canonical copy
+  verbatim: "Delete your saved session for “{title}”? Your progress will be lost."
+  (research.md Decision 6 — **not** `window.confirm`). On confirm call `deleteSession`, then
+  have `HomePage`/`InProgressList` remove the card and let the story reappear in "Ready to
+  play" (re-deriving from the already-fetched adventures list, or a lightweight refetch —
+  implementer's choice, either satisfies FR-009). A 404 from the endpoint is treated as
+  success, not an error (contracts/api.md).
 - [ ] T033 [P] [US3] Tests: confirm/cancel behavior, card removal, zero-state fallback when
   the deleted session was the only one, and the story reappearing in "Ready to play" — in
   `src/frontend/tests/components/Home/SessionCard.test.jsx` and a new
@@ -225,7 +260,12 @@ delete another player's session id directly (bypassing the UI) is refused server
   against spec.md §8's hover/focus rules.
 - [ ] T035 [P] Responsive QA at 320px/760px/1100px per spec.md §7 and quickstart.md scenario 6.
 - [ ] T036 Run the full backend and frontend suites and fix any regressions surfaced by the
-  `MainMenu`/`GamePage` removals (`pytest`, `npm --prefix src/frontend test`).
+  `MainMenu`/`GamePage` removals and the brand rename (`pytest`,
+  `npm --prefix src/frontend test`).
+- [ ] T037 Verify every canonical-UI deviation is recorded: the design-system delete dialog
+  (Decision 6), the retained "Admin" nav link (Decision 7) and the mobile scroll amendment
+  (Decision 9) each appear in the PR description, which names `/code-review ultra` as the
+  required tier because `.specify/memory/constitution.md` is in the diff.
 
 ## Dependencies & Execution Order
 
@@ -247,10 +287,11 @@ T012–T016 (the five new Home components) can proceed in parallel — different
 shared state. Example:
 
 ```
-T004, T005            → in parallel (different files)
+T003a                     → parallel with all of Phase 1 (rename touches no feature file)
+T004, T005                → in parallel (different files)
 T012, T013, T014,
-T015, T016             → in parallel (different components)
-T009, T011, T022       → in parallel (different test files)
+T015, T016                → in parallel (different components)
+T009, T011, T020b, T022   → in parallel (different test files)
 ```
 
 Within US3, T027 (service) and T031 (frontend service call) touch unrelated files and can

@@ -74,19 +74,28 @@ Decision 5). No new screens beyond the one design-reference addition.
   implementation). Built from `specs/designs/styles.css` tokens only; keyboard operability,
   visible focus, and no color-only meaning are carried over from the design spec's own
   interaction rules (`specs/designs/07-home-spec.md` §8–9) and the constitution's
-  accessibility section.
+  accessibility section. The canonical mockup's `window.confirm()` is **not** followed — the
+  delete confirmation uses the design system's dialog primitive with the canonical copy
+  (research.md Decision 6), since browser-default dialogs fail this principle.
 - **X. PII Protection by Design** — PASS. No new PII is introduced; the name/role chip
   already exists in `NavBar`.
 - **XII. Right-Sized Scope** — PASS. One page, one new endpoint; no new infra.
+- **Layout and scroll contract (constitution)** — REQUIRES AN AMENDMENT. Rule 1 ("the
+  application shell is fixed to the viewport; there is no page-level scroll") is written for
+  the fixed desktop shell and conflicts with the canonical design's mobile breakpoint, which
+  mandates page-level scrolling at ≤760px. Rule 1 is amended to permit this below the mobile
+  breakpoint (research.md Decision 9), in the same governance edit as the screen contract
+  below. Desktop and tablet remain fully bound by the existing rule, and FR-012 restates it.
 - **Screen contracts (constitution "Screen contracts")** — REQUIRES AN AMENDMENT. The
   constitution currently names `specs/designs/02-story-select.html` as the sole "Adventure
   select" acceptance reference. This feature's plan updates that paragraph to point at the
   new `specs/designs/07-home.html` as the current acceptance reference for the
-  in-progress/ready-to-play behavior, per the resolved clarification (spec.md). This is a
-  **governance-document edit** (`.specify/memory/constitution.md`), which per this repo's
-  own review-triage rules always requires the `ultra` code-review tier regardless of diff
-  size — recorded here so the eventual PR description carries that tier, and flagged to the
-  user since only a human merges governance changes.
+  in-progress/ready-to-play behavior, per the resolved clarification (spec.md). The same
+  edit corrects the section's "It holds six screens" count and amends the scroll contract
+  above. This is a **governance-document edit** (`.specify/memory/constitution.md`), which
+  per this repo's own review-triage rules always requires the `ultra` code-review tier
+  regardless of diff size — recorded here so the eventual PR description carries that tier,
+  and flagged to the user since only a human merges governance changes.
 
 No violation requires a Complexity Tracking entry — the constitution amendment is a
 documentation update tracking an already-approved product change, not a principle violation.

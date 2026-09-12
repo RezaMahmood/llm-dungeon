@@ -10,15 +10,16 @@
 ## Backend validation
 
 ```bash
-devcontainer exec --workspace-folder . -- pytest src/backend/tests/services/test_play_session_service.py -k delete_player_session
-devcontainer exec --workspace-folder . -- pytest src/backend/tests/api/game/test_sessions.py -k delete
-devcontainer exec --workspace-folder . -- pytest src/backend/tests/services/test_story_service.py -k blurb
-devcontainer exec --workspace-folder . -- pytest src/backend/tests/services/test_story_draft_service.py -k blurb
+devcontainer exec --workspace-folder . -- pytest src/backend/tests/unit/test_play_session_service.py -k delete_player_session
+devcontainer exec --workspace-folder . -- pytest src/backend/tests/integration/test_game_sessions_endpoint.py -k delete
+devcontainer exec --workspace-folder . -- pytest src/backend/tests/unit/test_story_service.py -k blurb
+devcontainer exec --workspace-folder . -- pytest src/backend/tests/unit/test_story_draft_service.py -k blurb
+devcontainer exec --workspace-folder . -- pytest src/backend/tests/unit/test_story_config_file.py -k blurb
 ```
 
 Expected: a player can delete only their own session (403 for another player's, 404 for a
-missing one, 204 on success); `blurb` round-trips through draft PATCH → publish →
-`list_published_summaries` → configuration export/import.
+missing one, 200 with `{"status": "deleted", …}` on success); `blurb` round-trips through
+draft PATCH → publish → `list_published_summaries` → configuration export/import.
 
 ## Frontend validation
 
@@ -43,6 +44,11 @@ a pre-chosen adventure id.
 4. Click **Delete** on that card, confirm. **Expect**: the card disappears, "In progress"
    falls back to its zero state, and the story reappears in "Ready to play".
 5. Sign in as an administrator (with player capability). **Expect**: identical page, plus
-   "New story"/"Users" nav links and an "· Administrator" name-chip suffix.
+   "New story"/"Users"/"Admin" nav links and an "· Administrator" name-chip suffix; each
+   admin destination still opens.
 6. Resize to 360px width. **Expect**: single-column layout, no horizontal scroll, Play/
    Resume/Delete all reachable and ≥44px tall.
+7. Sign in as an account with no capabilities. **Expect**: the "Access Pending" explanation,
+   not empty story columns (FR-017).
+8. With a session in progress, unpublish that story as an administrator, then reload Home.
+   **Expect**: the card is visibly marked unavailable and Resume is disabled (FR-018).

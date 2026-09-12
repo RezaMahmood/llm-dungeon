@@ -8,6 +8,25 @@
 
 **Input**: User description: "Player Stories and Sessions Design — GitHub issue #328. The player-facing landing experience should match an attached design spec and mockup (07-home-spec.md / 07-home.html): a full-viewport, no-page-scroll page with a nav bar, a small welcome band, and a two-column body — 'Ready to play' (stories not yet started) on the left and 'In progress' (the player's saved sessions, with Resume and Delete) on the right."
 
+## Canonical UI reference
+
+`specs/designs/07-home-spec.md` and `specs/designs/07-home.html` (vendored from issue #328)
+are **canonical for everything a player sees on this page** — layout, copy, states,
+responsive behavior and interaction states. This feature's job is to:
+
+1. **Hook existing implementation up to that UI** where the behavior already exists
+   (session listing, resume, adventure catalogue, refresh, sign-out, capability gating); and
+2. **Build implementation to fit the UI** where it does not yet exist (the story blurb,
+   player session deletion, the nav's Home entry and role-suffixed name chip).
+
+Where the canonical design and the constitution genuinely conflict, the conflict is resolved
+explicitly — by amending the constitution or recording a justified exception — never by
+silently following one and ignoring the other. Two such conflicts were resolved this way
+(see Clarifications 2026-09-12b): the mobile scroll contract, and the administrator's route
+to the admin story list. Behavior the canonical design does not depict but which exists
+today (the access-denied and no-capability states, the unavailable-story session state) is
+preserved and styled into the new UI rather than dropped.
+
 ## Clarifications
 
 ### Session 2026-09-12
@@ -15,6 +34,14 @@
 - Q: Today the app's only post-login landing hub is `/menu` (a two-button menu), and the actual sessions/catalogue UI lives inside `/game`. How should the new Home design fit into routing? → A: Home replaces `/menu` and absorbs the sessions/catalogue UI that currently lives inside the game-setup flow; the adventure-setup wizard (adventure confirmation → character name → character type) becomes a separate step reached only after choosing Play or Resume from Home.
 - Q: `specs/designs/02-story-select.html` is the constitution's current "Adventure select" screen-reference and `06` is already taken by `06-game-setup.html`. Where should the new mockup live? → A: Add it as a new numbered screen, `specs/designs/07-home.html`, leaving `02-story-select.html` in place as historical reference. (The constitution's "Adventure select" screen contract is updated by this feature's plan to point at `07-home.html` as the current acceptance reference, since Home now governs the behavior `02` used to describe — `02` is kept only as prior-art, not as a second live contract.)
 - Q: The mockup's Delete-session action has no backend support today. Is building that backend capability in scope? → A: Yes — build it end-to-end: a new capability for a player to delete their own saved session (not the story itself), plus the confirmation UI the mockup specifies.
+
+### Session 2026-09-12b (canonical-UI reconciliation)
+
+- Q: The canonical nav brand reads "LLM Dungeon"; the shipped app and all six existing design references read "Lantern". How far does the rename reach? → A: Rename everywhere — `NavBar`, `TitleBar` and their tests, plus the six existing `specs/designs/*.html` references, their index and README.
+- Q: The canonical nav gives administrators only "New story" and "Users", which would leave the admin story list (`/admin`) unreachable from Home and break FR-015/SC-005. → A: Render the canonical two links **and** retain the existing "Admin" link to `/admin` — a deliberate, documented deviation, since the mockup predates the admin story list (a screen the constitution itself records as having no prototype).
+- Q: Where does the canonical nav's "My stories" entry point, now that Home absorbs its content? → A: Render it as an inert placeholder following the precedent `NavBar` already sets for "Badges", until a future feature specifies a destination.
+- Q: The canonical design mandates page-level scrolling at ≤760px, which the constitution's Layout and scroll contract forbids outright. → A: Amend the constitution's scroll contract to permit page-level scrolling at the mobile breakpoint, in the same edit that updates the screen contract.
+- Q: The canonical mockup confirms session deletion with a browser `confirm()`. → A: That is a static-prototype artifact, not canonical UI: the **copy** is canonical, the mechanism is the design system's own dialog primitive (Principle VIII forbids browser-default dialogs; `StoryDeleteAction.jsx` sets the pattern).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -45,8 +72,14 @@ additional navigation required.
    that column scrolls independently while the nav bar and welcome band stay fixed and the
    other column is unaffected.
 4. **Given** an administrator account (which also holds player capability), **When** they
-   view Home, **Then** they see the same page plus two extra nav links ("New story",
-   "Users") and a name chip reading "... · Administrator"; nothing else differs by role.
+   view Home, **Then** they see the same page plus the administrator-only nav links ("New
+   story", "Users", "Admin") and a name chip reading "... · Administrator"; nothing else
+   differs by role.
+5. **Given** an administrator authoring a story, **When** they set its blurb and publish it,
+   **Then** that blurb is the sentence shown on the story's "Ready to play" row (FR-016).
+6. **Given** an account with no capabilities, or one whose access was denied, **When** they
+   reach Home, **Then** they see the "Access Pending" explanation or the access-denied
+   screen respectively — never empty story columns (FR-017).
 
 ---
 
@@ -116,8 +149,12 @@ column falls back to its zero state.
   product (e.g. `025-story-delete`) and is unchanged by this feature — Home simply reflects
   whatever the session list already reports.
 - Deleting a session while it is mid-request (e.g. double-click) must not delete twice or
-  error the page; the second attempt finds nothing to delete and the UI already reflects the
-  removal.
+  error the page; the second attempt finds nothing to delete, and the UI treats that
+  "already gone" answer as success rather than surfacing an error.
+- An account holding Administrator but **not** Player capability lands on Home like everyone
+  else, but cannot be served either story list (the underlying data is player-scoped). Home
+  must explain that in place — never render empty columns or a raw error — while keeping the
+  nav's admin destinations fully usable.
 - A player with zero published stories available and zero sessions is out of scope (per the
   design spec, the catalogue always has at least one story).
 - Very long story titles or blurbs are clamped/truncated per the layout rather than breaking
@@ -146,15 +183,23 @@ column falls back to its zero state.
 - **FR-007**: Clicking Resume on an in-progress session MUST take the player directly back
   into that session at its saved point, without repeating adventure-setup.
 - **FR-008**: The system MUST let a player delete their own saved session, independent of the
-  story it belongs to, only after an explicit confirmation naming the story's title.
+  story it belongs to, only after an explicit confirmation naming the story's title. The
+  confirmation MUST read "Delete your saved session for “{title}”? Your progress will be
+  lost." (canonical copy) and MUST be presented in the design system's own dialog, never a
+  browser-native one.
 - **FR-009**: Deleting a session MUST remove only that saved session; the underlying story
   remains in the catalogue and MUST reappear in "Ready to play" for that player immediately
   afterward.
 - **FR-010**: The system MUST reject a request to delete a session that does not belong to the
   requesting player.
-- **FR-011**: The navigation bar MUST show Home, My stories, and Badges to every signed-in
-  user, and additionally New story and Users to administrators only; role MUST be the only
-  difference in what a user sees on this page.
+- **FR-011**: The navigation bar MUST show the "LLM Dungeon" brand, Home, My stories and
+  Badges to every signed-in user, and additionally New story, Users and Admin to
+  administrators only; role MUST be the only difference in what a user sees on this page.
+  ("Admin", reaching the admin story list, is the one documented addition to the canonical
+  nav — see Clarifications 2026-09-12b. "My stories" renders as an inert placeholder until a
+  future feature gives it a destination.)
+- **FR-011a**: The nav's name chip MUST read `{displayName} · Player` or
+  `{displayName} · Administrator` according to the signed-in account's capabilities.
 - **FR-012**: Home MUST remain a fixed-viewport page (no page-level scroll) on desktop and
   tablet widths, with the "Ready to play" and "In progress" columns scrolling independently of
   each other and of the nav/welcome bands.
@@ -164,13 +209,28 @@ column falls back to its zero state.
 - **FR-014**: All interactive elements on Home (nav links, Play, Resume, Delete, Refresh,
   Sign out) MUST be fully operable by keyboard alone with a visible focus indicator, and MUST
   NOT convey state by color alone.
-- **FR-015**: The system MUST continue to support administrators reaching story-authoring and
-  user-management surfaces from Home's nav bar exactly as they do today from the current menu.
+- **FR-015**: The system MUST continue to support administrators reaching story-authoring,
+  user-management **and the admin story list** from Home's nav bar — no destination reachable
+  from today's menu may become unreachable.
+- **FR-016**: An administrator MUST be able to author a story's blurb (the short,
+  player-facing sentence or two the "Ready to play" row displays) while creating or editing
+  that story, and that blurb MUST survive publishing, story export and re-import.
+- **FR-017**: Home MUST preserve the two account states the current menu handles: an account
+  whose access has been denied sees the access-denied screen, and an account holding no
+  capabilities sees the "Access Pending" explanation instead of empty story columns.
+- **FR-018**: An in-progress session whose story has been unpublished or deleted MUST remain
+  visibly distinguishable on its card, with its Resume action unavailable, preserving the
+  behavior the current in-progress list already provides.
+- **FR-019**: The application's brand name MUST read "LLM Dungeon" wherever it is displayed,
+  replacing the previous "Lantern".
+- **FR-020**: The welcome band's kicker MUST describe the player's current local time of day
+  (e.g. "WEDNESDAY AFTERNOON"), derived from the viewer's own clock.
 
 ### Key Entities
 
-- **Story**: A published adventure in the catalogue — genre, estimated duration, title,
-  blurb, reading level. Exists independently of any player's sessions.
+- **Story**: A published adventure in the catalogue — tone (shown to players as its genre),
+  estimated duration, title, blurb, reading level. `blurb` is new (FR-016); the rest exist
+  today. Exists independently of any player's sessions.
 - **Session**: A specific player's saved progress on one story — current chapter, last-played
   time, current location, completed/total progress segments. Deleting a Session never deletes
   its Story.
@@ -196,19 +256,18 @@ column falls back to its zero state.
 - "Home replaces `/menu`" per the resolved clarification: the adventure-setup wizard
   (adventure confirmation, character name, character type) is retained as a separate flow
   reached only after Play/Resume, not merged into Home itself.
-- The existing "My stories" nav destination and the game-setup flow's own duplicate
-  session/catalogue UI are superseded by Home; this feature's plan will determine the minimal
-  change to those surfaces needed to avoid two contradictory listings in the product (e.g.
-  retiring the duplicate list from the setup flow) — full removal/renaming of those surfaces
-  beyond what's needed to avoid duplication is left to the plan and out of this spec's
-  behavioral scope.
+- The game-setup flow's own duplicate session/catalogue UI is superseded by Home and is
+  removed, leaving that flow to own character setup alone; "My stories" survives in the nav
+  as an inert placeholder (FR-011).
 - Session deletion is a new backend capability scoped to "a player deletes their own session";
   it does not touch story deletion (already covered by `025-story-delete`) or admin session
   management (`026-token-usage`'s read-only admin sessions list).
-- Reading level, genre, duration, blurb, and progress-segment data already exist on stories
-  and sessions in some form (per prior features `004-story-creation`, `008-core-gameplay`,
-  `009-save-and-continue`); this feature surfaces them on Home rather than introducing new
-  story metadata.
+- Reading level, duration and progress-segment data already exist on stories and sessions
+  (per `004-story-creation`, `008-core-gameplay`, `009-save-and-continue`) and are surfaced
+  on Home as-is. The canonical row's "genre" is rendered from the story's existing `tone`
+  field — the same value under a player-facing name, not a new one. The **blurb** is the one
+  genuinely new piece of story metadata this feature adds (FR-016), because the canonical UI
+  requires it and no equivalent field exists.
 - Visual design and copy follow `specs/designs/07-home.html` and the attached design spec
   exactly, using the existing vendored `specs/designs/styles.css` design tokens; no new design
   tokens are introduced.

@@ -14,14 +14,20 @@ middleware as every other `game/sessions/*` route).
 
 | Status | Body | When |
 |---|---|---|
-| 204 | *(empty)* | Session existed, belonged to the caller, and was deleted. |
+| 200 | `{"status": "deleted", "sessionId": "..."}` | Session existed, belonged to the caller, and was deleted. |
 | 404 | `{"error": "not_found", "message": "Session not found"}` | No session with that id exists. |
 | 403 | Standard forbidden body (`forbidden_access_not_granted()`) | Session exists but belongs to a different player. |
 | 401 | Standard unauthorized body | Caller not authenticated / not a player. |
 
+The 200-with-body success shape matches this repo's established delete convention
+(`delete_test_play_session` in `src/backend/api/admin/test_play.py` returns exactly this);
+no endpoint in `src/backend/api/` currently returns 204.
+
 Idempotent from the caller's perspective: a second delete of the same id (e.g. a
 double-click) returns 404, not a 500 — matching `list_player_sessions`'s existing
-"vanished mid-request" tolerance pattern (`delete_active_sessions_for_adventure`).
+"vanished mid-request" tolerance pattern (`delete_active_sessions_for_adventure`). **The
+client treats that 404 as success** (the session is gone, which is what was asked) rather
+than surfacing an error — spec.md Edge Cases.
 
 ## `GET /api/game/adventures` (CHANGED — additive field)
 
