@@ -16,6 +16,8 @@ export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, o
 
   const handleKeyDown = (event) => {
     if (event.key === "Escape" && !saving) {
+      event.preventDefault();
+      event.stopPropagation();
       onCancel();
     }
   };
