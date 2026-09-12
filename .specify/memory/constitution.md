@@ -1,14 +1,24 @@
 <!--
 Sync Impact Report
-Version change: 7.0.0 -> 7.1.0
-Modified principles: none.
-Added sections:
-  - Screen contracts: new "Administrator — sessions" entry (no prototype screen) for the
-    read-only gameplay-session list introduced by 026-token-usage, following the same
-    no-prototype-screen precedent 012-story-editing-and-review set for the stories &
-    configuration entries.
-Removed sections: none. All existing headings and principle numbers are unchanged.
-Editorial changes: none beyond the added entry above.
+Version change: 7.1.0 -> 7.2.0
+Modified principles: none. All principle numbers and headings are unchanged.
+Modified sections:
+  - Development Workflow & Quality Gates: the worktree requirement and the container
+    requirement, previously one rule, are now two. Every branch gets its own worktree;
+    only spec/feature branches additionally get a container. Non-spec work (chore/*,
+    fix/*, docs/*, perf/*) previously MAY have run in the primary checkout, which made
+    that single directory the one place most of the repo's work had to queue for — and
+    the source of the branch drift it was meant to prevent. It now runs in its own
+    worktree, on the host, without a container.
+Added sections: none.
+Removed sections: none.
+Rationale for MINOR rather than MAJOR: no principle is removed or redefined, and the
+  isolation guarantee this section exists to provide is unchanged — spec work keeps its
+  container, and a worktree's container still MUST NOT be shared. The change expands
+  where the existing worktree requirement applies. This also matters operationally: a
+  MAJOR bump blocks every worktree that has not yet rebased (see the staleness rule in
+  this section), which would have stopped in-flight sessions mid-task for a change that
+  does not alter what they are permitted to do.
 Deferred/TODO placeholders: none.
 Earlier Sync Impact Reports are in this file's git history.
 -->
@@ -385,14 +395,27 @@ GitHub-side actions only — they do not change where code is written or tested.
   already exists — a module path, symbol, constant, field, or endpoint — where that code is
   absent from `origin/main` and is not declared as a named, not-yet-merged dependency
   (Principle XIII). Identifiers an artifact proposes to create are not findings.
-- Spec/feature work — work on a branch with a matching `specs/<branch>/` folder — MUST run
-  inside that feature's own git worktree, in that worktree's own isolated devcontainer
-  (started via `bin/wt <branch>`), and a worktree's container MUST NOT be shared with
-  another worktree; this keeps concurrent specs from cross-contaminating. Work on a branch
-  with no spec folder (e.g. `chore/*`, `fix/*`, `docs/*`, `perf/*`) MAY instead run in the
-  primary checkout, where that risk does not arise; such a session MUST still work on a
-  branch, MUST NOT read or write another worktree under `.worktrees/`, and leaves the
-  primary checkout on `main`. No work of either kind happens directly on `main`.
+- All work MUST run inside a git worktree dedicated to its own branch, started via
+  `bin/wt <branch>`. The primary checkout stays on the trunk, and is reserved for the
+  cross-worktree lifecycle tooling (`bin/wt-prune`, `bin/wt-sync`) that by design cannot
+  see a worktree's siblings from inside one. Giving every branch its own worktree is what
+  lets several pieces of work be in flight at once without one session's branch switch
+  moving the ground under another — the primary checkout holds one branch at a time, so
+  routing work through it serialises that work and is how branches came to be cut from
+  whatever `HEAD` happened to be.
+- Spec/feature work — work on a branch with a matching `specs/<branch>/` folder — MUST
+  additionally run in that worktree's own isolated devcontainer, and a worktree's container
+  MUST NOT be shared with another worktree; this keeps concurrent specs from
+  cross-contaminating. Work on a branch with no spec folder (e.g. `chore/*`, `fix/*`,
+  `docs/*`, `perf/*`) MAY run without a container, on the host in its own worktree
+  (`bin/wt <branch> --no-container`), since it carries no cross-spec contamination risk.
+  A branch that has a spec folder MUST NOT be started this way, and `bin/wt` refuses it.
+- A session in a container-less worktree MUST NOT read or write another worktree under
+  `.worktrees/`. On the host that separation is a rule rather than an enforced boundary —
+  a sibling worktree is reachable by relative path, where from inside a container it is
+  not present at all. That asymmetry is the reason the container requirement is kept for
+  spec work rather than dropped everywhere.
+- No work of any kind happens directly on `main`.
 - A worktree MUST live at `.worktrees/<branch>`, its directory name spelling out its branch
   name exactly; the container identity, the edit guard, and the lifecycle tools all key off
   that equality.
@@ -604,4 +627,4 @@ visual-rules, interaction-state, or layout and scroll requirements as a blocking
 feature may ship a screen that is not traceable to a screen contract above or to a
 documented amendment extending one.
 
-**Version**: 7.1.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
+**Version**: 7.2.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12

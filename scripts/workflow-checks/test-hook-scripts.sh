@@ -188,6 +188,74 @@ expect_status 1 $? "bin/wt-prune rejects unknown options"
 "$REPO_ROOT/bin/wt-sync" --help >/dev/null 2>&1
 expect_status 0 $? "bin/wt-sync --help"
 
+"$REPO_ROOT/bin/wt" some-branch --no-container --rebuild >/dev/null 2>&1
+expect_status 1 $? "bin/wt refuses --no-container together with --rebuild"
+
+echo
+echo "bin/wt --no-container — host sessions for non-spec branches"
+# The whole point of this mode is that it needs no Docker and no
+# devcontainer CLI, so it has to be exercisable exactly here, in the suite
+# that promises "no docker, no gh, no network". --shell is used rather than
+# the default claude mode so the test does not require the Claude Code CLI
+# on the host either; both modes take the same path to get there.
+repo="$(new_repo host-session)"
+host_out="$WORKDIR/host-session.out"
+printf 'printf "PWD=%%s\\n" "$PWD"; printf "WTC=%%s\\n" "$WORKTREE_CONTAINER"; printf "HEAD=%%s\\n" "$(git rev-parse --abbrev-ref HEAD)"\n' \
+  | ( cd "$repo" && "$REPO_ROOT/bin/wt" chore/host-demo --no-container --shell ) >"$host_out" 2>&1
+expect_status 0 $? "a non-spec branch starts a host session"
+
+# Compared against the physical path: on macOS $TMPDIR is /var/..., a
+# symlink to /private/var/..., and the session's own $PWD is the resolved
+# form. Comparing the two spellings fails on a difference that is not one.
+repo_real="$(cd "$repo" && pwd -P)"
+expect_equal "$repo_real/.worktrees/chore/host-demo" \
+  "$(sed -n 's/^PWD=//p' "$host_out" | tail -1)" \
+  "the session runs with its cwd inside that branch's worktree"
+
+# Not cosmetic: WORKTREE_CONTAINER is what check-worktree-sync.sh compares
+# HEAD against. If a host session did not export it, the wrong-branch guard
+# would be dead on every branch this mode creates -- which is the whole
+# chore/fix/docs/perf population.
+expect_equal "chore/host-demo" \
+  "$(sed -n 's/^WTC=//p' "$host_out" | tail -1)" \
+  "the host session exports WORKTREE_CONTAINER, arming the wrong-branch guard"
+
+expect_equal "chore/host-demo" \
+  "$(sed -n 's/^HEAD=//p' "$host_out" | tail -1)" \
+  "the worktree is on the branch it is named for"
+
+expect_equal "chore/host-demo" "$(branch_of "$repo/.worktrees/chore/host-demo")" \
+  "...and still is after the session ends"
+
+expect_equal "main" "$(branch_of "$repo")" \
+  "the primary checkout is left on main, not moved to the new branch"
+
+# A spec branch must not be able to opt out of its container by asking
+# nicely. The check reads the worktree's own specs/ directory rather than
+# the branch name, so naming a spec branch chore/* would not get round it.
+repo="$(new_repo host-session-spec)"
+git_q -C "$repo" switch -q -c feat/has-spec
+mkdir -p "$repo/specs/feat/has-spec"
+echo "spec" >"$repo/specs/feat/has-spec/spec.md"
+git_q -C "$repo" add -A
+git_q -C "$repo" commit -q -m "add spec folder"
+git_q -C "$repo" switch -q main
+spec_out="$WORKDIR/host-session-spec.out"
+( cd "$repo" && "$REPO_ROOT/bin/wt" feat/has-spec --no-container --shell ) >"$spec_out" 2>&1 </dev/null
+expect_status 1 $? "--no-container is refused for a branch with a spec folder"
+
+if grep -q "MUST run in its own container" "$spec_out"; then
+  ok "...and says why, naming the spec folder"
+else
+  bad "...but did not explain that spec work needs its own container"
+fi
+
+if grep -q '"code":"E_SPEC_NEEDS_CONTAINER"' "$WT_TEST_LOGS/events.jsonl" 2>/dev/null; then
+  ok "...and the refusal is recorded under its own error code"
+else
+  bad "...but no E_SPEC_NEEDS_CONTAINER event was logged"
+fi
+
 echo
 echo "bin/wt-prune — worktree directory must spell out the branch name"
 if command -v gh >/dev/null 2>&1; then

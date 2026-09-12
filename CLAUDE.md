@@ -12,25 +12,36 @@ then wrong and MUST be corrected, not worked around.
 
 ## Where work happens
 
-- **Spec/feature work MUST run in its own worktree devcontainer.** A
-  speckit feature branch (a branch with a matching `specs/<branch>/`
-  folder) MUST be worked on inside that worktree's own container, started
-  by the user with `bin/wt <branch>`. `bin/wt` is a human entrypoint —
-  Claude MUST NOT invoke it, because it execs a new `claude` session
-  inside a container.
-- **Other branch work MAY run in the primary checkout.** `chore/*`,
+- **Every branch gets its own worktree.** Whatever the work, it happens
+  in `.worktrees/<branch>`, started by the user with `bin/wt <branch>`.
+  `bin/wt` is a human entrypoint — Claude MUST NOT invoke it, because it
+  execs a new `claude` session. The primary checkout stays on `main` and
+  is only for the lifecycle tooling that has to see every worktree at
+  once (`bin/wt-prune`, `bin/wt-sync`).
+- **Spec/feature work additionally runs in a container.** A speckit
+  feature branch (a branch with a matching `specs/<branch>/` folder) MUST
+  be worked on inside that worktree's own devcontainer — plain
+  `bin/wt <branch>`. A worktree's container is never shared with another
+  worktree.
+- **Other branch work runs on the host, no container.** `chore/*`,
   `fix/*`, `docs/*`, `perf/*` and `infra` branches carry no spec folder
-  and no concurrent-spec contamination risk, so a session the user starts
-  in the primary checkout MAY do that work there.
+  and no concurrent-spec contamination risk, so the user starts them with
+  `bin/wt <branch> --no-container`: same worktree, same branch rules, no
+  Docker. `bin/wt` refuses `--no-container` for a branch that has a spec
+  folder.
 - **Never work on `main`.** Branch first, whatever the checkout. The
   `SessionEnd` hook returns the primary checkout to `main` when the tree
   is clean; do not fight it, and do not switch branches at the end of a
   session to pre-empt it.
-- **`.worktrees/` is off limits.** `.claude/settings.json` denies
+- **Another worktree is off limits.** `.claude/settings.json` denies
   `Read(.worktrees/**)` and `Edit(.worktrees/**)`. Claude MUST NOT read,
   edit or list another worktree's files, and MUST NOT route around the
   deny rules with `Bash` (`cat`, `find`, `git -C`, …). If a task seems to
-  need it, say so and let the user do it.
+  need it, say so and let the user do it. In a container-less worktree
+  this rule is doing the work alone: a sibling sits at `../<branch>`,
+  which those patterns do not match and no mount boundary blocks. Treat
+  everything outside the current worktree as another session's, and never
+  reach for a relative path that leaves it.
 - **Lifecycle tooling.** `bin/wt-prune` removes worktrees, branches and
   containers whose PR GitHub reports as merged; `bin/wt-sync` reports
   worktrees running stale bootstrap files. Claude MAY run either in its

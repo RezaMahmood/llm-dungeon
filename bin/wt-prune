@@ -52,7 +52,7 @@ done
 TRUNK="main"
 
 if [[ -n "${WORKTREE_CONTAINER:-}" ]]; then
-  echo "Refusing to run inside worktree container '$WORKTREE_CONTAINER': pruning needs to see every worktree at once, which an isolated container cannot. Run this from the primary checkout on the host." >&2
+  echo "Refusing to run inside the session for worktree '$WORKTREE_CONTAINER': pruning needs to see every worktree at once, and decides what to delete from that view. Run this from the primary checkout, which is the one checkout that has it." >&2
   exit 1
 fi
 
