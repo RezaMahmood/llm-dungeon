@@ -1,43 +1,32 @@
 <!--
 Sync Impact Report
-Version change: 6.1.0 -> 6.2.0
+Version change: 6.2.0 -> 7.0.0
 Modified principles:
-  - XIII renamed: "AI Agent Division of Labor: Local LLM Pushes & Opens PRs, Claude Code
-    Review Skill Reviews, Human Merges (NON-NEGOTIABLE)" -> "AI Agent Division of Labor:
-    Agents Push & Open PRs, Humans Merge (NON-NEGOTIABLE)". Same actors, same rules; the
-    title no longer restates the body.
-  - No principle is added, removed, or changed in normative force. Every MUST, MUST NOT,
-    and MAY in v6.1.0 survives; the document is rewritten for concision and precision.
-Added sections: none. Removed sections: none. All headings and principle numbers are
-  unchanged, so external references (CLAUDE.md, CONTRIBUTING.md, README.md,
-  .github/skills/repo-constitution-review/SKILL.md) still resolve.
-Editorial changes:
-  - The file drops from 1076 to ~470 lines. Roughly half of that is the Sync Impact
-    Report block, which had accumulated every prior amendment's report (283 lines);
-    it now carries only the current amendment, per Principle XIV.
-  - Duplication removed: rules that appeared in a principle, again in a requirements
-    section, and again in Development Workflow & Quality Gates are now stated once, in
-    the section that owns them, with a cross-reference from the others. Affected:
-    Managed Identity / Private Endpoints (VII vs Security), PII surfaces (X vs PII),
-    LTS majors (III vs Dependency), local stubs (I vs Environments), and the AI agent
-    push/review/merge flow (XIII vs AI Agent Handoff vs Workflow). Principle XIII also
-    stated its own auto-merge prohibition twice.
-  - Rationales are cut to the reason a rule exists. Narrative recording how a decision
-    was reached or reversed is removed, per Principle XIV, which the document was
-    violating: the 003-account-provisioning test-count story (IX), the account of
-    auto-merge being dropped (XIII), and the note about what Principle XI's earlier
-    version required.
-Precision (the only changes that alter what review enforces, hence MINOR not PATCH):
-  - Readability rule 1: "a minimum comfortable reading size" -> at or above the design
-    system's body size, with its line-height or greater.
-  - Readability rule 2: the unmeasurable "minimum legible size" clause is dropped; the
-    measurable rule it duplicated (a label below body size MUST be uppercase with
-    letter-spacing) remains.
-  - Readability rule 3: "a minimum size in their shorter dimension" -> 24x24 CSS px
-    (WCAG 2.5.8 AA), matching the WCAG AA basis the Accessibility section already uses.
-  - Layout rule 4: "a defined minimum viewport width" -> 320 px, the floor already
-    recorded in specs/002-login-and-access-control-done/plan.md.
-Deferred/TODO placeholders: none.
+  - IX retired: "Playtesting-Driven Quality (Post-Ship Verification, Non-Blocking)" removed
+    at the user's request — manual/user-verified testing is now handled entirely outside
+    the speckit workflow, and this constitution takes no position on it (previously it
+    affirmatively made that testing non-blocking, which is itself a position). This is a
+    backward-incompatible principle removal, hence MAJOR.
+  - XI's rationale reworded to drop its "(Principle IX)" cross-reference now that IX is
+    retired; no normative change to XI itself.
+  - Development Workflow & Quality Gates: the bullet asserting playtesting "MUST NOT block
+    merge (Principle IX)" is replaced with a bullet stating this constitution neither
+    requires nor forbids a manual testing step, consistent with IX's retirement.
+Numbering: Principle IX's number is retired and left unreassigned rather than renumbering
+  X-XIV downward, so their many external references (CLAUDE.md, CONTRIBUTING.md, README.md,
+  and specs/ plan.md Constitution Checks) keep resolving unchanged. IX now carries a short
+  non-normative placeholder pointing back to this report.
+Added sections: none. Removed sections: none (IX's heading is retained as a placeholder).
+Deferred/TODO placeholders:
+  - Several active (non "-done") spec folders still cite "Principle IX" as a governing
+    testing step, some as a blocking gate predating the prior amendment that made it
+    non-blocking: specs/006-adventure-and-character-setup, specs/009-save-and-continue,
+    specs/012-story-editing-and-review, specs/013-opentelemetry-observability,
+    specs/019-spa-refresh-button, specs/023-cicd-pipeline-optimization,
+    specs/024-azure-monitoring-dashboard, specs/025-story-delete. This command's scope is
+    limited to the constitution itself; those spec artifacts need separate, manual review
+    (e.g. via /speckit-analyze per feature) to decide whether their Principle IX references
+    and any blocking acceptance tasks still apply now that the principle is retired.
 Earlier Sync Impact Reports are in this file's git history.
 -->
 
@@ -145,19 +134,12 @@ Rationale: this project's screens are built incrementally across many features; 
 one enforced design system and accessibility bar, screens built in different cycles drift
 apart visually and behaviorally and become harder to maintain.
 
-### IX. Playtesting-Driven Quality (Post-Ship Verification, Non-Blocking)
-A feature is complete once its automated tests (Principle I) pass and it merges through
-the CI gate (Principle V). Human verification against the deployed environment is NOT a
-precondition for completion or merge and MUST NOT be used to block a pull request or hold
-a feature open. Playtesting still happens, as an ongoing post-ship activity: what it
-surfaces is captured as issues and fixed in follow-up work, not treated as proof the
-original work was incomplete. A task list MAY include a playtesting task, but it is
-informational and non-blocking unless a specific feature's plan explicitly opts into a
-blocking check for a named, high-risk area.
-
-Rationale: the team has deliberately chosen MVP velocity over getting every feature right
-on first delivery, accepting that issues are found through live play. Automated tests
-remain the safety net.
+### IX. *(Retired in v7.0.0 — see Sync Impact Report)*
+This number governed manual/user-verified testing as part of feature completion. The
+project now handles that entirely outside the speckit workflow, so this constitution takes
+no position on it — neither requiring it nor guaranteeing it is non-blocking. The number
+stays retired, unreassigned, rather than renumbering Principles X–XIV, so their existing
+external references keep resolving.
 
 ### X. PII Protection by Design (NON-NEGOTIABLE)
 Personally identifiable information — a real person's email address, name, phone number,
@@ -183,9 +165,10 @@ block or delay implementation. A task list MAY include a design walkthrough as a
 non-blocking checkpoint at the author's discretion.
 
 Rationale: the team has chosen speed toward an MVP over getting the design right on the
-first attempt, accepting that design rework surfaces through playtesting (Principle IX).
-Principle VIII still constrains whatever is built to this project's design system, token
-layer, and accessibility bar, regardless of who approved the layout.
+first attempt, accepting that design rework surfaces later, through use outside this
+workflow, rather than up front. Principle VIII still constrains whatever is built to this
+project's design system, token layer, and accessibility bar, regardless of who approved the
+layout.
 
 ### XII. Right-Sized Scope — Not Enterprise-Grade (NON-NEGOTIABLE)
 This is a small application for a specific, named set of users, not an enterprise product,
@@ -412,8 +395,9 @@ GitHub-side actions only — they do not change where code is written or tested.
   actually tested and what that returned, what is deliberately left undone, and the review
   tier being recommended. It MUST NOT claim a check that was not run, quote a measurement
   that was not taken, or assert an approving review. The full contract is in `CLAUDE.md`.
-- A passing test suite and a green CI run make a feature complete and mergeable; playtesting
-  happens afterward and MUST NOT block merge (Principle IX).
+- A passing test suite and a green CI run make a feature complete and mergeable. This
+  constitution does not require, or forbid, any manual or user-verified testing step beyond
+  that; where the project wants one, it happens outside the speckit workflow.
 - A cross-artifact consistency analysis MUST treat as blocking any statement that code
   already exists — a module path, symbol, constant, field, or endpoint — where that code is
   absent from `origin/main` and is not declared as a named, not-yet-merged dependency
@@ -631,4 +615,4 @@ visual-rules, interaction-state, or layout and scroll requirements as a blocking
 feature may ship a screen that is not traceable to a screen contract above or to a
 documented amendment extending one.
 
-**Version**: 6.2.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-10
+**Version**: 7.0.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
