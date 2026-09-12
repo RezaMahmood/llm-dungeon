@@ -60,7 +60,7 @@ describe("Nav items match granted capabilities (FR-008, SC-004)", () => {
     mockUseCapabilities.mockReturnValue(capabilities(false, true));
     renderApp("/admin");
 
-    expect(visibleLinks()).toEqual(["Stories", "New story", "People", "Sign out"]);
+    expect(visibleLinks()).toEqual(["Stories", "New story", "People", "Sessions", "Sign out"]);
   });
 
   it("shows an account with neither capability no destinations at all", () => {

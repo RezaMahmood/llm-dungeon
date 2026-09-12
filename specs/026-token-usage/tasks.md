@@ -227,20 +227,20 @@ Scenarios 5–8).
 - [X] T033 [US4] [P] Create `src/backend/tests/integration/test_admin_sessions_endpoint.py`:
   the full `GET /api/manage/sessions` lifecycle, `401`/`403` without admin auth, and an
   empty-list `200` response
-- [ ] T034 [US4] Create `src/frontend/src/services/sessionService.js`: `listSessions(token)`
+- [X] T034 [US4] Create `src/frontend/src/services/sessionService.js`: `listSessions(token)`
   → `GET /manage/sessions`, following `accountService.js`'s axios/header pattern
-- [ ] T035 [US4] Create `src/frontend/src/pages/AdminSessionsPage.jsx`: a read-only table
+- [X] T035 [US4] Create `src/frontend/src/pages/AdminSessionsPage.jsx`: a read-only table
   with columns Story, Session ID, Total Tokens, Email — no create/edit/delete affordance
   anywhere on the page (FR-015, FR-016, FR-018)
-- [ ] T036 [US4] In `src/frontend/src/App.jsx`, lazy-import `AdminSessionsPage` alongside
+- [X] T036 [US4] In `src/frontend/src/App.jsx`, lazy-import `AdminSessionsPage` alongside
   the other admin pages and register its route at `/admin/sessions` behind
   `<ProtectedRoute capability="Administrator">`
-- [ ] T037 [US4] In `src/frontend/src/components/Layout/NavBar.jsx`, add a "Sessions" link
+- [X] T037 [US4] In `src/frontend/src/components/Layout/NavBar.jsx`, add a "Sessions" link
   in the admin nav variant, alongside the existing Stories/New story/People links (FR-017)
-- [ ] T038 [US4] [P] Update `src/frontend/tests/components/NavBar.test.jsx` to assert the
+- [X] T038 [US4] [P] Update `src/frontend/tests/components/NavBar.test.jsx` to assert the
   Sessions link renders in the admin link set and gets `aria-current` on `/admin/sessions`,
   matching this file's existing per-link coverage of Stories/New story/People
-- [ ] T039 [US4] [P] Create `src/frontend/tests/pages/AdminSessionsPage.test.jsx`: row
+- [X] T039 [US4] [P] Create `src/frontend/tests/pages/AdminSessionsPage.test.jsx`: row
   rendering for both a player session and a test session, the deleted-story and
   unprovisioned-account fallbacks, and confirmation the page renders no edit/delete control
 

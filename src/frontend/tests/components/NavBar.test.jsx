@@ -59,6 +59,7 @@ describe("NavBar capability-driven visibility (FR-002, FR-003, FR-008, SC-004)",
     expect(screen.getByRole("link", { name: "Stories" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "New story" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "People" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sessions" })).toBeInTheDocument();
     // No player capability -> no cross-link into an experience they cannot open.
     expect(screen.queryByRole("link", { name: "Player view" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "My stories" })).not.toBeInTheDocument();
@@ -74,6 +75,7 @@ describe("NavBar capability-driven visibility (FR-002, FR-003, FR-008, SC-004)",
     expect(screen.queryByRole("link", { name: "Stories" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "New story" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "People" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Sessions" })).not.toBeInTheDocument();
   });
 
   it("offers the cross-role link into the other experience for a dual-capability account", () => {
@@ -83,6 +85,7 @@ describe("NavBar capability-driven visibility (FR-002, FR-003, FR-008, SC-004)",
     const { unmount } = renderAt("/admin/accounts");
     expect(screen.getByRole("link", { name: "Player view" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "People" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sessions" })).toBeInTheDocument();
     unmount();
 
     // On a player surface: player bar, with a way back into admin.
@@ -193,6 +196,7 @@ describe("NavBar current-section indication (FR-007, US4)", () => {
     ["/admin", "Stories", false, true],
     ["/admin/stories/new", "New story", false, true],
     ["/admin/accounts", "People", false, true],
+    ["/admin/sessions", "Sessions", false, true],
   ])("marks exactly one item current on %s", (path, expectedLabel, player, admin) => {
     mockUseCapabilities.mockReturnValue(capabilities(player, admin));
     renderAt(path);

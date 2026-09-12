@@ -139,6 +139,13 @@ export function NavBar() {
           >
             People
           </Link>
+          <Link
+            to="/admin/sessions"
+            style={LINK_STYLE}
+            aria-current={current("/admin/sessions")}
+          >
+            Sessions
+          </Link>
           {hasPlayer && (
             <>
               <span className="nav-divider" style={{ margin: "0 var(--space-4)" }} />
