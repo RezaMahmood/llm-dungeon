@@ -267,6 +267,7 @@ class StoryService:
             chapters=draft.chapters,
             worldPrompt=draft.worldPrompt,
             rules=draft.rules,
+            blurb=draft.blurb,
             characterTypes=draft.characterTypes,
             completionCriteria=draft.completionCriteria,
             narrativeGuidance=narrative_guidance,
@@ -426,6 +427,7 @@ class StoryService:
             chapters=configuration.chapters,
             worldPrompt=configuration.worldPrompt,
             rules=configuration.rules,
+            blurb=configuration.blurb,
             characterTypes=configuration.characterTypes,
             completionCriteria=configuration.completionCriteria,
             narrativeGuidance=derived.narrativeGuidance,
@@ -526,6 +528,7 @@ class StoryService:
             chapters=configuration.chapters,
             worldPrompt=configuration.worldPrompt,
             rules=configuration.rules,
+            blurb=configuration.blurb,
             characterTypes=configuration.characterTypes,
             completionCriteria=configuration.completionCriteria,
             narrativeGuidance=derived.narrativeGuidance,
@@ -550,6 +553,6 @@ class StoryService:
         `published`/`createdAt` (FR-001, FR-006)."""
         return self._cosmos.query(
             config.STORIES_CONTAINER,
-            "SELECT c.id, c.name, c.tone, c.sessionLengthMinutes, c.readingLevel "
+            "SELECT c.id, c.name, c.tone, c.sessionLengthMinutes, c.readingLevel, c.blurb "
             "FROM c WHERE c.entityType = 'Story' AND c.published = true",
         )

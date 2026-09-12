@@ -3,13 +3,18 @@ import { useEffect, useState } from "react";
 export function StepNameCover({ draft, onPatch, onDirtyChange }) {
   const [name, setName] = useState(draft.name || "");
   const [coverImageUrl, setCoverImageUrl] = useState(draft.coverImageUrl || "");
+  const [blurb, setBlurb] = useState(draft.blurb || "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => setName(draft.name || ""), [draft.name]);
   useEffect(() => setCoverImageUrl(draft.coverImageUrl || ""), [draft.coverImageUrl]);
+  useEffect(() => setBlurb(draft.blurb || ""), [draft.blurb]);
 
-  const dirty = name !== (draft.name || "") || coverImageUrl !== (draft.coverImageUrl || "");
+  const dirty =
+    name !== (draft.name || "") ||
+    coverImageUrl !== (draft.coverImageUrl || "") ||
+    blurb !== (draft.blurb || "");
 
   // Reports unsaved input up to the wizard page for FR-010's beforeunload warning.
   useEffect(() => {
@@ -20,7 +25,7 @@ export function StepNameCover({ draft, onPatch, onDirtyChange }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onPatch({ name, coverImageUrl });
+      await onPatch({ name, coverImageUrl, blurb });
       setSaved(true);
     } finally {
       setSaving(false);
@@ -49,6 +54,18 @@ export function StepNameCover({ draft, onPatch, onDirtyChange }) {
           value={coverImageUrl}
           onChange={(event) => {
             setCoverImageUrl(event.target.value);
+            setSaved(false);
+          }}
+        />
+      </div>
+      <div className="field">
+        <label htmlFor="story-blurb">Blurb</label>
+        <textarea
+          id="story-blurb"
+          className="input"
+          value={blurb}
+          onChange={(event) => {
+            setBlurb(event.target.value);
             setSaved(false);
           }}
         />

@@ -1,6 +1,5 @@
-import { useState } from "react";
-
 import { deleteStory } from "../services/storyDraftService.js";
+import { useDeleteWithConfirmation } from "./useDeleteWithConfirmation.js";
 
 /**
  * Delete call + confirmation state for one story (025-story-delete-done FR-002), mirroring
@@ -15,35 +14,8 @@ import { deleteStory } from "../services/storyDraftService.js";
  * remove it from its own list state.
  */
 export function useDeleteStory(token, story, onDeleted) {
-  const [status, setStatus] = useState("idle"); // idle | working | error
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-
-  const resolveToken = async () => (typeof token === "function" ? token() : token);
-
-  const requestDelete = () => setConfirmingDelete(true);
-  const cancelDelete = () => setConfirmingDelete(false);
-
-  const confirmDelete = async () => {
-    setStatus("working");
-    try {
-      const resolvedToken = await resolveToken();
-      await deleteStory(resolvedToken, story.id);
-      setStatus("idle");
-      setConfirmingDelete(false);
-      onDeleted?.(story.id);
-    } catch {
-      setStatus("error");
-      setConfirmingDelete(false);
-    }
-  };
-
-  return {
-    status,
-    confirmingDelete,
-    requestDelete,
-    confirmDelete,
-    cancelDelete,
-  };
+  // A wrapper, not the bare import — see useDeleteSession.js for why.
+  return useDeleteWithConfirmation(token, story.id, (t, id) => deleteStory(t, id), onDeleted);
 }
 
 export default useDeleteStory;

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM Dungeon — Home</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+html, body { height: 100%; }
+body { margin: 0; overflow: hidden; }
+.shell { height: 100vh; overflow: hidden; display: flex; flex-direction: column; font-family: var(--font-body); color: var(--color-text); }
+.ovnum { font-family: var(--font-heading); font-weight: 800; letter-spacing: -0.05em; line-height: 0.8; }
+.rowhov:hover { background: color-mix(in srgb, var(--color-text) 5%, transparent); }
+.storyscroll::-webkit-scrollbar { width: 10px; }
+.storyscroll::-webkit-scrollbar-thumb { background: var(--color-neutral-400); }
+.hero { flex: none; padding: 20px 32px 18px; background: var(--color-neutral-200); border-bottom: 2px solid var(--color-divider); }
+.hero h1 { margin: 4px 0 0; font-size: 28px; line-height: 1.05; }
+.cols { flex: 1; min-height: 0; display: grid; grid-template-columns: 2fr 1fr; }
+.col { min-height: 0; display: flex; flex-direction: column; }
+.col-main { border-right: 2px solid var(--color-divider); }
+.colhead { flex: none; padding: 26px 32px 16px; }
+.colbody { flex: 1; min-height: 0; overflow: auto; padding: 0 32px 48px; }
+.listrow { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: start; padding: 20px 8px 33px; min-height: 174px; box-sizing: border-box; border-bottom: 1px solid var(--color-divider); text-decoration: none; color: inherit; }
+.listrow .btn { align-self: end; }
+.pcard { display: flex; flex-direction: column; align-items: flex-start; padding: 18px; margin-top: 16px; height: 158px; box-sizing: border-box; overflow: hidden; background: var(--color-bg); box-shadow: 0 0 0 1px var(--color-divider); text-decoration: none; color: inherit; }
+.pcard > .btn { margin-top: auto !important; }
+.pcard-actions { display: flex; gap: 8px; align-items: center; width: 100%; margin-top: auto; }
+.btn-danger { border: 2px solid var(--color-divider); background: var(--color-bg); color: var(--color-neutral-700); }
+.btn-danger:hover { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-bg); }
+.btn-danger:active { background: var(--color-accent-600); border-color: var(--color-accent-600); }
+.pcard .bars { width: 100%; }
+.pcard-title { font-family: var(--font-heading); font-weight: 800; font-size: 19px; line-height: 1.15; height: 44px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.pcard:first-child { margin-top: 0; }
+
+/* buttons read as clickable */
+.btn { transition: background 0.12s, color 0.12s, border-color 0.12s, box-shadow 0.12s; }
+.btn-secondary { border: 2px solid var(--color-text); background: var(--color-bg); }
+.btn-secondary:hover, .listrow:hover .btn-secondary {
+  background: var(--color-accent); color: var(--color-bg); border-color: var(--color-accent);
+}
+.btn-secondary:active { background: var(--color-accent-600); border-color: var(--color-accent-600); }
+.btn-primary { border: 2px solid var(--color-accent); }
+.btn-primary:hover, .rowhov:hover .btn-primary,
+.pcard:hover .btn-primary, .listrow:hover .btn-primary {
+  background: var(--color-accent-600); border-color: var(--color-accent-600);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+.btn-primary:active { background: var(--color-accent-700); border-color: var(--color-accent-700); box-shadow: none; }
+.btn-ghost { border: 2px solid transparent; }
+.btn-ghost:hover { border-color: var(--color-accent); }
+.nav a { border-bottom: 2px solid transparent; }
+.nav a:hover { border-bottom-color: var(--color-accent); }
+
+/* iPad */
+@media (max-width: 1100px) {
+  .cols { grid-template-columns: 3fr 2fr; }
+  .hero { padding: 16px 24px 14px; }
+  .colhead, .colbody { padding-left: 24px; padding-right: 24px; }
+}
+
+/* Mobile */
+@media (max-width: 760px) {
+  html, body { height: auto; }
+  body { overflow: auto; }
+  .shell { height: auto; overflow: visible; }
+  .nav { flex-wrap: wrap; }
+  .hero { padding: 14px 18px 12px; }
+  .hero h1 { font-size: 21px; }
+  .cols { display: block; }
+  .col { display: block; }
+  .col-main { border-right: 0; }
+  .col-side { border-top: 2px solid var(--color-divider); }
+  .colhead { padding: 22px 18px 12px; }
+  .colbody { overflow: visible; padding: 0 18px 28px; }
+  .listrow { grid-template-columns: 1fr; gap: 14px; align-items: start; min-height: 0; padding-bottom: 20px; }
+  .listrow .btn { justify-self: start; }
+  .pcard { height: auto; }
+  .pcard-title { height: auto; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="nav" style="background:var(--color-bg);flex:none;gap:0">
+    <span class="nav-brand" style="margin-right:28px">LLM Dungeon</span>
+    <a href="07-home.html" aria-current="page" style="padding:10px 14px">Home</a>
+    <a href="#" style="padding:10px 14px">My stories</a>
+    <a href="#" style="padding:10px 14px">Badges</a>
+    <button class="btn btn-ghost" type="button" title="Refresh" aria-label="Refresh" onclick="location.reload()" style="margin-left:auto;gap:8px;padding:8px 12px;font-size:13px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+      Refresh
+    </button>
+    <a href="01-login.html" style="padding:10px 14px;margin-left:12px">Sign out</a>
+    <span class="tag tag-neutral" style="margin-left:16px">Ada B. · Player</span>
+  </div>
+
+  <div class="hero">
+    <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent-700)">Wednesday afternoon</div>
+    <h1>Welcome back, Ada.</h1>
+    <p class="text-muted" style="margin:6px 0 0;max-width:64ch;font-size:14px">You have one story on the go. Everything is saved where you left it.</p>
+  </div>
+
+  <div class="cols">
+    <section class="col col-main">
+      <div class="colhead">
+        <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent-700)">Start something new</div>
+        <h2 style="margin:6px 0 0;font-size:24px">Ready to play</h2>
+      </div>
+      <div class="colbody storyscroll">
+        <a class="listrow rowhov" href="03-play.html">
+          <div>
+            <div class="card-kicker">Mystery · 20 min</div>
+            <div style="font-family:var(--font-heading);font-weight:800;font-size:22px;line-height:1.15;margin-top:6px">Nine Doors of Mudlark Hall</div>
+            <p style="margin:6px 0 0;font-size:15px;max-width:60ch">Every door tells you a rule. Eight of them are lying.</p>
+            <div class="card-meta" style="margin-top:8px">Reading level: Year 5</div>
+          </div>
+          <span class="btn btn-secondary" style="padding:11px 16px">Play</span>
+        </a>
+        <a class="listrow rowhov" href="03-play.html">
+          <div>
+            <div class="card-kicker">Adventure · 15 min</div>
+            <div style="font-family:var(--font-heading);font-weight:800;font-size:22px;line-height:1.15;margin-top:6px">The Balloon Post</div>
+            <p style="margin:6px 0 0;font-size:15px;max-width:60ch">Deliver one letter across a sky full of weather that argues back.</p>
+            <div class="card-meta" style="margin-top:8px">Reading level: Year 4</div>
+          </div>
+          <span class="btn btn-secondary" style="padding:11px 16px">Play</span>
+        </a>
+        <a class="listrow rowhov" href="03-play.html">
+          <div>
+            <div class="card-kicker">Silly · 10 min</div>
+            <div style="font-family:var(--font-heading);font-weight:800;font-size:22px;line-height:1.15;margin-top:6px">My Dog Ate the Timetable</div>
+            <p style="margin:6px 0 0;font-size:15px;max-width:60ch">Get to assembly on time. The dog has other plans.</p>
+            <div class="card-meta" style="margin-top:8px">Reading level: Year 3</div>
+          </div>
+          <span class="btn btn-secondary" style="padding:11px 16px">Play</span>
+        </a>
+      </div>
+    </section>
+    <aside class="col col-side">
+      <div class="colhead">
+        <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent-700)">Keep going</div>
+        <h2 style="margin:6px 0 0;font-size:24px">In progress</h2>
+      </div>
+      <div class="colbody storyscroll">
+        <a class="pcard rowhov" href="03-play.html">
+          <div class="pcard-title" style="width:100%">The Lighthouse at Gullwing Cove</div>
+          <div class="text-muted" style="font-size:12px;margin-top:4px;width:100%">Chapter 3 · Last played yesterday · The keeper&rsquo;s stairs</div>
+          <div class="bars" style="display:flex;gap:4px;margin-top:8px">
+            <span style="height:6px;flex:1;background:var(--color-accent)"></span>
+            <span style="height:6px;flex:1;background:var(--color-accent)"></span>
+            <span style="height:6px;flex:1;background:var(--color-accent)"></span>
+            <span style="height:6px;flex:1;background:var(--color-neutral-300)"></span>
+            <span style="height:6px;flex:1;background:var(--color-neutral-300)"></span>
+          </div>
+          <span class="pcard-actions">
+            <span class="btn btn-secondary" style="padding:9px 14px;font-size:13px">Resume</span>
+            <span class="btn btn-danger" role="button" tabindex="0" title="Delete this session" aria-label="Delete this session" style="padding:9px 12px;font-size:13px;gap:6px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M3 6h18"></path><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg>Delete
+            </span>
+          </span>
+        </a>
+      </div>
+    </aside>
+  </div>
+</div>
+</body>
+</html>

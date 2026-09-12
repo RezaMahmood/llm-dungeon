@@ -5,9 +5,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const acquireTokenSilent = vi.fn();
 const logoutRedirect = vi.fn();
-const listAdventures = vi.fn();
-const getAdventure = vi.fn();
-const createSession = vi.fn();
 const listSavedGames = vi.fn();
 const getSession = vi.fn();
 const resumeSession = vi.fn();
@@ -26,9 +23,8 @@ vi.mock("../../src/hooks/useCapabilities.js", () => ({
 }));
 
 vi.mock("../../src/services/gameService.js", () => ({
-  listAdventures: (...args) => listAdventures(...args),
-  getAdventure: (...args) => getAdventure(...args),
-  createSession: (...args) => createSession(...args),
+  getAdventure: vi.fn(),
+  createSession: vi.fn(),
   listSavedGames: (...args) => listSavedGames(...args),
   getSession: (...args) => getSession(...args),
   resumeSession: (...args) => resumeSession(...args),
@@ -40,20 +36,6 @@ import NavBar from "../../src/components/Layout/NavBar.jsx";
 import TitleBar from "../../src/components/Layout/TitleBar.jsx";
 import { PlayTitleProvider } from "../../src/context/PlayTitleContext.jsx";
 import GamePage from "../../src/pages/GamePage.jsx";
-
-const SAVED_GAME = {
-  sessionId: "session-1",
-  adventureId: "a1",
-  adventureName: "The Lighthouse at Gullwing Cove",
-  characterName: "Bramble",
-  locationLabel: "The keeper's stairs",
-  progress: { current: 3, total: 5 },
-  turnCount: 2,
-  startedAt: "2026-09-01T18:22:04Z",
-  lastInteractionAt: "2026-09-05T20:11:47Z",
-  isActiveForPlayer: false,
-  checkpointCount: 0,
-};
 
 const SESSION_DETAIL = {
   sessionId: "session-1",
@@ -77,23 +59,28 @@ const SESSION_DETAIL = {
   checkpoints: [],
 };
 
-describe("Save and continue: list -> Resume -> play (009-save-and-continue)", () => {
+/** Renders GamePage exactly as HomePage's Resume action reaches it
+ * (028-home-page-redesign, research.md Decision 10): the resume sequence runs
+ * automatically from route state, with no in-page Resume button to click. */
+function renderResuming(isActiveForPlayer = false) {
+  return render(
+    <MemoryRouter initialEntries={[{ pathname: "/game", state: { resumeSessionId: "session-1", isActiveForPlayer } }]}>
+      <GamePage />
+    </MemoryRouter>,
+  );
+}
+
+describe("Save and continue: Resume -> play (009-save-and-continue, narrowed by 028-home-page-redesign)", () => {
   beforeEach(() => {
     acquireTokenSilent.mockReset().mockResolvedValue({ accessToken: "tok" });
-    listAdventures.mockReset().mockResolvedValue({ adventures: [] });
-    getAdventure.mockReset();
-    createSession.mockReset();
-    listSavedGames.mockReset().mockResolvedValue({ sessions: [SAVED_GAME] });
+    listSavedGames.mockReset();
     getSession.mockReset().mockResolvedValue({ status: "success", session: SESSION_DETAIL });
     resumeSession.mockReset();
   });
 
-  it("calls resume before fetching the session when the row isn't already active", async () => {
+  it("calls resume before fetching the session when Home reports the session isn't already active", async () => {
     resumeSession.mockResolvedValue({ status: "active", sessionId: "session-1" });
-    const user = userEvent.setup();
-    render(<GamePage />);
-
-    await user.click(await screen.findByRole("button", { name: /resume/i }));
+    renderResuming(false);
 
     expect(await screen.findByText("You find the stairs.")).toBeInTheDocument();
     expect(resumeSession).toHaveBeenCalledWith("tok", "session-1");
@@ -102,45 +89,36 @@ describe("Save and continue: list -> Resume -> play (009-save-and-continue)", ()
     expect(screen.getByText("The door creaks open.")).toBeInTheDocument();
   });
 
-  it("never calls resume when the row is already the player's active game", async () => {
-    listSavedGames.mockResolvedValue({ sessions: [{ ...SAVED_GAME, isActiveForPlayer: true }] });
-    const user = userEvent.setup();
-    render(<GamePage />);
-
-    await user.click(await screen.findByRole("button", { name: /resume/i }));
+  it("never calls resume when Home reports the session is already the player's active game", async () => {
+    renderResuming(true);
 
     expect(await screen.findByText("You find the stairs.")).toBeInTheDocument();
     expect(resumeSession).not.toHaveBeenCalled();
   });
 
-  it("treats a stale row's 409 already_active as success, with no error shown", async () => {
+  it("treats a stale 409 already_active as success, with no error shown", async () => {
     resumeSession.mockRejectedValue({ response: { status: 409, data: { error: "already_active" } } });
-    const user = userEvent.setup();
-    render(<GamePage />);
-
-    await user.click(await screen.findByRole("button", { name: /resume/i }));
+    renderResuming(false);
 
     expect(await screen.findByText("You find the stairs.")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("shows an error and stays on the stories screen when resume genuinely fails", async () => {
+  it("shows an error and a way back to Home when resume genuinely fails", async () => {
     resumeSession.mockRejectedValue({ response: { status: 409, data: { error: "session_concluded" } } });
-    const user = userEvent.setup();
-    render(<GamePage />);
-
-    await user.click(await screen.findByRole("button", { name: /resume/i }));
+    renderResuming(false);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't resume this story/i);
+    expect(screen.getByRole("link", { name: /back to home/i })).toBeInTheDocument();
     expect(getSession).not.toHaveBeenCalled();
   });
 
-  it("shows a checkpoint-failure notice back on the stories screen after Save and exit fails", async () => {
+  it("shows a checkpoint-failure notice back on this screen after Save and exit fails", async () => {
     resumeSession.mockResolvedValue({ status: "active", sessionId: "session-1" });
     saveCheckpoint.mockRejectedValue(new Error("network error"));
     const user = userEvent.setup();
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[{ pathname: "/game", state: { resumeSessionId: "session-1", isActiveForPlayer: false } }]}>
         <PlayTitleProvider>
           <TitleBar />
           <GamePage />
@@ -148,15 +126,13 @@ describe("Save and continue: list -> Resume -> play (009-save-and-continue)", ()
       </MemoryRouter>,
     );
 
-    await user.click(await screen.findByRole("button", { name: /resume/i }));
     await screen.findByText("You find the stairs.");
-
     await user.click(screen.getByRole("button", { name: /pause & exit/i }));
     await user.click(screen.getByRole("button", { name: /save and exit to my stories/i }));
 
     expect(await screen.findByText(/couldn't record that checkpoint/i)).toBeInTheDocument();
-    // Back on the stories screen, not stuck on the play surface.
-    expect(await screen.findByRole("heading", { name: /choose an adventure/i })).toBeInTheDocument();
+    // Back on this screen, not stuck on the play surface.
+    expect(screen.getByRole("link", { name: /back to home/i })).toBeInTheDocument();
   });
 });
 
@@ -164,9 +140,6 @@ describe("Save and continue: sign-out round trip (009-save-and-continue, US2 Acc
   beforeEach(() => {
     acquireTokenSilent.mockReset().mockResolvedValue({ accessToken: "tok" });
     logoutRedirect.mockReset();
-    listAdventures.mockReset().mockResolvedValue({ adventures: [] });
-    getAdventure.mockReset();
-    createSession.mockReset();
     listSavedGames.mockReset();
     getSession.mockReset();
     resumeSession.mockReset();
@@ -175,7 +148,7 @@ describe("Save and continue: sign-out round trip (009-save-and-continue, US2 Acc
 
   it("accepting the prompt records a marker and the resumed game later shows every turn plus the marker", async () => {
     listSavedGames.mockResolvedValue({
-      sessions: [{ ...SAVED_GAME, isActiveForPlayer: true }],
+      sessions: [{ sessionId: "session-1", isActiveForPlayer: true }],
     });
     saveCheckpoint.mockResolvedValue({ checkpoint: { label: "The keeper's stairs", turnNumber: 1, createdAt: "now" } });
     const user = userEvent.setup();
@@ -196,8 +169,7 @@ describe("Save and continue: sign-out round trip (009-save-and-continue, US2 Acc
       status: "success",
       session: { ...SESSION_DETAIL, checkpoints: [{ label: "The keeper's stairs", turnNumber: 1, createdAt: "now" }] },
     });
-    render(<GamePage />);
-    await user.click(await screen.findByRole("button", { name: /resume/i }));
+    renderResuming(true);
 
     expect(await screen.findByText("You find the stairs.")).toBeInTheDocument();
     expect(screen.getByText("The door creaks open.")).toBeInTheDocument();
@@ -205,7 +177,7 @@ describe("Save and continue: sign-out round trip (009-save-and-continue, US2 Acc
 
   it("declining records none and the resumed game shows exactly the same turns", async () => {
     listSavedGames.mockResolvedValue({
-      sessions: [{ ...SAVED_GAME, isActiveForPlayer: true }],
+      sessions: [{ sessionId: "session-1", isActiveForPlayer: true }],
     });
     const user = userEvent.setup();
     render(
@@ -221,8 +193,7 @@ describe("Save and continue: sign-out round trip (009-save-and-continue, US2 Acc
     expect(saveCheckpoint).not.toHaveBeenCalled();
 
     getSession.mockResolvedValue({ status: "success", session: SESSION_DETAIL });
-    render(<GamePage />);
-    await user.click(await screen.findByRole("button", { name: /resume/i }));
+    renderResuming(true);
 
     expect(await screen.findByText("You find the stairs.")).toBeInTheDocument();
     expect(screen.getByText("The door creaks open.")).toBeInTheDocument();
@@ -231,9 +202,11 @@ describe("Save and continue: sign-out round trip (009-save-and-continue, US2 Acc
 
 // Resuming is the *first* thing a player does after leaving a game, so it — not
 // submitting a turn — is where they normally first meet a story that became
-// unavailable while the row sat on their screen. Both calls `handleResume` makes can
-// report it, and each reason gets its own specific message rather than the shared
-// generic one (025-story-delete-done FR-007, FR-008, contracts/api.md Validation Rules).
+// unavailable while they were away. Both calls the resume effect makes can report it,
+// and each reason gets its own specific message rather than the shared generic one
+// (025-story-delete-done FR-007, FR-008, contracts/api.md Validation Rules). The
+// in-progress row's own greying/removal behavior on this outcome now belongs to Home's
+// SessionCard, not GamePage (028-home-page-redesign) — covered by HomePage's own tests.
 describe("Resuming a story that became unavailable (025-story-delete-done FR-007, FR-008)", () => {
   const DELETED = {
     response: {
@@ -258,85 +231,48 @@ describe("Resuming a story that became unavailable (025-story-delete-done FR-007
 
   beforeEach(() => {
     acquireTokenSilent.mockReset().mockResolvedValue({ accessToken: "tok" });
-    listAdventures.mockReset().mockResolvedValue({ adventures: [] });
-    getAdventure.mockReset();
-    createSession.mockReset();
-    listSavedGames.mockReset().mockResolvedValue({ sessions: [SAVED_GAME] });
     getSession.mockReset().mockResolvedValue({ status: "success", session: SESSION_DETAIL });
     resumeSession.mockReset();
-    saveCheckpoint.mockReset();
   });
 
-  it("shows the specific deleted notice and drops the row when resume reports story_deleted", async () => {
+  it("shows the specific deleted notice when resume reports story_deleted", async () => {
     resumeSession.mockRejectedValue(DELETED);
-    const user = userEvent.setup();
-    render(<GamePage />);
-
-    await user.click(await screen.findByRole("button", { name: /resume/i }));
+    renderResuming(false);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/story has been deleted/i);
     expect(screen.getByRole("alert")).not.toHaveTextContent(/couldn't resume this story/i);
-    // The session was permanently removed along with its story (FR-004, FR-010), so
-    // the row goes with it rather than offering a Resume that can only fail again.
-    expect(screen.queryByRole("button", { name: /^resume$/i })).not.toBeInTheDocument();
-    // The row's title span renders the adventure and character together, so match on
-    // a substring rather than the bare adventure name.
-    expect(screen.queryByText(/Gullwing Cove/)).not.toBeInTheDocument();
-    // Never hands off to the play surface.
     expect(getSession).not.toHaveBeenCalled();
   });
 
-  it("shows the specific unpublished notice and greys the row when resume reports story_unpublished", async () => {
+  it("shows the specific unpublished notice when resume reports story_unpublished", async () => {
     resumeSession.mockRejectedValue(UNPUBLISHED);
-    const user = userEvent.setup();
-    render(<GamePage />);
-
-    await user.click(await screen.findByRole("button", { name: /resume/i }));
+    renderResuming(false);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/story has been unpublished/i);
     expect(screen.getByRole("alert")).not.toHaveTextContent(/couldn't resume this story/i);
-    // Unpublish never deletes the session (FR-005) — the row stays, marked
-    // non-continuable exactly as the next list load would render it (FR-009).
-    expect(screen.getByText(/Gullwing Cove/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /unavailable/i })).toBeDisabled();
     expect(getSession).not.toHaveBeenCalled();
   });
 
   it("reports story_deleted the same way when it comes from the session fetch rather than resume", async () => {
-    // `handleResume` calls resume and getSession inside one try — a story deleted
-    // between the two must not fall through to the generic message either.
     resumeSession.mockResolvedValue({ status: "active", sessionId: "session-1" });
     getSession.mockRejectedValue(DELETED);
-    const user = userEvent.setup();
-    render(<GamePage />);
-
-    await user.click(await screen.findByRole("button", { name: /resume/i }));
+    renderResuming(false);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/story has been deleted/i);
-    expect(screen.queryByRole("button", { name: /^resume$/i })).not.toBeInTheDocument();
   });
 
   it("reports story_unpublished the same way when it comes from the session fetch rather than resume", async () => {
     resumeSession.mockResolvedValue({ status: "active", sessionId: "session-1" });
     getSession.mockRejectedValue(UNPUBLISHED);
-    const user = userEvent.setup();
-    render(<GamePage />);
-
-    await user.click(await screen.findByRole("button", { name: /resume/i }));
+    renderResuming(false);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/story has been unpublished/i);
-    expect(screen.getByRole("button", { name: /unavailable/i })).toBeDisabled();
   });
 
   it("still shows the generic message for a failure that is neither", async () => {
     resumeSession.mockRejectedValue({ response: { status: 409, data: { error: "session_concluded" } } });
-    const user = userEvent.setup();
-    render(<GamePage />);
-
-    await user.click(await screen.findByRole("button", { name: /resume/i }));
+    renderResuming(false);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't resume this story/i);
-    // The row is untouched — only the two story-unavailable reasons change it.
-    expect(screen.getByRole("button", { name: /^resume$/i })).toBeInTheDocument();
   });
 });

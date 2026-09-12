@@ -54,11 +54,11 @@ export function TitleBar({ storyTitle = "", onSaveCheckpoint, onPauseExit }) {
           onClick={confirmExit}
           style={{ ...brandStyle, background: "none", border: 0, padding: 0, cursor: "pointer" }}
         >
-          Lantern
+          LLM Dungeon
         </button>
       ) : (
         <Link to="/menu" style={brandStyle}>
-          Lantern
+          LLM Dungeon
         </Link>
       )}
       <span className="nav-divider" />

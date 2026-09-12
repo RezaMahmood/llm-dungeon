@@ -55,7 +55,7 @@ describe("TitleBar (FR-006)", () => {
 
   it("returns to story select from the brand mark", () => {
     renderTitleBar();
-    expect(screen.getByRole("link", { name: "Lantern" })).toHaveAttribute("href", "/menu");
+    expect(screen.getByRole("link", { name: "LLM Dungeon" })).toHaveAttribute("href", "/menu");
   });
 
   it("truncates a long story title rather than letting it push controls out of view", () => {

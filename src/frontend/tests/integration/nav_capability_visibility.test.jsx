@@ -53,7 +53,7 @@ describe("Nav items match granted capabilities (FR-008, SC-004)", () => {
     mockUseCapabilities.mockReturnValue(capabilities(true, false));
     renderApp("/menu");
 
-    expect(visibleLinks()).toEqual(["My stories", "Badges", "Sign out"]);
+    expect(visibleLinks()).toEqual(["Home", "My stories", "Badges", "Sign out"]);
   });
 
   it("shows an admin-only account no player-only destinations", () => {
