@@ -1,5 +1,5 @@
 """Unit tests for the shared completion-rule evaluation extracted from
-PlaySessionService (010-story-test-play, T008) — covers `any`/`all` rules, the
+PlaySessionService (010-story-test-play-done, T008) — covers `any`/`all` rules, the
 success-before-failure tie, and the no-newly-satisfied-conditions case."""
 
 from __future__ import annotations

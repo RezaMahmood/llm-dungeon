@@ -29,7 +29,7 @@ validator, and the create-or-overwrite import endpoint **here**, conforming to `
 FR-002/003/004/005/006/007 rather than defining separate rules (research.md §1).
 `011-story-import` should be re-scoped, when it is planned, to its own entry surface and any
 extra acceptance coverage on top of this mechanism — it MUST NOT define a second format or
-validator. `010-story-test-play`/`017-story-publish-test-play-gate` remain unimplemented;
+validator. `010-story-test-play-done`/`017-story-publish-test-play-gate` remain unimplemented;
 this feature only re-arms their gate implicitly by stamping `contentUpdatedAt`, which
 `StoryService.can_publish` already reads.
 

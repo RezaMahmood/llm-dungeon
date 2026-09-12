@@ -100,15 +100,15 @@ echo
 echo "check-worktree-sync.sh — feature.json expectation vs HEAD"
 repo="$(new_repo sync-feature)"
 mkdir -p "$repo/.specify"
-printf '{"feature_directory": "specs/010-story-test-play"}\n' >"$repo/.specify/feature.json"
+printf '{"feature_directory": "specs/010-story-test-play-done"}\n' >"$repo/.specify/feature.json"
 ( cd "$repo" && "$SYNC_HOOK" >/dev/null 2>&1 )
 expect_status 2 $? "HEAD is on main but feature.json expects the feature branch"
 
-git_q -C "$repo" checkout -q -b 010-story-test-play
+git_q -C "$repo" checkout -q -b 010-story-test-play-done
 ( cd "$repo" && "$SYNC_HOOK" >/dev/null 2>&1 )
 expect_status 0 $? "HEAD matches feature.json"
 
-( cd "$repo" && WORKTREE_CONTAINER=010-story-test-play "$SYNC_HOOK" >/dev/null 2>&1 )
+( cd "$repo" && WORKTREE_CONTAINER=010-story-test-play-done "$SYNC_HOOK" >/dev/null 2>&1 )
 expect_status 0 $? "container, HEAD and feature.json all agree"
 
 printf 'not json at all\n' >"$repo/.specify/feature.json"

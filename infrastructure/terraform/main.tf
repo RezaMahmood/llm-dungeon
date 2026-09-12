@@ -141,7 +141,7 @@ resource "azurerm_cosmosdb_sql_container" "play_sessions" {
 }
 
 resource "azurerm_cosmosdb_sql_container" "test_play_sessions" {
-  # 010-story-test-play, data-model.md: administrator test-play sessions live in their
+  # 010-story-test-play-done, data-model.md: administrator test-play sessions live in their
   # own container so no player route can reach them by id (FR-009).
   name                  = "testPlaySessions"
   resource_group_name   = data.azurerm_resource_group.rg.name

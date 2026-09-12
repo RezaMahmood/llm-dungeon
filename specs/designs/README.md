@@ -62,7 +62,7 @@ One `.nav` bar, same markup on every signed-in surface.
   which that section now explicitly permits), and that text is the acceptance reference for
   these two screens until a prototype is drawn.
 - **Test play (04, step 05):** the "Flag this reply" button is deliberately not implemented —
-  `010-story-test-play` specifies no in-session flagging; a problem found while testing is fixed
+  `010-story-test-play-done` specifies no in-session flagging; a problem found while testing is fixed
   by editing the story afterwards through the wizard. "Restart test" is implemented, but aborts
   rather than resets: after a warning, the session is deleted and the administrator returns to
   the edit story page. A session that reaches one of the story's endings offers Publish (with
