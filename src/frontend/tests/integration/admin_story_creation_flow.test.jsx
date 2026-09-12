@@ -35,6 +35,7 @@ const EMPTY_DRAFT = {
   chapters: null,
   worldPrompt: null,
   rules: null,
+  blurb: null,
   characterTypes: [],
   completionCriteria: null,
 };
@@ -69,7 +70,11 @@ describe("Admin story creation: empty draft through generated, unpublished story
     await userEvent.type(screen.getByLabelText(/story name/i), "The Lighthouse at Gullwing Cove");
     await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
-    expect(patchDraft).toHaveBeenCalledWith("tok", "draft-1", { name: "The Lighthouse at Gullwing Cove", coverImageUrl: "" });
+    expect(patchDraft).toHaveBeenCalledWith("tok", "draft-1", {
+      name: "The Lighthouse at Gullwing Cove",
+      coverImageUrl: "",
+      blurb: "",
+    });
     expect(screen.getByRole("button", { name: /generate story/i })).toBeDisabled();
 
     // Move to the World & setting step and turn an idea into a world prompt in one pass (#227).
@@ -176,6 +181,27 @@ describe("Admin story creation: empty draft through generated, unpublished story
     // No wizard step tabs or "save" control remain — the story is already persisted.
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^save/i })).not.toBeInTheDocument();
+  });
+
+  it("saves a blurb alongside name and cover on the Name & cover step (028-home-page-redesign FR-016)", async () => {
+    createDraft.mockResolvedValueOnce({ draft: EMPTY_DRAFT });
+    render(<MemoryRouter><AdminStoryWizardPage /></MemoryRouter>);
+    expect(await screen.findByRole("tablist")).toBeInTheDocument();
+
+    patchDraft.mockResolvedValueOnce({
+      status: "success",
+      draft: { ...EMPTY_DRAFT, name: "Nine Doors of Mudlark Hall", blurb: "Every door tells you a rule." },
+      readyToGenerate: false,
+    });
+    await userEvent.type(screen.getByLabelText(/story name/i), "Nine Doors of Mudlark Hall");
+    await userEvent.type(screen.getByLabelText(/blurb/i), "Every door tells you a rule.");
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(patchDraft).toHaveBeenCalledWith("tok", "draft-1", {
+      name: "Nine Doors of Mudlark Hall",
+      coverImageUrl: "",
+      blurb: "Every door tells you a rule.",
+    });
   });
 
   it("shows a rejected PATCH's reason next to the field that caused it, not a generic banner", async () => {

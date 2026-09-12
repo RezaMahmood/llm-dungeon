@@ -30,18 +30,18 @@ prerequisites are met and which shares no file with another `[P]` task in the sa
 them, before any code is written against them. No application code changes in this phase
 except the brand rename.
 
-- [ ] T001 Vendor both canonical documents from issue #328 into `specs/designs/`: the mockup
+- [X] T001 Vendor both canonical documents from issue #328 into `specs/designs/`: the mockup
   as `07-home.html` and the written design spec as `07-home-spec.md`. In the mockup, delete
   the prototype-only `.statebar` block (the Role / In progress / Available switcher and its
   `<script>` state machine) and repoint internal nav `href`s to the sibling files as
   `02-story-select.html` does. Do not modify `specs/designs/styles.css` — it is already
   byte-identical to the attachment's copy.
-- [ ] T002 Update `specs/designs/README.md`: add `07-home.html` to the screen-list table, and
+- [X] T002 Update `specs/designs/README.md`: add `07-home.html` to the screen-list table, and
   add a "Notes for implementers" entry recording that Home supersedes `02-story-select.html`
   as the acceptance reference for the in-progress/ready-to-play pairing (research.md
   Decision 2) and that Home's Play action enters `06-game-setup.html` at its character-name
   step, skipping that screen's adventure picker (research.md Decision 4).
-- [ ] T003 Update `.specify/memory/constitution.md` in one edit covering four points:
+- [X] T003 Update `.specify/memory/constitution.md` in one edit covering four points:
   (a) the "Adventure select" bullet in **Screen contracts** names `specs/designs/07-home.html`
   as the current acceptance reference, with `02-story-select.html` retained as historical
   prior art; (b) that section's preamble sentence "It holds six screens" becomes seven;
@@ -51,7 +51,7 @@ except the brand rename.
   Governance section. **Blast-radius file: this edit alone makes `/code-review ultra`
   mandatory before merge, whatever the rest of the diff looks like (CLAUDE.md Code review
   triage).**
-- [ ] T004 [P] Rename the brand "Lantern" → "LLM Dungeon" (FR-019) in
+- [X] T004 [P] Rename the brand "Lantern" → "LLM Dungeon" (FR-019) in
   `src/frontend/src/components/Layout/NavBar.jsx`,
   `src/frontend/src/components/Layout/TitleBar.jsx` (two occurrences),
   `src/frontend/tests/components/TitleBar.test.jsx`, and in `specs/designs/01-login.html`,
@@ -69,37 +69,37 @@ each other; the product name is consistent everywhere it appears.
 (data-model.md). US1 cannot render a correct row until this exists end to end. Nothing else
 in the feature depends on it.
 
-- [ ] T005 [P] Add `blurb: Optional[str] = None` to the `Story` dataclass in
+- [X] T005 [P] Add `blurb: Optional[str] = None` to the `Story` dataclass in
   `src/backend/models/story.py`, placed with the other optional descriptive fields
   (`tone`, `readingLevel`), and include it in that class's `to_dict`/`from_dict`.
-- [ ] T006 [P] Add `blurb: Optional[str] = None` to the `StoryDraft` dataclass in
+- [X] T006 [P] Add `blurb: Optional[str] = None` to the `StoryDraft` dataclass in
   `src/backend/models/story_draft.py`, placed beside `tone`, and include it in its
   `to_dict`/`from_dict`. Do **not** add it to `is_complete()` — a blurb is not required for
   generation.
-- [ ] T007 In `src/backend/services/story_draft_service.py`: add `"blurb"` to
+- [X] T007 In `src/backend/services/story_draft_service.py`: add `"blurb"` to
   `PATCHABLE_FIELDS`, and carry `blurb` through every draft↔Story conversion in that file
   alongside the existing `coverImageUrl`/`tone` assignments — the draft-seeded-from-story
   path, the save path, and the generation path. Depends on T005, T006.
-- [ ] T008 [P] Add `blurb` to the story configuration schema in
+- [X] T008 [P] Add `blurb` to the story configuration schema in
   `src/backend/services/story_config_file.py` (export and import), defaulting to `None` when
   a file omits it so configurations exported before this field still import (contracts/api.md).
   Depends on T005.
-- [ ] T009 [P] Add `c.blurb` to the Cosmos projection in `StoryService.list_published_summaries`
+- [X] T009 [P] Add `c.blurb` to the Cosmos projection in `StoryService.list_published_summaries`
   (`src/backend/services/story_service.py`) so `GET /game/adventures` returns it
   (contracts/api.md). Depends on T005.
-- [ ] T010 Backend tests for the above, in the repo's existing files: blurb patches and
+- [X] T010 Backend tests for the above, in the repo's existing files: blurb patches and
   persists on a draft and survives the draft→Story conversion
   (`src/backend/tests/unit/test_story_draft_service.py`); `list_published_summaries` returns
   it, and a story stored without one returns `None` rather than raising
   (`src/backend/tests/unit/test_story_service.py`); a configuration round-trips with it and
   imports cleanly without it (`src/backend/tests/unit/test_story_config_file.py`).
   Depends on T007, T008, T009.
-- [ ] T011 Add a "Blurb" `<textarea>` to
+- [X] T011 Add a "Blurb" `<textarea>` to
   `src/frontend/src/components/Admin/StoryWizard/StepNameCover.jsx` (FR-016), following that
   file's existing `name`/`coverImageUrl` pattern exactly: local state seeded from
   `draft.blurb`, a `useEffect` resync, inclusion in the `dirty` comparison, and in the
   `onPatch({ name, coverImageUrl, blurb })` payload. Depends on T007.
-- [ ] T012 [P] Cover the wizard field with a test — setting a blurb and saving issues a PATCH
+- [X] T012 [P] Cover the wizard field with a test — setting a blurb and saving issues a PATCH
   carrying it — in `src/frontend/tests/integration/admin_story_creation_flow.test.jsx`.
   Depends on T011.
 

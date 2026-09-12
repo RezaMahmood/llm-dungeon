@@ -571,3 +571,46 @@ def test_generate_story_rejects_an_edit_draft():
         service.generate_story("draft-1")
 
     llm.generate_story_config.assert_not_called()
+
+
+# --- blurb (028-home-page-redesign FR-016) ---
+
+
+def test_patch_accepts_blurb():
+    service, cosmos, _llm, _stories = _service()
+    container = cosmos.get_container.return_value
+    draft = StoryDraft(id="draft-1", createdBy=CREATED_BY)
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+
+    result_draft = service.patch_draft("draft-1", {"blurb": "Every door tells you a rule."})
+
+    assert result_draft.blurb == "Every door tells you a rule."
+
+
+def test_create_edit_draft_seeds_blurb_from_story():
+    service, cosmos, _llm, _stories = _service()
+    story = _make_story(blurb="Every door tells you a rule.")
+
+    draft = service.create_edit_draft(story, "admin-oid")
+
+    assert draft.blurb == "Every door tells you a rule."
+
+
+def test_save_draft_to_story_carries_blurb_into_the_configuration():
+    service, cosmos, _llm, stories = _service()
+    container = cosmos.get_container.return_value
+    draft = _edit_draft(base_content_version=2)
+    draft.blurb = "Every door tells you a rule."
+    container.read_item.side_effect = None
+    container.read_item.return_value = draft.to_dict()
+    story = _make_story(id="story-1", contentVersion=2)
+    stories.get_story.return_value = story
+    stories.derived_content.return_value = DerivedContent("Fresh guidance.", _make_starting_point(), [])
+    stories.apply_content_write.return_value = _make_story(id="story-1", contentVersion=3)
+
+    service.save_draft_to_story("draft-1", "admin-oid")
+
+    args, _kwargs = stories.apply_content_write.call_args
+    configuration = args[1]
+    assert configuration.blurb == "Every door tells you a rule."

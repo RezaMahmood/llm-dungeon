@@ -105,7 +105,7 @@ export function NavBar() {
     <>
     <nav className="nav" style={{ gap: 0 }}>
       <span className="nav-brand" style={{ marginRight: "var(--space-5)" }}>
-        Lantern
+        LLM Dungeon
         {showAdminVariant && (
           <span
             style={{

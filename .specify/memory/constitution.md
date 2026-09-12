@@ -1,28 +1,23 @@
 <!--
 Sync Impact Report
-Version change: 8.0.0 -> 8.1.0
-Modified principles: XIII (AI Agent Division of Labor) — wording only; the division of
-  labor, the sync requirement, the merge prohibition and the issue-closing conditions are
-  unchanged.
+Version change: 8.1.0 -> 8.2.0
+Modified principles: none.
 Modified sections:
-  - Principle XIII, AI Agent / GitHub Handoff Requirements, and Development Workflow &
-    Quality Gates: references to one specific vendor's agent and to that agent's
-    instruction file are replaced with agent-neutral wording. The mandatory pre-merge AI
-    review pass, its deliberate tier choice (blast radius, then diff size, then how the
-    change was authored) and the deepest-tier list are unchanged; the pass is no longer
-    described as one named product's command. The `AI Generated` label stays mandatory and
-    is now joined by "a label naming the agent that produced it" rather than one fixed
-    agent name. The pull request description contract is stated here in full instead of
-    deferring to an agent instruction file, and the bootstrap-staleness list names "agent
-    instruction and settings files" generically.
+  - Screen contracts: the "Adventure select" bullet now names
+    `specs/designs/07-home.html` as the current acceptance reference for the
+    in-progress/ready-to-play behavior, with `02-story-select.html` retained as historical
+    prior art rather than a live contract. The section's screen count is corrected from six
+    to seven.
+  - Layout and scroll contract: rule 1 is amended to permit page-level scrolling below the
+    mobile breakpoint (a canonical responsive design requires `html, body { height: auto }`
+    at narrow widths); the fixed-viewport, no-scroll rule continues to bind desktop and
+    tablet widths without exception.
 Added sections: none.
 Removed sections: none.
-Rationale for MINOR: no requirement is added or withdrawn, but the set of tools that can
-  satisfy the review-pass requirement is materially widened — a contributor using a
-  different agent is no longer non-compliant by definition. That is expanded guidance
-  rather than a clarification, and it removes the assumption that everyone working this
-  repository uses the same assistant. A constitution governs the project; a vendor's
-  instruction file governs that vendor's agent, and neither should depend on the other.
+Rationale for MINOR: an existing screen contract is repointed to a new acceptance reference
+  and an existing rule's scope is narrowed to exclude one breakpoint it was never actually
+  exercised against — both are materially expanded/corrected guidance rather than a mere
+  wording fix, but neither adds, removes, or redefines a principle.
 Deferred/TODO placeholders: none.
 Earlier Sync Impact Reports are in this file's git history.
 --># LLM Dungeon Adventure Constitution
@@ -511,7 +506,10 @@ screens MUST NOT restyle these locally.
 
 ### Layout and scroll contract
 
-1. The application shell is fixed to the viewport; there is no page-level scroll.
+1. The application shell is fixed to the viewport, with no page-level scroll, at desktop and
+   tablet widths without exception. Below the mobile breakpoint a screen MAY switch to
+   page-level scrolling instead, provided every fixed-viewport surface above that breakpoint
+   still honors this rule unchanged.
 2. On the play surface only the story pane scrolls; the title bar, instruction input,
    suggested actions, and status panel stay fixed and reachable.
 3. The story pane auto-scrolls to the newest turn.
@@ -522,9 +520,9 @@ screens MUST NOT restyle these locally.
 ### Screen contracts
 
 The prototype at `specs/designs/` is the acceptance reference for these screens' layout and
-copy; where it and this constitution disagree, this constitution wins. It holds six screens,
-the shared vendored stylesheet, and a README (`specs/designs/README.md`) mapping each screen
-to the specs governing its behavior.
+copy; where it and this constitution disagree, this constitution wins. It holds seven
+screens, the shared vendored stylesheet, and a README (`specs/designs/README.md`) mapping
+each screen to the specs governing its behavior.
 
 A screen contract MAY exist without a prototype screen where the governing spec explicitly
 defers visual design, recording that deferral as an exception in its plan's Constitution
@@ -535,9 +533,12 @@ which the deferral relaxes.
 
 - **Login** (`specs/designs/01-login.html`) — Microsoft identity sign-in only
   (Principle II): no password field, no local accounts, no alternate identity provider.
-- **Adventure select** (`specs/designs/02-story-select.html`) — in-progress adventures
-  first, showing progress and last-played information; published, not-yet-started
-  adventures follow a visible divider. Resuming is reachable in one action from a list row.
+- **Adventure select** (`specs/designs/07-home.html`) — the post-login landing page: a
+  welcome band, then a two-column body pairing "Ready to play" (published, not-yet-started
+  adventures) with "In progress" (the player's saved sessions, showing progress and
+  last-played information). Resuming, starting, and deleting a saved session are each
+  reachable in one action from a row or card. `specs/designs/02-story-select.html` is
+  retained only as historical prior art and is no longer a live acceptance reference.
 - **Play surface** (`specs/designs/03-play.html`) — a persistent title/status bar offering
   an explicit checkpoint-save and a pause-and-exit action; a scrolling story pane; an
   instruction input paired with suggested actions; a status panel showing location, goal,
@@ -617,4 +618,4 @@ visual-rules, interaction-state, or layout and scroll requirements as a blocking
 feature may ship a screen that is not traceable to a screen contract above or to a
 documented amendment extending one.
 
-**Version**: 8.1.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
+**Version**: 8.2.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
