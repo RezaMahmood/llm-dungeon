@@ -77,3 +77,122 @@ install_claude_code() {
 
 retry install_uv
 retry install_claude_code
+
+# ---------------------------------------------------------------------------
+# Local offline test harness (specs/027-local-offline-test-harness, FR-012).
+#
+# Everything below is installed at *build* time so a freshly created
+# container can run the full local suite and the offline stack with no
+# manual setup step (SC-007). Versions are pinned explicitly rather than
+# floating, per the constitution's Dependency & Supply Chain requirement.
+# ---------------------------------------------------------------------------
+
+# Lifecycle commands run with the workspace folder as the working directory,
+# but derive the root from this script's own location so the block below is
+# also correct when it is run by hand (e.g. after editing it).
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Python: production (infrastructure/terraform/terraform.tfvars,
+# functions_python_version) and CI (.github/workflows/test.yml) both target
+# 3.11, while this container's base image ships 3.14. The Azure Functions
+# Python worker supports a fixed set of versions and 3.14 is not among them,
+# so the real host cannot run here at all without a 3.11 interpreter --
+# and pinning to the same minor CI and production pin means a version-
+# specific failure is no longer invisible locally.
+#
+# The minor (not the patch) is pinned deliberately: '3.11' is exactly the
+# granularity `python-version: '3.11'` in CI and `functions_python_version`
+# in Terraform use, so pinning a patch here would make local *diverge* from
+# the two environments this is meant to match.
+PYTHON_VERSION="3.11"
+VENV_DIR="$HOME/.venvs/llm-dungeon"
+
+# Azure Functions Core Tools: GitHub release zip. The linux-arm64 asset is
+# what this arm64 host needs; the x64 entry is kept so the container also
+# builds on an Intel/AMD host. Checksums are the values published as the
+# release's own `.zip.sha2` assets, committed here rather than fetched at
+# install time -- fetching the checksum from the same origin as the archive
+# verifies transport, not provenance. When bumping the version, take the new
+# values from:
+#   https://github.com/Azure/azure-functions-core-tools/releases/download/<ver>/Azure.Functions.Cli.linux-{arm64,x64}.<ver>.zip.sha2
+FUNC_TOOLS_VERSION="4.14.0"
+FUNC_TOOLS_SHA256_ARM64="c690bc66a82da1e75cfd20ceff73822f7ad06fd254608a1fe3669f2efc2c8dea"
+FUNC_TOOLS_SHA256_X64="ecce0d57e288efc85d22cce7fc37d7129e78d0918368e8f1c84e9d3d354689aa"
+FUNC_TOOLS_HOME="$HOME/.local/share/azure-functions-core-tools"
+
+# npm globals. Azurite backs AzureWebJobsStorage for the Functions host; the
+# SWA CLI is the local stack's entry point and is the only component that
+# reads staticwebapp.config.json.
+AZURITE_VERSION="3.37.0"
+SWA_CLI_VERSION="2.0.10"
+
+# Shared across every worktree container (named volume, see devcontainer.json)
+# so the ~250MB Core Tools archive is downloaded once per host rather than
+# once per worktree.
+TOOL_CACHE_DIR="$HOME/.cache/llm-dungeon-tools"
+
+install_python_toolchain() {
+  # Creates a 3.11 virtualenv and installs the same requirement files CI
+  # installs, so `pytest` works in a fresh container with no pip step.
+  # devcontainer.json puts $VENV_DIR/bin ahead of the image's 3.14 on PATH,
+  # which is what makes `python --version` report 3.11.x (SC-007).
+  uv python install "$PYTHON_VERSION" \
+    && uv venv --python "$PYTHON_VERSION" "$VENV_DIR" \
+    && VIRTUAL_ENV="$VENV_DIR" uv pip install \
+      -r "$REPO_ROOT/src/backend/requirements.txt" \
+      -r "$REPO_ROOT/src/backend/requirements-dev.txt" \
+      -r "$REPO_ROOT/infrastructure/tests/requirements.txt"
+}
+
+install_core_tools() {
+  local arch asset expected zip dest
+  case "$(uname -m)" in
+    aarch64|arm64) arch="linux-arm64"; expected="$FUNC_TOOLS_SHA256_ARM64" ;;
+    x86_64|amd64)  arch="linux-x64";   expected="$FUNC_TOOLS_SHA256_X64" ;;
+    *) echo "Unsupported architecture for Core Tools: $(uname -m)" >&2; return 1 ;;
+  esac
+
+  asset="Azure.Functions.Cli.${arch}.${FUNC_TOOLS_VERSION}.zip"
+  zip="$TOOL_CACHE_DIR/$asset"
+  dest="$FUNC_TOOLS_HOME/$FUNC_TOOLS_VERSION"
+
+  mkdir -p "$TOOL_CACHE_DIR" "$FUNC_TOOLS_HOME"
+
+  # A cached archive from an earlier worktree's container is reused only if
+  # it still matches the pinned checksum; anything else is re-downloaded.
+  if ! echo "$expected  $zip" | sha256sum --check --status 2>/dev/null; then
+    rm -f "$zip"
+    # Download to a temp name and rename, so a container creating this file
+    # concurrently with another worktree's never sees a half-written archive.
+    curl -fsSL -o "$zip.$$.part" \
+      "https://github.com/Azure/azure-functions-core-tools/releases/download/${FUNC_TOOLS_VERSION}/${asset}" \
+      && mv -f "$zip.$$.part" "$zip"
+  fi
+
+  echo "$expected  $zip" | sha256sum --check --status || {
+    echo "Core Tools checksum mismatch for $asset -- refusing to install." >&2
+    rm -f "$zip"
+    return 1
+  }
+
+  rm -rf "$dest"
+  unzip -q "$zip" -d "$dest" \
+    && chmod +x "$dest/func" \
+    && ln -sfn "$dest/func" "$HOME/.local/bin/func"
+  # `gozip` ships alongside `func` and is invoked by it when packaging; it
+  # arrives without the executable bit, same as `func` itself.
+  [[ -f "$dest/gozip" ]] && chmod +x "$dest/gozip"
+  [[ -x "$HOME/.local/bin/func" ]]
+}
+
+install_node_clis() {
+  # npm's global prefix under the node feature is group-writable by `vscode`,
+  # so no sudo -- and no root-owned files in a user-owned tree.
+  npm install --global --no-fund --no-audit \
+    "azurite@${AZURITE_VERSION}" \
+    "@azure/static-web-apps-cli@${SWA_CLI_VERSION}"
+}
+
+retry install_python_toolchain
+retry install_core_tools
+retry install_node_clis
