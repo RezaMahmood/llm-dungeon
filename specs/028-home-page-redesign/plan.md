@@ -126,10 +126,16 @@ specs/028-home-page-redesign/
 
 ```text
 specs/designs/
-├── 07-home.html              # NEW — vendored design reference (from issue #328's mockup)
-└── README.md                  # updated: add 07 to the screen list + implementer notes
+├── 07-home.html               # NEW — vendored canonical mockup (issue #328)
+├── 07-home-spec.md            # NEW — vendored canonical design spec (issue #328)
+├── README.md                  # updated: add 07 to the screen list + implementer notes
+├── index.html                 # updated: brand rename (FR-019)
+└── 01…06-*.html               # updated: brand rename only (FR-019)
 
-.specify/memory/constitution.md  # updated: "Adventure select" screen contract → 07-home.html
+.specify/memory/constitution.md  # updated: (a) "Adventure select" contract → 07-home.html,
+                                 #   (b) "six screens" → seven, (c) scroll contract permits
+                                 #   page-level scroll below the mobile breakpoint,
+                                 #   (d) version + Sync Impact Report
 
 src/backend/
 ├── api/game/sessions.py        # + delete_session (DELETE /game/sessions/{sessionId})
@@ -137,36 +143,51 @@ src/backend/
 ├── services/play_session_service.py  # + delete_player_session(session_id, player_id)
 ├── models/story.py              # + blurb: Optional[str] on Story
 ├── models/story_draft.py        # + blurb: Optional[str] on StoryDraft
-├── services/story_draft_service.py  # + blurb in the PATCH-able draft field allowlist
+├── services/story_draft_service.py  # + blurb in PATCHABLE_FIELDS + draft↔Story conversions
 ├── services/story_service.py    # + blurb in list_published_summaries projection
 ├── services/story_config_file.py  # + blurb in export/import schema
 └── tests/
-    ├── api/game/test_sessions.py         # + delete endpoint tests
-    ├── services/test_play_session_service.py  # + delete_player_session tests
-    └── services/test_story_*.py            # + blurb round-trip tests (draft, publish, import)
+    ├── unit/test_play_session_service.py     # + delete_player_session tests
+    ├── unit/test_story_service.py             # + blurb projection tests
+    ├── unit/test_story_draft_service.py       # + blurb patch/convert tests
+    ├── unit/test_story_config_file.py         # + blurb round-trip tests
+    └── integration/test_game_sessions_endpoint.py  # + delete endpoint tests
 
 src/frontend/
 ├── src/
 │   ├── pages/
 │   │   ├── HomePage.jsx        # NEW — replaces MainMenu as the /menu route element
 │   │   └── GamePage.jsx        # narrowed: drops its own in-progress/catalogue list;
-│   │                            #   keeps adventure-setup (character name/type) + PlayPage handoff
+│   │                            #   keeps character setup, and resumes a session handed
+│   │                            #   to it by Home via route state
 │   ├── components/
-│   │   ├── Home/                # NEW — ReadyToPlayList, InProgressList, SessionCard,
-│   │   │                        #   StoryRow, WelcomeBand, DeleteSessionDialog
-│   │   └── Menu/                 # MainMenu.jsx, GameMenuItem.jsx, AdminMenuItem.jsx removed
-│   │                            #   (superseded by HomePage + direct nav)
-│   ├── services/gameService.js  # + deleteSession(token, sessionId)
+│   │   ├── Home/                # NEW — WelcomeBand, StoryRow, ReadyToPlayList,
+│   │   │                        #   SessionCard, InProgressList, SessionDeleteAction,
+│   │   │                        #   Home.css
+│   │   ├── Layout/NavBar.jsx     # canonical nav + role-suffixed name chip + brand rename
+│   │   ├── Layout/TitleBar.jsx   # brand rename (FR-019)
+│   │   ├── Admin/StoryWizard/StepNameCover.jsx  # + blurb field (FR-016)
+│   │   └── Menu/                 # MainMenu.jsx, MainMenu.css, GameMenuItem.jsx,
+│   │                            #   AdminMenuItem.jsx removed (superseded by HomePage)
+│   ├── hooks/useDeleteSession.js  # NEW — mirrors useDeleteStory.js
+│   ├── services/gameService.js   # + deleteSession(token, sessionId)
 │   └── App.jsx                   # /menu now renders HomePage
 └── tests/
     ├── components/Home/…         # NEW component tests
-    └── integration/home_*.test.jsx  # NEW integration tests; retire/rewrite the menu-specific ones
+    ├── components/{NavBar,TitleBar}.test.jsx      # updated for nav + brand
+    ├── integration/home_*.test.jsx                # NEW integration tests
+    └── integration/{main_menu_refresh,main_menu_permissions_refresh,
+        nav_capability_visibility}.test.jsx        # retired/rewritten
 ```
 
 **Structure Decision**: Existing web-application layout (`src/backend`, `src/frontend`) is
 kept as-is; this feature adds one backend endpoint/service method and replaces one frontend
 page plus its supporting component tree, following the same module boundaries already used
-by `GameSetup/` (e.g. `StoriesInProgress.jsx`) and `Admin/` component folders.
+by `GameSetup/` (e.g. `StoriesInProgress.jsx`) and `Admin/` component folders. Session
+deletion follows the established destructive-action pattern exactly — a
+`useDeleteSession.js` hook beside `useDeleteStory.js`, consumed by a `SessionDeleteAction`
+component that owns both the trigger and the design-system dialog, mirroring
+`Admin/StoryDeleteAction.jsx`.
 
 ## Complexity Tracking
 

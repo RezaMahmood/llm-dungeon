@@ -29,9 +29,9 @@ devcontainer exec --workspace-folder . -- npm --prefix src/frontend test -- Game
 ```
 
 Expected: `HomePage` renders the welcome band, both columns, and all six states from
-spec.md §6 (via mocked `gameService` responses); `GamePage` no longer renders
-`StoriesInProgress`/`AdventureList` and starts directly at character-name entry when handed
-a pre-chosen adventure id.
+`specs/designs/07-home-spec.md` §6 (via mocked `gameService` responses); `GamePage` no longer
+renders `StoriesInProgress`/`AdventureList` and starts directly at character-name entry when
+handed a pre-chosen adventure id via route state.
 
 ## Manual end-to-end scenario (dev server)
 

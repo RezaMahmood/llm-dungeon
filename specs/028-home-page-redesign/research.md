@@ -19,10 +19,10 @@ surfaces a player has to reconcile. `009-save-and-continue`'s behavioral require
 order, empty-state copy, resume semantics) are preserved — they move to `HomePage`'s
 `InProgressList`, not dropped.
 
-**Alternatives considered**: Keep both lists (rejected by the user during clarification —
-"leaves two parallel, overlapping session/catalogue UIs"). Make `/game` redirect immediately
-to `/menu` and delete the route (rejected: `/game` is still needed as the setup-flow
-destination once a story is chosen, and is bookmarked in existing tests/specs as a route).
+**Alternatives considered**: Keep both lists (rejected — two parallel, overlapping
+session/catalogue UIs). Make `/game` redirect to `/menu` and delete the route (rejected:
+`/game` is still the setup-flow destination once a story is chosen, and is referenced as a
+route by existing tests and specs).
 
 ## Decision 2: Design reference lives at `specs/designs/07-home.html`
 
@@ -168,3 +168,36 @@ exceptions.
 **Alternatives considered**: Record a justified per-feature exception in this plan's
 Constitution Check (rejected — the same exception would be needed by every subsequent
 responsive surface).
+
+## Decision 10: Home hands both Play and Resume to `GamePage` via route state
+
+**Decision**: Home navigates to `/game` for both actions, passing route state:
+`{ adventureId }` for Play (start at character setup) and `{ resumeSessionId }` for Resume.
+`GamePage` keeps ownership of the resume sequence and renders `PlayPage` as it does today.
+
+**Rationale**: `GamePage.handleResume` is not a single call — it skips `resumeSession` when
+the row is already the player's active game (`009-save-and-continue` FR-001a), tolerates a
+409 `already_active`, then calls `getSession` to rehydrate turns, and maps a story that
+became unavailable mid-view to its own message (`025-story-delete-done` FR-007/FR-008).
+Duplicating that in `HomePage` would fork behavior that four shipped requirements depend on.
+
+**Alternatives considered**: `HomePage` performs the resume itself and routes into the play
+surface (rejected — duplicates the semantics above); a dedicated `/play/{sessionId}` route
+(rejected — `PlayPage` is rendered by `GamePage` today, so this would be a larger routing
+change than this feature needs).
+
+## Decision 11: Session deletion follows the repo's destructive-action pattern
+
+**Decision**: Add `useDeleteSession.js` beside `useDeleteStory.js`, and a
+`SessionDeleteAction` component owning both the trigger and the dialog, mirroring
+`Admin/StoryDeleteAction.jsx`. `SessionCard` renders it; `HomePage` drops the session from
+state via an `onDeleted(sessionId)` callback.
+
+**Rationale**: `useDeleteStory` already establishes the exact shape this needs — 
+`status`/`confirmingDelete` state, a `requestDelete`/`confirmDelete`/`cancelDelete` trio, and
+an `onDeleted(id)` callback so the caller prunes its own list. Reusing the pattern keeps
+both destructive confirmations in the product identical in behavior and styling.
+
+**Alternatives considered**: Inline the dialog in `SessionCard.jsx` (rejected — mixes a
+card's presentation with a destructive action's state machine, and diverges from the one
+existing precedent).
