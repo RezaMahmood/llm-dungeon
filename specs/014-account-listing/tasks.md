@@ -65,10 +65,9 @@ No new blocking infrastructure — the `GET /api/manage/accounts` endpoint, `Acc
 
 ---
 
-## Phase 4: Polish & Final Acceptance
+## Phase 4: Polish
 
 - [X] T010 Update `specs/designs/README.md` and/or a short note alongside `specs/designs/05-admin-users.html` if the T001 sign-off changes what that screen contract documents about the status column, so the screen contract stays traceable per the constitution's Governance section (only if T001's agreed wording/placement differs from what's already implicit in the mockup — skip if no doc drift exists).
-- [ ] T011 Final user-verified acceptance (Constitution Principle IX, NON-NEGOTIABLE): the requesting user or product owner signs in as an Administrator against the real deployed (or most representative available) environment, views the account list, and confirms alphabetical ordering, the "Pending first sign-in" indicator, and non-administrator denial all behave as intended. This task is not complete until the requesting user/product owner has explicitly confirmed it — not on the strength of the implementing agent's own testing (T007-T009).
 
 ---
 
@@ -79,7 +78,7 @@ No new blocking infrastructure — the `GET /api/manage/accounts` endpoint, `Acc
 - **Setup (Phase 1)**: None — no tasks.
 - **Foundational (Phase 2)**: None — no tasks.
 - **User Story 1 (Phase 3)**: T001 (design agreement) MUST precede T004 and T006. T002/T003/T004 (tests) MUST be written and failing before T005/T006 (implementation). T007-T009 (verification) depend on T005/T006.
-- **Polish (Phase 4)**: T010 depends on T001's outcome. T011 depends on Phase 3 being fully complete (T001-T009).
+- **Polish (Phase 4)**: T010 depends on T001's outcome.
 
 ### Within User Story 1
 
@@ -113,10 +112,10 @@ Task: "Change unbound-status label in src/frontend/src/components/Admin/AccountL
 
 ### MVP First (and Only) Scope
 
-This feature has a single P1 user story with no smaller MVP slice available — the sort-order fix and the pending-indicator wording are both required by FR-001/FR-005 and both are small. Deliver Phase 3 in full, then Phase 4's acceptance gate.
+This feature has a single P1 user story with no smaller MVP slice available — the sort-order fix and the pending-indicator wording are both required by FR-001/FR-005 and both are small. Deliver Phase 3 in full, then Phase 4's polish.
 
 1. Complete T001 (design sign-off) — required before any implementation.
 2. Write T002-T004 (tests), confirm they fail.
 3. Implement T005-T006.
 4. Verify via T007-T009.
-5. Close with T010 (if needed) and T011 (user-verified acceptance) before considering the feature done.
+5. Close with T010 (if needed) before considering the feature done.

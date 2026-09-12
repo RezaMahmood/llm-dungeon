@@ -1,6 +1,6 @@
 <!--
 Sync Impact Report
-Version change: 6.2.0 -> 6.3.0
+Version change: 7.0.0 -> 7.1.0
 Modified principles: none.
 Added sections:
   - Screen contracts: new "Administrator — sessions" entry (no prototype screen) for the
@@ -117,19 +117,12 @@ Rationale: this project's screens are built incrementally across many features; 
 one enforced design system and accessibility bar, screens built in different cycles drift
 apart visually and behaviorally and become harder to maintain.
 
-### IX. Playtesting-Driven Quality (Post-Ship Verification, Non-Blocking)
-A feature is complete once its automated tests (Principle I) pass and it merges through
-the CI gate (Principle V). Human verification against the deployed environment is NOT a
-precondition for completion or merge and MUST NOT be used to block a pull request or hold
-a feature open. Playtesting still happens, as an ongoing post-ship activity: what it
-surfaces is captured as issues and fixed in follow-up work, not treated as proof the
-original work was incomplete. A task list MAY include a playtesting task, but it is
-informational and non-blocking unless a specific feature's plan explicitly opts into a
-blocking check for a named, high-risk area.
-
-Rationale: the team has deliberately chosen MVP velocity over getting every feature right
-on first delivery, accepting that issues are found through live play. Automated tests
-remain the safety net.
+### IX. *(Retired in v7.0.0 — see Sync Impact Report)*
+This number governed manual/user-verified testing as part of feature completion. The
+project now handles that entirely outside the speckit workflow, so this constitution takes
+no position on it — neither requiring it nor guaranteeing it is non-blocking. The number
+stays retired, unreassigned, rather than renumbering Principles X–XIV, so their existing
+external references keep resolving.
 
 ### X. PII Protection by Design (NON-NEGOTIABLE)
 Personally identifiable information — a real person's email address, name, phone number,
@@ -155,9 +148,10 @@ block or delay implementation. A task list MAY include a design walkthrough as a
 non-blocking checkpoint at the author's discretion.
 
 Rationale: the team has chosen speed toward an MVP over getting the design right on the
-first attempt, accepting that design rework surfaces through playtesting (Principle IX).
-Principle VIII still constrains whatever is built to this project's design system, token
-layer, and accessibility bar, regardless of who approved the layout.
+first attempt, accepting that design rework surfaces later, through use outside this
+workflow, rather than up front. Principle VIII still constrains whatever is built to this
+project's design system, token layer, and accessibility bar, regardless of who approved the
+layout.
 
 ### XII. Right-Sized Scope — Not Enterprise-Grade (NON-NEGOTIABLE)
 This is a small application for a specific, named set of users, not an enterprise product,
@@ -384,8 +378,9 @@ GitHub-side actions only — they do not change where code is written or tested.
   actually tested and what that returned, what is deliberately left undone, and the review
   tier being recommended. It MUST NOT claim a check that was not run, quote a measurement
   that was not taken, or assert an approving review. The full contract is in `CLAUDE.md`.
-- A passing test suite and a green CI run make a feature complete and mergeable; playtesting
-  happens afterward and MUST NOT block merge (Principle IX).
+- A passing test suite and a green CI run make a feature complete and mergeable. This
+  constitution does not require, or forbid, any manual or user-verified testing step beyond
+  that; where the project wants one, it happens outside the speckit workflow.
 - A cross-artifact consistency analysis MUST treat as blocking any statement that code
   already exists — a module path, symbol, constant, field, or endpoint — where that code is
   absent from `origin/main` and is not declared as a named, not-yet-merged dependency
@@ -609,4 +604,4 @@ visual-rules, interaction-state, or layout and scroll requirements as a blocking
 feature may ship a screen that is not traceable to a screen contract above or to a
 documented amendment extending one.
 
-**Version**: 6.3.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
+**Version**: 7.1.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
