@@ -497,9 +497,15 @@ class PlaySessionService:
         FR-008/FR-009/FR-010) — never the story. Raises `SessionNotFoundError` if it
         doesn't exist, `ForbiddenError` if it belongs to a different player (never trusts
         a client-supplied owner). Same delete primitive as
-        `delete_active_sessions_for_adventure`."""
+        `delete_active_sessions_for_adventure`, including its race tolerance: a session
+        that vanishes between the ownership check and the delete (e.g. a second
+        concurrent delete attempt) reports the same not-found outcome rather than a
+        500 — contracts/api.md's documented idempotent-404 behavior."""
         self.get_session_for_player(session_id, player_id)
-        self._container().delete_item(item=session_id, partition_key=session_id)
+        try:
+            self._container().delete_item(item=session_id, partition_key=session_id)
+        except CosmosResourceNotFoundError as exc:
+            raise SessionNotFoundError() from exc
 
     def get_session_detail_for_player(self, session_id: str, player_id: str) -> dict[str, Any]:
         """The Saved Game Detail shape (data-model.md), including every turn and

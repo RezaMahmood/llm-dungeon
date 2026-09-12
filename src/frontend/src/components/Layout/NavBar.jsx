@@ -211,7 +211,10 @@ export function NavBar() {
           Sign out
         </a>
         <span className="tag tag-neutral truncate" style={{ maxWidth: "28ch" }}>
-          {userName} · {hasAdministrator ? "Administrator" : "Player"}
+          {userName}
+          {/* FR-011a: an account holding neither capability yet (pending provisioning)
+              gets no role suffix rather than a falsely reassuring "Player". */}
+          {hasAdministrator ? " · Administrator" : hasPlayer ? " · Player" : ""}
         </span>
       </span>
     </nav>

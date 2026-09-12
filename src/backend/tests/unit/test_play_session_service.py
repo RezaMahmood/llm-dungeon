@@ -1581,3 +1581,21 @@ def test_delete_player_session_raises_not_found_on_a_second_delete():
 
     with pytest.raises(SessionNotFoundError):
         service.delete_player_session(session.id, PLAYER_ID)
+
+
+def test_delete_player_session_translates_a_race_lost_delete_into_not_found():
+    """A session that vanishes between the ownership check and the delete itself (e.g. a
+    second concurrent delete winning the race) must report the same SessionNotFoundError
+    as a delete that never found the row at all — never an uncaught
+    CosmosResourceNotFoundError (contracts/api.md's documented idempotent-404)."""
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+    container = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER)
+    real_delete_item = container.delete_item
+    container.delete_item = MagicMock(side_effect=CosmosResourceNotFoundError)
+
+    with pytest.raises(SessionNotFoundError):
+        service.delete_player_session(session.id, PLAYER_ID)
+
+    container.delete_item = real_delete_item

@@ -16,6 +16,10 @@ export function ReadyToPlayList({ stories, loading, error, onPlay }) {
           <p role="alert" className="text-muted">
             Couldn&rsquo;t load stories. Please try again.
           </p>
+        ) : stories.length === 0 ? (
+          // Not the "no stories published" case the design spec puts out of scope —
+          // this is every published story already having a session in progress.
+          <p className="text-muted">You&rsquo;ve started every story that&rsquo;s available right now.</p>
         ) : (
           stories.map((story) => <StoryRow key={story.id} story={story} onPlay={onPlay} />)
         )}

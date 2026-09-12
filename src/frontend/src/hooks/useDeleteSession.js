@@ -19,7 +19,12 @@ export function useDeleteSession(token, session, onDeleted) {
 
   const resolveToken = async () => (typeof token === "function" ? token() : token);
 
-  const requestDelete = () => setConfirmingDelete(true);
+  const requestDelete = () => {
+    // Clears a stale error from a previous attempt so reopening the dialog doesn't
+    // show both the old error alert and the fresh confirmation at once.
+    setStatus("idle");
+    setConfirmingDelete(true);
+  };
   const cancelDelete = () => setConfirmingDelete(false);
 
   const confirmDelete = async () => {

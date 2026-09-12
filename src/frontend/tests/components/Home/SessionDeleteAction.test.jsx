@@ -94,4 +94,19 @@ describe("SessionDeleteAction (028-home-page-redesign FR-008)", () => {
 
     expect(onCardClick).not.toHaveBeenCalled();
   });
+
+  it("reopening the dialog after a failed delete clears the stale error, rather than showing both", async () => {
+    deleteSession.mockRejectedValueOnce(new Error("network error"));
+    const user = userEvent.setup();
+    render(<SessionDeleteAction session={SESSION} token="tok" onDeleted={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: /delete this session/i }));
+    await user.click(await screen.findByRole("button", { name: /^delete$/i }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /delete this session/i }));
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
 });

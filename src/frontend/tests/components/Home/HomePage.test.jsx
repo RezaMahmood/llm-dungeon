@@ -114,6 +114,17 @@ describe("HomePage", () => {
     expect(within(readyColumn).getByText("Nine Doors of Mudlark Hall")).toBeInTheDocument();
   });
 
+  it("shows an explanatory message, not a blank column, when every published story already has a session", async () => {
+    mockUseCapabilities.mockReturnValue(grantedCapabilities());
+    listAdventures.mockResolvedValueOnce({ adventures: [story()] });
+    listSavedGames.mockResolvedValueOnce({ sessions: [session({ adventureId: "story-1" })] });
+
+    await renderHome();
+
+    const readyColumn = screen.getByText(/ready to play/i).closest("section");
+    expect(within(readyColumn).getByText(/you.ve started every story/i)).toBeInTheDocument();
+  });
+
   it("state 3/6: many sessions — plural lede and every card renders (overflow scrolls, not paginates)", async () => {
     mockUseCapabilities.mockReturnValue(grantedCapabilities());
     const sessions = Array.from({ length: 10 }, (_, i) =>

@@ -116,9 +116,17 @@ describe("NavBar capability-driven visibility (FR-002, FR-003, FR-008, SC-004)",
       const { unmount } = renderAt("/menu");
 
       expect(screen.getByRole("link", { name: "Sign out" })).toBeInTheDocument();
-      expect(screen.getByText(/^Ada B\. ·/)).toBeInTheDocument();
+      expect(screen.getByText(new RegExp(`^Ada B\\.${player || admin ? " ·" : "$"}`))).toBeInTheDocument();
       unmount();
     }
+  });
+
+  it("gives an account with neither capability no role suffix, rather than a false 'Player' label (FR-011a)", () => {
+    mockUseCapabilities.mockReturnValue(capabilities(false, false));
+    renderAt("/menu");
+
+    expect(screen.getByText("Ada B.")).toBeInTheDocument();
+    expect(screen.queryByText(/·/)).not.toBeInTheDocument();
   });
 
   it("suffixes the name chip with the account's role (FR-011a)", () => {
