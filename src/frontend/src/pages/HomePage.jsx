@@ -7,6 +7,7 @@
  */
 import { useMsal } from "@azure/msal-react";
 import { useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { usePublishRefresh } from "../context/RefreshContext.jsx";
 import { useCapabilities } from "../hooks/useCapabilities.js";
@@ -22,6 +23,7 @@ import WelcomeBand from "../components/Home/WelcomeBand.jsx";
 export function HomePage() {
   const { instance, accounts } = useMsal();
   const account = accounts[0];
+  const navigate = useNavigate();
   const {
     hasPlayer,
     hasAdministrator,
@@ -62,14 +64,20 @@ export function HomePage() {
 
   const firstName = (account?.name ?? account?.username ?? "").trim().split(/\s+/)[0] || "there";
 
+  // FR-006: Play enters the adventure's character-setup flow directly, skipping the
+  // adventure-picker step GamePage used to own (research.md Decision 4).
   const handlePlay = (story) => {
-    // Wired to real navigation in User Story 2 (T027).
-    void story;
+    navigate("/game", { state: { adventureId: story.id } });
   };
 
-  const handleResume = (session) => {
-    // Wired to real navigation in User Story 2 (T028).
-    void session;
+  // FR-007: Resume hands GamePage the session id and whether it's already the player's
+  // active game, so it can reuse its existing skip-the-call/409-tolerant resume sequence
+  // rather than duplicating it here (research.md Decision 10).
+  const handleResume = (resumedSession) => {
+    if (resumedSession.available === false) return;
+    navigate("/game", {
+      state: { resumeSessionId: resumedSession.sessionId, isActiveForPlayer: resumedSession.isActiveForPlayer },
+    });
   };
 
   // Account states MainMenu owned before this feature (FR-017) — Home must explain these

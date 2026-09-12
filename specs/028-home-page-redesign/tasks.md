@@ -213,7 +213,7 @@ or the existing session reopened — with no redundant adventure picker.
 **Independent Test**: Play on an un-started story opens character-name entry directly; Resume
 on a card reopens that exact session at its saved point.
 
-- [ ] T026 [US2] Narrow `src/frontend/src/pages/GamePage.jsx`: stop rendering
+- [X] T026 [US2] Narrow `src/frontend/src/pages/GamePage.jsx`: stop rendering
   `GameSetup/StoriesInProgress.jsx` and `GameSetup/AdventureList.jsx` and drop the
   `adventures`/`savedGames` state that only fed them. Read `useLocation().state` and accept
   either `{ adventureId }` — begin at `CharacterNameStep` for that adventure — or
@@ -222,15 +222,15 @@ on a card reopens that exact session at its saved point.
   skip, its 409 `already_active` tolerance and its story-unavailable messages, and keep
   `resumeError`/`checkpointExitNotice` rendering. Reaching `/game` with no route state sends
   the player back to `/menu`. Depends on T021.
-- [ ] T027 [US2] Wire `HomePage`'s Play action to
+- [X] T027 [US2] Wire `HomePage`'s Play action to
   `navigate("/game", { state: { adventureId } })` (FR-006). Depends on T019, T026.
-- [ ] T028 [US2] Wire `HomePage`'s Resume action to
+- [X] T028 [US2] Wire `HomePage`'s Resume action to
   `navigate("/game", { state: { resumeSessionId: session.sessionId } })` (FR-007); an
   unavailable session (`available === false`) does not navigate. Depends on T019, T026.
-- [ ] T029 [US2] Update `src/frontend/tests/integration/game_setup_flow.test.jsx` and
+- [X] T029 [US2] Update `src/frontend/tests/integration/game_setup_flow.test.jsx` and
   `src/frontend/tests/integration/save_and_continue.test.jsx` for the narrowed `GamePage`
   (entered with route state, no in-page adventure grid or in-progress list). Depends on T026.
-- [ ] T030 [P] [US2] Add `src/frontend/tests/integration/home_play_resume_flow.test.jsx`:
+- [X] T030 [P] [US2] Add `src/frontend/tests/integration/home_play_resume_flow.test.jsx`:
   Home → Play → character setup → session created; and Home → Resume → that session
   rehydrated without passing through character setup. Depends on T027, T028.
 
