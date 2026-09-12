@@ -10,7 +10,7 @@
 # of normal spec-kit / PR-driven development. Once a branch's PR is merged
 # or closed on GitHub, the local branch and its worktree are dead weight:
 # they clutter `git branch`/`git worktree list`, and stale worktree admin
-# data can trip up other tooling (e.g. check-worktree-sync.sh).
+# data can trip up other tooling (e.g. bin/wt-prune, bin/wt-sync).
 #
 # WHEN TO USE THIS
 #   - Periodically (weekly, or whenever `git worktree list` /

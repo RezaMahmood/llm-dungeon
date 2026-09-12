@@ -35,7 +35,8 @@
       "Bash(git rebase:*)",
       "Bash(git push:*)",
       "Bash(git switch:*)",
-      "Bash(git checkout -b:*)",
+      "Bash(git checkout:*)",
+      "Bash(git worktree:*)",
       "Bash(cd bin:*)",
       "Bash(cd docs:*)",
       "Bash(cd infrastructure:*)",
@@ -50,26 +51,11 @@
       "Bash(gh pr merge)",
       "Bash(gh pr merge:*)",
       "Bash(git checkout .)",
-      "Bash(git checkout --:*)",
-      "Read(.worktrees/**)",
-      "Edit(.worktrees/**)",
-      "Bash(cd .worktrees:*)",
-      "Bash(cd ./.worktrees:*)",
-      "Bash(git -C .worktrees:*)"
+      "Bash(git checkout --:*)"
     ]
   },
   "hooks": {
     "PreToolUse": [
-      {
-        "matcher": "Edit|Write|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.specify/scripts/bash/check-worktree-sync.sh",
-            "statusMessage": "Checking worktree sync..."
-          }
-        ]
-      },
       {
         "matcher": "Bash",
         "hooks": [
@@ -77,28 +63,6 @@
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.specify/scripts/bash/trim-noisy-bash-output.sh",
             "statusMessage": "Trimming noisy test/build output..."
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.specify/scripts/bash/return-to-main.sh",
-            "statusMessage": "Checking the primary checkout's branch..."
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.specify/scripts/bash/return-to-main.sh",
-            "statusMessage": "Checking the primary checkout's branch..."
           }
         ]
       }

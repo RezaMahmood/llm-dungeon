@@ -8,42 +8,40 @@ anyone else working in it, and it is not the authority on either: where
 it contradicts the project's own governing documents, this file is wrong
 and MUST be corrected, not worked around.
 
-## Session isolation
+## Where the work happens
 
-Several Claude sessions may work this repo concurrently, each in its own
-checkout. A session is bound to the directory and branch it starts in.
+One piece of work at a time, anywhere in the repo. There is no session
+isolation rule: Claude may move around the checkout, switch branches, and
+sync with `main` as the work requires.
 
-- **Stay in the working directory.** Do not `cd` out of it, and do not
-  read, write or analyse files outside it — least of all another
-  session's checkout or worktree. If a task seems to need it, say so and
-  let the user do it.
 - **Branch first; never commit to `main`.** If the session starts on
-  `main`, cutting the task's branch is its first act.
-- **Then never navigate branches.** Once on the task's branch, Claude
-  MUST NOT run `git checkout`, `git switch`, `git branch` or
-  `git worktree`; concurrent sessions depend on it. The two exceptions
-  are the `speckit-branch-ensure` skill, whose job is to place the
-  session in its feature worktree, and creating a replacement branch off
-  `main` in the one case *Git / PR workflow* names below. The
-  `SessionEnd` hook returns the primary checkout to `main` when the tree
-  is clean — that is the hook's job, not Claude's.
-- **Treat local state as the baseline.** No `git pull`, `git fetch` or
-  `git rebase` against `main` on Claude's own initiative. A conflict with
-  `main` is resolved on GitHub, not locally. The exception is the
-  `speckit-trunk-sync` skill, invoked explicitly by the user or a
-  spec-kit command, which only fast-forwards and stops on divergence.
-- **Worktrees and containers are optional.** Primary checkout, git
-  worktree or devcontainer — whichever the user set up for the session;
-  no branch type requires any of them. `bin/wt` is a human entrypoint
-  Claude MUST NOT invoke, because it execs a new `claude` session.
-  `bin/wt-sync` and a bare `bin/wt-prune` only report, and Claude MAY run
-  them; `bin/wt-prune --yes` deletes branches and worktrees, so run it
-  only when the user asks for that run.
-- **Run tests, linters and builds in the devcontainer.** From a macOS
-  host terminal, prefix the command so it executes in the container
-  (e.g. `devcontainer exec --workspace-folder . -- <command>`). If no
-  container is running for this checkout, say so and ask rather than
-  running on the host.
+  `main`, cutting the task's branch is its first act. `main` itself is
+  only ever a base to branch from and a ref to sync against.
+- **Navigate freely, deliberately.** `git checkout`, `git switch`,
+  `git branch` and `git worktree` are all permitted. Before switching
+  away from a branch, check `git status` and commit or stash anything
+  uncommitted rather than carrying it across or losing it. Say which
+  branch you moved to and why.
+- **Sync with `main` and resolve conflicts locally.** `git fetch`,
+  `git pull --ff-only`, and merging or rebasing `origin/main` into the
+  task's branch are normal, expected acts — do them when the branch is
+  behind, and resolve any conflict here rather than deferring it to
+  GitHub. Resolve by understanding both sides; never discard a side to
+  make the conflict go away, and never force-push over someone's work.
+  `speckit-trunk-sync` remains the scripted path for spec-kit commands.
+- **Worktrees, containers and directories are all optional.** Work in the
+  primary checkout, in a git worktree, or in a devcontainer — whichever
+  the user set up. No branch type requires any of them, and nothing is
+  off-limits to read or edit. `bin/wt` is a human entrypoint Claude MUST
+  NOT invoke, because it execs a new `claude` session; `bin/wt-sync` and
+  a bare `bin/wt-prune` only report, and Claude MAY run them.
+  `bin/wt-prune --yes` deletes branches and worktrees, so run it only
+  when the user asks for that run.
+- **Run tests, linters and builds where the toolchain is.** If a
+  devcontainer is running for this checkout, prefix the command to
+  execute in it (e.g.
+  `devcontainer exec --workspace-folder . -- <command>`). If none is,
+  running on the host is fine — say which you did.
 
 ## Git / PR workflow
 

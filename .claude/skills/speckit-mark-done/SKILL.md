@@ -34,9 +34,9 @@ manually each time specs cross the finish line (or fall back out of it).
 
 ## Key rules
 
-- **Never edit on `main` directly.** All renames, reference fixes, and commits happen in a
-  dedicated worktree/branch created for this run, per this project's standing rule to branch
-  before any repo changes.
+- **Never edit on `main` directly.** All renames, reference fixes, and commits happen on a
+  dedicated branch created for this run (in a worktree if you want one), per this project's
+  standing rule to branch before any repo changes.
 - **`tasks.md` is the sole source of truth for completion.** A spec is "done" only when its
   `tasks.md` exists, contains at least one task checkbox, and every checkbox is checked
   (`- [x]` or `- [X]`, any indentation). A spec with no `tasks.md`, or a `tasks.md` with zero
@@ -113,20 +113,29 @@ line per indeterminate/no-change spec for the final report.
 If the rename list is empty, report a one-line status per spec checked (done / not done /
 indeterminate / already correct) and **stop here** — no branch, no commit, no PR.
 
-### 5. Create a dedicated worktree and branch for the change
+### 5. Create a dedicated branch for the change
 
 Pick a branch name:
 - Exactly one rename → `chore/mark-<base>-done` (or `chore/reopen-<base>` if it's a revert).
 - Multiple renames → `chore/spec-status-sync-<UTC timestamp, e.g. 20260829-173000>`.
 
+A dedicated worktree keeps this run clear of whatever else the checkout holds, but is not
+required. Use one if the current checkout has uncommitted work you would otherwise have to
+stash; otherwise branch in place:
+
 ```bash
+# In place (default):
+git switch -c "$BRANCH" main
+WORKTREE_PATH="$(git rev-parse --show-toplevel)"
+
+# Or in its own worktree:
 WORKTREE_PATH="$PRIMARY_REPO_ROOT/.worktrees/$BRANCH"
 git -C "$PRIMARY_REPO_ROOT" worktree add "$WORKTREE_PATH" -b "$BRANCH" main
 cd "$WORKTREE_PATH"
 ```
 
-If `worktree add` fails (branch name collision, dirty state, etc.), stop and report the exact
-git error — do not force it. `main` itself is never checked out or modified by this step.
+If either fails (branch name collision, dirty state, etc.), stop and report the exact git
+error — do not force it. `main` itself is never modified by this step.
 
 ### 6. Apply the renames
 
@@ -150,9 +159,8 @@ feature just became fully done — not a revert): if a worktree exists at
 rm -f "$PRIMARY_REPO_ROOT/.worktrees/$base/.specify/feature.json"
 ```
 
-The feature is finished, so that per-checkout pointer no longer needs to resolve anything —
-leaving it in place risks the same kind of staleness the `check-worktree-sync.sh` PreToolUse
-hook exists to catch, if that worktree's branch is ever reused or checked out elsewhere later.
+The feature is finished, so that per-checkout pointer no longer needs to resolve anything, and
+leaving it behind points a later session at a spec folder that has been renamed away.
 This is a plain file deletion outside `$WORKTREE_PATH` (the temporary worktree this run is
 using for the rename/PR), not a git operation, and it does not touch or remove the feature's
 worktree itself — per the Key Rules, worktree removal stays a separate, manual step for the
@@ -245,7 +253,9 @@ failing the run — retry `gh pr create` without `--label` rather than aborting.
 
 Report the PR URL back to the user.
 
-### 11. Clean up the working worktree and branch
+### 11. Clean up the working branch
+
+If the run used its own worktree:
 
 ```bash
 cd "$PRIMARY_REPO_ROOT"
@@ -253,6 +263,10 @@ git worktree remove "$WORKTREE_PATH"
 git branch -D "$BRANCH"
 git worktree prune
 ```
+
+If it branched in place, leave the checkout on that branch and say so — the user decides
+when to move off it; deleting the branch out from under the session would strand the PR's
+local pointer.
 
 `git branch -D` here only removes the **local** branch pointer now that its commit is pushed
 and the PR is open against `origin/$BRANCH` — it does not touch the remote branch the PR
