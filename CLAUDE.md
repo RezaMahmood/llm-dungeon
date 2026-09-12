@@ -11,14 +11,17 @@ then wrong and MUST be corrected, not worked around.
 ## Where work happens
 
 - **Branch first; never work on `main`.** Whatever the change, cut a
-  branch before making it. The `SessionEnd` hook returns the primary
-  checkout to `main` when the tree is clean; do not fight it, and do not
-  switch branches at the end of a session to pre-empt it.
+  branch before making it — this is the one branch-changing command
+  Claude may run (see "No branch navigation" below). The `SessionEnd`
+  hook returns the primary checkout to `main` when the tree is clean; do
+  not fight it, and do not switch branches at the end of a session to
+  pre-empt it.
 - **Worktrees and containers are optional.** Work may happen in the
   primary checkout, in a git worktree, or in a devcontainer — whichever
   the user has set up for the session. No branch type requires any of
   them. `bin/wt` remains a human entrypoint: Claude MUST NOT invoke it,
-  because it execs a new `claude` session.
+  because it execs a new `claude` session. Whichever the user set up, the
+  session stays in it for its whole life — see "Session isolation" below.
 - **Stay inside the session's own checkout.** Do not read, edit or list
   files belonging to another session's checkout or worktree. If a task
   seems to need it, say so and let the user do it.
@@ -28,6 +31,49 @@ then wrong and MUST be corrected, not worked around.
   reporting form (`bin/wt-prune` with no flags is a dry run). Claude MUST
   NOT run `bin/wt-prune --yes` unless the user asks for that run — it
   deletes branches and worktrees.
+
+## Session isolation
+
+These rules exist because several Claude sessions may be working the repo
+concurrently, each in its own checkout. They bind the session to the
+directory and branch it was started in.
+
+- **Strict worktree binding.** The session is bound to the checkout it
+  started in — a dedicated git worktree, a devcontainer, or the primary
+  checkout. Claude MUST remain in that working directory. Do not `cd ..`
+  out of it, and do not read, write or analyse files outside it. This is
+  the stricter form of "stay inside the session's own checkout" above: it
+  covers the whole filesystem, not just sibling worktrees.
+- **No branch navigation.** Claude MUST NOT run `git checkout`,
+  `git switch`, `git branch` or `git worktree`. The environment is
+  already on the correct branch; changing branches corrupts the
+  concurrent workflow. The **only** exception is the first act of a
+  session that starts on `main` in the primary checkout: cutting the
+  task's branch, as "Branch first; never work on `main`" requires, and
+  the `speckit-branch-ensure` skill, which a spec-kit command invokes to
+  place the session in its feature's worktree before work starts. Once
+  the session is on its task's branch, the ban is absolute. (The
+  `SessionEnd` hook
+  returns the primary checkout to `main` on its own — that is the hook's
+  job, not Claude's.)
+- **Local state immutability.** Claude MUST NOT `git pull`, `git fetch`
+  or `git rebase` against `main` on its own initiative. The current
+  branch state is the baseline. If the work conflicts with `main`, that
+  conflict is resolved on GitHub, not locally. The one exception is the
+  `speckit-trunk-sync` skill, which the user (or a spec-kit command)
+  invokes explicitly and which only ever fast-forwards; it stops and asks
+  rather than reconciling a divergence.
+- **Push and PR.** When the task or spec is complete, stage
+  (`git add .`), commit, and push to the current branch with
+  `git push origin HEAD` — never to a named branch other than the current
+  one. Immediately after pushing, open the pull request with
+  `gh pr create`, per the PR contract below. Claude does not merge it.
+- **Run everything in the dev container.** Tests, linters and builds MUST
+  run in the active devcontainer. From a macOS host terminal, prefix the
+  command so it runs in the container (e.g.
+  `devcontainer exec --workspace-folder . -- <command>`) rather than on
+  the host. If no container is running for this checkout, say so and ask
+  — do not silently run the suite on the host.
 
 ## Git / PR workflow
 
