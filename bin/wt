@@ -743,22 +743,30 @@ EXEC_ARGS=(
 # CLI said, identically, on every single run, with nothing pointing at the
 # real cause or at --rebuild as the fix.
 #
-# Probing with a login shell matches how the binary is found in practice:
-# it lives in ~/.local/bin, which reaches PATH through the conditional
-# snippet in ~/.profile. Only a probe that *ran* and came back empty is
-# treated as proof of absence -- if the probe itself could not run, fall
-# through and let the real exec produce the real error.
+# The probe must resolve `claude` exactly the way the real exec below
+# does, which is why it uses a NON-login shell. It used to use `bash -lc`,
+# reasoning that ~/.local/bin reaches PATH through the conditional snippet
+# in ~/.profile -- but the exec below runs `claude` directly, with no shell
+# to source that snippet, so a login-shell probe tests a different PATH
+# than the thing it guards. When devcontainer.json's remoteEnv.PATH
+# stopped carrying ~/.local/bin, the login probe found `claude` and passed
+# while the exec failed with "executable file not found in $PATH" -- the
+# guard was blind to the one class of failure it exists to catch.
+#
+# Only a probe that *ran* and came back empty is treated as proof of
+# absence -- if the probe itself could not run, fall through and let the
+# real exec produce the real error.
 if [[ "$MODE" == "claude" ]]; then
   set +e
   # The answer travels on its own marked line, and `command -v` is forced to
   # succeed. Both matter: `command -v` exits 1 when the binary is absent, so
   # keying "is it missing?" off the exit status made this check dead code in
-  # the one situation it exists for; and a login shell's dotfiles can print
+  # the one situation it exists for; and the container's dotfiles can print
   # to stdout, so an emptiness test on the raw output is not reliable either.
   # No marker line at all means the probe could not run -- fall through and
   # let the real exec produce the real error rather than guessing.
   PROBE_OUT="$(devcontainer "${EXEC_ARGS[@]}" -- \
-    bash -lc 'printf "WT_PROBE_CLAUDE:%s\n" "$(command -v claude || true)"' 2>/dev/null)"
+    bash -c 'printf "WT_PROBE_CLAUDE:%s\n" "$(command -v claude || true)"' 2>/dev/null)"
   set -e
   PROBE_RESULT="$(printf '%s\n' "$PROBE_OUT" | sed -n 's/^WT_PROBE_CLAUDE://p' | tail -1)"
   PROBE_RAN=0
