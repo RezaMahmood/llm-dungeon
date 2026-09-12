@@ -16,39 +16,48 @@ vi.mock("../../src/services/authService.js", () => ({
   getMe: (...args) => getMe(...args),
 }));
 
+const listAdventures = vi.fn().mockResolvedValue({ adventures: [] });
+const listSavedGames = vi.fn().mockResolvedValue({ sessions: [] });
+vi.mock("../../src/services/gameService.js", () => ({
+  listAdventures: (...args) => listAdventures(...args),
+  listSavedGames: (...args) => listSavedGames(...args),
+}));
+
 import AuthenticatedLayout from "../../src/components/Layout/AuthenticatedLayout.jsx";
-import MainMenu from "../../src/components/Menu/MainMenu.jsx";
+import HomePage from "../../src/pages/HomePage.jsx";
 import { CapabilitiesProvider } from "../../src/hooks/useCapabilities.js";
 
-describe("Main Menu reflects permissions revoked between load and refresh (FR-011)", () => {
+describe("Home reflects permissions revoked between load and refresh (FR-011)", () => {
   beforeEach(() => {
     getMe.mockReset();
     sessionStorage.clear();
   });
 
-  it("drops the admin-only menu item (and NavBar's Admin link) after a refresh returns reduced capabilities", async () => {
+  it("drops the admin-only nav links after a refresh returns reduced capabilities", async () => {
     getMe.mockResolvedValueOnce({ capabilities: { hasPlayer: true, hasAdministrator: true } });
 
     render(
       <MemoryRouter initialEntries={["/menu"]}>
         <CapabilitiesProvider>
           <AuthenticatedLayout>
-            <MainMenu />
+            <HomePage />
           </AuthenticatedLayout>
         </CapabilitiesProvider>
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole("button", { name: /^administration$/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Admin" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Admin" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "New story" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Users" })).toBeInTheDocument();
     expect(getMe).toHaveBeenCalledTimes(1);
 
     getMe.mockResolvedValueOnce({ capabilities: { hasPlayer: true, hasAdministrator: false } });
     await userEvent.click(screen.getByRole("button", { name: /^refresh$/i }));
 
-    await screen.findByRole("heading", { name: /my stories/i });
-    expect(screen.queryByRole("button", { name: /^administration$/i })).not.toBeInTheDocument();
+    await screen.findByRole("heading", { name: /ready to play/i });
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "New story" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Users" })).not.toBeInTheDocument();
     expect(getMe).toHaveBeenCalledTimes(2);
   });
 });

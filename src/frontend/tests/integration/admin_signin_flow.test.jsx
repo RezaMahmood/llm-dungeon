@@ -3,19 +3,27 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 const mockUseCapabilities = vi.fn();
+const mockAccounts = [{ homeAccountId: "home-1", username: "admin@example.com" }];
+const acquireTokenSilent = vi.fn().mockResolvedValue({ accessToken: "tok" });
+const mockInstance = { logoutRedirect: vi.fn(), acquireTokenSilent };
 
 vi.mock("@azure/msal-react", () => ({
-  useMsal: () => ({ instance: { logoutRedirect: vi.fn() } }),
+  useMsal: () => ({ instance: mockInstance, accounts: mockAccounts }),
 }));
 
 vi.mock("../../src/hooks/useCapabilities.js", () => ({
   useCapabilities: () => mockUseCapabilities(),
 }));
 
-import MainMenu from "../../src/components/Menu/MainMenu.jsx";
+vi.mock("../../src/services/gameService.js", () => ({
+  listAdventures: vi.fn().mockResolvedValue({ adventures: [] }),
+  listSavedGames: vi.fn().mockResolvedValue({ sessions: [] }),
+}));
+
+import HomePage from "../../src/pages/HomePage.jsx";
 
 describe("Admin sign-in flow", () => {
-  it("renders both game and admin menu items for a dual-capability user", () => {
+  it("reaches the full Home page for a dual-capability user, not a denial/pending state", async () => {
     mockUseCapabilities.mockReturnValue({
       hasPlayer: true,
       hasAdministrator: true,
@@ -27,11 +35,16 @@ describe("Admin sign-in flow", () => {
 
     render(
       <MemoryRouter>
-        <MainMenu />
+        <HomePage />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText(/start or continue game/i)).toBeInTheDocument();
-    expect(screen.getByText(/^administration$/i)).toBeInTheDocument();
+    // A dual-capability account gets the same Home content as a player-only one
+    // (FR-011: role only changes the nav, not this page) — reaching it at all is what
+    // matters here, not being stuck behind "Access Pending" or a denial screen.
+    expect(await screen.findByText(/ready to play/i)).toBeInTheDocument();
+    expect(screen.getByText(/in progress/i)).toBeInTheDocument();
+    expect(screen.queryByText(/access pending/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert", { name: /access not granted/i })).not.toBeInTheDocument();
   });
 });

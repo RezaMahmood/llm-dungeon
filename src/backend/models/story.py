@@ -157,6 +157,9 @@ class Story:
     sessionLengthMinutes: Optional[int] = None
     chapters: Optional[int] = None
     rules: Optional[str] = None
+    # Short, player-facing sentence or two shown on the "Ready to play" row
+    # (028-home-page-redesign FR-016). Plain administrator-authored copy, never generated.
+    blurb: Optional[str] = None
     published: bool = False
     lastPublishedAt: Optional[str] = None
     lastTestPlayedAt: Optional[str] = None
@@ -193,6 +196,7 @@ class Story:
             "chapters": self.chapters,
             "worldPrompt": self.worldPrompt,
             "rules": self.rules,
+            "blurb": self.blurb,
             "characterTypes": [ct.to_dict() for ct in self.characterTypes],
             "completionCriteria": self.completionCriteria.to_dict(),
             "narrativeGuidance": self.narrativeGuidance,
@@ -222,6 +226,7 @@ class Story:
             chapters=data.get("chapters"),
             worldPrompt=data["worldPrompt"],
             rules=data.get("rules"),
+            blurb=data.get("blurb"),
             characterTypes=[CharacterType.from_dict(ct) for ct in data.get("characterTypes", [])],
             completionCriteria=CompletionCriteria.from_dict(data["completionCriteria"]),
             narrativeGuidance=data["narrativeGuidance"],

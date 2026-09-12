@@ -32,6 +32,9 @@ class StoryDraft:
     chapters: Optional[int] = None
     worldPrompt: Optional[str] = None
     rules: Optional[str] = None
+    # Mirrors Story.blurb (028-home-page-redesign FR-016) — not part of the Completeness
+    # Rule below; a blurb is not required for generation.
+    blurb: Optional[str] = None
     characterTypes: list[CharacterType] = field(default_factory=list)
     completionCriteria: Optional[CompletionCriteria] = None
     createdAt: str = field(default_factory=_now)
@@ -74,6 +77,7 @@ class StoryDraft:
             "chapters": self.chapters,
             "worldPrompt": self.worldPrompt,
             "rules": self.rules,
+            "blurb": self.blurb,
             "characterTypes": [ct.to_dict() for ct in self.characterTypes],
             "completionCriteria": self.completionCriteria.to_dict() if self.completionCriteria else None,
             "createdAt": self.createdAt,
@@ -99,6 +103,7 @@ class StoryDraft:
             chapters=data.get("chapters"),
             worldPrompt=data.get("worldPrompt"),
             rules=data.get("rules"),
+            blurb=data.get("blurb"),
             characterTypes=[CharacterType.from_dict(ct) for ct in data.get("characterTypes", [])],
             completionCriteria=CompletionCriteria.from_dict(completion_criteria) if completion_criteria else None,
             createdAt=data.get("createdAt", _now()),

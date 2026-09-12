@@ -41,6 +41,7 @@ PATCHABLE_FIELDS = {
     "chapters",
     "worldPrompt",
     "rules",
+    "blurb",
 }
 
 
@@ -161,6 +162,7 @@ class StoryDraftService:
             chapters=story.chapters,
             worldPrompt=story.worldPrompt,
             rules=story.rules,
+            blurb=story.blurb,
             characterTypes=story.characterTypes,
             completionCriteria=story.completionCriteria,
             sourceStoryId=story.id,
@@ -207,6 +209,7 @@ class StoryDraftService:
             chapters=draft.chapters,
             worldPrompt=draft.worldPrompt,
             rules=draft.rules,
+            blurb=draft.blurb,
             characterTypes=draft.characterTypes,
             completionCriteria=draft.completionCriteria,
         )

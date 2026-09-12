@@ -976,3 +976,35 @@ def test_apply_content_write_persists_which_fields_were_hand_edited():
 
     assert updated.adminEditedFields == ["startingPoint"]
     assert cosmos.get_container("stories").items["story-1"]["adminEditedFields"] == ["startingPoint"]
+
+
+def test_list_published_summaries_includes_blurb():
+    """028-home-page-redesign FR-002/FR-016: Home's "Ready to play" row needs a blurb, and a
+    story published before the field existed must still return (as `None`), never raise."""
+    cosmos = MagicMock()
+    cosmos.query.return_value = [
+        {
+            "id": "story-1",
+            "name": "Nine Doors of Mudlark Hall",
+            "tone": "Mystery",
+            "sessionLengthMinutes": 20,
+            "readingLevel": "Year 5",
+            "blurb": "Every door tells you a rule. Eight of them are lying.",
+        },
+        {
+            "id": "story-2",
+            "name": "The Balloon Post",
+            "tone": "Adventure",
+            "sessionLengthMinutes": 15,
+            "readingLevel": "Year 4",
+            "blurb": None,
+        },
+    ]
+    service = StoryService(cosmos_service=cosmos)
+
+    summaries = service.list_published_summaries()
+
+    assert summaries[0]["blurb"] == "Every door tells you a rule. Eight of them are lying."
+    assert summaries[1]["blurb"] is None
+    query_args = cosmos.query.call_args[0]
+    assert "c.blurb" in query_args[1]

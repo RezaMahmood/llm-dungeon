@@ -39,6 +39,7 @@ from backend.api.game.adventures import get_adventure, list_adventures
 from backend.api.game.sessions import (
     create_checkpoint,
     create_session,
+    delete_session,
     get_session,
     list_sessions,
     resume_session,
@@ -252,6 +253,11 @@ def game_sessions_list(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="game/sessions/{sessionId}", methods=["GET"])
 def game_sessions_get(req: func.HttpRequest) -> func.HttpResponse:
     return _guarded(get_session)(req)
+
+
+@app.route(route="game/sessions/{sessionId}", methods=["DELETE"])
+def game_sessions_delete(req: func.HttpRequest) -> func.HttpResponse:
+    return _guarded(delete_session)(req)
 
 
 @app.route(route="game/sessions/{sessionId}/checkpoints", methods=["POST"])

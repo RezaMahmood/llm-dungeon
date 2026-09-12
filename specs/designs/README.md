@@ -1,15 +1,16 @@
-# Lantern screen reference
+# LLM Dungeon screen reference
 
 Static HTML for the four surfaces, extracted from the hi-fi prototype (`Lantern.dc.html`).
 Use these as the acceptance reference in the spec-kit spec.
 
     index.html             screen list
     01-login.html          Microsoft SSO
-    02-story-select.html   in-progress, then unopened
+    02-story-select.html   in-progress, then unopened (superseded by 07 — see below)
     03-play.html           story pane + status panel + pause screen
     04-admin-wizard.html   six steps, world prompt step active
     05-admin-users.html    add player/administrator; per-row remove with confirm
     06-game-setup.html     start-new-game: adventure → character name → character type
+    07-home.html           post-login landing page: welcome band + ready-to-play/in-progress
 
 ## Copying into the repo
 
@@ -27,10 +28,16 @@ One `.nav` bar, same markup on every signed-in surface.
 - **Admin:** Stories · New story · People, a 1px vertical divider, then Player view — Sign out
   right-aligned, name chip last. The current page carries `aria-current="page"`.
 - **Play (03)** is the exception: the full nav is replaced by a compact title bar so the story
-  keeps the height. The `Lantern` mark at its left returns to story select.
+  keeps the height. The `LLM Dungeon` mark at its left returns to story select.
 
 ## Notes for implementers
 
+- **Home (07) supersedes 02 as the acceptance reference:** `028-home-page-redesign` replaces
+  the post-login landing page with 07's welcome band + two-column
+  ready-to-play/in-progress layout, matching `07-home-spec.md`. `02-story-select.html` is
+  kept only as historical prior art — it is no longer a live acceptance reference for any
+  screen contract. 07's Play action enters 06's character-name step directly, skipping 06's
+  own adventure-picker step, since 07 already lists the same catalogue.
 - **Scroll contract (Article V):** the shell is `height:100vh; overflow:hidden`. On 03 only
   `.storyscroll` scrolls; title bar, input row and status panel are fixed.
 - **Pause screen** on 03 is inert markup toggled by a class (`.pause.show`) so it can be

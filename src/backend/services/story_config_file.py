@@ -39,6 +39,7 @@ _AUTHORED_KEYS_IN_ORDER = (
     "chapters",
     "worldPrompt",
     "rules",
+    "blurb",
     "characterTypes",
     "completionCriteria",
     "narrativeGuidance",
@@ -70,6 +71,9 @@ class StoryConfiguration:
     sessionLengthMinutes: Optional[int] = None
     chapters: Optional[int] = None
     rules: Optional[str] = None
+    # Short, player-facing blurb shown on Home's "Ready to play" row
+    # (028-home-page-redesign FR-016). Absent on a file exported before this field existed.
+    blurb: Optional[str] = None
     # Both are `None` when the caller wants them (re)generated from the authored content,
     # and carry the file's own value through verbatim when it supplies one (#270, #271).
     narrativeGuidance: Optional[str] = None
@@ -88,6 +92,7 @@ def serialize(story: Story) -> str:
     payload["chapters"] = story.chapters
     payload["worldPrompt"] = story.worldPrompt
     payload["rules"] = story.rules
+    payload["blurb"] = story.blurb
     payload["characterTypes"] = [ct.to_dict() for ct in story.characterTypes]
     payload["completionCriteria"] = story.completionCriteria.to_dict()
     payload["narrativeGuidance"] = story.narrativeGuidance
@@ -154,6 +159,7 @@ def parse(payload: Any) -> StoryConfiguration:
         chapters=payload.get("chapters"),
         worldPrompt=world_prompt,
         rules=payload.get("rules"),
+        blurb=payload.get("blurb"),
         characterTypes=character_types,
         completionCriteria=completion_criteria,
         narrativeGuidance=_parse_narrative_guidance(payload.get("narrativeGuidance")),

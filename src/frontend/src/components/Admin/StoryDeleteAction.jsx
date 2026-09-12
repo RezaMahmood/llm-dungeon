@@ -1,3 +1,4 @@
+import ConfirmDeleteDialog from "../Common/ConfirmDeleteDialog.jsx";
 import { useDeleteStory } from "../../hooks/useDeleteStory.js";
 
 /**
@@ -32,26 +33,21 @@ export function StoryDeleteAction({ story, token, onDeleted }) {
       )}
 
       {confirmingDelete && (
-        <div className="dialog-backdrop">
-          <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={dialogTitleId}>
-            <div className="dialog-title" id={dialogTitleId}>
-              Delete &ldquo;{storyLabel}&rdquo;?
-            </div>
-            <div className="dialog-body">
+        <ConfirmDeleteDialog
+          titleId={dialogTitleId}
+          title={<>Delete &ldquo;{storyLabel}&rdquo;?</>}
+          body={
+            <>
               This is permanent and cannot be undone. Deleting this story will also remove any
               players&rsquo; in-progress games for it. If you might want this story back later, unpublish it
               instead.
-            </div>
-            <div className="dialog-actions">
-              <button type="button" className="btn btn-secondary" onClick={cancelDelete} disabled={status === "working"}>
-                Keep it
-              </button>
-              <button type="button" className="btn btn-primary" onClick={confirmDelete} disabled={status === "working"}>
-                {status === "working" ? "Deleting…" : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+          cancelLabel="Keep it"
+          working={status === "working"}
+          onCancel={cancelDelete}
+          onConfirm={confirmDelete}
+        />
       )}
     </div>
   );

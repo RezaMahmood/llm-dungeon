@@ -1,6 +1,6 @@
 <!--
 Sync Impact Report
-Version change: 8.1.0 -> 9.0.0
+Version change: 8.2.0 -> 9.0.0
 Modified principles: XIII (AI Agent Division of Labor) — the sync requirement is kept but
   no longer forbids reading another checkout; the division of labor, the merge prohibition
   and the issue-closing conditions are unchanged.
@@ -22,7 +22,9 @@ Rationale for MAJOR: a governance requirement is withdrawn, not clarified. Concu
   work (a session unable to edit after a branch change, unable to resolve a conflict
   locally, or forced into a container for a one-line change) while protecting against a
   collision that no longer occurs. Worktrees and containers survive as options; only their
-  compulsory, enforced separation is gone.
+  compulsory, enforced separation is gone. The 8.2.0 amendment this supersedes (screen
+  contracts repointed to `specs/designs/07-home.html`, and page-level scroll permitted
+  below the mobile breakpoint) is untouched by this one and stays in force.
 Deferred/TODO placeholders: none.
 Earlier Sync Impact Reports are in this file's git history.
 --># LLM Dungeon Adventure Constitution
@@ -515,7 +517,10 @@ screens MUST NOT restyle these locally.
 
 ### Layout and scroll contract
 
-1. The application shell is fixed to the viewport; there is no page-level scroll.
+1. The application shell is fixed to the viewport, with no page-level scroll, at desktop and
+   tablet widths without exception. Below the mobile breakpoint a screen MAY switch to
+   page-level scrolling instead, provided every fixed-viewport surface above that breakpoint
+   still honors this rule unchanged.
 2. On the play surface only the story pane scrolls; the title bar, instruction input,
    suggested actions, and status panel stay fixed and reachable.
 3. The story pane auto-scrolls to the newest turn.
@@ -526,9 +531,9 @@ screens MUST NOT restyle these locally.
 ### Screen contracts
 
 The prototype at `specs/designs/` is the acceptance reference for these screens' layout and
-copy; where it and this constitution disagree, this constitution wins. It holds six screens,
-the shared vendored stylesheet, and a README (`specs/designs/README.md`) mapping each screen
-to the specs governing its behavior.
+copy; where it and this constitution disagree, this constitution wins. It holds seven
+screens, the shared vendored stylesheet, and a README (`specs/designs/README.md`) mapping
+each screen to the specs governing its behavior.
 
 A screen contract MAY exist without a prototype screen where the governing spec explicitly
 defers visual design, recording that deferral as an exception in its plan's Constitution
@@ -539,9 +544,12 @@ which the deferral relaxes.
 
 - **Login** (`specs/designs/01-login.html`) — Microsoft identity sign-in only
   (Principle II): no password field, no local accounts, no alternate identity provider.
-- **Adventure select** (`specs/designs/02-story-select.html`) — in-progress adventures
-  first, showing progress and last-played information; published, not-yet-started
-  adventures follow a visible divider. Resuming is reachable in one action from a list row.
+- **Adventure select** (`specs/designs/07-home.html`) — the post-login landing page: a
+  welcome band, then a two-column body pairing "Ready to play" (published, not-yet-started
+  adventures) with "In progress" (the player's saved sessions, showing progress and
+  last-played information). Resuming, starting, and deleting a saved session are each
+  reachable in one action from a row or card. `specs/designs/02-story-select.html` is
+  retained only as historical prior art and is no longer a live acceptance reference.
 - **Play surface** (`specs/designs/03-play.html`) — a persistent title/status bar offering
   an explicit checkpoint-save and a pause-and-exit action; a scrolling story pane; an
   instruction input paired with suggested actions; a status panel showing location, goal,

@@ -122,9 +122,9 @@ describe("Play surface inside the /game layout (FR-016, SC-013)", () => {
 
     // The brand mark is the header's other route out, so while a session is active it
     // must confirm too rather than being a plain link to story select.
-    expect(screen.queryByRole("link", { name: /lantern/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /llm dungeon/i })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /lantern/i }));
+    await user.click(screen.getByRole("button", { name: /llm dungeon/i }));
 
     expect(screen.queryByText("story select")).not.toBeInTheDocument();
     expect(screen.getByRole("dialog")).toBeInTheDocument();

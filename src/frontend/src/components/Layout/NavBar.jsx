@@ -105,7 +105,7 @@ export function NavBar() {
     <>
     <nav className="nav" style={{ gap: 0 }}>
       <span className="nav-brand" style={{ marginRight: "var(--space-5)" }}>
-        Lantern
+        LLM Dungeon
         {showAdminVariant && (
           <span
             style={{
@@ -161,17 +161,33 @@ export function NavBar() {
         hasPlayer && (
           <>
             <Link to="/menu" style={LINK_STYLE} aria-current={current("/menu")}>
-              My stories
+              Home
             </Link>
-            {/* No badges route exists yet; matches 02-story-select.html's own
-                placeholder link. Wired up by whichever feature builds badges. */}
+            {/* No destination exists yet for "My stories" now that Home absorbs its
+                content (specs/designs/07-home-spec.md §3, research.md Decision 7);
+                matches 02-story-select.html's own placeholder pattern for Badges below. */}
+            <a href="#" style={LINK_STYLE} onClick={(event) => event.preventDefault()}>
+              My stories
+            </a>
             <a href="#" style={LINK_STYLE} onClick={(event) => event.preventDefault()}>
               Badges
             </a>
             {hasAdministrator && (
-              <Link to="/admin" style={LINK_STYLE}>
-                Admin
-              </Link>
+              <>
+                <Link to="/admin/stories/new" style={LINK_STYLE}>
+                  New story
+                </Link>
+                <Link to="/admin/accounts" style={LINK_STYLE}>
+                  Users
+                </Link>
+                {/* Retained alongside the canonical two links above: the mockup predates
+                    the admin story list, which has no equivalent in specs/designs/07-home
+                    (research.md Decision 7) — without this, publish/unpublish and the
+                    sessions list would be unreachable from Home (FR-015). */}
+                <Link to="/admin" style={LINK_STYLE}>
+                  Admin
+                </Link>
+              </>
             )}
           </>
         )
@@ -194,8 +210,11 @@ export function NavBar() {
         <a href="/login" style={LINK_STYLE} onClick={handleSignOut}>
           Sign out
         </a>
-        <span className="tag tag-neutral truncate" style={{ maxWidth: "22ch" }}>
+        <span className="tag tag-neutral truncate" style={{ maxWidth: "28ch" }}>
           {userName}
+          {/* FR-011a: an account holding neither capability yet (pending provisioning)
+              gets no role suffix rather than a falsely reassuring "Player". */}
+          {hasAdministrator ? " · Administrator" : hasPlayer ? " · Player" : ""}
         </span>
       </span>
     </nav>

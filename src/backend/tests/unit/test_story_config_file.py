@@ -35,6 +35,7 @@ def test_serialize_emits_fixed_key_order_with_id_first(_story):
         "chapters",
         "worldPrompt",
         "rules",
+        "blurb",
         "characterTypes",
         "completionCriteria",
         "narrativeGuidance",
@@ -364,3 +365,41 @@ def test_parse_does_not_require_name_on_id_less_path():
     config = parse(payload)
     assert config.id is None
     assert config.name is None
+
+
+# --- blurb (028-home-page-redesign FR-016) ---
+
+
+def test_serialize_emits_blurb(_story):
+    story = _story(blurb="Every door tells you a rule.")
+
+    parsed = json.loads(serialize(story))
+
+    assert parsed["blurb"] == "Every door tells you a rule."
+
+
+def test_parse_carries_blurb_through():
+    payload = {
+        "worldPrompt": "A flooded library.",
+        "characterTypes": [{"name": "Archivist"}],
+        "completionCriteria": {"successConditions": ["Recover the ledger"]},
+        "blurb": "Every door tells you a rule.",
+    }
+
+    config = parse(payload)
+
+    assert config.blurb == "Every door tells you a rule."
+
+
+def test_parse_defaults_blurb_to_none_when_absent():
+    """A configuration exported before this field existed must still import cleanly
+    (contracts/api.md)."""
+    payload = {
+        "worldPrompt": "A flooded library.",
+        "characterTypes": [{"name": "Archivist"}],
+        "completionCriteria": {"successConditions": ["Recover the ledger"]},
+    }
+
+    config = parse(payload)
+
+    assert config.blurb is None

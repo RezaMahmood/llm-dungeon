@@ -1,20 +1,26 @@
 /**
- * 3-step adventure/character setup flow (006-adventure-and-character-setup): pick a
- * published adventure, name a character, choose a character type — in that order
- * (FR-003a) — then confirm to start play, which creates a Play Session and hands off
- * into PlayPage (008-core-gameplay-done). The header for this screen is the compact TitleBar
+ * Character setup for a single, already-chosen adventure, or a direct resume — both
+ * entered only via route state handed in by HomePage's Play/Resume actions
+ * (028-home-page-redesign, research.md Decision 10; supersedes this page's own former
+ * adventure-picker/in-progress list, now owned by Home). Renders the compact TitleBar
  * supplied by AuthenticatedLayout (FR-006 of 019-spa-refresh-button).
  */
 import { useMsal } from "@azure/msal-react";
 import { useCallback, useEffect, useState } from "react";
+import { Link, Navigate, useLocation } from "react-router-dom";
 
-import AdventureList from "../components/GameSetup/AdventureList.jsx";
 import CharacterNameStep, { MAX_CHARACTER_NAME_LENGTH } from "../components/GameSetup/CharacterNameStep.jsx";
 import CharacterTypeStep from "../components/GameSetup/CharacterTypeStep.jsx";
-import StoriesInProgress from "../components/GameSetup/StoriesInProgress.jsx";
-import { createSession, getAdventure, getSession, listAdventures, listSavedGames, resumeSession } from "../services/gameService.js";
+import { createSession, getAdventure, getSession, resumeSession } from "../services/gameService.js";
 import { loginRequest } from "../services/msalConfig.js";
 import PlayPage from "./PlayPage.jsx";
+
+/** The one outer gutter this whole page uses, at every stage (setup form, resuming
+ * spinner, resume-error screen) — factored out after `/code-review high` flagged the
+ * inline style object as copy-pasted verbatim across three separate returns below. */
+function PageContainer({ children }) {
+  return <div style={{ maxWidth: "1020px", padding: "var(--space-6) var(--space-4) 64px" }}>{children}</div>;
+}
 
 function nameError(name) {
   const trimmed = name.trim();
@@ -28,26 +34,21 @@ function nameError(name) {
 export function GamePage() {
   const { instance, accounts } = useMsal();
   const account = accounts[0];
+  const { state } = useLocation();
+  const { adventureId, resumeSessionId, isActiveForPlayer } = state || {};
 
-  const [adventures, setAdventures] = useState(null);
-  const [adventuresLoading, setAdventuresLoading] = useState(true);
-  const [adventuresError, setAdventuresError] = useState(null);
-
-  const [adventureId, setAdventureId] = useState(null);
   const [characterName, setCharacterName] = useState("");
   const [characterType, setCharacterType] = useState(null);
-
   const [characterTypes, setCharacterTypes] = useState([]);
-  const [typesLoading, setTypesLoading] = useState(false);
+  const [adventureName, setAdventureName] = useState(null);
+  const [typesLoading, setTypesLoading] = useState(Boolean(adventureId));
   const [typesError, setTypesError] = useState(null);
 
   const [fieldErrors, setFieldErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [session, setSession] = useState(null);
 
-  const [savedGames, setSavedGames] = useState([]);
-  const [savedGamesLoading, setSavedGamesLoading] = useState(true);
-  const [savedGamesError, setSavedGamesError] = useState(null);
+  const [resuming, setResuming] = useState(Boolean(resumeSessionId));
   const [resumeError, setResumeError] = useState(null);
   const [checkpointExitNotice, setCheckpointExitNotice] = useState(null);
 
@@ -56,79 +57,83 @@ export function GamePage() {
     return tokenResponse.accessToken;
   }, [instance, account]);
 
+  // Character-setup path: Home already chose the adventure (FR-006) — this only needs
+  // that adventure's character types and display name.
   useEffect(() => {
+    if (!adventureId) return;
     let cancelled = false;
+    setTypesLoading(true);
+    setTypesError(null);
     (async () => {
-      setSavedGamesLoading(true);
-      setSavedGamesError(null);
       try {
         const token = await getToken();
-        const data = await listSavedGames(token);
-        if (!cancelled) setSavedGames(data.sessions || []);
-      } catch (err) {
-        if (!cancelled) setSavedGamesError(err);
-      } finally {
-        if (!cancelled) setSavedGamesLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [getToken]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setAdventuresLoading(true);
-      setAdventuresError(null);
-      try {
-        const token = await getToken();
-        const data = await listAdventures(token);
-        if (!cancelled) setAdventures(data.adventures || []);
-      } catch (err) {
-        if (!cancelled) setAdventuresError(err);
-      } finally {
-        if (!cancelled) setAdventuresLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [getToken]);
-
-  const handleSelectAdventure = useCallback(
-    (id) => {
-      setAdventureId(id);
-      // FR-004a: clear character type on adventure change, keep character name.
-      setCharacterType(null);
-      setCharacterTypes([]);
-      setFieldErrors({});
-      setSession(null);
-
-      let cancelled = false;
-      setTypesLoading(true);
-      setTypesError(null);
-      (async () => {
-        try {
-          const token = await getToken();
-          const data = await getAdventure(token, id);
-          if (!cancelled) setCharacterTypes(data.adventure?.characterTypes || []);
-        } catch (err) {
-          if (!cancelled) setTypesError(err);
-        } finally {
-          if (!cancelled) setTypesLoading(false);
+        const data = await getAdventure(token, adventureId);
+        if (!cancelled) {
+          setCharacterTypes(data.adventure?.characterTypes || []);
+          setAdventureName(data.adventure?.name || null);
         }
-      })();
-      return () => {
-        cancelled = true;
-      };
-    },
-    [getToken],
-  );
+      } catch (err) {
+        if (!cancelled) setTypesError(err);
+      } finally {
+        if (!cancelled) setTypesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [adventureId, getToken]);
+
+  // Resume path: Home already knows whether this is the player's active game
+  // (research.md Decision 10) — the same skip-the-call/409-tolerant/story-unavailable
+  // handling GamePage always had, just triggered by route state instead of a click.
+  useEffect(() => {
+    if (!resumeSessionId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getToken();
+        if (!isActiveForPlayer) {
+          try {
+            await resumeSession(token, resumeSessionId);
+          } catch (err) {
+            if (!(err.response?.status === 409 && err.response?.data?.error === "already_active")) {
+              throw err;
+            }
+          }
+        }
+        const data = await getSession(token, resumeSessionId);
+        if (!cancelled) {
+          setSession({
+            sessionId: data.session.sessionId,
+            storyName: data.session.adventureName,
+            initialTurns: data.session.turns,
+          });
+        }
+      } catch (err) {
+        if (cancelled) return;
+        // 025-story-delete-done FR-007/FR-008: each reason gets its own specific
+        // message rather than a generic one.
+        const responseStatus = err.response?.status;
+        const body = err.response?.data;
+        if (responseStatus === 404 && body?.error === "story_deleted") {
+          setResumeError(body?.message || "Story has been deleted. You can no longer continue this story.");
+        } else if (responseStatus === 409 && body?.error === "story_unpublished") {
+          setResumeError(body?.message || "Story has been unpublished. You can no longer continue this story.");
+        } else {
+          setResumeError("Couldn't resume this story. Please try again.");
+        }
+      } finally {
+        if (!cancelled) setResuming(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once for the id Home handed in via route state
+  }, []);
 
   const handleStart = async () => {
     const clientErrors = {};
-    if (!adventureId) clientErrors.adventureId = "Select an adventure.";
     const nameProblem = nameError(characterName);
     if (nameProblem) clientErrors.characterName = nameProblem;
     if (!characterType) clientErrors.characterType = "Select a character type for this adventure.";
@@ -143,72 +148,27 @@ export function GamePage() {
     try {
       const token = await getToken();
       const data = await createSession(token, { adventureId, characterName: characterName.trim(), characterType });
-      const selectedAdventure = (adventures || []).find((a) => a.id === adventureId);
       setSession({
         sessionId: data.sessionId,
-        storyName: selectedAdventure?.name || "Adventure",
+        storyName: adventureName || "Adventure",
         initialTurns: [data.narrative],
       });
     } catch (err) {
       if (err.response?.status === 423) {
-        setFieldErrors({ adventureId: err.response.data?.message || "You're temporarily locked out. Please try again later." });
+        setFieldErrors({ characterType: err.response.data?.message || "You're temporarily locked out. Please try again later." });
       } else {
-        setFieldErrors(err.response?.data?.fields || { adventureId: "Something went wrong. Please try again." });
+        setFieldErrors(err.response?.data?.fields || { characterType: "Something went wrong. Please try again." });
       }
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Only calls resume when the row isn't already the player's active game
-  // (research.md Decision 5); a stale row's 409 already_active is treated as success.
-  const handleResume = async (savedGame) => {
-    setResumeError(null);
-    try {
-      const token = await getToken();
-      if (!savedGame.isActiveForPlayer) {
-        try {
-          await resumeSession(token, savedGame.sessionId);
-        } catch (err) {
-          if (!(err.response?.status === 409 && err.response?.data?.error === "already_active")) {
-            throw err;
-          }
-        }
-      }
-      const data = await getSession(token, savedGame.sessionId);
-      setSession({
-        sessionId: data.session.sessionId,
-        storyName: data.session.adventureName,
-        initialTurns: data.session.turns,
-      });
-    } catch (err) {
-      // 025-story-delete-done FR-007/FR-008: both calls above report a story that became
-      // unavailable while this row sat on screen, and each reason gets its own
-      // specific message rather than the generic one below (contracts/api.md). The
-      // player is already on their in-progress-games list here, so the response's
-      // `promptReturnToList` needs no extra control — they are where it points.
-      const responseStatus = err.response?.status;
-      const body = err.response?.data;
-      if (responseStatus === 404 && body?.error === "story_deleted") {
-        setResumeError(body?.message || "Story has been deleted. You can no longer continue this story.");
-        // The session was permanently removed along with its story (FR-004, FR-010),
-        // so the row goes too rather than offering a Resume that can only fail again.
-        setSavedGames((prev) => prev.filter((game) => game.sessionId !== savedGame.sessionId));
-      } else if (responseStatus === 409 && body?.error === "story_unpublished") {
-        setResumeError(body?.message || "Story has been unpublished. You can no longer continue this story.");
-        // Unpublish never touches the session (FR-005) — the row stays, marked
-        // non-continuable exactly as the next list load would render it (FR-009), and
-        // reverts on its own once the story is re-published (FR-011).
-        setSavedGames((prev) =>
-          prev.map((game) => (game.sessionId === savedGame.sessionId ? { ...game, available: false } : game)),
-        );
-      } else {
-        setResumeError("Couldn't resume this story. Please try again.");
-      }
-    }
-  };
-
-  const step1Done = Boolean(adventureId);
+  // Reached with no route state (e.g. a stale bookmark/back navigation) — Home is the
+  // only entry point into this flow (research.md Decision 10).
+  if (!adventureId && !resumeSessionId) {
+    return <Navigate to="/menu" replace />;
+  }
 
   if (session) {
     return (
@@ -219,7 +179,7 @@ export function GamePage() {
         getToken={getToken}
         onExit={(checkpointFailureMessage) => {
           // PlayPage unmounts as soon as this runs, so a failed exit-save's notice
-          // (FR-006a) has to be shown here, once we're back on the stories screen.
+          // (FR-006a) has to be shown here, once we're back on this screen.
           setCheckpointExitNotice(checkpointFailureMessage || null);
           setSession(null);
         }}
@@ -227,74 +187,70 @@ export function GamePage() {
     );
   }
 
-  return (
-    <div style={{ maxWidth: "1020px", padding: "var(--space-6) var(--space-4) 64px" }}>
-      <h1 style={{ margin: 0, fontSize: "36px" }}>Set up your game</h1>
-      <hr className="hr" style={{ margin: "22px 0 32px" }} />
+  if (resumeSessionId) {
+    if (resuming) {
+      return (
+        <PageContainer>
+          <p className="text-muted">Resuming your story…</p>
+        </PageContainer>
+      );
+    }
+    // Reached either because resuming failed (resumeError set) or because the player
+    // exited a successfully resumed session back to here (checkpointExitNotice, or
+    // neither — a plain way back).
+    return (
+      <PageContainer>
+        {resumeError && (
+          <p role="alert" style={{ fontSize: "12px", color: "var(--color-accent-700)" }}>
+            {resumeError}
+          </p>
+        )}
+        {checkpointExitNotice && (
+          <p role="status" className="text-muted" style={{ fontSize: "13px" }}>
+            {checkpointExitNotice}
+          </p>
+        )}
+        <Link to="/menu" className="btn btn-secondary">
+          Back to Home
+        </Link>
+      </PageContainer>
+    );
+  }
 
-      <StoriesInProgress
-        sessions={savedGames}
-        loading={savedGamesLoading}
-        error={savedGamesError}
-        onResume={handleResume}
-      />
-      {resumeError && (
-        <p role="alert" style={{ fontSize: "12px", color: "var(--color-accent-700)", margin: "8px 0 32px" }}>
-          {resumeError}
-        </p>
-      )}
+  return (
+    <PageContainer>
+      <h1 style={{ margin: 0, fontSize: "36px" }}>{adventureName || "Set up your game"}</h1>
+      <hr className="hr" style={{ margin: "22px 0 32px" }} />
       {checkpointExitNotice && (
         <p role="status" className="text-muted" style={{ fontSize: "13px", margin: "8px 0 32px" }}>
           {checkpointExitNotice}
         </p>
       )}
 
-      <section aria-labelledby="step1-heading" style={{ marginTop: "40px" }}>
+      <section aria-labelledby="step1-heading">
         <h2 id="step1-heading" style={{ fontSize: "16px", margin: "0 0 12px" }}>
-          01 — Choose an adventure
+          01 — Name your character
         </h2>
-        <AdventureList
-          adventures={adventures}
-          loading={adventuresLoading}
-          error={adventuresError}
-          selectedId={adventureId}
-          onSelect={handleSelectAdventure}
+        <CharacterNameStep value={characterName} onChange={setCharacterName} error={fieldErrors.characterName} />
+      </section>
+
+      <section aria-labelledby="step2-heading" style={{ marginTop: "40px" }}>
+        <h2 id="step2-heading" style={{ fontSize: "16px", margin: "0 0 12px" }}>
+          02 — Choose a character type
+        </h2>
+        <CharacterTypeStep
+          characterTypes={characterTypes}
+          loading={typesLoading}
+          error={typesError}
+          selectedName={characterType}
+          onSelect={setCharacterType}
         />
-        {fieldErrors.adventureId && (
+        {fieldErrors.characterType && (
           <p role="alert" style={{ fontSize: "12px", color: "var(--color-accent-700)", margin: "8px 0 0" }}>
-            {fieldErrors.adventureId}
+            {fieldErrors.characterType}
           </p>
         )}
       </section>
-
-      {step1Done && (
-        <section aria-labelledby="step2-heading" style={{ marginTop: "40px" }}>
-          <h2 id="step2-heading" style={{ fontSize: "16px", margin: "0 0 12px" }}>
-            02 — Name your character
-          </h2>
-          <CharacterNameStep value={characterName} onChange={setCharacterName} error={fieldErrors.characterName} />
-        </section>
-      )}
-
-      {step1Done && (
-        <section aria-labelledby="step3-heading" style={{ marginTop: "40px" }}>
-          <h2 id="step3-heading" style={{ fontSize: "16px", margin: "0 0 12px" }}>
-            03 — Choose a character type
-          </h2>
-          <CharacterTypeStep
-            characterTypes={characterTypes}
-            loading={typesLoading}
-            error={typesError}
-            selectedName={characterType}
-            onSelect={setCharacterType}
-          />
-          {fieldErrors.characterType && (
-            <p role="alert" style={{ fontSize: "12px", color: "var(--color-accent-700)", margin: "8px 0 0" }}>
-              {fieldErrors.characterType}
-            </p>
-          )}
-        </section>
-      )}
 
       <div
         style={{
@@ -310,7 +266,7 @@ export function GamePage() {
           {submitting ? "Starting…" : "Start playing"}
         </button>
       </div>
-    </div>
+    </PageContainer>
   );
 }
 
