@@ -48,7 +48,7 @@ Referenced by number below rather than restated in each task.
 
 ## Phase 1: Setup — canonical design reference
 
-- [ ] **T001** Vendor issue #332's attachments into `specs/designs/`: replace `03-play.html`
+- [X] **T001** Vendor issue #332's attachments into `specs/designs/`: replace `03-play.html`
   with the attached mockup and add `03-play-spec.md`. Update `specs/designs/README.md` — add
   the `03-play-spec.md` row to the screen list, record that `03` supersedes its own earlier
   markup, and add a new note (there is none today) naming both (a) any prototype-only
@@ -66,16 +66,16 @@ Nothing in Phases 3–5 is independently testable until this checkpoint holds: e
 acceptance scenarios assume a class-based, correctly scrolling transcript. Neither the italic
 player treatment nor the auto-scroll exists today.
 
-- [ ] **T002** [P] `tests/Play/StoryPane.test.jsx` — assert a player-input entry carries the
+- [X] **T002** [P] `tests/Play/StoryPane.test.jsx` — assert a player-input entry carries the
   italic treatment and a story entry does not (FR-003); assert the scroller's `scrollTop` is
   driven to `scrollHeight` on mount and after a turn is appended (FR-004). Must fail before
   T005.
-- [ ] **T003** [P] `tests/Play/PlaySurfaceLayout.test.jsx` — assert the header, dock and panel
+- [X] **T003** [P] `tests/Play/PlaySurfaceLayout.test.jsx` — assert the header, dock and panel
   are structurally identical at 1, 2, 5 and 10 turns, and that the transcript is the only
   scroll container (FR-001, SC-002); assert the suggested-action chips and the free-text
   command field render together for a session still accepting moves, never one in place of the
   other (FR-005). Must fail before T004–T010 if either is wrong.
-- [ ] **T004** Create `src/components/Play/Play.css` with the page-scoped classes named in
+- [X] **T004** Create `src/components/Play/Play.css` with the page-scoped classes named in
   contracts/ui.md: `.play-shell`, `.play-body`, `.play-main`, `.play-panel`,
   `.play-transcript`, `.play-entry`, `.play-label`, `.play-text`, `.play-text-player`,
   `.play-dock`, `.play-try`, `.play-chip`, `.play-cmd`, `.play-go`, `.play-notice`,
@@ -88,25 +88,25 @@ player treatment nor the auto-scroll exists today.
   - `.play-text` — the constitution's Readability rule #1 for narrative prose: at or above the
     design system's body size, its line-height or greater, and `text-wrap: pretty`, as the
     mockup's own prose paragraphs have it (`03-play.html:46`).
-- [ ] **T005** `src/components/Play/StoryPane.jsx` — replace inline styles with the T004
+- [X] **T005** `src/components/Play/StoryPane.jsx` — replace inline styles with the T004
   classes, keeping `className="storyscroll"`; mark player-input entries `.play-text-player`
   (FR-003); add a scroller `ref` and a `useEffect` setting `scrollTop = scrollHeight` on mount
   and whenever `turns.length` changes (FR-004).
-- [ ] **T006** [P] `src/components/Play/SuggestedActions.jsx` — apply `.play-try`,
+- [X] **T006** [P] `src/components/Play/SuggestedActions.jsx` — apply `.play-try`,
   `.play-label`, `.play-chip`. No behaviour change.
-- [ ] **T007** [P] `src/components/Play/InstructionInput.jsx` — apply `.play-cmd`, `.play-go`,
+- [X] **T007** [P] `src/components/Play/InstructionInput.jsx` — apply `.play-cmd`, `.play-go`,
   `.play-visually-hidden`. No prop or behaviour change; the command is still submitted exactly
   as typed.
-- [ ] **T008** [P] `src/components/Play/StatusPanel.jsx` — apply `.play-panel`, `.play-label`,
+- [X] **T008** [P] `src/components/Play/StatusPanel.jsx` — apply `.play-panel`, `.play-label`,
   `.play-location`, `.play-goal`, `.play-progress-row`, `.play-autosave` to the existing
   location / goal / progress-numeral / completion-reason / autosave rendering. No new
   affordance: the segmented bar is T017, the hint control T020.
-- [ ] **T009** `src/pages/PlayPage.jsx` — import `Play.css`; replace the inline
+- [X] **T009** `src/pages/PlayPage.jsx` — import `Play.css`; replace the inline
   shell/body/main/dock/notice wrappers with `.play-shell`, `.play-body`, `.play-main`,
   `.play-dock`, `.play-notice`. No behaviour change.
-- [ ] **T010** [P] `src/pages/AdminStoryTestPlayPage.jsx` — same wrapper classes as T009, so
+- [X] **T010** [P] `src/pages/AdminStoryTestPlayPage.jsx` — same wrapper classes as T009, so
   `010-story-test-play-done`'s transcript view stays in sync with the real play surface.
-- [ ] **T011** Run `npm --prefix src/frontend test -- Play`, `-- TitleBar`,
+- [X] **T011** Run `npm --prefix src/frontend test -- Play`, `-- TitleBar`,
   `-- AdminStoryTestPlayPage`. Fix only selectors tied to removed inline styles; no existing
   test's asserted behaviour may change.
 
