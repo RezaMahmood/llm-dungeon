@@ -144,6 +144,10 @@ thing the player does — takes a turn, saves a checkpoint, refreshes — tells 
 the session has been removed and puts them back on the Home page, where the session is no
 longer listed among their games.
 
+The message states that the session has been removed, without naming who removed it: the
+application cannot distinguish an administrator's deletion from the player's own deletion in
+another tab, and claiming an actor it did not observe would be a fabrication.
+
 **Why this priority**: Deletion is only safe if the player on the other end of it is handled
 honestly. Without this, a player would keep typing into a session that no longer exists and
 receive a generic error, or see a phantom entry in their games list.
@@ -157,7 +161,7 @@ list of games.
 
 1. **Given** a player on the play surface whose session has just been deleted, **When** they
    submit their next instruction, **Then** they are returned to the Home page and shown a
-   message stating that this session has been removed by an administrator.
+   message stating that this session has been removed.
 2. **Given** the same player, **When** they instead refresh the play surface or save a
    checkpoint, **Then** the same return-to-Home-with-a-message outcome occurs — the player is
    not left on a dead screen by whichever action they happened to take.
@@ -250,9 +254,13 @@ are re-read from the server while the administrator stays on the Sessions screen
   removed from that list with no placeholder, error, or residual entry.
 - **FR-012**: When a player acts on a session that has been deleted — taking a turn, saving a
   checkpoint, refreshing the play surface, or resuming it — the system MUST return the player
-  to the Home page and show a message stating that the session has been removed by an
-  administrator. Detection on the player's next action is sufficient; the system is NOT
-  required to interrupt an idle player (see *Assumptions*).
+  to the Home page and show a message stating that the session has been removed. The message
+  MUST NOT name who removed it (see User Story 3). Detection on the player's next action is
+  sufficient; the system is NOT required to interrupt an idle player (see *Assumptions*).
+- **FR-012a**: A removed session MUST be distinguishable from a deleted or unpublished story.
+  Today a missing session and a missing story produce the same story-deleted outcome on the
+  play surface, which would tell a player their story was deleted when in fact only their
+  session was; the two MUST carry distinct outcomes and distinct messages.
 - **FR-013**: The session-removed message (FR-012) MUST be dismissible, and dismissing it MUST
   leave the player on a working, current Home page from which they can start or resume another
   story.
