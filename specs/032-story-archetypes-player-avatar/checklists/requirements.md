@@ -33,16 +33,20 @@
 
 All 16 items pass; the specification is ready for `/speckit-plan`.
 
-- Clarification session 2026-09-13 resolved seven questions in total (two during
-  `/speckit-specify`, five during `/speckit-clarify`). Beyond the original two markers, the
-  session settled: fail-closed behaviour when the story-relevance check returns no verdict;
-  that a pre-existing session keeps its character name; that the avatar description is shown
-  read-only in the play surface's status panel; that a description is stored per player per
-  adventure and prefills the next setup; and that the archetype roster takes precedence over
-  invented characters for named or story-significant roles.
-- **This is now a governance change.** FR-009c/FR-017a require amending the constitution's
-  Play surface screen contract, which puts the feature on the blast-radius list in
-  `CLAUDE.md` — `/code-review ultra` at PR time, user-triggered.
+- Clarification session 2026-09-13 settled twelve questions in total — two during
+  `/speckit-specify`, five in the first `/speckit-clarify` pass, five in the second.
+- The second pass covered the operational shape of the avatar check, which the first had
+  deferred: the authored opening scene (turn 0) stays verbatim and avatar-independent, so
+  decision #271 stands; validation tokens count against the adventure's total but never a
+  session's; cost-free checks run before any model-backed one and the model-backed attempts
+  are capped; rejections leave nothing in operational data; and the check is abandoned at 10
+  seconds behind a pending indication.
+- **This is a governance change.** FR-009c/FR-017a require amending the constitution's Play
+  surface screen contract, which puts the feature on the blast-radius list in `CLAUDE.md` —
+  `/code-review ultra` at PR time, user-triggered.
+- Two accepted blind spots are recorded in Assumptions rather than resolved: no rejection
+  signal means an over-strict checker will not announce itself in operational data, and the
+  model-backed attempt cap's exact value is left to planning.
 - Remaining assumptions open to challenge at planning: repurposing the roster in place rather
   than adding a field; keeping the 50-character character name alongside the description;
   preserving the publication precondition; and deleting a player's stored descriptions when
