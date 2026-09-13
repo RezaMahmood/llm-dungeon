@@ -25,50 +25,36 @@ new backend/LLM-prompt surface for a value the existing `locationLabel` already 
 out of proportion to a UI-conformance feature). Show only the numeral, no title (rejected —
 drops half of the canonical design's chapter kicker for no reason).
 
-## Decision 2: Spelling-forgiveness runs client-side against the turn's own vocabulary
+## Decision 2: The "Stuck? Get a hint" control ships disabled; its guidance is a separate feature
 
-**Decision**: A submitted command is compared, client-side, against the current turn's
-`suggestedActions` (already present in every turn payload) using a simple near-miss check
-(e.g. edit-distance against each suggested action's words). A likely near-miss produces the
-non-blocking suggestion note (spec.md FR-006/FR-007); the move itself is still submitted and
-narrated exactly as typed. No backend or LLM-service change.
+**Decision**: `StatusPanel` gains the "Stuck? Get a hint" control the canonical design places
+between the progress section and the autosave notice — built from the design system's
+`btn btn-secondary btn-block`, in the same position and treatment — rendered `disabled` with
+an adjacent `.play-hint-pending` note reading "Hints are coming soon." The control performs no
+action in this feature. What a hint says, and where it comes from, is specified separately.
 
-**Rationale**: The canonical design's own data contract (`03-play-spec.md` §11) shows
-`spellingHint?: { suggestion: string }` as part of the view the play screen renders, but
-`sessions.py`'s `_narrative_dict` and `PlayerInteraction` carry no such field today, and nothing
-in issue #332 or its attachments asks for a new backend judgment call — the design spec
-explicitly scopes itself to what the play screen shows, not how a misspelling is detected.
-Constitution readability rule #4 already requires forgiving input; a client-side check against
-data already on the page satisfies it without new scope.
+**Rationale**: spec.md's *Scope note* governs: the design shows this control, nothing behind it
+exists on `origin/main` (`StatusPanel.jsx` has no such button — the string lives only in
+`specs/designs/03-play.html`), so this feature builds the control and defers the behaviour.
+`disabled` is what makes the deferral honest: the design system already themes the disabled
+state (reduced opacity, `not-allowed` cursor, `.btn:disabled`), a disabled `<button>` is
+conveyed natively to assistive technology, and the adjacent note satisfies the constitution's
+"every failure or dead-end state offers a next action" by saying plainly what is coming. An
+enabled control that does nothing would fail that rule and mislead the player.
 
-**Alternatives considered**: Have the LLM narrative service flag suspected misspellings and
-return them as a new turn field (rejected for this feature — a real backend/prompt-engineering
-change, out of proportion to a UI-conformance issue; spec.md's Assumptions section leaves this
-door open for a future feature to add without changing today's requirements). Skip spelling
-forgiveness entirely (rejected — explicitly required by both the design spec and the existing,
-currently-unimplemented constitution readability rule #4).
+**Alternatives considered**: Reveal a static, generic hint written here (rejected — the
+invented stand-in behaviour spec.md's *Scope note* exists to prevent; it would have to be
+unpicked when the real hint ships). Omit the control until its feature lands (rejected — the
+panel's layout and spacing do not match the canonical design without it, which is this
+feature's whole purpose). Call an LLM/backend endpoint for a story-aware hint (rejected —
+that *is* the separate feature).
 
-## Decision 3: "Stuck? Get a hint" discloses static, generic guidance in place
+**Constitution note**: the "Play surface" screen contract requires "a hint action", which a
+disabled control does not yet deliver. plan.md's Constitution Check records this as a named,
+time-boxed deferral rather than a PASS. The broader problem — the constitution stating
+functional requirements that belong in feature specs — is tracked as issue #340.
 
-**Decision**: The status panel's existing (currently inert) "Stuck? Get a hint" button becomes
-a disclosure toggle that reveals a short, generic, non-story-specific hint ("try one of the
-suggested actions, or describe what you'd do in your own words — spelling doesn't have to be
-perfect") directly beneath it, and hides it again on a second click. No network call, no
-story-specific hint content.
-
-**Rationale**: `03-play-spec.md` §12 explicitly places "the hint content itself" out of scope,
-and the constitution's own "Play surface" screen contract already requires "a hint action"
-without specifying its content — so the only requirement this feature must satisfy is that a
-hint action exists and works in place (FR-009), which a static disclosure satisfies today.
-Constitution Principle XI (Implementer Design Latitude) permits this judgment call without
-a pre-implementation sign-off.
-
-**Alternatives considered**: Call an LLM/backend endpoint for a story-aware hint (rejected —
-real new backend + prompting surface, explicitly out of scope per the design spec itself).
-Leave the button inert (rejected — fails FR-009 and the constitution's existing "hint action"
-requirement).
-
-## Decision 4: Header Refresh reuses `RefreshContext`/`getSession`, exactly as `NavBar` does elsewhere
+## Decision 3: Header Refresh reuses `RefreshContext`/`getSession`, exactly as `NavBar` does elsewhere
 
 **Decision**: `PlayPage` publishes a refresh handler through the existing `RefreshContext`
 (`usePublishRefresh`, the same hook every other authenticated page already uses), and
@@ -81,28 +67,52 @@ resume path) and replaces the in-memory turn history/status with what comes back
 own data without a full reload" and already wires `RefreshContext` through
 `AuthenticatedLayout` to both `NavBar` and `TitleBar`'s siblings; `TitleBar` is simply the one
 place that never published or read it. Reusing `getSession` avoids inventing a second way to
-fetch the same session shape `GamePage` already fetches on resume.
+fetch the same session shape `GamePage` already fetches on resume. spec.md's *Scope note* does
+not defer this one: the implementation pattern already exists, so wiring it is ordinary work.
 
 **Alternatives considered**: A dedicated "resync" endpoint (rejected — `GET
 /api/game/sessions/{sessionId}` already returns everything needed; no gap to fill). Reload the
 whole SPA (rejected — contradicts `019-spa-refresh-button`'s entire premise and would drop
 the player out of the play screen).
 
-## Decision 5: Page-scoped styling moves into `Play.css`, mirroring `Home.css`
+## Decision 4: Page-scoped styling moves into `Play.css`, mirroring `Home.css`
 
 **Decision**: The inline `style={{...}}` objects that currently encode this screen's
 structural layout (flex/grid rules, padding, the 292px status-panel width, the transcript's
 64ch cap) move into a new `src/frontend/src/components/Play/Play.css`, imported once by
-`PlayPage`/`AdminStoryTestPlayPage`. Values remain token-based (`var(--color-*)` etc.); no
-literal hex/pixel-outside-token values are introduced.
+`PlayPage`/`AdminStoryTestPlayPage`. Each value is translated to the nearest design token
+(`--space-*`, `--font-*`, `--color-*`) from the app's vendored token layer
+(`src/frontend/src/styles/designTokens.css`, whose source is `specs/designs/styles.css`); a
+value with no token — the 292px panel width, the 64ch measure — is carried as a literal and
+named in `Play.css` as a deliberate exception. The `.play-*` classes are additive layout-only
+modifiers: every control keeps its design-system class (`btn btn-secondary`, `input`,
+`btn btn-primary`), so the four mandated interaction states are never restyled locally.
 
 **Rationale**: `028-home-page-redesign` established the precedent (`Home.css`) for exactly
 this situation — "a small number of narrowly scoped layout or behavior utility classes with
 no visual-design opinion of their own" (constitution, UI Design System Requirements) — and
 the play surface's inline styles were flagged as the thing issue #332 asks to fix
-("conformance," not just visual parity).
+("conformance," not just visual parity). A literal 1:1 copy of today's inline pixel values
+would defeat that: the constitution makes "a magic pixel value that a token already covers" a
+review blocker.
 
 **Alternatives considered**: Leave the structural rules as inline styles and only fix the
-missing affordances (rejected — issue #332 and spec.md FR-014 both call for design-system
+missing affordances (rejected — issue #332 and spec.md FR-012 both call for design-system
 conformance, and the inline-style duplication across `PlayPage`/`AdminStoryTestPlayPage` is
 exactly the kind of screen-specific reimplementation Principle VIII warns against).
+
+## Decision 5: The segmented progress bar is promoted to a shared class, not re-forked
+
+**Decision**: The chapter-progress bar the status panel needs (spec.md FR-006) is the same
+control `028-home-page-redesign` already shipped as `.home-pcard-bars` / `span.filled` in
+`src/frontend/src/components/Home/Home.css`. That rule is promoted into the app's shared token
+layer as `.progress-bars` / `span.filled`, and both Home and the play surface consume it;
+`Home.css` keeps `.home-pcard-bars` only as a positioning wrapper.
+
+**Rationale**: Principle VIII forbids introducing "a component or visual-style class
+duplicating one" the system already provides. Two independent segmented bars with the same
+accent/neutral treatment would drift the first time either is restyled.
+
+**Alternatives considered**: Define `.play-segments`/`.play-segment` in `Play.css`
+(rejected — the duplication above). Leave Home's rule alone and import `Home.css` from the
+play surface (rejected — couples two unrelated screens through a page-scoped stylesheet).

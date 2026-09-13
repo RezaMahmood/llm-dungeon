@@ -32,8 +32,9 @@
 ## Notes
 
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
-- No [NEEDS CLARIFICATION] markers were needed: every open question (hint
-  content, spelling-detection source, meaning of "refresh") had a reasonable
-  default documented in Assumptions, consistent with Constitution Principle XI
-  (Implementer Design Latitude) for a feature whose canonical acceptance
-  reference (specs/designs/03-play.html, 03-play-spec.md) already exists.
+- No [NEEDS CLARIFICATION] markers remain. The hint control's guidance is
+  deliberately deferred to a separate feature under spec.md's *Scope note*, not
+  left open; spelling tolerance was removed as a requirement outright; and
+  "refresh" carries the meaning `019-spa-refresh-button` already gave it.
+- `03-play-spec.md` is named as the canonical acceptance reference but is not yet
+  in the repo — tasks.md T001 vendors it, and it blocks the rest of the list.

@@ -7,6 +7,11 @@ is unchanged (data-model.md). What changes is the **component contract** between
 `PlayPage` and the components it composes, and the markup/class contract each component
 presents for styling and testing.
 
+All `.play-*` classes below are additive layout-only modifiers. Every control keeps the
+design-system class it already carries (`btn btn-secondary`, `input`, `btn btn-primary`), so
+hover, pressed, `:focus-visible` and disabled remain the shared layer's (research.md
+Decision 4).
+
 ## `StoryPane`
 
 **Props**: `turns: Turn[]` (unchanged shape/prop name).
@@ -26,22 +31,24 @@ presents for styling and testing.
 **Props**: `locationLabel`, `goalLabel`, `progress`, `completionReason` (unchanged).
 
 **Rendering contract**:
-- `progress` non-null renders a numeral + "of N chapters" plus a segmented bar: one
-  `.play-segment` per chapter in `progress.total`, the first `progress.current` of them
-  additionally carrying `.play-segment-done`.
-- Always renders a "Stuck? Get a hint" button (`aria-expanded` reflecting open/closed); a
-  click toggles a static hint paragraph directly beneath it. No prop controls this — it is
-  local component state.
+- `progress` non-null renders a numeral + "of N chapters" plus a segmented bar using the
+  shared `.progress-bars` class (research.md Decision 5): one `span` per chapter in
+  `progress.total`, the first `progress.current` of them additionally carrying `.filled`.
+- Always renders a "Stuck? Get a hint" button (`btn btn-secondary btn-block`) between the
+  progress section and the autosave notice. It is **always `disabled`** in this feature and
+  carries no click handler; an adjacent `.play-hint-pending` note reads "Hints are coming
+  soon." The guidance behind the control is a separate feature (spec.md *Scope note*,
+  research.md Decision 2).
 - Always renders the autosave notice as its final child (`margin-top: auto`).
 
 ## `InstructionInput`
 
-**Props**: adds one optional prop, `spellingSuggestion?: string`, to the existing
-`{ value, onChange, onSubmit, disabled }`.
+**Props**: unchanged — `{ value, onChange, onSubmit, disabled }`.
 
-**Rendering contract**: when `spellingSuggestion` is a non-empty string, renders a
-`role="status"` note beneath the command row naming it ("Did you mean **{suggestion}**? …");
-otherwise renders nothing there. The prop never disables or blocks `onSubmit`.
+**Rendering contract**: unchanged behaviour. The command is submitted exactly as typed;
+nothing inspects, flags, or corrects the player's spelling (spec.md Assumptions). Only its
+inline styles move to `.play-cmd` / `.play-go` / `.play-visually-hidden`, alongside the
+`input` and `btn btn-primary` classes it already carries.
 
 ## `TitleBar`
 
@@ -57,18 +64,17 @@ default for every non-play screen using `TitleBar`).
 - Publishes `{ refresh, loading }` to `RefreshContext` via `usePublishRefresh`, alongside its
   existing `usePublishPlayTitle` publish. `refresh` re-calls `getSession(token, sessionId)`
   and replaces `turns`/`status`/`completionReason` with the response; a failure leaves all
-  three untouched and surfaces the existing inline notice pattern.
-- Derives and passes `spellingSuggestion` to `InstructionInput` from the just-completed
-  submission (research.md Decision 2); clears it on the next submission regardless of
-  outcome.
+  three untouched, leaves `inputValue` untouched, and surfaces the existing inline notice
+  pattern.
 - No change to its existing props (`sessionId`, `storyName`, `initialTurns`, `getToken`,
-  `onExit`) or to any handler already covered by `tests/Play/PlayPage.test.jsx`.
+  `onExit`), to its submit path, or to any handler already covered by
+  `tests/Play/PlayPage.test.jsx`.
 
 ## `AdminStoryTestPlayPage`
 
 Consumes the same `StoryPane`/`StatusPanel`/`InstructionInput`/`SuggestedActions` and the new
 shared `Play.css` classes, so `010-story-test-play-done`'s transcript view gets the same
-chapter header/progress bar/hint disclosure "for free" and does not visually diverge from the
-real play surface. It does **not** gain a Refresh control (test-play sessions aren't
+chapter header and progress bar "for free" and does not visually diverge from the real play
+surface. It does **not** gain a Refresh control (test-play sessions aren't
 resumable/shareable across tabs the way a real session is, and `019-spa-refresh-button`'s
 scope never named this screen).

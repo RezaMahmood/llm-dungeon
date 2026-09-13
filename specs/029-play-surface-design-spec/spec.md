@@ -12,17 +12,31 @@ game page should follow the design spec' and attaches specs/designs/03-play.html
 and specs/designs/03-play-spec.md as the canonical reference — a full-viewport,
 no-page-scroll play screen with a fixed header, a scrolling transcript pane
 (chapter numeral/kicker, THE STORY/YOU turn blocks, ~150-word replies), a fixed
-input dock (suggested-action chips + free-text command line + spelling-forgiveness
-hint), a fixed 292px status panel (location, goal, chapter progress bar, 'Stuck?
-Get a hint', autosave notice), and a pause-and-exit dialog. The existing
+input dock (suggested-action chips + free-text command line), a fixed 292px
+status panel (location, goal, chapter progress bar, 'Stuck? Get a hint',
+autosave notice), and a pause-and-exit dialog. The existing
 PlayPage/StoryPane/StatusPanel/InstructionInput/SuggestedActions/PauseDialog
 components (008-core-gameplay-done, 009-save-and-continue) already implement much
 of this with inline styles; this feature should bring them into conformance with
 the current canonical 03-play-spec.md/03-play.html (chapter header, progress
-segment bar, hint disclosure, spelling-forgiveness hint, the header's Refresh
-control per 019-spa-refresh-button), using shared CSS classes instead of ad hoc
-inline styles where the design system calls for page-scoped structural rules,
-without breaking any existing gameplay/save-and-continue/story-delete behavior."
+segment bar, hint control, the header's Refresh control per 019-spa-refresh-button),
+using shared CSS classes instead of ad hoc inline styles where the design system
+calls for page-scoped structural rules, without breaking any existing
+gameplay/save-and-continue/story-delete behavior."
+
+## Scope note: controls now, behaviour separately
+
+This is a design-conformance feature. Where the canonical design shows a control
+that the application does not yet implement, **this feature builds the control —
+its markup, styling, states, and accessibility — and the behaviour behind it is
+specified separately.** No stand-in behaviour is invented to make a control
+appear functional.
+
+This applies to exactly one control: the status panel's "Stuck? Get a hint"
+(FR-007). Every other affordance here either presents data the application
+already produces (chapter identifier, progress bar) or reuses an implementation
+pattern the application already has (the header's Refresh control,
+`019-spa-refresh-button`).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -59,59 +73,36 @@ goal, and a visual progress indicator — all without any additional click.
 
 ---
 
-### User Story 2 - Keep playing despite an imperfect command (Priority: P2)
+### User Story 2 - See the play surface the design describes (Priority: P2)
 
-A player types a command with a likely spelling mistake. They want their move to
-still count, with a gentle nudge about what the game thinks they meant — never a
-rejection that forces them to retype.
+A player looking at the play screen sees the complete status panel the design
+calls for, including its "Stuck? Get a hint" control, laid out and styled as the
+canonical reference shows it.
 
-**Why this priority**: Directly named in the design spec as a requirement ("the
-game never rejects a move outright for spelling") and is a common source of
-frustration in text-driven play; it is lower priority than P1 because it affects
-only the subset of turns where a typo actually occurs.
+**Why this priority**: The status panel is incomplete against the canonical
+design without this control, and its absence changes the panel's layout and
+spacing. Ranked below P1 because it delivers presence and layout conformance, not
+a behaviour a player can act on — the guidance itself lands in a separate feature
+(see *Scope note*).
 
-**Independent Test**: Submit a command that closely resembles one of the current
-turn's suggested actions but is misspelled, and confirm the move is accepted and
-narrated normally while a small suggestion note appears beneath the command line.
-
-**Acceptance Scenarios**:
-
-1. **Given** the player types a command that is a near-miss for a recognized word
-   or suggested action, **When** they submit it, **Then** the story responds to
-   their move as submitted, and a suggestion note appears offering the closest
-   likely word.
-2. **Given** the suggestion note is showing, **When** the player submits their
-   next move (whether or not they act on the suggestion), **Then** the note
-   clears and does not reappear unless the new move is itself flagged.
-3. **Given** the player types a command with no likely spelling issue, **When**
-   they submit it, **Then** no suggestion note appears.
-
----
-
-### User Story 3 - Get unstuck without losing your place (Priority: P2)
-
-A player who doesn't know what to do next wants a nudge, available right where
-they're already looking, that doesn't take them away from the story.
-
-**Why this priority**: Explicitly required by the design spec's status panel
-("Stuck? Get a hint"); ranked alongside spelling forgiveness as a support feature
-that improves retention without being core to reading the story.
-
-**Independent Test**: Click "Stuck? Get a hint" in the status panel and confirm
-guidance appears in place, with the transcript and input dock unaffected and the
-player able to dismiss it and keep playing.
+**Independent Test**: Load the play screen and confirm the status panel renders
+the "Stuck? Get a hint" control in the position and treatment the canonical
+design shows, that it is reachable by keyboard, and that it never presents itself
+as offering guidance this feature does not deliver.
 
 **Acceptance Scenarios**:
 
-1. **Given** the player is on the play screen, **When** they select "Stuck? Get a
-   hint", **Then** hint guidance appears within the status panel without
-   navigating away from the play screen or interrupting the transcript.
-2. **Given** the hint is showing, **When** the player selects the control again,
-   **Then** the hint is hidden again.
+1. **Given** the player is on the play screen, **When** the status panel renders,
+   **Then** a "Stuck? Get a hint" control appears between the progress section and
+   the autosave notice, matching the canonical design's placement and treatment.
+2. **Given** the player reaches the control by keyboard, **When** it takes focus,
+   **Then** it shows a visible focus indicator and communicates — to sighted and
+   assistive-technology users alike — that it is not yet available, rather than
+   appearing actionable and doing nothing.
 
 ---
 
-### User Story 4 - Recover a stale play screen without leaving the story (Priority: P3)
+### User Story 3 - Recover a stale play screen without leaving the story (Priority: P3)
 
 A player who suspects their play screen is out of date (e.g. they resumed the
 same story in another tab, or a reply seems to be missing) wants to bring it back
@@ -150,16 +141,13 @@ recorded state, while remaining on the same screen.
 - What happens when a turn offers no suggested actions? → The suggested-action
   row is omitted for that turn; the free-text command line remains available
   (existing behavior, unchanged).
-- What happens if the player asks for a hint right as the session concludes?
-  → The hint control does not block or replace the "story has ended" notice
-  already required by existing behavior.
 - What happens if the header's refresh fails? → The player sees a notice and
   keeps whatever transcript and typed-but-unsubmitted input they had; nothing is
   lost or silently replaced.
 - What happens on a session that has already concluded? → Progress, location,
-  and goal continue to reflect the final turn; the hint, spelling-forgiveness,
-  and suggested-action controls no longer accept new moves, consistent with
-  existing concluded-session handling.
+  and goal continue to reflect the final turn; the suggested-action and
+  command-line controls no longer accept new moves, consistent with existing
+  concluded-session handling.
 
 ## Requirements *(mandatory)*
 
@@ -178,38 +166,35 @@ recorded state, while remaining on the same screen.
 - **FR-004**: The transcript MUST automatically show its newest content — with
   no scrolling required from the player — immediately when the play screen
   loads and again after every new turn is added.
-- **FR-005**: The input dock MUST always offer, together, both up to three
-  clickable suggested next actions (when the current turn has any) and a
-  free-text command field — a player must never be limited to only one of the
-  two.
-- **FR-006**: When the player's typed command is judged a likely misspelling,
-  the system MUST accept and act on the move as submitted, and MUST show a
-  small, dismissable suggestion note beneath the command line naming the
-  likely intended word — never a rejection or a block on submission.
-- **FR-007**: The suggestion note from FR-006 MUST clear after the player's next
-  submission and MUST NOT persist across turns for which it does not apply.
-- **FR-008**: The status panel MUST always show the player's current location,
+- **FR-005**: The input dock MUST offer, together, both up to three clickable
+  suggested next actions (when the current turn has any) and a free-text command
+  field, for as long as the session accepts new moves — a player must never be
+  limited to only one of the two.
+- **FR-006**: The status panel MUST always show the player's current location,
   and — whenever the current turn provides them — the player's goal and a
   visual indicator of chapter progress (current chapter of the total).
-- **FR-009**: The status panel MUST offer a "get a hint" action that a stuck
-  player can use without leaving the play screen, losing their place in the
-  transcript, or interrupting an in-progress move.
-- **FR-010**: The status panel MUST state, at all times the player is on the
+- **FR-007**: The status panel MUST present a "Stuck? Get a hint" control in the
+  position and treatment the canonical design gives it. Per the *Scope note*, the
+  guidance the control produces is **out of scope for this feature** and is
+  specified separately; until that feature ships, the control MUST be rendered in
+  a state that plainly communicates its unavailability to sighted and
+  assistive-technology users alike, and MUST NOT present itself as actionable.
+- **FR-008**: The status panel MUST state, at all times the player is on the
   play screen, that progress is saved automatically after every turn.
-- **FR-011**: The play screen's header MUST offer a refresh action — consistent
+- **FR-009**: The play screen's header MUST offer a refresh action — consistent
   with the refresh capability already available on other authenticated screens
   — that re-syncs the play screen against the session's currently recorded
   state without requiring the player to leave the story.
-- **FR-012**: A failed refresh (FR-011) MUST leave the player's current
+- **FR-010**: A failed refresh (FR-009) MUST leave the player's current
   transcript and any unsubmitted typed input intact, and MUST show a clear
   notice that the refresh did not succeed.
-- **FR-013**: Pausing MUST continue to present a confirmation naming where the
+- **FR-011**: Pausing MUST continue to present a confirmation naming where the
   story is saved before the player can exit; there MUST remain no way to leave
   an active session that skips this confirmation.
-- **FR-014**: The play screen's visual presentation (spacing, color, type
+- **FR-012**: The play screen's visual presentation (spacing, color, type
   sizes, and control styles) MUST be built from the project's shared design
   system rather than one-off values invented specifically for this screen.
-- **FR-015**: None of the above MUST change or remove any existing gameplay,
+- **FR-013**: None of the above MUST change or remove any existing gameplay,
   save/resume, checkpoint, or story-availability (deleted/unpublished) behavior
   already delivered by prior features (008-core-gameplay-done,
   009-save-and-continue, 025-story-delete-done).
@@ -222,8 +207,6 @@ recorded state, while remaining on the same screen.
   actions, and (optionally) the story's chapter progress as of that turn.
 - **Chapter Progress**: The player's position within the story, expressed as
   the current chapter number out of the story's total chapter count.
-- **Spelling Suggestion**: A single likely-intended word offered alongside an
-  accepted move that the system judged might be misspelled.
 - **Session Status**: Whether the play session is still active or has
   concluded, and — when concluded — the reason the story ended.
 
@@ -238,9 +221,10 @@ recorded state, while remaining on the same screen.
 - **SC-002**: Across transcripts of 1, 2, 5, and 10 turns, the header, input
   dock, and status panel occupy the identical layout in all four cases — only
   the transcript's scroll position differs.
-- **SC-003**: A command that is a likely misspelling of a recognized word is
-  still acted on 100% of the time on first submission — no player is ever asked
-  to retype a move purely because of spelling.
+- **SC-003**: Every element the canonical design places on the play screen is
+  present, in the position the design gives it — verified element by element
+  against `specs/designs/03-play-spec.md` and `03-play.html`, with the hint
+  control's guidance the single documented exception.
 - **SC-004**: A player who believes their play screen is out of date can bring
   it back in sync in a single action, without leaving the story or losing any
   text they had already typed.
@@ -250,23 +234,18 @@ recorded state, while remaining on the same screen.
 
 ## Assumptions
 
-- The hint's actual guidance text is not specified by the design spec (which
-  explicitly places "the hint content itself" out of scope) or by this
-  feature; a reasonable, generic message pointing the player back at the
-  suggested actions and free-text input satisfies FR-009, consistent with the
-  project's implementer design latitude for UI features.
-- No new backend capability is assumed to exist purely for spelling detection;
-  a reasonable default (comparing the player's submitted text against the
-  current turn's own suggested actions and recognized vocabulary) satisfies
-  FR-006/FR-007 without requiring a new server-side judgment call the design
-  spec does not otherwise describe. If the LLM-driven narrative service is
-  later extended to flag suspected misspellings itself, that signal can
-  replace the client-side comparison without changing this spec's
-  requirements.
-- "Refresh" (FR-011/FR-012) re-reads the same session's currently recorded
+- The hint control's guidance is out of scope here (see *Scope note*), matching
+  the canonical design spec's own exclusion of "the hint content itself".
+  FR-007 is satisfied by the control's presence, placement, and honest
+  unavailable state; a follow-up feature specifies what the control does.
+- "Refresh" (FR-009/FR-010) re-reads the same session's currently recorded
   turns and status from the server, matching the meaning "refresh" already has
   on every other authenticated screen (019-spa-refresh-button) — it is not a
   new kind of sync and does not restart or replay the story.
-- Responsive behavior below desktop width, the hint's own authored content,
-  checkpoint-management UI, and end-of-story/end-of-chapter screens remain out
-  of scope, matching the canonical design spec's own stated exclusions.
+- Spelling tolerance is not a requirement of this product: the game is not a
+  learning application, and no feature here detects, flags, or corrects a
+  player's spelling. Player commands are passed to the story exactly as typed,
+  which is already the behaviour today.
+- Responsive behavior below desktop width, checkpoint-management UI, and
+  end-of-story/end-of-chapter screens remain out of scope, matching the
+  canonical design spec's own stated exclusions.
