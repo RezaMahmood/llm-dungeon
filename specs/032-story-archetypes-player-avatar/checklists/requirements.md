@@ -31,18 +31,19 @@
 
 ## Notes
 
-All items pass; the specification is ready for `/speckit-plan`.
+All 16 items pass; the specification is ready for `/speckit-plan`.
 
-- Both clarification markers were resolved in the 2026-09-13 clarification session recorded
-  in the spec:
-  - **FR-003 / FR-003a-c** — the avatar description is required, 20-500 characters, rejected
-    when it reads as instruction rather than description (ambiguity resolved against
-    acceptance), and treated as untrusted input against context/prompt injection
-    independently of that check.
-  - **FR-016 / FR-016a-b** — a pre-existing session's chosen character type is not carried
-    forward as an avatar description and is no longer used as the player's identity; such a
-    session resumes without prompting and continues from its own transcript.
-- Everything else the issue listed as an open decision was resolved with a documented
-  assumption rather than a marker: repurposing the roster in place, keeping the character
-  name alongside the new description, and preserving the publication precondition. Each is
-  stated in the spec's Assumptions section and is open to challenge at planning.
+- Clarification session 2026-09-13 resolved seven questions in total (two during
+  `/speckit-specify`, five during `/speckit-clarify`). Beyond the original two markers, the
+  session settled: fail-closed behaviour when the story-relevance check returns no verdict;
+  that a pre-existing session keeps its character name; that the avatar description is shown
+  read-only in the play surface's status panel; that a description is stored per player per
+  adventure and prefills the next setup; and that the archetype roster takes precedence over
+  invented characters for named or story-significant roles.
+- **This is now a governance change.** FR-009c/FR-017a require amending the constitution's
+  Play surface screen contract, which puts the feature on the blast-radius list in
+  `CLAUDE.md` — `/code-review ultra` at PR time, user-triggered.
+- Remaining assumptions open to challenge at planning: repurposing the roster in place rather
+  than adding a field; keeping the 50-character character name alongside the description;
+  preserving the publication precondition; and deleting a player's stored descriptions when
+  their account is removed.
