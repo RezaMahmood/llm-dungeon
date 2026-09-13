@@ -1,5 +1,7 @@
-/* Vendored from specs/designs/styles.css — do not edit here; update the source and re-copy. */
-/* Modernist — design-system tokens and component classes. This file is the source of truth for the system's look; retune it here and see readme.md. */
+/* Modernist — design-system tokens and component classes, and the app's single token
+   layer. Originally vendored from a static design folder that has since been retired
+   (designs now arrive through GitHub issues), so this file is the source of truth for the
+   system's look: retune it here rather than keeping per-screen copies. */
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap');
 
 :root {

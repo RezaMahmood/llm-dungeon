@@ -21,7 +21,7 @@ once its task list is complete; the rest are in flight.
 - [Core gameplay](specs/008-core-gameplay-done/spec.md) — the play loop: free-form natural-language turns, LLM narration, content-safety screening of player input, sessions exclusive to the player who started them, and configurable completion (time limit, success criteria, fail criteria)
 - [Adventure and character setup](specs/006-adventure-and-character-setup/spec.md) — browse published stories, name a character, pick a character type, then start
 - [Save and continue](specs/009-save-and-continue/spec.md) — save progress, resume a session later, and be prompted to save on sign-out
-- [Persistent nav redesign](specs/022-persistent-nav-redesign-done/spec.md) — persistent top navigation and the Modernist design system ([`specs/designs/`](specs/designs/README.md))
+- [Persistent nav redesign](specs/022-persistent-nav-redesign-done/spec.md) — persistent top navigation and the Modernist design system
 - [SPA refresh button](specs/019-spa-refresh-button/spec.md) — in-app refresh, so a browser reload never throws a player out of the app
 
 **Authoring (administrators)**
@@ -172,7 +172,7 @@ Detail: [.github/workflows/README.md](.github/workflows/README.md),
 | [`src/frontend/`](src/frontend) | React SPA — pages, components, MSAL wiring, design tokens |
 | [`infrastructure/`](infrastructure) | Terraform, infrastructure tests, bootstrap scripts |
 | [`.github/workflows/`](.github/workflows) | CI/CD pipelines |
-| [`specs/`](specs) | One folder per feature: spec, plan, tasks, contracts, research; plus [`designs/`](specs/designs) |
+| [`specs/`](specs) | One folder per feature: spec, plan, tasks, contracts, research |
 | [`docs/`](docs) | Cross-cutting guides linked from this README |
 | [`scripts/`](scripts) | Repo tooling (PR-title config, workflow checks, release fixtures) |
 | [`utilities/`](utilities) | Human-run maintenance scripts, e.g. branch/worktree cleanup |
