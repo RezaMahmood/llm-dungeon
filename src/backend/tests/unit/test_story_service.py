@@ -6,7 +6,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from azure.cosmos.exceptions import CosmosResourceNotFoundError
+from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosResourceNotFoundError
 
 from backend.models.story import CharacterType, CompletionCriteria, Story
 from backend.models.story_draft import StoryDraft
@@ -200,13 +200,6 @@ def test_get_adventure_summary_defaults_published_to_false_for_a_legacy_row():
     assert summary["published"] is False
 
 
-def _service_with(story: Story, cosmos=None) -> StoryService:
-    cosmos = cosmos or MagicMock()
-    cosmos.get_container.return_value.read_item.return_value = story.to_dict()
-    service = StoryService(cosmos_service=cosmos)
-    return service
-
-
 # --- can_publish / publish / unpublish (FR-003, FR-004, FR-006, FR-008, FR-012) ---
 
 
@@ -241,23 +234,25 @@ def test_publish_returns_none_for_missing_story():
 
 def test_publish_returns_gate_sentinel_when_gate_not_satisfied():
     story = _story(lastTestPlayedAt=None)
-    service = _service_with(story)
+    service, cosmos, _llm = _service_with_etag(story)
 
     result = service.publish(story.id)
 
     assert result is PUBLISH_GATE_NOT_SATISFIED
-    service._container().upsert_item.assert_not_called()
+    assert cosmos.get_container("stories").items[story.id]["published"] is False
 
 
 def test_publish_sets_published_and_stamps_last_published_at_when_gate_satisfied():
     story = _story(contentUpdatedAt="2026-08-30T09:00:00Z", lastTestPlayedAt="2026-08-30T09:00:00Z")
-    service = _service_with(story)
+    service, cosmos, _llm = _service_with_etag(story)
 
     result = service.publish(story.id)
 
     assert result.published is True
     assert result.lastPublishedAt is not None
-    service._container().upsert_item.assert_called_once_with(result.to_dict())
+    stored = cosmos.get_container("stories").items[story.id]
+    assert stored["published"] is True
+    assert stored["lastPublishedAt"] == result.lastPublishedAt
 
 
 def test_redundant_publish_restamps_last_published_at_and_succeeds():
@@ -267,7 +262,7 @@ def test_redundant_publish_restamps_last_published_at_and_succeeds():
         published=True,
         lastPublishedAt="2026-08-30T09:05:00Z",
     )
-    service = _service_with(story)
+    service, _cosmos, _llm = _service_with_etag(story)
 
     result = service.publish(story.id)
 
@@ -275,25 +270,56 @@ def test_redundant_publish_restamps_last_published_at_and_succeeds():
     assert result.lastPublishedAt is not None
 
 
+def test_publish_does_not_resurrect_a_story_deleted_between_the_read_and_the_write():
+    """025-story-delete FR-003: a hard delete is permanent, so a publish racing it must
+    report not-found rather than recreating the document as a published story (#281)."""
+    story = _story(contentUpdatedAt="2026-08-30T09:00:00Z", lastTestPlayedAt="2026-08-30T09:00:00Z")
+    service, cosmos, _llm = _service_with_etag(story)
+    container = cosmos.get_container("stories")
+    _delete_after_read(container, story.id, nth=1)
+
+    assert service.publish(story.id) is None
+    assert story.id not in container.items
+
+
+def test_publish_raises_write_conflict_after_repeated_etag_precondition_failure():
+    story = _story(contentUpdatedAt="2026-08-30T09:00:00Z", lastTestPlayedAt="2026-08-30T09:00:00Z")
+    service, cosmos, _llm = _service_with_etag(story)
+    cosmos.get_container("stories").replace_item = MagicMock(side_effect=CosmosAccessConditionFailedError)
+
+    with pytest.raises(WriteConflictError):
+        service.publish(story.id)
+
+
 def test_unpublish_sets_published_false_and_leaves_last_published_at_unchanged():
     story = _story(published=True, lastPublishedAt="2026-08-30T09:05:00Z")
-    service = _service_with(story)
+    service, cosmos, _llm = _service_with_etag(story)
 
     result = service.unpublish(story.id)
 
     assert result.published is False
     assert result.lastPublishedAt == "2026-08-30T09:05:00Z"
-    service._container().upsert_item.assert_called_once_with(result.to_dict())
+    assert cosmos.get_container("stories").items[story.id]["published"] is False
 
 
 def test_redundant_unpublish_is_a_no_op_success():
     story = _story(published=False, lastPublishedAt="2026-08-30T09:05:00Z")
-    service = _service_with(story)
+    service, _cosmos, _llm = _service_with_etag(story)
 
     result = service.unpublish(story.id)
 
     assert result.published is False
     assert result.lastPublishedAt == "2026-08-30T09:05:00Z"
+
+
+def test_unpublish_does_not_resurrect_a_story_deleted_between_the_read_and_the_write():
+    story = _story(published=True)
+    service, cosmos, _llm = _service_with_etag(story)
+    container = cosmos.get_container("stories")
+    _delete_after_read(container, story.id, nth=1)
+
+    assert service.unpublish(story.id) is None
+    assert story.id not in container.items
 
 
 def test_unpublish_returns_none_for_missing_story():
@@ -458,7 +484,11 @@ class _EtagContainer:
         from azure.cosmos.exceptions import CosmosAccessConditionFailedError
 
         current = self.items.get(item)
-        if match_condition == MatchConditions.IfNotModified and current is not None and current.get("_etag") != etag:
+        if current is None:
+            # Cosmos' own behaviour: replace_item never creates. A story deleted between a
+            # service's read and its write must not be resurrected here either.
+            raise CosmosResourceNotFoundError
+        if match_condition == MatchConditions.IfNotModified and current.get("_etag") != etag:
             raise CosmosAccessConditionFailedError
         body = dict(body)
         body["_etag"] = self._next_etag()
@@ -475,6 +505,24 @@ class _EtagCosmosService:
 
     def query(self, container_name, sql, params=None, partition_key=None):  # noqa: ARG002
         return list(self.get_container(container_name).items.values())
+
+
+def _delete_after_read(container, story_id: str, nth: int = 1) -> None:
+    """Simulate a concurrent hard delete (025-story-delete FR-003) landing in the window
+    between a service's read and its write: the `nth` read of `story_id` returns the row
+    and then removes it, so the write that follows finds nothing (#281)."""
+    real_read = container.read_item
+    reads = {"count": 0}
+
+    def read_then_maybe_delete(item, partition_key):
+        row = real_read(item=item, partition_key=partition_key)
+        if item == story_id:
+            reads["count"] += 1
+            if reads["count"] == nth:
+                container.items.pop(story_id, None)
+        return row
+
+    container.read_item = read_then_maybe_delete
 
 
 def _configuration(**overrides):
@@ -610,6 +658,37 @@ def test_apply_content_write_raises_write_conflict_after_a_second_precondition_f
 
     with pytest.raises(WriteConflictError):
         service.apply_content_write(story, _configuration(), "admin-oid", _derived("New guidance."))
+
+
+def test_apply_content_write_raises_story_not_found_when_deleted_between_read_and_write():
+    """A hard delete landing in the etag window must surface as the same not-found the
+    story's absence at read time raises — never an unhandled Cosmos error (#281)."""
+    story = _story(id="story-1")
+    service, cosmos, _llm = _service_with_etag(story)
+    container = cosmos.get_container("stories")
+    _delete_after_read(container, story.id, nth=1)
+
+    with pytest.raises(StoryNotFoundError):
+        service.apply_content_write(story, _configuration(), "admin-oid", _derived("New guidance."))
+    assert story.id not in container.items
+
+
+def test_import_configuration_raises_story_not_found_when_deleted_between_read_and_write():
+    """The id-matched overwrite reads the story, then writes: a delete in between is the
+    import endpoint's existing 404 story_not_found, not a 500 (#281)."""
+    story = _story(id="story-1")
+    service, cosmos, _llm = _service_with_etag(story)
+    # The second read is apply_content_write's own — the first is import_configuration's
+    # existence check, which the pre-existing not-found branch already covers.
+    _delete_after_read(cosmos.get_container("stories"), story.id, nth=2)
+
+    with pytest.raises(StoryNotFoundError):
+        service.import_configuration(
+            _configuration(id="story-1"),
+            admin_oid="admin-oid",
+            confirm_overwrite_story_id="story-1",
+            title=None,
+        )
 
 
 def test_import_configuration_creates_new_unpublished_story_when_id_absent():

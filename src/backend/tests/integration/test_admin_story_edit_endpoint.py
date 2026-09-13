@@ -40,7 +40,10 @@ class FakeContainer:
 
     def replace_item(self, item, body, etag=None, match_condition=None):
         current = self.items.get(item)
-        if match_condition == MatchConditions.IfNotModified and current is not None and current.get("_etag") != etag:
+        if current is None:
+            # Cosmos' own behaviour: replace_item never creates.
+            raise CosmosResourceNotFoundError
+        if match_condition == MatchConditions.IfNotModified and current.get("_etag") != etag:
             raise CosmosAccessConditionFailedError
         body = dict(body)
         body["_etag"] = self._next_etag()
@@ -86,6 +89,24 @@ def _seed_story(story_service, **overrides):
     story = _make_story(**overrides)
     story_service._container().upsert_item(story.to_dict())
     return story
+
+
+def _delete_after_read(container, story_id: str, nth: int = 1) -> None:
+    """Simulate a concurrent hard delete (025-story-delete FR-003) landing between a
+    service's read of the story and its write: the `nth` read of `story_id` returns the row
+    and then removes it, so the write that follows finds nothing (#281)."""
+    real_read = container.read_item
+    reads = {"count": 0}
+
+    def read_then_maybe_delete(item, partition_key):
+        row = real_read(item=item, partition_key=partition_key)
+        if item == story_id:
+            reads["count"] += 1
+            if reads["count"] == nth:
+                container.items.pop(story_id, None)
+        return row
+
+    container.read_item = read_then_maybe_delete
 
 
 def test_create_edit_draft_returns_201_seeded_from_story(request_factory):
@@ -432,3 +453,26 @@ def test_save_draft_requires_administrator_role(request_factory):
             story_draft_service=draft_service,
         )
     assert response.status_code == 403
+
+
+def test_save_draft_returns_404_when_the_story_is_deleted_between_the_read_and_the_write(request_factory):
+    """A hard delete landing inside the etag window must produce the same 404 the endpoint
+    already returns for a story gone before the read — not an unhandled 500 (#281)."""
+    story_service, draft_service, _llm, _cosmos = _services()
+    _seed_story(story_service, id="story-1", name="The Sunken Library", contentVersion=1)
+    draft_id = _open_edit_draft(request_factory, story_service, draft_service)
+    # The second read is apply_content_write's own; the first is the save's existence
+    # check, whose not-found branch already existed.
+    _delete_after_read(story_service._container(), "story-1", nth=2)
+
+    with _patched_authorize_admin():
+        response = save_draft(
+            _authorized(request_factory, method="POST", url=f"/api/manage/stories/drafts/{draft_id}/save", route_params={"draftId": draft_id}),
+            story_draft_service=draft_service,
+        )
+
+    assert response.status_code == 404
+    body = json.loads(response.get_body())
+    assert body["error"] == "not_found"
+    assert body["message"] == "Story not found"
+    assert "story-1" not in story_service._container().items
