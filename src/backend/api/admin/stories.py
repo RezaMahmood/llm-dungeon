@@ -214,7 +214,10 @@ def publish_story(
 
     story_id = req.route_params.get("storyId")
     service = story_service or StoryService()
-    result = service.publish(story_id)
+    try:
+        result = service.publish(story_id)
+    except WriteConflictError:
+        return error_response(409, "write_conflict", WRITE_CONFLICT_MESSAGE)
     if result is None:
         return error_response(404, "not_found", "Story not found")
     if result is PUBLISH_GATE_NOT_SATISFIED:
@@ -233,7 +236,10 @@ def unpublish_story(
 
     story_id = req.route_params.get("storyId")
     service = story_service or StoryService()
-    result = service.unpublish(story_id)
+    try:
+        result = service.unpublish(story_id)
+    except WriteConflictError:
+        return error_response(409, "write_conflict", WRITE_CONFLICT_MESSAGE)
     if result is None:
         return error_response(404, "not_found", "Story not found")
 
