@@ -45,7 +45,7 @@ describe("Admin accounts: add -> list -> re-add merges", () => {
 
     expect(await screen.findByText("admin@example.com")).toBeInTheDocument();
 
-    await userEvent.type(screen.getByLabelText(/email/i), "player@example.com");
+    await userEvent.type(screen.getByLabelText(/microsoft account/i), "player@example.com");
     await userEvent.click(screen.getByLabelText(/player/i));
     await userEvent.click(screen.getByRole("button", { name: /add account/i }));
 
@@ -68,7 +68,7 @@ describe("Admin accounts: add -> list -> re-add merges", () => {
     expect(await screen.findByText("player@example.com")).toBeInTheDocument();
     expect(screen.getAllByRole("row")).toHaveLength(2); // header + one entry
 
-    await userEvent.type(screen.getByLabelText(/email/i), "player@example.com");
+    await userEvent.type(screen.getByLabelText(/microsoft account/i), "player@example.com");
     await userEvent.click(screen.getByLabelText(/administrator/i));
     await userEvent.click(screen.getByRole("button", { name: /add account/i }));
 
@@ -84,12 +84,58 @@ describe("Admin accounts: add -> list -> re-add merges", () => {
 
     render(<AdminAccountsPage />);
 
-    expect(await screen.findByRole("heading", { name: /people/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /accounts in llm dungeon/i })).toBeInTheDocument();
+    expect(screen.getByText("People")).toBeInTheDocument();
     // Add-account form still present and labelled.
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/microsoft account/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /add account/i })).toBeInTheDocument();
     // Per-row removal is still offered one account at a time — no bulk control.
     expect(screen.getByRole("table")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /remove all|delete all/i })).not.toBeInTheDocument();
+  });
+
+  it("states the account count in the page heading, matching the loaded list", async () => {
+    listAccounts.mockResolvedValueOnce({
+      accounts: [
+        { email: "admin@example.com", roles: ["Administrator"], bound: true },
+        { email: "player@example.com", roles: ["Player"], bound: false },
+        { email: "other@example.com", roles: ["Player"], bound: false },
+      ],
+    });
+
+    render(<AdminAccountsPage />);
+
+    expect(await screen.findByRole("heading", { name: "3 accounts in LLM Dungeon" })).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /add someone/i })).toBeInTheDocument();
+  });
+
+  it("never states a count before the first load resolves", async () => {
+    let resolveList;
+    listAccounts.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveList = resolve;
+      }),
+    );
+
+    render(<AdminAccountsPage />);
+
+    // Still loading: no fabricated "0 accounts" claim.
+    expect(screen.getByRole("heading", { name: "People" })).toBeInTheDocument();
+    expect(screen.queryByText(/accounts in llm dungeon/i)).not.toBeInTheDocument();
+
+    resolveList({ accounts: [{ email: "player@example.com", roles: ["Player"] }] });
+    expect(await screen.findByRole("heading", { name: "1 accounts in LLM Dungeon" })).toBeInTheDocument();
+  });
+
+  it("wraps the accounts table and the add-account panel as exactly two grid items", async () => {
+    listAccounts.mockResolvedValueOnce({
+      accounts: [{ email: "player@example.com", roles: ["Player"] }],
+    });
+
+    const { container } = render(<AdminAccountsPage />);
+
+    await screen.findByText("player@example.com");
+    expect(container.querySelector(".people-grid").children).toHaveLength(2);
   });
 });

@@ -42,7 +42,13 @@ def test_add_account_creates_entry_with_player_role(request_factory):
 
     assert response.status_code == 200
     body = json.loads(response.get_body())
-    assert body["account"] == {"email": "player@example.com", "roles": ["Player"], "bound": False, "isSeedAdmin": False}
+    assert body["account"] == {
+        "email": "player@example.com",
+        "roles": ["Player"],
+        "bound": False,
+        "isSeedAdmin": False,
+        "dateAdded": None,
+    }
     service.add_or_merge.assert_called_once_with("player@example.com", ["Player"], added_by=ADMIN_EMAIL)
 
 
@@ -158,7 +164,9 @@ def test_list_accounts_returns_every_entry_with_email_and_roles(request_factory)
     req = request_factory(method="GET", url="/api/manage/accounts", token="valid-token")
     service = MagicMock()
     service.list_all.return_value = [
-        ProvisionedAccountEntry(email="admin@example.com", roles=["Administrator"], objectId="oid-1"),
+        ProvisionedAccountEntry(
+            email="admin@example.com", roles=["Administrator"], objectId="oid-1", dateAdded="2026-08-12T09:03:00Z"
+        ),
         ProvisionedAccountEntry(email="player@example.com", roles=["Player"]),
     ]
 
@@ -169,9 +177,32 @@ def test_list_accounts_returns_every_entry_with_email_and_roles(request_factory)
     assert response.status_code == 200
     body = json.loads(response.get_body())
     assert body["accounts"] == [
-        {"email": "admin@example.com", "roles": ["Administrator"], "bound": True, "isSeedAdmin": False},
-        {"email": "player@example.com", "roles": ["Player"], "bound": False, "isSeedAdmin": False},
+        {
+            "email": "admin@example.com",
+            "roles": ["Administrator"],
+            "bound": True,
+            "isSeedAdmin": False,
+            "dateAdded": "2026-08-12T09:03:00Z",
+        },
+        {"email": "player@example.com", "roles": ["Player"], "bound": False, "isSeedAdmin": False, "dateAdded": None},
     ]
+
+
+def test_list_accounts_exposes_date_added_for_030_people_admin_added_column(request_factory):
+    req = request_factory(method="GET", url="/api/manage/accounts", token="valid-token")
+    service = MagicMock()
+    service.list_all.return_value = [
+        ProvisionedAccountEntry(email="dated@example.com", roles=["Player"], dateAdded="2026-08-12T09:03:00Z"),
+        ProvisionedAccountEntry(email="undated@example.com", roles=["Player"]),
+    ]
+
+    authorize_patch, email_patch = _patched_authorize_admin()
+    with authorize_patch, email_patch:
+        response = list_accounts(req, account_provisioning_service=service)
+
+    body = json.loads(response.get_body())
+    by_email = {account["email"]: account["dateAdded"] for account in body["accounts"]}
+    assert by_email == {"dated@example.com": "2026-08-12T09:03:00Z", "undated@example.com": None}
 
 
 def test_list_accounts_preserves_alphabetical_order_from_service(request_factory):
