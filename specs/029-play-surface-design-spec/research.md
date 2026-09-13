@@ -29,18 +29,28 @@ drops half of the canonical design's chapter kicker for no reason).
 
 **Decision**: `StatusPanel` gains the "Stuck? Get a hint" control the canonical design places
 between the progress section and the autosave notice — built from the design system's
-`btn btn-secondary btn-block`, in the same position and treatment — rendered `disabled` with
-an adjacent `.play-hint-pending` note reading "Hints are coming soon." The control performs no
-action in this feature. What a hint says, and where it comes from, is specified separately.
+`btn btn-secondary btn-block`, in the same position and treatment — carrying
+`aria-disabled="true"` (never the native `disabled` attribute) with an adjacent
+`.play-hint-pending` note reading "Hints are coming soon." The control performs no action in
+this feature. What a hint says, and where it comes from, is specified separately.
 
 **Rationale**: spec.md's *Scope note* governs: the design shows this control, nothing behind it
 exists on `origin/main` (`StatusPanel.jsx` has no such button — the string lives only in
 `specs/designs/03-play.html`), so this feature builds the control and defers the behaviour.
-`disabled` is what makes the deferral honest: the design system already themes the disabled
-state (reduced opacity, `not-allowed` cursor, `.btn:disabled`), a disabled `<button>` is
-conveyed natively to assistive technology, and the adjacent note satisfies the constitution's
+An unavailable state is what makes the deferral honest: `aria-disabled="true"` is conveyed
+to assistive technology as unavailable, and the adjacent note satisfies the constitution's
 "every failure or dead-end state offers a next action" by saying plainly what is coming. An
 enabled control that does nothing would fail that rule and mislead the player.
+
+`aria-disabled` rather than the native `disabled` attribute, because a natively disabled
+`<button>` leaves the tab order entirely and can never match `:focus-visible`. That would
+break two rules at once: spec.md US2 Acceptance Scenario 2 ("it shows a visible focus
+indicator") and the constitution's Interaction-states rule ("a visible `:focus-visible`
+outline ... a default browser focus ring fails review"). The design system themes the
+disabled look through `.btn:disabled`, which an `aria-disabled` element does not match, so
+that rule gains an `.btn[aria-disabled="true"]` selector **in the shared token layer** — not
+in `Play.css`, since the constitution places interaction-state styling in the shared layer
+and forbids screens from restyling it locally.
 
 **Alternatives considered**: Reveal a static, generic hint written here (rejected — the
 invented stand-in behaviour spec.md's *Scope note* exists to prevent; it would have to be
@@ -49,8 +59,8 @@ panel's layout and spacing do not match the canonical design without it, which i
 feature's whole purpose). Call an LLM/backend endpoint for a story-aware hint (rejected —
 that *is* the separate feature).
 
-**Constitution note**: the "Play surface" screen contract requires "a hint action", which a
-disabled control does not yet deliver. plan.md's Constitution Check records this as a named,
+**Constitution note**: the "Play surface" screen contract requires "a hint action", which an
+unavailable control does not yet deliver. plan.md's Constitution Check records this as a named,
 time-boxed deferral rather than a PASS. The broader problem — the constitution stating
 functional requirements that belong in feature specs — is tracked as issue #340.
 

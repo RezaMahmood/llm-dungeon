@@ -18,9 +18,12 @@ move from inline styles into a shared `Play.css` stylesheet, matching how
 `028-home-page-redesign` factored `Home.css`. No gameplay, save/resume, checkpoint, or
 story-availability behavior changes.
 
-Per spec.md's *Scope note*, the hint control ships **disabled**; the guidance behind it is a
-separate feature (research.md Decision 2). Spelling tolerance is not a requirement of this
-product and no longer appears anywhere in this feature.
+Per spec.md's *Scope note*, the hint control ships inert — `aria-disabled`, still focusable,
+so it keeps the focus indicator the constitution's Interaction-states rule requires; the
+guidance behind it is a separate feature (research.md Decision 2). Spelling tolerance is not
+a requirement of this product and no longer appears anywhere in this feature; the canonical
+mockup's spelling-forgiveness hint is a deliberate non-implementation, recorded by T001 as the
+second of SC-003's two documented exceptions.
 
 ## Technical Context
 
@@ -73,8 +76,8 @@ surface.
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 - **I. Meaningful, Automated Testing** — PASS (planned). Every conformance gap
-  closed (chapter header, progress bar, hint control's presence and disabled state, Refresh
-  control) gets its own test in the existing `tests/Play/*.jsx` /
+  closed (chapter header, progress bar, hint control's presence, focusability and
+  unavailable state, Refresh control) gets its own test in the existing `tests/Play/*.jsx` /
   `tests/components/TitleBar.test.jsx` suites, alongside the current tests for
   those files, which must keep passing unmodified in what they verify (FR-013). FR-001 and
   SC-002 (the fixed shell, identical across turn counts) get an explicit automated assertion
@@ -96,7 +99,10 @@ surface.
   the four interaction states stay in the shared layer; and the segmented progress bar is
   promoted to a shared class rather than forked (research.md Decision 5). Readability &
   interaction rule #5 (suggested actions always alongside free text) is already satisfied
-  today and is unchanged here.
+  today and is unchanged here — T004 adds the assertion that guards it through the restyle.
+  Readability & interaction rule #1 (narrative prose at or above body size, its line-height or
+  greater, `text-wrap: pretty`) is **not** satisfied today: the mockup's prose carries it and
+  `StoryPane` does not. T002 closes that gap on `.play-text`.
 - **X. PII Protection by Design** — PASS. No new field, no new PII surface.
 - **XII. Right-Sized Scope** — PASS. No new infrastructure, no new persistent
   environment; purely conformance work on one existing screen.
@@ -113,9 +119,10 @@ surface.
   "a status panel showing location, goal, progress, and a hint action". Location, goal and
   progress are delivered here. The **hint action is not**: per spec.md's *Scope note* this
   feature ships the control and defers its behaviour to a separate feature (research.md
-  Decision 2). The control is rendered disabled and honestly labelled, so nothing misleads a
-  player, but the contract is not fully met until that feature lands. The underlying issue —
-  the constitution stating functional requirements that belong in feature specs — is tracked
+  Decision 2). The control is rendered `aria-disabled` and honestly labelled, so nothing
+  misleads a player, but the contract is not fully met until that feature lands. The
+  underlying issue — the constitution stating functional requirements that belong in feature
+  specs — is tracked
   as issue #340. `03-play.html`/`03-play-spec.md` themselves are updated in place (issue
   #332's attachments), not replaced with a different canonical screen, so no "Screen
   contracts" wording change is required for the reference itself.
@@ -156,10 +163,11 @@ src/frontend/
 ├── src/
 │   ├── styles/
 │   │   └── designTokens.css     # + shared .progress-bars, promoted out of Home.css
+│   │                            #   + .btn[aria-disabled="true"] state selector
 │   ├── components/Play/
 │   │   ├── Play.css             # NEW — page-scoped structural rules (mirrors Home.css)
 │   │   ├── StoryPane.jsx        # + chapter numeral/kicker, italic player entries
-│   │   ├── StatusPanel.jsx      # + segmented progress bar, disabled hint control
+│   │   ├── StatusPanel.jsx      # + segmented progress bar, inert hint control
 │   │   ├── InstructionInput.jsx # inline styles → Play.css classes
 │   │   └── SuggestedActions.jsx # inline styles → Play.css classes
 │   ├── components/Home/
@@ -174,14 +182,14 @@ src/frontend/
 └── tests/
     ├── Play/
     │   ├── StoryPane.test.jsx        # + chapter header / italics / auto-scroll tests
-    │   ├── StatusPanel.test.jsx      # + progress-bar / disabled-hint-control tests
+    │   ├── StatusPanel.test.jsx      # + progress-bar / inert-hint-control tests
     │   ├── InstructionInput.test.jsx # unchanged behavior; selectors only if affected
     │   ├── PlayPage.test.jsx         # + Refresh integration tests
-    │   ├── PlaySurfaceLayout.test.jsx  # + fixed-shell assertion across turn counts
+    │   ├── PlaySurfaceLayout.test.jsx  # + fixed-shell + FR-005 pairing assertions
     │   └── AutosaveDisclosure.test.jsx # selectors only if affected
-    ├── Home/                         # regression only — shared .progress-bars
     └── components/
-        └── TitleBar.test.jsx    # + Refresh-control tests
+        ├── Home/HomePage.test.jsx   # regression only — shared .progress-bars
+        └── TitleBar.test.jsx        # + Refresh-control tests
 ```
 
 **Structure Decision**: Existing web-application layout (`src/backend`,

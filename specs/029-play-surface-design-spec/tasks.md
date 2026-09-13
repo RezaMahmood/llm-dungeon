@@ -17,8 +17,10 @@ cannot be checked against anything.
 
 **Scope note** (spec.md): where the design shows a control the app does not implement, this
 feature builds the control and defers its behaviour to a separate spec. That applies to the
-"Stuck? Get a hint" control only — it ships **disabled** (research.md Decision 2). Spelling
-tolerance is not a requirement of this product and appears nowhere in this list.
+"Stuck? Get a hint" control only — it ships inert, carrying `aria-disabled="true"` rather than
+the native `disabled` attribute, so it stays keyboard-reachable and keeps its focus ring
+(research.md Decision 2). Spelling tolerance is not a requirement of this product and appears
+nowhere in this list.
 
 **Tests**: Included — constitution Principle I (Meaningful, Automated Testing) is
 NON-NEGOTIABLE in this repo; every behavior change below ships with a test, and every test
@@ -44,7 +46,11 @@ against them. No application code changes in this phase.
   markup and **add a new note** naming any prototype-only affordance the incoming mockup
   carries (e.g. a turn-count state switcher and its `<script>`) as "prototype affordance
   only, must not ship". The README has no such note today — this task writes it, it does not
-  cite it.
+  cite it. **Also record the spelling-forgiveness hint explicitly**: today's `03-play.html:70`
+  carries one, this product does not implement spelling tolerance (spec.md Assumptions), so
+  if the incoming mockup still carries that element, name it in the README note as a
+  deliberate non-implementation. It is the second of SC-003's two documented exceptions —
+  say so rather than leaving a reader to discover the gap.
 
 **Checkpoint**: The canonical design reference is in the repo and `specs/designs/README.md`
 agrees with it.
@@ -77,6 +83,14 @@ correctly-scrolling transcript.
   exception. Every `.play-*` class is **additive**: controls keep `btn btn-secondary`,
   `input`, `btn btn-primary`, so the four interaction states are never restyled locally
   (research.md Decision 4).
+  Two rules this file must carry that today's screen does not have at all:
+  **(a) `.storyscroll`** — the mockups' scrollbar treatment (`03-play.html:14-15`), which
+  `specs/designs/README.md` sanctions as one of the three permitted utilities and names as the
+  play surface's scroll container, but which no stylesheet in the app currently defines.
+  **(b) `.play-text`'s prose treatment** — the constitution's Readability rule #1 for
+  narrative prose: at or above the design system's body size, its line-height or greater, and
+  `text-wrap: pretty`, exactly as the mockup's own prose paragraphs do (`03-play.html:46`).
+  Neither exists in the current `StoryPane`.
 - [ ] T003 [P] Extend `src/frontend/tests/Play/StoryPane.test.jsx`: assert a player-input
   entry carries the italic treatment and a story entry does not (FR-003), and assert the
   scroller's `scrollTop` is driven to `scrollHeight` on mount and after a new turn is
@@ -84,10 +98,15 @@ correctly-scrolling transcript.
 - [ ] T004 [P] Add a fixed-shell case to `src/frontend/tests/Play/PlaySurfaceLayout.test.jsx`:
   rendering the play surface with 1, 2, 5 and 10 turns yields the identical header/dock/panel
   structure, and the transcript is the only scroll container (FR-001, SC-002). **Must fail
-  before T005–T010 if the shell is wrong.**
+  before T005–T010 if the shell is wrong.** Also assert FR-005 here, since T006 and T008 both
+  restyle the controls it governs: for a session still accepting moves, the suggested-action
+  chips and the free-text command field render **together**, never one in place of the other.
+  `tests/Play/SuggestedActions.test.jsx` covers the chips alone and guards no such pairing.
 - [ ] T005 Rewrite `src/frontend/src/components/Play/StoryPane.jsx` to (a) use the `Play.css`
-  classes from T002 instead of inline styles — dropping the dangling `className="storyscroll"`,
-  which is defined in no stylesheet in the app — (b) mark player-input entries with
+  classes from T002 instead of inline styles — **keeping** `className="storyscroll"`, which
+  T002 now defines: it is dangling today, but `specs/designs/README.md` names it as the play
+  surface's scroll container and every mockup gives it a scrollbar treatment, so the fix is to
+  define it, not to drop it — (b) mark player-input entries with
   `.play-text-player` so they read in italics against roman story text (FR-003), and (c) add a
   scroller `ref` + `useEffect` that sets `scrollTop = scrollHeight` on mount and whenever
   `turns.length` changes (FR-004, contracts/ui.md).
@@ -185,25 +204,35 @@ clicking it changes nothing on the screen.
 
 - [ ] T019 [P] [US2] Add `StatusPanel` tests in `src/frontend/tests/Play/StatusPanel.test.jsx`:
   a "Stuck? Get a hint" button renders between the progress section and the autosave notice;
-  it is `disabled`; the "Hints are coming soon." note renders alongside it; clicking it
-  changes nothing rendered. Assert the disabled state through the accessible name/state, not a
-  CSS class, so the test survives restyling.
+  it carries `aria-disabled="true"`; the "Hints are coming soon." note renders alongside it;
+  clicking it changes nothing rendered. Assert the unavailable state through the accessible
+  name/state, not a CSS class, so the test survives restyling. **Assert it is still
+  keyboard-reachable** — the native `disabled` attribute is absent and the element is not
+  removed from the tab order (spec.md US2 AS2). A test that merely accepts `disabled` would
+  pass against an implementation that fails the acceptance scenario.
 
 ### Implementation for User Story 2
 
 - [ ] T020 [US2] Add the "Stuck? Get a hint" control to
   `src/frontend/src/components/Play/StatusPanel.jsx` — a real `<button type="button">` carrying
-  `btn btn-secondary btn-block`, always `disabled`, with no click handler, placed between the
-  progress section and the autosave notice per `03-play.html`, followed by a
+  `btn btn-secondary btn-block` and `aria-disabled="true"`, with no click handler, placed
+  between the progress section and the autosave notice per `03-play.html`, followed by a
   `.play-hint-pending` note reading "Hints are coming soon." (research.md Decision 2,
-  contracts/ui.md). Do **not** invent hint content or a disclosure behaviour.
+  contracts/ui.md). **Do not use the native `disabled` attribute**: it removes the control
+  from the tab order, so it could never show the focus indicator spec.md US2 AS2 and the
+  constitution's Interaction-states rule both require. Do **not** invent hint content or a
+  disclosure behaviour.
 - [ ] T021 [P] [US2] Add the `.play-hint` / `.play-hint-pending` rules to
-  `src/frontend/src/components/Play/Play.css`. Layout and spacing only — the disabled
-  treatment (reduced opacity, `not-allowed` cursor) comes from the shared `.btn:disabled`.
+  `src/frontend/src/components/Play/Play.css` — layout and spacing only. The unavailable
+  treatment is **not** written here: `.btn:disabled` (designTokens.css:132) does not match an
+  `aria-disabled` element, so extend that existing rule in the shared token layer to
+  `.btn:disabled, .btn[aria-disabled="true"]`. The constitution puts interaction-state styling
+  in the shared design-system layer and forbids a screen from restyling it locally, so
+  `Play.css` is the wrong file for it.
 
 **Checkpoint**: US2 is independently testable and shippable — the status panel matches the
 canonical design's composition, and the deferral is visible and honest rather than silent.
-The follow-up feature (T027) owns what the control does.
+The follow-up feature filed by T028 owns what the control does.
 
 ---
 
@@ -250,19 +279,26 @@ screen; `TitleBar`'s existing checkpoint/pause-and-exit behavior (FR-011) is unt
 ## Phase 6: Polish & Cross-Cutting Concerns
 
 **Purpose**: Confirm nothing above regressed existing behavior (spec.md FR-013/SC-005),
-file the deferred work, and record manual validation.
+verify design conformance element by element (SC-003), file the deferred work, and record
+manual validation.
 
 - [ ] T026 [P] Review `src/frontend/tests/Play/PlaySurfaceLayout.test.jsx`,
   `src/frontend/tests/Play/AutosaveDisclosure.test.jsx` and
   `src/frontend/tests/Play/InstructionInput.test.jsx` against the Phase 2–5 changes; update
   only selectors incidentally affected by the class refactor — no file's asserted *behavior*
   (exactly one title bar, the pause confirmation gate, the autosave disclosure always
-  showing, the command submitted as typed) may change. If the autosave copy is brought into
-  line with the mockup ("Saved automatically after every turn."), change it in `StatusPanel`
-  and in `AutosaveDisclosure.test.jsx` together, or leave both as they are — do not let them
-  diverge.
+  showing, the command submitted as typed) may change. **Bring the autosave copy into line
+  with the mockup**: `StatusPanel` reads "Autosaved after every turn" today, `03-play.html:92`
+  reads "Saved automatically after every turn." — SC-003 requires the mockup's wording, so
+  change it in `StatusPanel` and in `AutosaveDisclosure.test.jsx` in the same commit. The
+  disclosure must still be present at all times (FR-008); only its wording moves.
 - [ ] T027 [P] Review `src/frontend/tests/components/AdminStoryTestPlayPage.test.jsx` against
   T010's class refactor — update only incidentally affected selectors, no behavior change.
+  Then **add an assertion that the inherited affordances actually render there**: for a
+  test-play turn carrying `progress`, the chapter header and the segmented progress bar
+  appear, as contracts/ui.md's `AdminStoryTestPlayPage` section promises. Without it, that
+  page could silently diverge from the real play surface — which is the whole reason T010
+  keeps it in sync.
 - [ ] T028 [P] Open the follow-up GitHub issue for the deferred hint action — what a hint
   says, where it comes from, and how the control is enabled — referencing spec.md's *Scope
   note*, plan.md's Screen-contracts exception, and issue #332. Label it `enhancement`. The
@@ -273,6 +309,14 @@ file the deferred work, and record manual validation.
   fallout.
 - [ ] T030 Run quickstart.md's manual end-to-end scenario (steps 1–6) against the dev server
   and record the outcome for the PR description's Testing section.
+- [ ] T031 Close out **SC-003**: walk `specs/designs/03-play-spec.md` section by section (and
+  `03-play.html` element by element) against the built screen, and record the result — every
+  element present, in the position the design gives it. T030's six-step scenario walks a few
+  flows and never enumerates the design's elements, so nothing else in this list discharges
+  SC-003. Exactly two exceptions may be recorded as known and intended: the hint control's
+  guidance (spec.md *Scope note*) and the mockup's spelling-forgiveness hint (spec.md
+  Assumptions, T001). **Any third gap is a finding, not an exception** — fix it or raise it
+  before the PR. Carry the resulting element-by-element outcome into the PR description.
 
 ---
 

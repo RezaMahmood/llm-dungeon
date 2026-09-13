@@ -17,6 +17,8 @@ Decision 4).
 **Props**: `turns: Turn[]` (unchanged shape/prop name).
 
 **Rendering contract**:
+- **Terminology**: spec.md's "chapter identifier" (FR-002) is this pair — the numeral and
+  the kicker line below it. The two names denote the same thing.
 - When the latest turn's `progress` is non-null, renders a chapter numeral
   (`.ovnum.play-chapter-num`, zero-padded, e.g. `03`) and a kicker line reading
   `Chapter {number spelled out} — {locationLabel}`, pinned above the turn list, inside the
@@ -24,6 +26,9 @@ Decision 4).
 - When `progress` is null on the latest turn, renders neither.
 - Each turn renders a `.play-label` ("You"/"The story") and a `.play-text` paragraph; a
   player-input row additionally carries `.play-text-player` (italic).
+- `.play-text` carries the constitution's Readability rule #1 treatment for narrative prose:
+  at or above the design system's body size, its line-height or greater, and
+  `text-wrap: pretty` — as `03-play.html`'s own prose paragraphs already do.
 - Scrolls its own container to `scrollHeight` on mount and whenever `turns.length` changes.
 
 ## `StatusPanel`
@@ -35,11 +40,15 @@ Decision 4).
   shared `.progress-bars` class (research.md Decision 5): one `span` per chapter in
   `progress.total`, the first `progress.current` of them additionally carrying `.filled`.
 - Always renders a "Stuck? Get a hint" button (`btn btn-secondary btn-block`) between the
-  progress section and the autosave notice. It is **always `disabled`** in this feature and
-  carries no click handler; an adjacent `.play-hint-pending` note reads "Hints are coming
-  soon." The guidance behind the control is a separate feature (spec.md *Scope note*,
-  research.md Decision 2).
-- Always renders the autosave notice as its final child (`margin-top: auto`).
+  progress section and the autosave notice. It **always carries `aria-disabled="true"`** in
+  this feature and has no click handler. It MUST NOT use the native `disabled` attribute:
+  the control stays in the tab order so it keeps the design system's `:focus-visible` ring
+  (spec.md US2 AS2; constitution, Interaction states). An adjacent `.play-hint-pending` note
+  reads "Hints are coming soon." The guidance behind the control is a separate feature
+  (spec.md *Scope note*, research.md Decision 2).
+- Always renders the autosave notice as its final child (`margin-top: auto`), reading
+  "Saved automatically after every turn." — the canonical mockup's copy
+  (`03-play.html:92`), which today's "Autosaved after every turn" does not match.
 
 ## `InstructionInput`
 
@@ -75,6 +84,7 @@ default for every non-play screen using `TitleBar`).
 Consumes the same `StoryPane`/`StatusPanel`/`InstructionInput`/`SuggestedActions` and the new
 shared `Play.css` classes, so `010-story-test-play-done`'s transcript view gets the same
 chapter header and progress bar "for free" and does not visually diverge from the real play
-surface. It does **not** gain a Refresh control (test-play sessions aren't
+surface. That inheritance is asserted, not assumed (tasks.md T027).
+It does **not** gain a Refresh control (test-play sessions aren't
 resumable/shareable across tabs the way a real session is, and `019-spa-refresh-button`'s
 scope never named this screen).

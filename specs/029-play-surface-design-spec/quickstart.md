@@ -28,15 +28,21 @@ header, progress bar, disabled hint control, and header Refresh control (contrac
 ## Manual end-to-end scenario (dev server)
 
 1. Start a new session in a story that reports chapter progress. **Expect**: the transcript
-   opens with a chapter numeral and kicker (e.g. "01 — Chapter one — {location}"); the status
-   panel shows the location, goal, and a progress bar with one segment filled.
-2. Submit a suggested-action chip, then a free-text move. **Expect**: each of the player's own
-   entries renders in italics, the story's replies roman; the transcript stays scrolled to the
-   newest reply without the player scrolling.
-3. Tab to the "Stuck? Get a hint" control in the status panel. **Expect**: it sits between the
-   progress section and the autosave notice, shows the design system's disabled treatment
-   (reduced opacity, `not-allowed` cursor), is announced as unavailable, and reads "Hints are
-   coming soon." alongside. Clicking it does nothing and nothing else on the screen moves.
+   opens with a zero-padded chapter numeral on its own line (e.g. "01") and, beneath it, a
+   kicker reading "Chapter one — {location}" (contracts/ui.md); the status panel shows the
+   location, goal, and a progress bar with one segment filled.
+2. Submit a suggested-action chip, then a free-text move. **Expect**: both affordances are
+   available at once throughout (FR-005 — chips never replace the command line); each of the
+   player's own entries renders in italics, the story's replies roman, with narrative prose
+   wrapped by `text-wrap: pretty`; the transcript stays scrolled to the newest reply without
+   the player scrolling.
+3. Tab to the "Stuck? Get a hint" control in the status panel. **Expect**: keyboard focus
+   actually reaches it (it is `aria-disabled`, not natively `disabled`, so it stays in the
+   tab order) and it shows the accent `:focus-visible` ring. It sits between the progress
+   section and the autosave notice, shows the unavailable treatment (reduced opacity,
+   `not-allowed` cursor), is announced as unavailable by a screen reader, and reads "Hints
+   are coming soon." alongside. Clicking it does nothing and nothing else on the screen
+   moves.
 4. Click the header's Refresh control. **Expect**: the transcript and status panel reload from
    the session's current recorded state while staying on the play screen; type into the
    command field first and confirm it survives a refresh.

@@ -36,5 +36,13 @@
   deliberately deferred to a separate feature under spec.md's *Scope note*, not
   left open; spelling tolerance was removed as a requirement outright; and
   "refresh" carries the meaning `019-spa-refresh-button` already gave it.
+- `/speckit-analyze` (2026-09-13) raised 12 findings, all remediated in place.
+  Two were blocking: the hint control's acceptance criteria required a keyboard
+  focus indicator that a natively `disabled` button can never show (now
+  `aria-disabled`, keeping it in the tab order), and the constitution's
+  Readability rule #1 prose treatment (`text-wrap: pretty` and the body-size /
+  line-height floor) had no requirement or task covering it (now T002). SC-003
+  gained an owning task (T031) and a second documented exception, the mockup's
+  spelling-forgiveness hint, which this product does not implement.
 - `03-play-spec.md` is named as the canonical acceptance reference but is not yet
   in the repo — tasks.md T001 vendors it, and it blocks the rest of the list.

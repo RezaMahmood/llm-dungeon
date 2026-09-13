@@ -12,17 +12,17 @@ game page should follow the design spec' and attaches specs/designs/03-play.html
 and specs/designs/03-play-spec.md as the canonical reference — a full-viewport,
 no-page-scroll play screen with a fixed header, a scrolling transcript pane
 (chapter numeral/kicker, THE STORY/YOU turn blocks, ~150-word replies), a fixed
-input dock (suggested-action chips + free-text command line), a fixed 292px
-status panel (location, goal, chapter progress bar, 'Stuck? Get a hint',
-autosave notice), and a pause-and-exit dialog. The existing
+input dock (suggested-action chips + free-text command line +
+spelling-forgiveness hint), a fixed 292px status panel (location, goal, chapter
+progress bar, 'Stuck? Get a hint', autosave notice), and a pause-and-exit dialog. The existing
 PlayPage/StoryPane/StatusPanel/InstructionInput/SuggestedActions/PauseDialog
 components (008-core-gameplay-done, 009-save-and-continue) already implement much
 of this with inline styles; this feature should bring them into conformance with
 the current canonical 03-play-spec.md/03-play.html (chapter header, progress
-segment bar, hint control, the header's Refresh control per 019-spa-refresh-button),
-using shared CSS classes instead of ad hoc inline styles where the design system
-calls for page-scoped structural rules, without breaking any existing
-gameplay/save-and-continue/story-delete behavior."
+segment bar, hint disclosure, spelling-forgiveness hint, the header's Refresh
+control per 019-spa-refresh-button), using shared CSS classes instead of ad hoc
+inline styles where the design system calls for page-scoped structural rules,
+without breaking any existing gameplay/save-and-continue/story-delete behavior."
 
 ## Scope note: controls now, behaviour separately
 
@@ -223,8 +223,10 @@ recorded state, while remaining on the same screen.
   the transcript's scroll position differs.
 - **SC-003**: Every element the canonical design places on the play screen is
   present, in the position the design gives it — verified element by element
-  against `specs/designs/03-play-spec.md` and `03-play.html`, with the hint
-  control's guidance the single documented exception.
+  against `specs/designs/03-play-spec.md` and `03-play.html`. Exactly two
+  documented exceptions are allowed: the hint control's guidance (*Scope note*),
+  and the mockup's spelling-forgiveness hint, which this product does not
+  implement (*Assumptions*) and which T001 records as excluded.
 - **SC-004**: A player who believes their play screen is out of date can bring
   it back in sync in a single action, without leaving the story or losing any
   text they had already typed.
@@ -245,7 +247,9 @@ recorded state, while remaining on the same screen.
 - Spelling tolerance is not a requirement of this product: the game is not a
   learning application, and no feature here detects, flags, or corrects a
   player's spelling. Player commands are passed to the story exactly as typed,
-  which is already the behaviour today.
+  which is already the behaviour today. The canonical mockup carries a
+  spelling-forgiveness hint element; it is deliberately **not** implemented, and
+  is the second of SC-003's two documented exceptions.
 - Responsive behavior below desktop width, checkpoint-management UI, and
   end-of-story/end-of-chapter screens remain out of scope, matching the
   canonical design spec's own stated exclusions.
