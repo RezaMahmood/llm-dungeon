@@ -97,8 +97,8 @@ surface.
   `Home.css` precedent from `028-home-page-redesign`). Inline values are translated to
   tokens, not copied literally (research.md Decision 4); `.play-*` classes are additive, so
   the four interaction states stay in the shared layer; and the segmented progress bar is
-  promoted to a shared class rather than forked (research.md Decision 5). Readability &
-  interaction rule #5 (suggested actions always alongside free text) is already satisfied
+  promoted to a shared class rather than forked (research.md Decision 5). This spec's
+  FR-005 (suggested actions always alongside free text) is already satisfied
   today and is unchanged here — T003 adds the assertion that guards it through the restyle.
   Readability & interaction rule #1 (narrative prose at or above body size, its line-height or
   greater, `text-wrap: pretty`) is **not** satisfied today: the mockup's prose carries it and
@@ -114,22 +114,19 @@ surface.
   sub-desktop responsive behavior out of scope, matching the canonical design's own
   exclusion. Recorded here as an explicit, justified exception per Principle VIII rather
   than claimed as a pass, and carried in the PR description as a known limit.
-- **Screen contracts** — DEFERRED in part, exception recorded. The constitution's "Play
-  surface" entry names `specs/designs/03-play.html` as the acceptance reference and requires
-  "a status panel showing location, goal, progress, and a hint action". Location, goal and
-  progress are delivered here. The **hint action is not**: per spec.md's *Scope note* this
-  feature ships the control and defers its behaviour to a separate feature (research.md
-  Decision 2). The control is rendered `aria-disabled` and honestly labelled, so nothing
-  misleads a player, but the contract is not fully met until that feature lands. The
-  underlying issue — the constitution stating functional requirements that belong in feature
-  specs — is tracked
-  as issue #340. `03-play.html`/`03-play-spec.md` themselves are updated in place (issue
-  #332's attachments), not replaced with a different canonical screen, so no "Screen
-  contracts" wording change is required for the reference itself.
+- **Screen contracts** — PASS. The constitution's "Play surface" entry names
+  `specs/designs/03-play.html` and `03-play-spec.md` as the acceptance reference and leaves
+  this screen's affordances to the specs that own it. The status panel delivers location,
+  goal and progress; the hint control ships inert, its behaviour deferred to a separate
+  feature (spec.md *Scope note*, research.md Decision 2), which is this spec's own scoping
+  decision to make. Supersedes: previously recorded as a deferral against a constitutional
+  requirement, withdrawn by constitution v10.0.0 (issue #340).
+  `03-play.html`/`03-play-spec.md` are updated in place (issue #332's attachments), not
+  replaced with a different canonical screen, so the reference itself is unchanged.
 
-**Complexity Tracking**: the two exceptions above are scope *reductions* against existing
-constitution text, not added complexity, so neither takes a Complexity Tracking entry. Both
-are named in the PR description.
+**Complexity Tracking**: the layout-and-scroll exception above is a scope *reduction*
+against existing constitution text, not added complexity, so it takes no Complexity
+Tracking entry. It is named in the PR description.
 
 **Post-Phase-1 re-check**: Phase 1 introduces no new entity, endpoint, or schema
 change (data-model.md below describes only the existing turn shape read

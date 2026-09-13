@@ -295,5 +295,5 @@ takes all four of its tasks.
 5. **T027–T033** — regression, the SC-003 conformance sweep, and the follow-up issue, before
    the PR closes out #332.
 
-The PR description must repeat plan.md's two constitution exceptions: the sub-320px layout gap,
+The PR description must repeat plan.md's constitution exception — the sub-320px layout gap —
 and the deferred hint action.

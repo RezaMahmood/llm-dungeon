@@ -1,24 +1,36 @@
 <!--
 Sync Impact Report
-Version change: 9.0.0 -> 9.1.0
+Version change: 9.1.0 -> 10.0.0
 Modified principles: none.
 Modified sections:
-  - UI Design System Requirements → Screen contracts → "Administrator — sessions": the
-    contract gains a prototype reference (`specs/designs/08-admin-sessions.html` and
-    `08-admin-sessions-spec.md`), so its visual-design deferral and its "no prototype
-    screen" marker are withdrawn. The list is no longer described as read-only: each row
-    gains a confirmed, one-at-a-time delete, and the contract now fixes what deletion
-    destroys (saved progress and transcript), what it must not touch (any story's
-    cumulative token total), and what a player mid-session is owed when their session is
-    deleted (return to the landing page, told the session was removed, as an outcome
-    distinct from a deleted or unpublished story).
-Added sections: none.
-Removed sections: none.
-Rationale for MINOR: a screen contract gains an acceptance reference and an affordance, and
-  states the behaviour that affordance implies. Nothing is removed or redefined, and no
-  other screen's contract changes. The deferral this withdraws was `026-token-usage`'s own,
-  covering styling only, and is withdrawn because the styling now exists.
+  - UI Design System Requirements → Screen contracts: redefined. A contract is now a
+    registry entry — the screen's name, its acceptance reference, and the feature specs
+    that own its behaviour — and states no functional requirement of its own. The
+    per-screen enumerations of required affordances, entry points and business rules are
+    withdrawn; each is already owned by a named spec, which may now scope it as an
+    ordinary product decision rather than by amendment.
+  - UI Design System Requirements → Readability & interaction requirements: #4 (forgiving
+    interpretation of player input) and #5 (suggested actions always available) withdrawn
+    as gameplay behaviour. Remaining rules renumbered: old #6 is now #4, old #7 now #5.
+  - UI Design System Requirements → Layout and scroll contract #2: unchanged in force, but
+    reworded so it fixes the play surface's scroll split without implying the affordances
+    it lists are required. Which of them the screen offers is its owning spec's decision.
+Added sections: none. The screen registry gains one row, **Adventure & character setup**
+  (`specs/designs/06-game-setup.html`, `006-adventure-and-character-setup`) — a screen the
+  product already ships that no contract listed, which Governance's traceability rule
+  requires. The row imposes nothing the redefinition above does not impose on every screen.
+Removed sections:
+  - UI Design System Requirements → Save and session behaviour (#1–#4). Autosave cadence,
+    named checkpoints, what exiting preserves and per-adventure session length are owned
+    by `008-core-gameplay-done` and `009-save-and-continue`.
+Rationale for MAJOR: governance requirements are withdrawn, not clarified. Requirements
+  this file previously imposed on every feature are now imposed by none of it; a plan whose
+  Constitution Check cited a withdrawn rule is no longer checking anything, and a scope
+  decision that previously needed an amendment no longer does.
 Deferred/TODO placeholders: none.
+Not carried anywhere: the story-authoring wizard contract's requirement that an adventure's
+  content-safety configuration be captured. No feature spec owns it and no implementation
+  provides it, so it is withdrawn rather than moved; a spec wanting it must state it.
 Earlier Sync Impact Reports are in this file's git history.
 --># LLM Dungeon Adventure Constitution
 
@@ -496,14 +508,9 @@ screens MUST NOT restyle these locally.
    letter-spacing.
 3. Touch and click targets MUST be at least 24x24 CSS px (WCAG 2.5.8). The player's
    free-text instruction input is taller than a standard control.
-4. Player input MUST be interpreted forgivingly: exact spelling or phrasing is never
-   required to act on an instruction, and any correction is offered as a suggestion that
-   never blocks the player's turn.
-5. Suggested actions MUST always be available alongside free-text typing, so a player can
-   proceed without composing a sentence.
-6. Player-facing copy is plain, warm, and concrete — no technical jargon or raw error codes
+4. Player-facing copy is plain, warm, and concrete — no technical jargon or raw error codes
    — and every failure or dead-end state offers a next action.
-7. Player-facing surfaces MUST NOT use shaming language, artificial time pressure, or
+5. Player-facing surfaces MUST NOT use shaming language, artificial time pressure, or
    punitive UI patterns. This governs tone and interface pressure only; the game's own
    configured success and failure outcomes (`008-core-gameplay-done`) remain a legitimate,
    narratively framed part of gameplay.
@@ -514,8 +521,9 @@ screens MUST NOT restyle these locally.
    tablet widths without exception. Below the mobile breakpoint a screen MAY switch to
    page-level scrolling instead, provided every fixed-viewport surface above that breakpoint
    still honors this rule unchanged.
-2. On the play surface only the story pane scrolls; the title bar, instruction input,
-   suggested actions, and status panel stay fixed and reachable.
+2. On the play surface only the story pane scrolls; every other element the screen offers —
+   its title bar, instruction input, suggested actions and status panel — stays fixed and
+   reachable. Which of those the screen offers is its owning spec's to decide.
 3. The story pane auto-scrolls to the newest turn.
 4. Every primary surface MUST remain usable down to a 320 px viewport width. Below that
    floor, secondary panels (e.g. the status panel) collapse above the primary content rather
@@ -523,75 +531,39 @@ screens MUST NOT restyle these locally.
 
 ### Screen contracts
 
-The prototype at `specs/designs/` is the acceptance reference for these screens' layout and
-copy; where it and this constitution disagree, this constitution wins. It holds seven
-screens, the shared vendored stylesheet, and a README (`specs/designs/README.md`) mapping
-each screen to the specs governing its behavior.
+A screen contract is a registry entry, not a second specification. Each one names a screen
+this product ships, points at that screen's acceptance reference, and names the feature
+specs that own its behaviour. A contract states no functional requirement of its own: which
+affordances a screen offers, which entry points reach it, and which business rules it
+enforces are the owning specs' to state, to change, and to scope out as ordinary product
+decisions, with no amendment to this file. What every listed screen is held to is the bar
+above — design tokens and components, the non-negotiable visual rules, interaction states,
+readability, the layout and scroll contract, and accessibility.
 
-A screen contract MAY exist without a prototype screen where the governing spec explicitly
-defers visual design, recording that deferral as an exception in its plan's Constitution
-Check. For such a screen the contract text below is the sole acceptance reference: it fixes
-purpose, required affordances, and entry points, leaving layout and copy to the implementer
-within the design-token, interaction-state, and accessibility requirements above, none of
-which the deferral relaxes.
+The prototype at `specs/designs/` is the acceptance reference for layout and copy, and its
+README (`specs/designs/README.md`) records each screen's prototype-only affordances and
+deliberate non-implementations. Where the prototype and the requirements above disagree,
+those requirements win. Where the prototype and an owning spec disagree about behaviour,
+that spec wins.
 
-- **Login** (`specs/designs/01-login.html`) — Microsoft identity sign-in only
-  (Principle II): no password field, no local accounts, no alternate identity provider.
-- **Adventure select** (`specs/designs/07-home.html`) — the post-login landing page: a
-  welcome band, then a two-column body pairing "Ready to play" (published, not-yet-started
-  adventures) with "In progress" (the player's saved sessions, showing progress and
-  last-played information). Resuming, starting, and deleting a saved session are each
-  reachable in one action from a row or card. `specs/designs/02-story-select.html` is
-  retained only as historical prior art and is no longer a live acceptance reference.
-- **Play surface** (`specs/designs/03-play.html`) — a persistent title/status bar offering
-  an explicit checkpoint-save and a pause-and-exit action; a scrolling story pane; an
-  instruction input paired with suggested actions; a status panel showing location, goal,
-  progress, and a hint action. Exiting always goes through the pause screen, never an
-  unconfirmed destructive action.
-- **Administrator story-authoring wizard** (`specs/designs/04-admin-wizard.html`) — six
-  steps (name & cover, world & setting, tone & reading level, session length, test play,
-  publish & assign) reachable in any order. The adventure's core premise and its
-  content-safety configuration are required. A story MUST NOT be publishable
-  (`005-story-publishing-done`) until it has completed a test play.
-- **Administrator — people** (`specs/designs/05-admin-users.html`) — add a Player or
-  Administrator by email; existing accounts list their roles and are removed one at a time
-  behind a confirmation dialog, never in bulk. Accounts are Microsoft identities only, with no
-  password field (Principle II). See `003-account-provisioning-done`.
-- **Administrator — stories & configuration** (no prototype screen) — the story list shows
-  every story with published/unpublished status conveyed as text, not color alone, and is
-  one of the two required entry points for publish/unpublish (`005-story-publishing`
-  FR-010), enforcing the same preconditions and confirmation as the wizard's publish step by
-  rendering the same shared control rather than a screen-specific reimplementation. Each row
-  reaches that story's read-only configuration viewer in one action. The list is also the
-  entry point for uploading a story configuration file (`011-story-import` FR-001,
-  `012-story-editing-and-review` FR-005): the upload control confirms the named overwrite
-  target for a file carrying a story id, and prompts for a title for one that does not. The
-  viewer renders the story's complete configuration exactly as the download produces it,
-  with the download action alongside, and is read-only — every edit goes through the
-  authoring wizard or a re-upload. Introduced by `012-story-editing-and-review`, whose
-  FR-012 defers these two screens' visual design; that deferral is recorded as an explicit
-  exception in that feature's plan and covers styling only.
-- **Administrator — sessions** (`specs/designs/08-admin-sessions.html`, with
-  `08-admin-sessions-spec.md` as the written half of the same reference) — a list of every
-  gameplay session (real player and admin test play), each row showing its story, a session
-  identifier, its cumulative token total, and the email of whoever played it. A session whose
-  story has been deleted is labelled as such in text and stays listed. Reachable as its own
-  admin navigation item alongside Stories and People. Each row offers a delete, always behind
-  a confirmation dialog naming the session, never in bulk; deleting a session removes its
-  saved progress and transcript and never decrements any story's cumulative token total. A
-  player who acts on a session that has been deleted is returned to the post-login landing
-  page and told the session has been removed — an outcome distinct from a deleted or
-  unpublished story. Introduced by `026-token-usage` and given its prototype and its delete
-  affordance by `031-sessions-admin-design-spec`.
+A screen MAY have no prototype — because its governing spec defers visual design, or
+because none has been drawn yet. Its owning specs are then its sole acceptance reference,
+for layout and copy as well as behaviour. The absence relaxes none of the requirements
+above.
 
-### Save and session behaviour
+| Screen | Acceptance reference | Behaviour owned by |
+|---|---|---|
+| **Login** | `specs/designs/01-login.html` | `002-login-and-access-control-done`; the identity path is additionally bound by Principle II |
+| **Adventure select** | `specs/designs/07-home.html`, `07-home-spec.md` | `028-home-page-redesign`, `009-save-and-continue`, `025-story-delete-done` |
+| **Adventure & character setup** | `specs/designs/06-game-setup.html` | `006-adventure-and-character-setup` |
+| **Play surface** | `specs/designs/03-play.html`, `03-play-spec.md` | `008-core-gameplay-done`, `009-save-and-continue`, `029-play-surface-design-spec` |
+| **Administrator story-authoring wizard** | `specs/designs/04-admin-wizard.html` | `004-story-creation-done`, `005-story-publishing-done`, `010-story-test-play-done`, `017-story-publish-test-play-gate` |
+| **Administrator — people** | `specs/designs/05-admin-users.html`, `05-admin-users-spec.md` | `003-account-provisioning-done`, `014-account-listing`, `030-people-admin-design-spec`; accounts are Microsoft identities only (Principle II) |
+| **Administrator — stories & configuration** | no prototype — the owning specs are the reference | `005-story-publishing-done`, `011-story-import`, `012-story-editing-and-review`, `025-story-delete-done`, `026-token-usage` |
+| **Administrator — sessions** | `specs/designs/08-admin-sessions.html`, `08-admin-sessions-spec.md` | `026-token-usage`, `031-sessions-admin-design-spec` |
 
-1. Autosave after every turn is the default and is stated to the player in the UI.
-2. A manual save creates a named checkpoint and confirms visibly and briefly.
-3. Exiting never loses a turn already taken; the pause/exit screen states where the game was
-   saved.
-4. Session length is configurable per adventure, and the game offers a natural stopping
-   point rather than cutting a player off abruptly.
+`specs/designs/02-story-select.html` is retained as historical prior art only and is no
+longer a live acceptance reference for any contract above.
 
 ### Accessibility
 
@@ -628,4 +600,4 @@ visual-rules, interaction-state, or layout and scroll requirements as a blocking
 feature may ship a screen that is not traceable to a screen contract above or to a
 documented amendment extending one.
 
-**Version**: 9.1.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-13
+**Version**: 10.0.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-13
