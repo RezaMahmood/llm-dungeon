@@ -18,7 +18,7 @@
 ## Validate the accounts table
 
 4. Confirm each row shows: Microsoft account (email), one or two role tags (`Player` outlined,
-   `Administrator` accent-filled), a Status cell reading either "Signed in" (accent dot) or
+   `Administrator` accent-filled), a Status cell reading either "Has signed in" (accent dot) or
    "Never signed in" (neutral dot) — never a third "Signed out" state — and an Added date.
 5. Confirm a Remove action appears for every row except the signed-in administrator's own row
    and the seed administrator's row.

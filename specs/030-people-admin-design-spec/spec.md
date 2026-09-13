@@ -43,7 +43,7 @@ This applies to two parts of the design:
    `objectId`) apart from "has signed in" (bound), and it stores a one-time `dateBound` (the
    *first* sign-in), but it has no live session/presence tracking, so it cannot tell a
    currently-active session apart from one that signed in once, long ago. This feature
-   renders two honest states — **"Signed in"** (bound) and **"Never signed in"** (not
+   renders two honest states — **"Has signed in"** (bound) and **"Never signed in"** (not
    bound) — using the dot-plus-label treatment the design specifies, and does not render the
    design's third state ("Signed out · {relative time}"), which would require inventing a
    presence signal the backend cannot support. Live presence/last-seen tracking is specified
@@ -76,7 +76,7 @@ in the design's two-column grid with no page-level scrollbar.
 **Acceptance Scenarios**:
 
 1. **Given** an account that has completed sign-in at least once, **When** the table renders
-   its row, **Then** the Status cell shows the accent dot and the label "Signed in".
+   its row, **Then** the Status cell shows the accent dot and the label "Has signed in".
 2. **Given** an account that was added but has never completed sign-in, **When** the table
    renders its row, **Then** the Status cell shows the neutral dot and the label "Never signed
    in".
@@ -182,7 +182,7 @@ the accounts table reloads from the server's current list while the screen stays
   other), a sign-in status, the date the account was added, and — where removal is permitted
   for that row — a Remove action.
 - **FR-005**: The sign-in status (FR-004) MUST show exactly one of two honest states per the
-  *Scope note*: "Signed in" (the account has completed at least one sign-in) or "Never signed
+  *Scope note*: "Has signed in" (the account has completed at least one sign-in) or "Never signed
   in" (it has not), each with the design's dot-plus-label treatment and its own dot color.
   The design's third state ("Signed out · {relative time}") MUST NOT be implemented in this
   feature (see *Scope note*).
@@ -249,7 +249,7 @@ the accounts table reloads from the server's current list while the screen stays
   example) would misrepresent data the system does not actually have. A follow-up feature
   would need to decide where a name comes from before this column can be added honestly.
 - The Status column renders two of the canonical design's three states (see *Scope note*):
-  "Signed in" and "Never signed in". The third state, "Signed out · {relative time}", requires
+  "Has signed in" and "Never signed in". The third state, "Signed out · {relative time}", requires
   live session/presence tracking the backend does not have today (only a one-time first-bind
   timestamp) and is specified separately.
 - "Refresh" (FR-010/FR-011) re-reads the same account list from the server, matching the

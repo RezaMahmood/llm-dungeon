@@ -18,7 +18,9 @@ No new entity and no schema change. One existing field moves from "stored, not s
 
 The UI derives two presentation-only values per account — neither is a new stored field:
 
-- **Status label**: `"Signed in"` when `bound`, else `"Never signed in"` (spec.md FR-005).
+- **Status label**: `"Has signed in"` when `bound`, else `"Never signed in"` (spec.md FR-005;
+  deliberately not the design's present-tense "Signed in" — paired with the accent dot that
+  would read as live presence, which `bound` does not mean).
   Rendered as a `.status .status-on`/`.status-off` dot-plus-label pair, per
   `05-admin-users-spec.md` §6.1.
 - **Added date**: `dateAdded` formatted client-side into the design's short form (e.g.

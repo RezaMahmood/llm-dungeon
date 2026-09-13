@@ -7,9 +7,13 @@
  */
 /* Fixed shell / scrolling content split (constitution "Layout and scroll contract" #1),
    matching the same .home-shell/.home-colbody pattern Home.css already establishes: the
-   nav stays put and only this screen's own content scrolls. */
+   nav stays put and only this screen's own content scrolls. `height: 100%` (not `100vh`)
+   because this shell renders inside AuthenticatedLayout's flex:1/min-height:0 content
+   slot, below the nav — a `100vh` child there would be taller than that slot by the
+   nav's own height, forcing a page-level scroll that carries the nav off-screen (the
+   pattern Play.css's newer `.play-shell` already uses; code-review finding). */
 .people-shell {
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -114,6 +118,14 @@
   gap: 18px;
   margin-top: var(--space-4);
 }
+/* Mirrors designTokens.css's `.field > label` treatment — this is a <span>, not a
+   <label> (see AccountForm.jsx), so that selector doesn't reach it. */
+.people-role-group-label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 5px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
 .people-role-options {
   display: flex;
   flex-direction: column;
@@ -143,4 +155,23 @@
 }
 .people-role-note {
   font-size: 13px;
+}
+
+/* Mobile — the page-level scroll permitted below the mobile breakpoint by the
+   constitution's "Layout and scroll contract" rule 1 (matches Home.css's equivalent
+   block; without this the fixed-viewport shell stays on at phone widths and, combined
+   with the mobile URL bar shrinking the visual viewport, can clip the table's last rows
+   and the add-account panel's submit button — code-review finding). */
+@media (max-width: 760px) {
+  html,
+  body {
+    height: auto;
+  }
+  .people-shell {
+    height: auto;
+    overflow: visible;
+  }
+  .people-scroll {
+    overflow: visible;
+  }
 }

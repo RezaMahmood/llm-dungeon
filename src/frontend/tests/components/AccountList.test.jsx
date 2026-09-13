@@ -45,7 +45,7 @@ describe("AccountList", () => {
     expect(screen.getByText("Administrator")).toBeInTheDocument();
   });
 
-  it("shows bound status as Signed in / Never signed in, and never a third signed-out state", () => {
+  it("shows bound status as Has signed in / Never signed in, and never a third signed-out state", () => {
     render(
       <AccountList
         accounts={[
@@ -55,8 +55,9 @@ describe("AccountList", () => {
       />,
     );
 
-    expect(screen.getByText("Signed in")).toBeInTheDocument();
+    expect(screen.getByText("Has signed in")).toBeInTheDocument();
     expect(screen.getByText("Never signed in")).toBeInTheDocument();
+    expect(screen.queryByText(/^signed in$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/signed out/i)).not.toBeInTheDocument();
   });
 

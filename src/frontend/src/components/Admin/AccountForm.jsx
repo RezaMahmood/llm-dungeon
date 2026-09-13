@@ -59,8 +59,14 @@ export function AccountForm({ token, onAdded }) {
             required
           />
         </div>
-        <div className="field">
-          <label>Roles — choose one or both</label>
+        <div className="field" role="group" aria-labelledby="account-roles-label">
+          {/* A <span>, not a <label> — an orphan <label> (wraps no single control, no
+              htmlFor) is inert and dangling for assistive tech (code-review finding).
+              role="group"/aria-labelledby on the fieldset div is the correct association
+              for a group of two checkboxes. */}
+          <span id="account-roles-label" className="people-role-group-label">
+            Roles — choose one or both
+          </span>
           {/* Wrapped so the design system's `.field > label { display: block }` rule
               (designTokens.css) doesn't win over `.people-role-option`'s flex layout —
               matches the canonical mockup's own wrapping div. */}

@@ -20,7 +20,7 @@ Referenced by number below rather than restated in each task.
   design until it lands.
 - **D2 — No Name column.** The Microsoft account email is the sole identity column; no name is
   added anywhere (spec.md *Scope note*; research.md Decision 1).
-- **D3 — Two Status states only.** "Signed in" (bound) and "Never signed in" (not bound). The
+- **D3 — Two Status states only.** "Has signed in" (bound) and "Never signed in" (not bound). The
   design's third state ("Signed out · {relative time}") is never rendered (spec.md *Scope
   note*; research.md Decision 2).
 - **D4 — Styling.** Page-scoped classes (`AdminAccounts.css`) are additive layout-only
@@ -101,7 +101,7 @@ bound/never-bound and single/dual-role states; confirm the table and layout matc
   ==` checks) to include `"dateAdded"`, and add a new test asserting `dateAdded` is `None` for
   an entry created with no `dateAdded` set and the ISO string for one that has it.
 - [X] **T005** [P] [US1] In `src/frontend/tests/components/AccountList.test.jsx`, add
-  assertions: a bound account's row shows "Signed in" text and a `.status-on` dot; a
+  assertions: a bound account's row shows "Has signed in" text and a `.status-on` dot; a
   never-bound account's row shows "Never signed in" and a `.status-off` dot; the design's
   third-state text ("Signed out") never appears anywhere; a `Player`-only account renders a
   `tag-outline` tag and an `Administrator`-holding account renders a `tag-accent` tag; a row
@@ -232,6 +232,44 @@ confirm the table re-reads from the server without navigating away.
   Not run this session — no local Cosmos DB emulator / Azure Functions host was started, so
   this needs a manual pass (or CI) before merge; steps 1-9 are covered by the automated
   integration tests above, but a real-browser check (step 10 especially) has not happened.
+- [X] **T022** `/code-review high` pass and fixes. Findings and outcomes:
+  - **HIGH, fixed** — `AccountList` returned a fragment with 3 always-rendered top-level
+    siblings; combined with `AccountForm`'s panel that made `.people-grid` lay out 4 items
+    instead of 2, misplacing the table and panel at common viewport widths. Fixed by
+    wrapping the label/table/caption in one `min-width: 0` div (matches the canonical
+    mockup's own wrapping div). Regression test added
+    (`admin_accounts.test.jsx`: "wraps the accounts table and the add-account panel as
+    exactly two grid items").
+  - **MEDIUM, fixed** — `.people-shell { height: 100vh }` inside `AuthenticatedLayout`'s
+    nav-plus-flex:1 shell produced a page-level scroll that carried the nav off-screen.
+    Changed to `height: 100%`, matching `Play.css`'s `.play-shell` (the newer, correct
+    precedent) rather than `Home.css`'s `.home-shell` (the older, buggy one this was
+    copied from).
+  - **MEDIUM, fixed** — no mobile breakpoint existed, so the fixed-viewport shell stayed
+    on at phone widths, risking clipped content under a mobile URL bar. Added the same
+    `@media (max-width: 760px)` relaxation `Home.css` uses.
+  - **MEDIUM, fixed** — the heading read "0 accounts in LLM Dungeon" during the initial
+    load (and after a failed first load), asserting a count before any data arrived.
+    Now renders a plain "People" heading until `accounts` is non-null. Regression test
+    added ("never states a count before the first load resolves").
+  - **MEDIUM, fixed** — the new global `.btn-secondary`/`.btn-primary`/`.btn-ghost` hover
+    rules had higher specificity than the existing disabled-state rule's intent, so an
+    `aria-disabled` control (e.g. `StatusPanel`'s hint button) lit up with a full-accent
+    hover fill on mouseover, reading as live. Scoped every new hover/active selector with
+    `:not(:disabled):not([aria-disabled="true"])`. Not covered by an automated test —
+    jsdom doesn't exercise `:hover` — verified by reading the resulting cascade;
+    recorded as a manual-verification item.
+  - **LOW/MEDIUM, addressed as documentation** — the button-language block's comment
+    called itself "additive," which undersold that it also changes several controls'
+    *resting* colors app-wide (`.btn-ghost` ink, `.btn-secondary` background), and no
+    non-People screen was manually checked. Corrected the framing in code comments and
+    research.md Decision 4, and named the unchecked screens as a known limitation.
+  - **LOW, fixed** — the bound Status label "Signed in" paired with the accent dot read
+    as live presence, which `bound` doesn't mean (only "signed in at least once, ever").
+    Changed the label to "Has signed in" across code, tests, and every spec doc.
+  - **LOW, fixed** — the "Roles — choose one or both" `<label>` wrapped no control and had
+    no `htmlFor` (an orphan label). Changed to a `<span>` with `role="group"`/
+    `aria-labelledby` on the checkbox group's container div.
 
 ---
 

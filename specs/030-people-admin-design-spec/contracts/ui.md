@@ -99,4 +99,8 @@ modifiers; every control keeps its design-system class (`btn btn-primary`, `btn 
   ink border + accent-fill hover/press, `.btn-primary` 2px accent border + halo hover +
   darker press, `.btn-ghost` 2px divider border with neutral-700 ink at rest + accent-fill
   hover/press, `.nav a` transparent-to-accent bottom border on hover/`aria-current="page"`
-  (research.md Decision 4). Applies to every screen using these classes, not just People.
+  (research.md Decision 4). Applies to every screen using these classes, not just People —
+  including a resting-appearance change for `.btn-ghost` (ink color) and `.btn-secondary`
+  (background). Every new hover/active rule is scoped `:not(:disabled):not([aria-disabled="true"])`
+  so an inert control (e.g. `StatusPanel`'s hint button) keeps its disabled look on hover
+  instead of lighting up like a live one.

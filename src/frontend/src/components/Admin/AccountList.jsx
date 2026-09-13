@@ -21,12 +21,16 @@ function formatDateAdded(iso) {
 // Two honest sign-in states only (030-people-admin-design-spec Scope note / D3): the
 // backend can tell "has bound at least once" from "never bound", but has no live
 // session/presence signal, so a third "Signed out · {relative time}" state is never
-// rendered — that would claim information the system doesn't have.
+// rendered — that would claim information the system doesn't have. The bound label
+// reads "Has signed in" rather than the design's present-tense "Signed in": paired with
+// the accent dot (this system's usual online-presence signal), "Signed in" would read as
+// live presence, which `bound` does not mean — it only means "signed in at least once,
+// ever" (code-review finding, 030-people-admin-design-spec).
 function StatusCell({ bound }) {
   return bound ? (
     <span className="status status-on">
       <span className="dot" />
-      Signed in
+      Has signed in
     </span>
   ) : (
     <span className="status status-off">
@@ -99,36 +103,43 @@ export function AccountList({ accounts = [], token, currentUserEmail, onRemoved 
 
   return (
     <>
-      <div className="people-table-label">All accounts</div>
-      <table className="table" style={{ marginTop: "10px" }}>
-        <thead>
-          <tr>
-            <th>Microsoft account</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Added</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {accounts.map((account) => {
-            const isSelf = account.email.toLowerCase() === normalizedCurrentUserEmail;
-            const isRemovable = !isSelf && !account.isSeedAdmin;
-            return (
-              <AccountRow
-                key={account.email}
-                account={account}
-                isRemovable={isRemovable}
-                onSelectRemove={handleSelectRemove}
-              />
-            );
-          })}
-        </tbody>
-      </table>
-      <p className="people-caption text-muted">
-        Removing an account revokes access at the next sign-in. Stories the player has finished
-        stay in the class record.
-      </p>
+      {/* One grid item (min-width: 0 so the nowrap table can shrink below its
+          min-content width instead of overflowing the grid track — the design's own
+          mockup wraps this cell the same way) — AccountList sits beside AccountForm's
+          panel in AdminAccountsPage's .people-grid, so its top-level children must not
+          themselves become separate grid items. */}
+      <div style={{ minWidth: 0 }}>
+        <div className="people-table-label">All accounts</div>
+        <table className="table" style={{ marginTop: "10px" }}>
+          <thead>
+            <tr>
+              <th>Microsoft account</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Added</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {accounts.map((account) => {
+              const isSelf = account.email.toLowerCase() === normalizedCurrentUserEmail;
+              const isRemovable = !isSelf && !account.isSeedAdmin;
+              return (
+                <AccountRow
+                  key={account.email}
+                  account={account}
+                  isRemovable={isRemovable}
+                  onSelectRemove={handleSelectRemove}
+                />
+              );
+            })}
+          </tbody>
+        </table>
+        <p className="people-caption text-muted">
+          Removing an account revokes access at the next sign-in. Stories the player has
+          finished stay in the class record.
+        </p>
+      </div>
 
       {pendingEmail && (
         <div className="dialog-backdrop">

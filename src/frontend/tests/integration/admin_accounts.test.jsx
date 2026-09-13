@@ -109,4 +109,33 @@ describe("Admin accounts: add -> list -> re-add merges", () => {
     expect(screen.getByRole("table")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /add someone/i })).toBeInTheDocument();
   });
+
+  it("never states a count before the first load resolves", async () => {
+    let resolveList;
+    listAccounts.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveList = resolve;
+      }),
+    );
+
+    render(<AdminAccountsPage />);
+
+    // Still loading: no fabricated "0 accounts" claim.
+    expect(screen.getByRole("heading", { name: "People" })).toBeInTheDocument();
+    expect(screen.queryByText(/accounts in llm dungeon/i)).not.toBeInTheDocument();
+
+    resolveList({ accounts: [{ email: "player@example.com", roles: ["Player"] }] });
+    expect(await screen.findByRole("heading", { name: "1 accounts in LLM Dungeon" })).toBeInTheDocument();
+  });
+
+  it("wraps the accounts table and the add-account panel as exactly two grid items", async () => {
+    listAccounts.mockResolvedValueOnce({
+      accounts: [{ email: "player@example.com", roles: ["Player"] }],
+    });
+
+    const { container } = render(<AdminAccountsPage />);
+
+    await screen.findByText("player@example.com");
+    expect(container.querySelector(".people-grid").children).toHaveLength(2);
+  });
 });

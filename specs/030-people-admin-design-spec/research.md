@@ -70,28 +70,48 @@ data collection, and the *Scope note* explicitly carves this out as in-scope (FR
   string, and locale-aware short-date formatting is a presentation concern, not something the
   API should bake in.
 
-## Decision 4: Vendor the shared button-language block additively
+## Decision 4: Vendor the shared button-language block, adapted for disabled controls
 
 **Decision**: The block the canonical `styles.css` appends after its existing `.btn-primary`/
 `.btn-secondary`/`.btn-ghost`/`.nav a` rules (a 2px visible border at rest on every button
 variant, animated `background/color/border-color/box-shadow` transitions, and a nav
 bottom-border affordance) is copied into `src/frontend/src/styles/designTokens.css` in the
-same position — appended after the app's existing button rules, not replacing them, since
-later same-specificity CSS rules win by source order and the canonical file's own diff against
-the app's previously-vendored copy is purely additive (no rule removed).
+same position, appended after the app's existing button rules rather than replacing them
+(later same-specificity rules win by source order) — **with one adaptation**: every new
+hover/active selector is scoped `:not(:disabled):not([aria-disabled="true"])`. The block is
+**not** purely additive in effect, only in file position: no existing declaration is removed,
+but the new rules' higher specificity changes several controls' *resting* appearance
+app-wide — `.btn-ghost`'s resting ink color (`var(--color-accent)` → `var(--color-neutral-700)`)
+and `.btn-secondary`'s resting background (transparent → `var(--color-bg)`) both change for
+every button using those classes, not just on People.
 
 **Rationale**: The issue states the updated `styles.css` "now encapsulates design language for
 all buttons across the app" — this is explicitly meant to apply everywhere, not just to the
 People screen, and constitution "UI Design System Requirements" requires the token stylesheet
-be "copied in unmodified" from its vendored source. Appending in the same relative order the
-canonical file uses keeps the vendored copy a faithful mirror, and since it's additive, no
-other screen's markup needs a class rename to pick it up.
+be "copied in unmodified" from its vendored source. The disabled/`aria-disabled` scoping is the
+one deliberate departure from a literal copy: the static prototype has no notion of a disabled
+button, but this app does (e.g. `StatusPanel`'s inert "Stuck? Get a hint",
+`029-play-surface-design-spec`), and without the scoping, the new hover rules' specificity
+would beat `.btn:disabled, .btn[aria-disabled="true"] { opacity: .45 }`'s intent on hover,
+making an inert control light up with the identical full-accent fill an enabled button gets —
+found in code review and fixed here rather than left as a known gap, since it would otherwise
+mislead every screen with a disabled/aria-disabled button, not just this one.
 
 **Alternatives considered**:
 - *Scope the new button treatment to the People screen only (a page-scoped override)* —
   rejected: the issue's own text and the canonical `styles.css`'s file-level change both say
   this is app-wide design language, and constitution Principle VIII forbids re-deriving or
   forking the token layer per screen.
+- *Copy the block completely unmodified, accepting the disabled-hover regression* — rejected:
+  Principle VIII's Interaction-states requirements are non-negotiable project-wide, and an
+  app-wide accessibility regression is a worse outcome than a documented, minimal adaptation
+  of the vendored source.
+
+**Known limit**: only the specific disabled-hover regression above was checked and fixed;
+a full manual visual pass of every non-People screen using `.btn-secondary`/`.btn-ghost`
+(Play, Home, TitleBar, the story wizard, `RefreshButton`) was not performed this session —
+none of those screens' own tests assert exact button colors, so none failed, but a human
+visual check before merge is recommended and named as a known limitation in the PR.
 
 ## Decision 5: Role tag classes
 

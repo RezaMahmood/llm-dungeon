@@ -29,13 +29,17 @@ export function AdminAccountsPage() {
   const { data: accounts, loading, error, refresh } = useRefreshable(fetchAccounts);
   usePublishRefresh({ refresh, loading });
 
-  const count = accounts?.length ?? 0;
+  // Never states a count before the first successful load — accounts is null until
+  // then (useRefreshable), and stays null through a failed first load too, so a bare
+  // "?? 0" would misreport "0 accounts" while still loading or after a failure
+  // (code-review finding).
+  const heading = accounts === null ? "People" : `${accounts.length} accounts in LLM Dungeon`;
 
   return (
     <div className="people-shell">
       <div className="people-header">
         <div className="people-kicker">People</div>
-        <h2 className="people-heading">{count} accounts in LLM Dungeon</h2>
+        <h2 className="people-heading">{heading}</h2>
         <hr className="hr" style={{ margin: "20px 0 32px" }} />
       </div>
       <div className="people-scroll">
