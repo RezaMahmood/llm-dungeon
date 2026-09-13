@@ -2,8 +2,9 @@
  * The play surface (specs/designs/03-play.html, 008-core-gameplay-done) — wires session
  * creation's opening narrative and each subsequent free-text/suggested-action submit
  * into the story pane, status panel, and pause-and-exit confirmation. Also renders a
- * resumed session's whole turn history and publishes the checkpoint-save handler
- * (009-save-and-continue).
+ * resumed session's whole turn history, publishes the checkpoint-save handler
+ * (009-save-and-continue), and publishes the header Refresh control (029,
+ * 019-spa-refresh-button).
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -14,7 +15,8 @@ import StatusPanel from "../components/Play/StatusPanel.jsx";
 import StoryPane from "../components/Play/StoryPane.jsx";
 import SuggestedActions from "../components/Play/SuggestedActions.jsx";
 import { usePublishPlayTitle } from "../context/PlayTitleContext.jsx";
-import { resumeSession, saveCheckpoint, submitInteraction } from "../services/gameService.js";
+import { usePublishRefresh } from "../context/RefreshContext.jsx";
+import { getSession, resumeSession, saveCheckpoint, submitInteraction } from "../services/gameService.js";
 
 // How long the "Checkpoint saved at …" / failure notice stays up before it clears
 // itself (Constitution "Save and session behaviour" #2: "visibly and briefly").
@@ -30,6 +32,8 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
   const [pauseOpen, setPauseOpen] = useState(false);
   const [checkpointNotice, setCheckpointNotice] = useState(null);
   const checkpointNoticeTimer = useRef(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshNotice, setRefreshNotice] = useState(null);
 
   const latest = turns[turns.length - 1];
   const locked = notice?.type === "lockout";
@@ -76,6 +80,28 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
   // second title bar with its own, unconfirmed way out (FR-016).
   const openPauseDialog = useCallback(() => setPauseOpen(true), []);
   usePublishPlayTitle({ storyTitle: storyName, onPauseExit: openPauseDialog, onSaveCheckpoint: handleSaveCheckpoint });
+
+  // Re-syncs the play screen against the session's currently recorded state (FR-009,
+  // research.md Decision 3) — reuses the same getSession call GamePage's resume path
+  // already makes, rather than inventing a second way to fetch this shape. `inputValue`
+  // is never touched by either path (FR-010): a failure must not discard what the
+  // player had already typed.
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    setRefreshNotice(null);
+    try {
+      const token = await getToken();
+      const data = await getSession(token, sessionId);
+      setTurns(data.session.turns.map((turn) => ({ ...turn, playerInput: turn.playerInput ?? null })));
+      setStatus(data.session.status);
+      setCompletionReason(data.session.completionReason || null);
+    } catch {
+      setRefreshNotice({ message: "Couldn't refresh the story. Please try again." });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [getToken, sessionId]);
+  usePublishRefresh({ refresh: handleRefresh, loading: refreshing });
 
   const handleSubmit = async (input) => {
     setSubmitting(true);
@@ -141,6 +167,11 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
               {checkpointNotice && (
                 <p role={checkpointNotice.type === "error" ? "alert" : "status"} className="text-muted play-notice">
                   {checkpointNotice.message}
+                </p>
+              )}
+              {refreshNotice && (
+                <p role="alert" className="text-muted play-notice">
+                  {refreshNotice.message}
                 </p>
               )}
               {status === "concluded" ? (

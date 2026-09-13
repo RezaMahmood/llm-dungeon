@@ -1,10 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import TitleBar from "../../src/components/Layout/TitleBar.jsx";
 import { PlayTitleProvider, usePublishPlayTitle } from "../../src/context/PlayTitleContext.jsx";
+import { RefreshProvider, usePublishRefresh } from "../../src/context/RefreshContext.jsx";
 
 const renderTitleBar = (props = {}) =>
   render(
@@ -37,6 +38,23 @@ const renderTitleBarWithPublishedCheckpoint = (onSaveCheckpoint) =>
         <Publisher onSaveCheckpoint={onSaveCheckpoint} />
         <TitleBar />
       </PlayTitleProvider>
+    </MemoryRouter>,
+  );
+
+/** Publishes { refresh, loading } through RefreshContext, the way PlayPage does
+ * (019-spa-refresh-button — RefreshContext). */
+function RefreshPublisher({ refresh, loading }) {
+  usePublishRefresh({ refresh, loading });
+  return null;
+}
+
+const renderTitleBarWithRefresh = ({ refresh = vi.fn(), loading = false } = {}) =>
+  render(
+    <MemoryRouter>
+      <RefreshProvider>
+        <RefreshPublisher refresh={refresh} loading={loading} />
+        <TitleBar storyTitle="Story" />
+      </RefreshProvider>
     </MemoryRouter>,
   );
 
@@ -116,5 +134,34 @@ describe("TitleBar (FR-006)", () => {
     await user.click(screen.getByRole("button", { name: /save a checkpoint/i }));
 
     expect(onSaveCheckpoint).toHaveBeenCalledOnce();
+  });
+
+  // --- 029-play-surface-design-spec (T023, US3): header Refresh control ---
+
+  it("renders no refresh control when nothing is published (029)", () => {
+    renderTitleBar({ storyTitle: "Story" });
+
+    expect(screen.queryByRole("button", { name: /refresh/i })).not.toBeInTheDocument();
+  });
+
+  it("renders the published refresh control ahead of the other trailing actions and invokes it on click (029)", async () => {
+    const user = userEvent.setup();
+    const refresh = vi.fn();
+    renderTitleBarWithRefresh({ refresh });
+
+    const trailing = screen.getByRole("button", { name: /pause & exit/i }).closest('[data-nav-slot="trailing-actions"]');
+    const buttons = within(trailing).getAllByRole("button");
+    expect(buttons[0]).toHaveAccessibleName(/refresh/i);
+
+    await user.click(screen.getByRole("button", { name: /^refresh$/i }));
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it("disables the published refresh control while loading (029)", () => {
+    renderTitleBarWithRefresh({ loading: true });
+
+    const button = screen.getByRole("button", { name: /^refresh$/i });
+    expect(button).toBeDisabled();
+    expect(button).toHaveTextContent(/refreshing/i);
   });
 });
