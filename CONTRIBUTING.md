@@ -34,7 +34,7 @@ is the operational form of the same rules.
    similar) may write the change, push the branch and open the pull
    request, and must label it `AI Generated` and `Claude`. It must not
    merge a pull request or enable auto-merge — merging is the
-   maintainer's manual action. Constitution Principle XIII.
+   maintainer's manual action. Constitution Principle X.
 6. **No admin bypasses.** Branch rules apply uniformly.
 
 ---
@@ -97,7 +97,7 @@ gh pr create --title "fix(backend): stop replaying the opening narrative" --body
 The title must be Conventional Commits with a scope — see §4. The
 description should say what problem the change addresses, what was
 decided, what was actually tested and what it returned, and anything
-deliberately left undone. It must not contain PII (Principle X).
+deliberately left undone. It must not contain PII (Principle VIII).
 
 ### Step 4 — checks and review
 

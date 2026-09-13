@@ -43,8 +43,8 @@ manually each time specs cross the finish line (or fall back out of it).
   checkbox lines, is **indeterminate** — never rename it in either direction, just note it as
   skipped.
 - **Only touch feature folders.** Restrict scope to `specs/` entries matching `^[0-9]{3}-`
-  (the spec-kit numbering convention) with an optional trailing `-done`. Leave
-  `specs/designs/` and anything else alone.
+  (the spec-kit numbering convention) with an optional trailing `-done`. Leave any other
+  `specs/` entry alone.
 - **Reference fixes exclude the renamed spec's own directory.** Historical self-references
   inside a spec's own `plan.md`/`tasks.md` (e.g. "Input: Design documents from
   `/specs/002-login-and-access-control/`") record what the artifact said at generation time

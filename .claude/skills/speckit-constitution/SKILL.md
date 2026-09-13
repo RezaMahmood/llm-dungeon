@@ -111,16 +111,19 @@ Follow this execution flow:
    - Ensure each Principle section: succinct name line, paragraph (or bullet list) capturing non‑negotiable rules, explicit rationale if not obvious.
    - Ensure Governance section lists amendment procedure, versioning policy, and compliance review expectations.
 
-4. Produce a Sync Impact Report (prepend as an HTML comment at top of the constitution file after update):
+4. Account for the amendment in the pull request description, NOT in the constitution file:
    - Version change: old → new
    - List of modified principles (old title → new title if renamed)
    - Added sections
    - Removed sections
    - Follow-up TODOs if any placeholders intentionally deferred.
+   The constitution states the rules in force and carries no record of its own amendments;
+   git holds that history. Do not prepend a Sync Impact Report, or any other changelog
+   comment, to the file.
 
 5. Validation before final output:
    - No remaining unexplained bracket tokens.
-   - Version line matches report.
+   - No changelog or amendment-history comment block at the top of the file.
    - Dates ISO format YYYY-MM-DD.
    - Principles are declarative, testable, and free of vague language ("should" → replace with MUST/SHOULD rationale where appropriate).
 
@@ -141,7 +144,7 @@ Formatting & Style Requirements:
 
 If the user supplies partial updates (e.g., only one principle revision), still perform validation and version decision steps.
 
-If critical info missing (e.g., ratification date truly unknown), insert `TODO(<FIELD_NAME>): explanation` and include in the Sync Impact Report under deferred items.
+If critical info missing (e.g., ratification date truly unknown), insert `TODO(<FIELD_NAME>): explanation` and name it among the deferred items in the pull request description.
 
 Write only `.specify/memory/constitution.md`; do not create or modify template source files.
 

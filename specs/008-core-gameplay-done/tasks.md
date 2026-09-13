@@ -387,7 +387,7 @@ actions, and is delivered through the text interface (quickstart.md Scenarios 1,
       layer/shared component classes, no ad hoc styling. The mockup's "Stuck? Get a hint"
       action is rendered inert/omitted (spec.md Design Reference note, plan.md, out of
       scope). The title bar includes a static, always-visible "Autosaved after every turn"
-      label (FR-017, Constitution "Save and session behaviour" #1) — no new data/API
+      label (FR-017) — no new data/API
       needed, since this is true by construction once T043 persists on every interaction.
 - [X] T049 [US1] Create `src/frontend/src/pages/PlayPage.jsx` wiring `GamePage.jsx`'s
       completed setup state into `createSession` (on mount/setup-confirm) and
