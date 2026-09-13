@@ -63,4 +63,30 @@ describe("AuthenticatedLayout header selection (FR-001, FR-006, SC-002)", () => 
       unmount();
     }
   });
+
+  it("clamps the shell to the viewport on the story-play screen, so only its own scroll containers (e.g. .play-shell) can scroll", () => {
+    // Regression for FR-001: a `minHeight`-only shell never constrains an unconstrained
+    // descendant's height, so a tall transcript grew the whole page instead of scrolling
+    // internally. `height: 100vh` (a ceiling) + `overflow: hidden` is what actually stops
+    // that, and only story-play may impose it — every other screen needs the page free to
+    // grow past the viewport (index.css's own comment on why it carries no blanket rule).
+    const { container } = renderAt("/game");
+    const shell = container.firstChild;
+
+    // jsdom resolves the "100vh" the component sets to a pixel value against the test
+    // window's height, so assert the *kind* of constraint (a `height`, not a `minHeight`)
+    // rather than the literal string.
+    expect(shell.style.height).not.toBe("");
+    expect(shell.style.overflow).toBe("hidden");
+    expect(shell.style.minHeight).toBe("");
+  });
+
+  it.each(["/menu", "/admin"])("leaves the shell free to grow past the viewport on %s", (path) => {
+    const { container } = renderAt(path);
+    const shell = container.firstChild;
+
+    expect(shell.style.minHeight).not.toBe("");
+    expect(shell.style.height).toBe("");
+    expect(shell.style.overflow).toBe("");
+  });
 });
