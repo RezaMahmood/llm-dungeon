@@ -121,12 +121,11 @@ No new external dependency, no new Azure resource type.
   ad hoc styling. The "Stuck? Get a hint" action visible in that mockup is explicitly out
   of scope for this feature's functional requirements (spec.md Design Reference note) and
   is rendered inert/omitted rather than wired to nonexistent behavior. Free-text input
-  remains available at all times alongside suggested actions (Constitution "Readability &
-  interaction requirements" #4-5). The title bar's exit action routes through a
-  `PauseDialog` confirmation stating where the game was saved (FR-016, Constitution "Save
-  and session behaviour" #3) — exiting never happens unconfirmed. The title bar also
-  carries a static "Autosaved after every turn" label (FR-017, Constitution "Save and
-  session behaviour" #1), disclosing the autosave-per-interaction behavior `submit_
+  remains available at all times alongside suggested actions
+  (`029-play-surface-design-spec` FR-005). The title bar's exit action routes through a
+  `PauseDialog` confirmation stating where the game was saved (FR-016) — exiting never
+  happens unconfirmed. The title bar also
+  carries a static "Autosaved after every turn" label (FR-017), disclosing the autosave-per-interaction behavior `submit_
   interaction` already performs by construction. PASS.
 - **IX. Playtesting-Driven Quality**: Non-blocking per the current constitution — automated
   tests (above) are the completion gate; a playtesting task may be included in `tasks.md`
