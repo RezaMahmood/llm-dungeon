@@ -1,44 +1,4 @@
-<!--
-Sync Impact Report
-Version change: 9.1.0 -> 10.0.0
-Modified principles: none.
-This amendment withdraws every functional requirement from this file. What a feature does
-is its spec's to state; this file states principles, workflow, architecture, and the
-non-functional bar the work is held to. It names no screen, no feature spec, and no path
-under `specs/`.
-Modified principles:
-  - XI. Implementer Design Latitude: design judgement is now guided by the design system
-    and the feature's own spec, not by "screen contracts".
-Modified sections:
-  - UI Design System Requirements → Readability & interaction requirements: #4 (forgiving
-    interpretation of player input) and #5 (suggested actions always available) withdrawn
-    as product behaviour. The remainder is generalised off this product's vocabulary —
-    "long-form reading prose" rather than story prose, "user-facing copy" rather than
-    player-facing — and the example naming a specific control is dropped. Old #6 and #7
-    are renumbered #4 and #5.
-  - UI Design System Requirements → Layout and scroll contract: reduced to what is
-    genuinely non-functional. The fixed shell (#1) and the 320px floor (now #3) stand. The
-    rule naming one screen's panes is generalised to "chrome around a scrolling region
-    stays fixed" (#2), and the auto-scroll-to-newest-turn rule is withdrawn as behaviour.
-  - Governance: the screen-traceability requirement is replaced by its inverse — a
-    statement that affordances, entry points and business rules are the spec's, and that
-    scoping one out is a product decision rather than an amendment.
-Added sections: none.
-Removed sections:
-  - UI Design System Requirements → Screen contracts, in full. It enumerated this
-    product's screens, their required affordances, their entry points and their business
-    rules, and pointed at the feature specs that state the same things — a second,
-    competing copy of requirements that drifted from the specs that own them.
-  - UI Design System Requirements → Save and session behaviour (#1–#4). Autosave cadence,
-    named checkpoints, what exiting preserves, and per-adventure session length are
-    product behaviour.
-Rationale for MAJOR: governance requirements are withdrawn, not clarified. Requirements
-  this file imposed on every feature are now imposed by none of it; a plan whose
-  Constitution Check cited a withdrawn rule is no longer checking anything, and a scope
-  decision that previously needed an amendment no longer does.
-Deferred/TODO placeholders: none.
-Earlier Sync Impact Reports are in this file's git history.
---># LLM Dungeon Adventure Constitution
+# LLM Dungeon Adventure Constitution
 
 ## Core Principles
 
@@ -142,7 +102,7 @@ Rationale: this project's screens are built incrementally across many features; 
 one enforced design system and accessibility bar, screens built in different cycles drift
 apart visually and behaviorally and become harder to maintain.
 
-### IX. *(Retired in v7.0.0 — see Sync Impact Report)*
+### IX. *(Retired)*
 This number governed manual/user-verified testing as part of feature completion. The
 project now handles that entirely outside the speckit workflow, so this constitution takes
 no position on it — neither requiring it nor guaranteeing it is non-blocking. The number
@@ -262,8 +222,8 @@ reason for a line (e.g. a workaround for a specific external constraint) but MUS
 narrate what the code does, restate implementation detail the governing spec already
 documents, or record how the implementation reached its current form.
 
-This constitution's own Sync Impact Report is the single exception, and it carries only
-the current amendment; earlier reports live in git history.
+This constitution is held to the same standard: it states the rules in force and carries no
+record of its own amendments.
 
 Rationale: spec artifacts are working documents read repeatedly through a feature's life,
 and narrative about past reversals buries the decision actually in force. Git already
@@ -556,8 +516,8 @@ for the change, and passes the review gate in Development Workflow & Quality Gat
 merge. Versioning is semantic: MAJOR for backward-incompatible
 governance or principle removals and redefinitions, MINOR for a new principle or section or
 materially expanded guidance, PATCH for clarifications and wording fixes. The Last Amended
-date MUST be updated on every change to this file's content, and the amendment's Sync Impact
-Report replaces its predecessor at the top of this file.
+date MUST be updated on every change to this file's content. What changed and why belongs in
+that pull request, not in this file — this file states the rules in force.
 
 Every implementation plan (`plan.md`) MUST include a Constitution Check stating how each UI
 Design System requirement is satisfied or requesting an explicit, justified exception. A
