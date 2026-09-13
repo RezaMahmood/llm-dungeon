@@ -39,7 +39,10 @@ class FakeContainer:
 
     def replace_item(self, item, body, etag=None, match_condition=None):
         current = self.items.get(item)
-        if match_condition == MatchConditions.IfNotModified and current is not None and current.get("_etag") != etag:
+        if current is None:
+            # Cosmos' own behaviour: replace_item never creates.
+            raise CosmosResourceNotFoundError
+        if match_condition == MatchConditions.IfNotModified and current.get("_etag") != etag:
             raise CosmosAccessConditionFailedError
         body = dict(body)
         body["_etag"] = self._next_etag()
@@ -89,6 +92,24 @@ def _seed_story(story_service, **overrides):
     story = _make_story(**overrides)
     story_service._container().upsert_item(story.to_dict())
     return story
+
+
+def _delete_after_read(container, story_id: str, nth: int = 1) -> None:
+    """Simulate a concurrent hard delete (025-story-delete FR-003) landing between a
+    service's read of the story and its write: the `nth` read of `story_id` returns the row
+    and then removes it, so the write that follows finds nothing (#281)."""
+    real_read = container.read_item
+    reads = {"count": 0}
+
+    def read_then_maybe_delete(item, partition_key):
+        row = real_read(item=item, partition_key=partition_key)
+        if item == story_id:
+            reads["count"] += 1
+            if reads["count"] == nth:
+                container.items.pop(story_id, None)
+        return row
+
+    container.read_item = read_then_maybe_delete
 
 
 def test_import_rejects_malformed_json(request_factory):
@@ -332,3 +353,26 @@ def test_import_requires_administrator_role(request_factory):
     ):
         response = import_story(_authorized(request_factory, {"configurationText": "{}"}), story_service=story_service)
     assert response.status_code == 403
+
+
+def test_import_returns_404_when_the_story_is_deleted_between_the_read_and_the_write(request_factory):
+    """The id-matched overwrite's existing 404 story_not_found also covers a hard delete
+    that lands inside the etag window (#281)."""
+    story_service, cosmos, _llm = _services()
+    _seed_story(story_service, id="story-1", contentVersion=1)
+    # The second read is apply_content_write's own; the first is import_configuration's
+    # existence check, whose not-found branch already existed.
+    _delete_after_read(cosmos.get_container("stories"), "story-1", nth=2)
+    payload = _valid_payload(id="story-1")
+
+    with _patched_authorize_admin():
+        response = import_story(
+            _authorized(
+                request_factory, {"configurationText": json.dumps(payload), "confirmOverwriteStoryId": "story-1"}
+            ),
+            story_service=story_service,
+        )
+
+    assert response.status_code == 404
+    assert json.loads(response.get_body())["error"] == "story_not_found"
+    assert "story-1" not in cosmos.get_container("stories").items

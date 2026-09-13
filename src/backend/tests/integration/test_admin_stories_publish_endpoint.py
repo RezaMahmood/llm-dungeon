@@ -7,7 +7,8 @@ from __future__ import annotations
 import json
 from unittest.mock import patch
 
-from azure.cosmos.exceptions import CosmosResourceNotFoundError
+from azure.core import MatchConditions
+from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosResourceNotFoundError
 
 from backend.api.admin.stories import publish_story, unpublish_story
 from backend.models.story import CharacterType, CompletionCriteria, Story
@@ -17,8 +18,17 @@ ADMIN_OID = "550e8400-e29b-41d4-a716-446655440000"
 
 
 class FakeContainer:
+    """Carries `_etag` and a Cosmos-faithful `replace_item` — never creating, and honouring
+    the `IfNotModified` precondition — because publish/unpublish write under that
+    precondition (#281)."""
+
     def __init__(self) -> None:
         self.items: dict[str, dict] = {}
+        self._etag_counter = 0
+
+    def _next_etag(self) -> str:
+        self._etag_counter += 1
+        return f"etag-{self._etag_counter}"
 
     def read_item(self, item, partition_key):  # noqa: ARG002
         if item not in self.items:
@@ -26,8 +36,26 @@ class FakeContainer:
         return self.items[item]
 
     def upsert_item(self, body):
+        body = dict(body)
+        body["_etag"] = self._next_etag()
         self.items[body["id"]] = body
         return body
+
+    def replace_item(self, item, body, etag=None, match_condition=None):
+        current = self.items.get(item)
+        if current is None:
+            raise CosmosResourceNotFoundError
+        if match_condition == MatchConditions.IfNotModified and current.get("_etag") != etag:
+            raise CosmosAccessConditionFailedError
+        body = dict(body)
+        body["_etag"] = self._next_etag()
+        self.items[item] = body
+        return body
+
+    def delete_item(self, item, partition_key):  # noqa: ARG002
+        if item not in self.items:
+            raise CosmosResourceNotFoundError
+        del self.items[item]
 
 
 class FakeCosmosService:
@@ -80,6 +108,24 @@ def _patched_authorize_admin():
 
 
 # --- 404s ---
+
+
+def _delete_after_read(container, story_id: str, nth: int = 1) -> None:
+    """Simulate a concurrent hard delete (025-story-delete FR-003) landing between a
+    service's read of the story and its write: the `nth` read of `story_id` returns the row
+    and then removes it, so the write that follows finds nothing (#281)."""
+    real_read = container.read_item
+    reads = {"count": 0}
+
+    def read_then_maybe_delete(item, partition_key):
+        row = real_read(item=item, partition_key=partition_key)
+        if item == story_id:
+            reads["count"] += 1
+            if reads["count"] == nth:
+                container.items.pop(story_id, None)
+        return row
+
+    container.read_item = read_then_maybe_delete
 
 
 def test_publish_returns_404_for_nonexistent_story(request_factory):
@@ -192,3 +238,52 @@ def test_unpublish_rejects_unauthenticated_request(request_factory):
     response = unpublish_story(_authorized(request_factory, story.id, "unpublish"), story_service=service)
 
     assert response.status_code in (401, 403)
+
+
+# --- Concurrent hard delete (025-story-delete FR-003, #281) ---
+
+
+def test_publish_returns_404_and_leaves_the_story_deleted_when_a_delete_lands_mid_write(request_factory):
+    """FR-003 promises the delete is permanent, and FR-004 has already cascaded the
+    story's play sessions away, so a publish racing it must not recreate the document."""
+    story = _story(contentUpdatedAt="2026-08-30T09:00:00Z", lastTestPlayedAt="2026-08-30T09:00:00Z")
+    service = _service_with(story)
+    container = service._container()
+    _delete_after_read(container, story.id)
+
+    with _patched_authorize_admin():
+        response = publish_story(_authorized(request_factory, story.id, "publish"), story_service=service)
+
+    assert response.status_code == 404
+    assert json.loads(response.get_body())["error"] == "not_found"
+    assert story.id not in container.items
+
+
+def test_unpublish_returns_404_and_leaves_the_story_deleted_when_a_delete_lands_mid_write(request_factory):
+    story = _story(published=True)
+    service = _service_with(story)
+    container = service._container()
+    _delete_after_read(container, story.id)
+
+    with _patched_authorize_admin():
+        response = unpublish_story(_authorized(request_factory, story.id, "unpublish"), story_service=service)
+
+    assert response.status_code == 404
+    assert json.loads(response.get_body())["error"] == "not_found"
+    assert story.id not in container.items
+
+
+def test_publish_returns_409_write_conflict_after_repeated_etag_precondition_failure(request_factory):
+    """A concurrent content write winning the precondition twice is a conflict to retry,
+    not a 500."""
+    from unittest.mock import MagicMock
+
+    story = _story(contentUpdatedAt="2026-08-30T09:00:00Z", lastTestPlayedAt="2026-08-30T09:00:00Z")
+    service = _service_with(story)
+    service._container().replace_item = MagicMock(side_effect=CosmosAccessConditionFailedError)
+
+    with _patched_authorize_admin():
+        response = publish_story(_authorized(request_factory, story.id, "publish"), story_service=service)
+
+    assert response.status_code == 409
+    assert json.loads(response.get_body())["error"] == "write_conflict"
