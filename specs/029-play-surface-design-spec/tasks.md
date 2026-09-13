@@ -125,27 +125,27 @@ it does not (FR-002, FR-006).
 **Independent test**: load a session reporting chapter progress; confirm both appear with the
 correct segment count, and that a session without progress data shows neither (US1 AS1–3).
 
-- [ ] **T012** [P] [US1] `tests/Play/StoryPane.test.jsx` — the zero-padded numeral (e.g. `03`)
+- [X] **T012** [P] [US1] `tests/Play/StoryPane.test.jsx` — the zero-padded numeral (e.g. `03`)
   and the kicker `Chapter three — {locationLabel}` render when the latest turn's `progress` is
   non-null; neither renders when it is null.
-- [ ] **T013** [P] [US1] `tests/Play/StatusPanel.test.jsx` — the bar renders exactly
+- [X] **T013** [P] [US1] `tests/Play/StatusPanel.test.jsx` — the bar renders exactly
   `progress.total` segments with the first `progress.current` carrying `.filled`, and no bar
   at all when `progress` is null.
-- [ ] **T014** [US1] Promote the segmented-bar rule from `src/components/Home/Home.css` into
+- [X] **T014** [US1] Promote the segmented-bar rule from `src/components/Home/Home.css` into
   `src/styles/designTokens.css` as `.progress-bars`, `.progress-bars span` and
   `.progress-bars span.filled` (D5). Reduce `.home-pcard-bars` to a positioning wrapper and
   have `HomePage`'s card carry both classes.
-- [ ] **T015** [US1] `src/components/Play/StoryPane.jsx` — render the chapter numeral
+- [X] **T015** [US1] `src/components/Play/StoryPane.jsx` — render the chapter numeral
   (`.ovnum.play-chapter-num`) and the kicker line above the turn list, spelling the number as a
   word followed by that turn's `locationLabel`, whenever the latest turn's `progress` is
   non-null (research.md Decision 1).
-- [ ] **T016** [US1] `src/components/Play/Play.css` — add `.play-chapter-num` and
+- [X] **T016** [US1] `src/components/Play/Play.css` — add `.play-chapter-num` and
   `.play-chapter-line`.
-- [ ] **T017** [US1] `src/components/Play/StatusPanel.jsx` — render the shared `.progress-bars`
+- [X] **T017** [US1] `src/components/Play/StatusPanel.jsx` — render the shared `.progress-bars`
   beside the existing numeral and "of N chapters" text, one `span` per `progress.total`, the
   first `progress.current` carrying `.filled`. The numeral text stays: meaning is never carried
   by colour alone.
-- [ ] **T018** [US1] Run `npm --prefix src/frontend test -- Home` — T014 must have regressed
+- [X] **T018** [US1] Run `npm --prefix src/frontend test -- Home` — T014 must have regressed
   nothing on the Home page's progress cards.
 
 **Checkpoint**: US1 ships independently. A session with progress shows the chapter header and
