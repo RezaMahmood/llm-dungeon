@@ -1,16 +1,18 @@
 import { Link, useNavigate } from "react-router-dom";
 
 import { usePlayTitle } from "../../context/PlayTitleContext.jsx";
+import { useRefreshContext } from "../../context/RefreshContext.jsx";
+import RefreshButton from "../Common/RefreshButton.jsx";
 
 /**
  * The compact title bar that replaces the full nav bar on the active
  * story-play screen (FR-006), so the story keeps the full reading height.
  * Structure follows `specs/designs/03-play.html`'s header.
  *
- * The Refresh control shown in that mockup belongs to
- * `019-spa-refresh-button` and is deliberately not built here; the trailing
- * cluster below is an ordinary flex row so it can be inserted later without
- * restructuring (plan.md Constitution Check, Principle XI).
+ * The Refresh control shown in that mockup belongs to `019-spa-refresh-button`
+ * (`RefreshContext`) and is wired up here (029) — reading the same context
+ * `NavBar` already reads, ahead of "Save a checkpoint" and "Pause & exit" in the
+ * trailing cluster.
  *
  * `storyTitle`/`onPauseExit` come either from props or from whatever the mounted
  * page published via `PlayTitleContext` (`008-core-gameplay-done`'s play surface does
@@ -23,6 +25,7 @@ import { usePlayTitle } from "../../context/PlayTitleContext.jsx";
 export function TitleBar({ storyTitle = "", onSaveCheckpoint, onPauseExit }) {
   const navigate = useNavigate();
   const published = usePlayTitle();
+  const publishedRefresh = useRefreshContext();
   const title = storyTitle || published?.storyTitle || "";
   const confirmExit = onPauseExit ?? published?.onPauseExit;
   const handlePauseExit = confirmExit ?? (() => navigate("/menu"));
@@ -78,6 +81,7 @@ export function TitleBar({ storyTitle = "", onSaveCheckpoint, onPauseExit }) {
         data-nav-slot="trailing-actions"
         style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flex: "none" }}
       >
+        {publishedRefresh && <RefreshButton onClick={publishedRefresh.refresh} loading={publishedRefresh.loading} />}
         {saveCheckpoint && (
           <button className="btn btn-secondary" type="button" onClick={saveCheckpoint}>
             Save a checkpoint

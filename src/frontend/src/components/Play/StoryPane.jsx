@@ -1,4 +1,39 @@
-import { memo } from "react";
+import { memo, useEffect, useRef } from "react";
+
+import "./Play.css";
+
+// Chapter numbers are spelled out in the kicker line ("Chapter three — …", per
+// specs/designs/03-play.html) rather than shown as a numeral there — the numeral itself
+// is the large .ovnum above it. Stories are short-form (constitution Principle XII,
+// "Right-Sized Scope"), so twenty covers every realistic chapter count; beyond that,
+// falling back to the digits is a graceful degradation, not a broken chapter identifier.
+const CHAPTER_WORDS = [
+  null,
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve",
+  "thirteen",
+  "fourteen",
+  "fifteen",
+  "sixteen",
+  "seventeen",
+  "eighteen",
+  "nineteen",
+  "twenty",
+];
+
+function chapterWord(number) {
+  return CHAPTER_WORDS[number] ?? String(number);
+}
 
 /**
  * Scrolling narrative history for the play surface (specs/designs/03-play.html,
@@ -10,44 +45,45 @@ import { memo } from "react";
  * actually added — without this, every keystroke would re-map the whole turn history.
  */
 export const StoryPane = memo(function StoryPane({ turns }) {
+  const scrollerRef = useRef(null);
+  const latest = turns[turns.length - 1];
+  const progress = latest?.progress;
+
+  // Scroll to the newest content on mount and after every new turn (029, FR-004) —
+  // the transcript is the only part of the play surface that ever moves.
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (scroller) scroller.scrollTop = scroller.scrollHeight;
+  }, [turns.length]);
+
   return (
-    <div
-      className="storyscroll"
-      style={{ flex: 1, overflowY: "auto", padding: "32px 40px 20px" }}
-      aria-live="polite"
-    >
-      <div style={{ maxWidth: "64ch" }}>
+    <div ref={scrollerRef} className="storyscroll play-transcript" aria-live="polite">
+      <div style={{ maxWidth: "64ch" /* no token covers this measure — deliberate exception */ }}>
+        {/* Chapter identifier (spec.md FR-002, research.md Decision 1): the numeral is
+            progress.current, the title is the same (latest) turn's locationLabel — no
+            server-authored chapter title exists or is needed. Shown only when the story
+            reports progress; scrolls away with the rest of the transcript, not fixed. */}
+        {progress && (
+          <>
+            <div className="ovnum play-chapter-num" style={{ color: "var(--color-accent-200)" }}>
+              {String(progress.current).padStart(2, "0")}
+            </div>
+            <div className="play-chapter-line">
+              Chapter {chapterWord(progress.current)} — {latest.locationLabel}
+            </div>
+          </>
+        )}
         {turns.map((turn) => (
           <div key={turn.turnNumber}>
             {turn.playerInput != null && (
-              <div style={{ marginBottom: "22px" }}>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    color: "color-mix(in srgb, var(--color-text) 45%, transparent)",
-                    marginBottom: "6px",
-                  }}
-                >
-                  You
-                </div>
-                <p style={{ margin: 0, fontSize: "19px", lineHeight: 1.65 }}>{turn.playerInput}</p>
+              <div className="play-entry">
+                <div className="play-label">You</div>
+                <p className="play-text play-text-player">{turn.playerInput}</p>
               </div>
             )}
-            <div style={{ marginBottom: "22px" }}>
-              <div
-                style={{
-                  fontSize: "11px",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  color: "color-mix(in srgb, var(--color-text) 45%, transparent)",
-                  marginBottom: "6px",
-                }}
-              >
-                The story
-              </div>
-              <p style={{ margin: 0, fontSize: "19px", lineHeight: 1.65 }}>{turn.narrativeText}</p>
+            <div className="play-entry">
+              <div className="play-label">The story</div>
+              <p className="play-text">{turn.narrativeText}</p>
             </div>
           </div>
         ))}

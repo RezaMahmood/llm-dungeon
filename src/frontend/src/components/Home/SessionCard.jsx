@@ -47,7 +47,7 @@ export function SessionCard({ session, onResume, deleteAction }) {
         </span>
       )}
       {progress && (
-        <div className="home-pcard-bars">
+        <div className="home-pcard-bars progress-bars">
           {Array.from({ length: progress.total }, (_, index) => (
             <span key={index} className={index < progress.current ? "filled" : ""} />
           ))}

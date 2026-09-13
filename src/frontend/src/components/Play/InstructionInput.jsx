@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import "./Play.css";
+
 /**
  * Free-text action input — always available alongside SuggestedActions (Constitution
  * "Readability & interaction requirements" #4-5). `disabled` covers the concluded/
@@ -21,19 +23,18 @@ export function InstructionInput({ onSubmit, disabled, value, onChange }) {
 
   return (
     <form style={{ display: "flex", gap: "10px", alignItems: "stretch" }} onSubmit={handleSubmit}>
-      <label htmlFor="play-instruction-input" style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden" }}>
+      <label htmlFor="play-instruction-input" className="play-visually-hidden">
         What do you do next?
       </label>
       <input
         id="play-instruction-input"
-        className="input"
+        className="input play-cmd"
         placeholder="What do you do next?"
-        style={{ flex: 1, minHeight: "52px", fontSize: "18px", padding: "10px 14px" }}
         value={currentValue}
         onChange={(event) => setValue(event.target.value)}
         disabled={disabled}
       />
-      <button className="btn btn-primary" type="submit" style={{ padding: "0 26px", fontSize: "16px" }} disabled={disabled}>
+      <button className="btn btn-primary play-go" type="submit" disabled={disabled}>
         Go
       </button>
     </form>

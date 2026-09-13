@@ -51,9 +51,9 @@ const OPENING_NARRATIVE = {
   progress: null,
 };
 
-function renderPlaySurface() {
+function renderPlaySurface(initialTurns = [OPENING_NARRATIVE]) {
   const onExit = vi.fn();
-  render(
+  const view = render(
     <MemoryRouter initialEntries={["/game"]}>
       <Routes>
         <Route path="/menu" element={<p>story select</p>} />
@@ -64,7 +64,7 @@ function renderPlaySurface() {
               <PlayPage
                 sessionId="session-1"
                 storyName={STORY_NAME}
-                initialTurns={[OPENING_NARRATIVE]}
+                initialTurns={initialTurns}
                 getToken={vi.fn().mockResolvedValue("tok")}
                 onExit={onExit}
               />
@@ -74,7 +74,21 @@ function renderPlaySurface() {
       </Routes>
     </MemoryRouter>,
   );
-  return { onExit };
+  return { onExit, ...view };
+}
+
+/** Builds `count` turns, oldest first, the way a resumed session's `initialTurns`
+ * would arrive — only the last turn's location/goal/actions/progress are "live". */
+function buildTurns(count) {
+  return Array.from({ length: count }, (_, index) => ({
+    turnNumber: index,
+    narrativeText: `Turn ${index} narrative.`,
+    suggestedActions: ["look around", "step inside"],
+    locationLabel: "Lighthouse entrance",
+    goalLabel: null,
+    progress: null,
+    playerInput: index === 0 ? null : `move ${index}`,
+  }));
 }
 
 describe("Play surface inside the /game layout (FR-016, SC-013)", () => {
@@ -133,6 +147,32 @@ describe("Play surface inside the /game layout (FR-016, SC-013)", () => {
   it("keeps the autosave disclosure visible on the composed screen (FR-017)", () => {
     renderPlaySurface();
 
-    expect(screen.getAllByText(/autosaved after every turn/i)).toHaveLength(1);
+    expect(screen.getAllByText(/saved automatically after every turn/i)).toHaveLength(1);
+  });
+
+  it.each([1, 2, 5, 10])(
+    "renders one header, one dock and one status panel with %i turn(s) — only the transcript scrolls (029, FR-001, SC-002)",
+    (count) => {
+      const { container } = renderPlaySurface(buildTurns(count));
+
+      // Header, input dock and status panel: exactly one of each, at every turn count.
+      expect(screen.getAllByRole("button", { name: /pause & exit/i })).toHaveLength(1);
+      expect(screen.getByLabelText(/what do you do next/i)).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: /^go$/i })).toHaveLength(1);
+      expect(screen.getByText("Lighthouse entrance")).toBeInTheDocument();
+
+      // The transcript is the only scroll container the play surface itself owns.
+      expect(container.querySelectorAll(".storyscroll")).toHaveLength(1);
+    },
+  );
+
+  it("renders the suggested-action chips and the free-text command line together, never one instead of the other (029, FR-005)", () => {
+    renderPlaySurface([OPENING_NARRATIVE]);
+
+    for (const action of OPENING_NARRATIVE.suggestedActions) {
+      expect(screen.getByRole("button", { name: action })).toBeInTheDocument();
+    }
+    expect(screen.getByLabelText(/what do you do next/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^go$/i })).toBeInTheDocument();
   });
 });

@@ -196,4 +196,27 @@ describe("AdminStoryTestPlayPage (010-story-test-play-done)", () => {
     expect(screen.getByText(OPENING_NARRATIVE.narrativeText)).toBeInTheDocument();
     expect(screen.getByText(NEXT_TURN.narrativeText)).toBeInTheDocument();
   });
+
+  // --- 029-play-surface-design-spec (T029): inherits the real play surface's
+  // chapter header and progress bar "for free" via the shared Play components
+  // (contracts/ui.md's AdminStoryTestPlayPage section) — asserted, not assumed.
+  it("shows the chapter header and segmented progress bar when a turn reports progress (029)", async () => {
+    getStory.mockResolvedValueOnce({ status: "success", story: STORY });
+    startTestPlay.mockResolvedValueOnce({
+      status: "success",
+      sessionId: "session-1",
+      characterType: "Curious Cousin",
+      narrative: {
+        ...OPENING_NARRATIVE,
+        progress: { current: 2, total: 4 },
+      },
+    });
+
+    const { container } = renderPage();
+    await screen.findByText(OPENING_NARRATIVE.narrativeText);
+
+    expect(screen.getByText("02")).toBeInTheDocument();
+    expect(screen.getByText(/chapter two — lighthouse entrance/i)).toBeInTheDocument();
+    expect(container.querySelectorAll(".progress-bars span")).toHaveLength(4);
+  });
 });

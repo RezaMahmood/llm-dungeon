@@ -115,19 +115,19 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
+/* Positioning only — the segment/fill treatment itself is the shared .progress-bars
+   class (designTokens.css, promoted from here by 029). The 6px segment height is this
+   card's own — specs/designs/07-home.html's compact card, distinct from the play
+   surface's taller status-panel bar. Selector carries both classes (specificity 0,2,1)
+   so it beats .progress-bars span (0,1,1) unconditionally — with equal specificity the
+   two rules would instead depend on which stylesheet the bundler happens to emit last,
+   which silently lost this override in production (Home.css loads after
+   designTokens.css). */
 .home-pcard-bars {
-  width: 100%;
-  display: flex;
-  gap: 4px;
   margin-top: 8px;
 }
-.home-pcard-bars span {
+.home-pcard-bars.progress-bars span {
   height: 6px;
-  flex: 1;
-  background: var(--color-neutral-300);
-}
-.home-pcard-bars span.filled {
-  background: var(--color-accent);
 }
 .home-pcard-actions {
   display: flex;

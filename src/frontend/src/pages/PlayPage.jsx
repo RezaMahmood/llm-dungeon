@@ -2,18 +2,21 @@
  * The play surface (specs/designs/03-play.html, 008-core-gameplay-done) — wires session
  * creation's opening narrative and each subsequent free-text/suggested-action submit
  * into the story pane, status panel, and pause-and-exit confirmation. Also renders a
- * resumed session's whole turn history and publishes the checkpoint-save handler
- * (009-save-and-continue).
+ * resumed session's whole turn history, publishes the checkpoint-save handler
+ * (009-save-and-continue), and publishes the header Refresh control (029,
+ * 019-spa-refresh-button).
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import "../components/Play/Play.css";
 import InstructionInput from "../components/Play/InstructionInput.jsx";
 import PauseDialog from "../components/Play/PauseDialog.jsx";
 import StatusPanel from "../components/Play/StatusPanel.jsx";
 import StoryPane from "../components/Play/StoryPane.jsx";
 import SuggestedActions from "../components/Play/SuggestedActions.jsx";
 import { usePublishPlayTitle } from "../context/PlayTitleContext.jsx";
-import { resumeSession, saveCheckpoint, submitInteraction } from "../services/gameService.js";
+import { usePublishRefresh } from "../context/RefreshContext.jsx";
+import { getSession, resumeSession, saveCheckpoint, submitInteraction } from "../services/gameService.js";
 
 // How long the "Checkpoint saved at …" / failure notice stays up before it clears
 // itself (Constitution "Save and session behaviour" #2: "visibly and briefly").
@@ -29,10 +32,20 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
   const [pauseOpen, setPauseOpen] = useState(false);
   const [checkpointNotice, setCheckpointNotice] = useState(null);
   const checkpointNoticeTimer = useRef(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshNotice, setRefreshNotice] = useState(null);
+  // A submit and a refresh both replace `turns` wholesale from their own response —
+  // if both were in flight at once, whichever resolves last would silently overwrite
+  // the other's result (e.g. a refresh issued just before a submit's POST is
+  // persisted server-side can return the pre-submit turn list and, resolving after the
+  // submit, erase the just-added turn from view). A ref rather than state because the
+  // guard must see the current value inside a callback whose own closure doesn't
+  // change when `submitting`/`refreshing` do.
+  const busyRef = useRef(false);
 
   const latest = turns[turns.length - 1];
   const locked = notice?.type === "lockout";
-  const disabled = status === "concluded" || locked || submitting;
+  const disabled = status === "concluded" || locked || submitting || refreshing;
 
   useEffect(
     () => () => {
@@ -76,7 +89,51 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
   const openPauseDialog = useCallback(() => setPauseOpen(true), []);
   usePublishPlayTitle({ storyTitle: storyName, onPauseExit: openPauseDialog, onSaveCheckpoint: handleSaveCheckpoint });
 
+  // Re-syncs the play screen against the session's currently recorded state (FR-009,
+  // research.md Decision 3) — reuses the same getSession call GamePage's resume path
+  // already makes, rather than inventing a second way to fetch this shape. `inputValue`
+  // is never touched by either path (FR-010): a failure must not discard what the
+  // player had already typed. Deleted/unpublished failures route into the same
+  // notice branches handleSubmit's own equivalent failures already use, complete
+  // with their exit action — a permanent failure with only "try again" has no path
+  // out, unlike the specific case handleSubmit already covers.
+  const handleRefresh = useCallback(async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setRefreshing(true);
+    setRefreshNotice(null);
+    try {
+      const token = await getToken();
+      const data = await getSession(token, sessionId);
+      setTurns(data.session.turns.map((turn) => ({ ...turn, playerInput: turn.playerInput ?? null })));
+      setStatus(data.session.status);
+      setCompletionReason(data.session.completionReason || null);
+    } catch (err) {
+      const responseStatus = err.response?.status;
+      const body = err.response?.data;
+      if (responseStatus === 404 && body?.error === "story_deleted") {
+        setNotice({
+          type: "story_deleted",
+          message: body?.message || "Story has been deleted. You can no longer continue this story.",
+        });
+      } else if (responseStatus === 409 && body?.error === "story_unpublished") {
+        setNotice({
+          type: "story_unpublished",
+          message: body?.message || "Story has been unpublished. You can no longer continue this story.",
+        });
+      } else {
+        setRefreshNotice({ message: "Couldn't refresh the story. Please try again." });
+      }
+    } finally {
+      setRefreshing(false);
+      busyRef.current = false;
+    }
+  }, [getToken, sessionId]);
+  usePublishRefresh({ refresh: handleRefresh, loading: refreshing || submitting });
+
   const handleSubmit = async (input) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setSubmitting(true);
     setNotice(null);
     try {
@@ -117,6 +174,7 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
       }
     } finally {
       setSubmitting(false);
+      busyRef.current = false;
     }
   };
 
@@ -131,19 +189,20 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
   };
 
   return (
-    <div className="shell" style={{ height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, position: "relative" }}>
-        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 292px", minHeight: 0 }}>
+    <div className="play-shell">
+      <div className="play-body">
+        <div className="play-main">
           <div style={{ display: "flex", flexDirection: "column", minHeight: 0, borderRight: "2px solid var(--color-divider)" }}>
             <StoryPane turns={turns} />
-            <div style={{ flex: "none", borderTop: "2px solid var(--color-divider)", padding: "16px 40px 22px" }}>
+            <div className="play-dock">
               {checkpointNotice && (
-                <p
-                  role={checkpointNotice.type === "error" ? "alert" : "status"}
-                  className="text-muted"
-                  style={{ margin: "0 0 10px", fontSize: "13px" }}
-                >
+                <p role={checkpointNotice.type === "error" ? "alert" : "status"} className="text-muted play-notice">
                   {checkpointNotice.message}
+                </p>
+              )}
+              {refreshNotice && (
+                <p role="alert" className="text-muted play-notice">
+                  {refreshNotice.message}
                 </p>
               )}
               {status === "concluded" ? (
@@ -152,7 +211,7 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
                 </p>
               ) : notice?.type === "session_inactive" ? (
                 <div>
-                  <p role="alert" className="text-muted" style={{ margin: "0 0 10px" }}>
+                  <p role="alert" className="text-muted play-notice">
                     {notice.message}
                   </p>
                   <button type="button" className="btn btn-primary" onClick={handleResume}>
@@ -161,7 +220,7 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
                 </div>
               ) : notice?.type === "story_deleted" || notice?.type === "story_unpublished" ? (
                 <div>
-                  <p role="alert" className="text-muted" style={{ margin: "0 0 10px" }}>
+                  <p role="alert" className="text-muted play-notice">
                     {notice.message}
                   </p>
                   <button type="button" className="btn btn-primary" onClick={() => onExit()}>
@@ -171,7 +230,7 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
               ) : (
                 <>
                   {notice && (
-                    <p role="alert" className="text-muted" style={{ margin: "0 0 10px", fontSize: "13px" }}>
+                    <p role="alert" className="text-muted play-notice">
                       {notice.message}
                     </p>
                   )}

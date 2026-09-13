@@ -1,0 +1,177 @@
+/*
+ * Play surface layout (specs/designs/03-play.html, 03-play-spec.md; 029). Page-scoped
+ * structural rules — the "narrowly scoped layout... utility classes with no visual-design
+ * opinion of their own" the constitution's UI Design System Requirements permit — following
+ * the same pattern `028-home-page-redesign` established with Home.css. Every control still
+ * carries its own design-system class (btn btn-secondary, input, btn btn-primary): these
+ * rules are additive, never a restyle of the shared interaction states.
+ *
+ * Values are translated to the nearest --space, --font or --color token; the two values
+ * with no token — the 292px status-panel width and the 64ch transcript measure — are kept
+ * as literals and named below as deliberate exceptions (research.md Decision 4).
+ */
+
+/* — shell — */
+.play-shell {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.play-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+/* The two-column body: reading column | 292px status panel. 292px has no token
+   (deliberate exception, research.md Decision 4). */
+.play-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 292px;
+  min-height: 0;
+}
+
+/* — transcript — */
+/* .storyscroll is the scroll container's own appearance (scrollbar only, matching
+   specs/designs/03-play.html's <style> block); .play-transcript is everything else about
+   it. Neither was defined anywhere in the app before 029 — .storyscroll was a dangling
+   className with no matching rule. */
+.storyscroll::-webkit-scrollbar {
+  width: 10px;
+}
+.storyscroll::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-400);
+}
+.play-transcript {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-8) 40px 20px;
+}
+/* Chapter identifier, pinned above the turn list inside the scrolling content
+   (specs/designs/03-play.html) — the numeral's color is an .ovnum modifier, so it's set
+   inline alongside the shared class rather than duplicated here. */
+.play-chapter-num {
+  font-size: 80px;
+}
+.play-chapter-line {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent-700);
+  margin: 6px 0 24px;
+}
+.play-entry {
+  margin-bottom: 22px;
+}
+.play-label {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+.play-entry .play-label {
+  margin-bottom: 6px;
+}
+.play-text {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.65;
+  /* Constitution "Readability & interaction requirements" #1: narrative prose at or
+     above the design system's body size (15px) and its line-height (1.55) or greater —
+     19px/1.65 already clears both — plus modern text wrapping, as 03-play.html:46 has it. */
+  text-wrap: pretty;
+}
+.play-text-player {
+  font-style: italic;
+}
+
+/* — input dock — */
+.play-dock {
+  flex: none;
+  border-top: 2px solid var(--color-divider);
+  padding: var(--space-4) 40px 22px;
+}
+.play-try {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: 14px;
+}
+.play-try .play-label {
+  align-self: center;
+  margin-right: var(--space-1);
+}
+.play-chip {
+  font-size: 13px;
+  padding: var(--space-2) var(--space-3);
+}
+.play-cmd {
+  flex: 1;
+  min-height: 52px;
+  font-size: 18px;
+  padding: 10px 14px;
+}
+.play-go {
+  padding: 0 26px;
+  font-size: 16px;
+}
+/* Standard visually-hidden technique, matching specs/designs/03-play.html's command-line
+   label exactly (it also clips to a zero rect so the element takes no visual space at all,
+   not just a 1x1px box). */
+.play-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+/* Inline alert/status messages above the dock's controls (rate-limited, locked out,
+   story unavailable, checkpoint save result) — one shared treatment instead of the same
+   margin/font-size literal repeated at each call site. */
+.play-notice {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+
+/* — status panel — */
+.play-panel {
+  padding: var(--space-6) 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.play-location {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 22px;
+  margin-top: 6px;
+}
+.play-goal {
+  margin: var(--space-2) 0 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.play-progress-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+/* "Stuck? Get a hint" (spec.md FR-007). Layout and spacing only — the inert/disabled
+   look comes from the shared .btn[aria-disabled="true"] rule (designTokens.css). */
+.play-hint {
+  padding: 14px;
+  margin: 0;
+}
+.play-hint-pending {
+  margin: var(--space-1) 0 0;
+  font-size: 12px;
+}
+.play-autosave {
+  margin-top: auto;
+  padding-top: var(--space-6);
+  font-size: 12px;
+}
