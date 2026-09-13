@@ -13,6 +13,12 @@ body { margin: 0; overflow: hidden; }
 .confirm { display: none; }
 /* toggle: add class "show" to .confirm to display the remove confirmation */
 .confirm.show { display: grid; }
+.status { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-size: 13px; }
+.status .dot { width: 8px; height: 8px; flex: none; }
+.status-on .dot { background: var(--color-accent); }
+.status-off .dot { background: var(--color-neutral-400); }
+.status-off { color: var(--color-neutral-700); }
+
 </style>
 </head>
 <body>
@@ -24,25 +30,24 @@ body { margin: 0; overflow: hidden; }
     <a href="05-admin-users.html" style="padding:10px 14px" aria-current="page">People</a>
     <span style="width:1px;align-self:stretch;background:var(--color-divider);margin:0 16px"></span>
     <a href="02-story-select.html" style="padding:10px 14px">Player view</a>
-    <a href="01-login.html" style="padding:10px 14px;margin-left:auto">Sign out</a>
+    <button class="btn btn-ghost" type="button" title="Refresh" aria-label="Refresh" onclick="location.reload()" style="margin-left:auto;gap:8px;padding:8px 12px;font-size:13px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+      Refresh
+    </button>
+    <a href="01-login.html" style="padding:10px 14px;margin-left:12px">Sign out</a>
     <span class="tag tag-neutral" style="margin-left:16px">Ms Okafor</span>
   </div>
 <div style="flex:1;overflow:auto;position:relative">
-  <div style="max-width:1080px;padding:36px 24px 64px">
-    <div style="display:flex;align-items:flex-end;gap:16px">
-      <div class="ovnum" style="font-size:96px;color:var(--color-accent)">6</div>
-      <div style="padding-bottom:8px">
-        <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent-700)">People</div>
-        <h2 style="margin:4px 0 0">accounts in LLM Dungeon</h2>
-      </div>
-    </div>
-    <hr class="hr" style="margin:24px 0 32px">
+  <div style="padding:28px 16px 64px">
+    <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent-700)">People</div>
+    <h2 style="margin:4px 0 0">6 accounts in LLM Dungeon</h2>
+    <hr class="hr" style="margin:20px 0 32px">
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:40px;align-items:start">
       <div style="min-width:0">
         <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 50%, transparent)">All accounts</div>
         <table class="table" style="margin-top:10px">
-          <thead><tr><th>Name</th><th>Microsoft account</th><th>Role</th><th>Added</th><th style="width:1%"></th></tr></thead>
+          <thead><tr><th>Name</th><th>Microsoft account</th><th>Role</th><th>Status</th><th>Added</th><th style="width:1%"></th></tr></thead>
           <tbody>
             <tr>
               <td>Ada Bell</td>
@@ -52,6 +57,7 @@ body { margin: 0; overflow: hidden; }
                   <span class="tag tag-outline" style="white-space:nowrap">Player</span>
                 </div>
               </td>
+              <td><span class="status status-on"><span class="dot"></span>Signed in</span></td>
               <td class="text-muted" style="overflow-wrap:anywhere">12 Aug</td>
               <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
             </tr>
@@ -63,6 +69,7 @@ body { margin: 0; overflow: hidden; }
                   <span class="tag tag-outline" style="white-space:nowrap">Player</span>
                 </div>
               </td>
+              <td><span class="status status-on"><span class="dot"></span>Signed in</span></td>
               <td class="text-muted" style="overflow-wrap:anywhere">12 Aug</td>
               <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
             </tr>
@@ -74,6 +81,7 @@ body { margin: 0; overflow: hidden; }
                   <span class="tag tag-outline" style="white-space:nowrap">Player</span>
                 </div>
               </td>
+              <td><span class="status status-off"><span class="dot"></span>Signed out · 2 days ago</span></td>
               <td class="text-muted" style="overflow-wrap:anywhere">9 Aug</td>
               <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
             </tr>
@@ -85,6 +93,7 @@ body { margin: 0; overflow: hidden; }
                   <span class="tag tag-accent" style="white-space:nowrap">Administrator</span>
                 </div>
               </td>
+              <td><span class="status status-on"><span class="dot"></span>Signed in</span></td>
               <td class="text-muted" style="overflow-wrap:anywhere">2 Aug</td>
               <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
             </tr>
@@ -97,6 +106,7 @@ body { margin: 0; overflow: hidden; }
                   <span class="tag tag-accent" style="white-space:nowrap">Administrator</span>
                 </div>
               </td>
+              <td><span class="status status-off"><span class="dot"></span>Signed out · yesterday</span></td>
               <td class="text-muted" style="overflow-wrap:anywhere">2 Aug</td>
               <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
             </tr>
@@ -108,6 +118,7 @@ body { margin: 0; overflow: hidden; }
                   <span class="tag tag-outline" style="white-space:nowrap">Player</span>
                 </div>
               </td>
+              <td><span class="status status-off"><span class="dot"></span>Never signed in</span></td>
               <td class="text-muted" style="overflow-wrap:anywhere">28 Jul</td>
               <td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="document.querySelector('.confirm').classList.add('show')">Remove</button></td>
             </tr>

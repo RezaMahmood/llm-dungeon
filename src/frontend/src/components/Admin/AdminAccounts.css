@@ -1,0 +1,177 @@
+/*
+ * People (admin) screen layout and page-scoped structural rules
+ * (specs/designs/05-admin-users.html, 05-admin-users-spec.md). Colors, spacing and type
+ * all come from the design-token layer (Principle VIII); the rules below are the same
+ * page-scoped structural pattern Home.css/Play.css already establish, not a
+ * reimplementation of an existing shared component.
+ */
+/* Fixed shell / scrolling content split (constitution "Layout and scroll contract" #1),
+   matching the same .home-shell/.home-colbody pattern Home.css already establishes: the
+   nav stays put and only this screen's own content scrolls. `height: 100%` (not `100vh`)
+   because this shell renders inside AuthenticatedLayout's flex:1/min-height:0 content
+   slot, below the nav — a `100vh` child there would be taller than that slot by the
+   nav's own height, forcing a page-level scroll that carries the nav off-screen (the
+   pattern Play.css's newer `.play-shell` already uses; code-review finding). */
+.people-shell {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.people-header {
+  flex: none;
+  padding: 28px 16px 0;
+}
+.people-kicker {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent-700);
+}
+.people-heading {
+  margin: 4px 0 0;
+}
+.people-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 16px 64px;
+}
+
+/* Two-column body: the accounts table on the left, the add-account panel on the right.
+   The panel drops below the table automatically below the ~880px breakpoint
+   (05-admin-users-spec.md §5). */
+.people-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 40px;
+  align-items: start;
+}
+
+.people-table-label {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 50%, transparent);
+}
+/* .text-muted (designTokens.css) supplies the color; this adds only the layout. */
+.people-caption {
+  font-size: 13px;
+  max-width: 60ch;
+  margin-top: var(--space-3);
+}
+
+/* Sign-in status — a square dot (zero corner radius, no exceptions) plus a label that
+   always carries the meaning on its own (05-admin-users-spec.md §6.1). Renders exactly two
+   of the design's three states (030-people-admin-design-spec Scope note / D3): the backend
+   has no live session/presence signal, only a one-time first-bind timestamp, so a
+   "Signed out · {relative time}" state is never shown. */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.status .dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+}
+.status-on .dot {
+  background: var(--color-accent);
+}
+.status-off .dot {
+  background: var(--color-neutral-400);
+}
+.status-off {
+  color: var(--color-neutral-700);
+}
+
+.people-account-cell {
+  overflow-wrap: anywhere;
+}
+
+/* Add-account panel (05-admin-users-spec.md §7). */
+.people-add-panel {
+  border: 1px solid var(--color-divider);
+  background: var(--color-surface);
+  padding: 22px;
+  max-width: 420px;
+}
+.people-add-panel .ovnum {
+  font-size: 48px;
+  color: var(--color-accent);
+}
+.people-add-panel h3 {
+  margin: var(--space-2) 0 0;
+  font-size: 22px;
+}
+/* .text-muted (designTokens.css) supplies the color; this adds only size/layout. */
+.people-add-intro {
+  font-size: 14px;
+  margin-top: var(--space-2);
+}
+.people-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: var(--space-4);
+}
+/* Mirrors designTokens.css's `.field > label` treatment — this is a <span>, not a
+   <label> (see AccountForm.jsx), so that selector doesn't reach it. */
+.people-role-group-label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 5px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+.people-role-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+.people-role-option {
+  display: flex;
+  gap: 10px;
+  min-height: 44px;
+  align-items: flex-start;
+}
+.people-role-option input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  accent-color: var(--color-accent);
+  margin-top: 2px;
+}
+.people-role-label {
+  font-size: 15px;
+}
+/* .text-muted (designTokens.css) supplies the color on both of the below. */
+.people-role-description {
+  font-size: 13px;
+  margin-top: 2px;
+}
+.people-role-note {
+  font-size: 13px;
+}
+
+/* Mobile — the page-level scroll permitted below the mobile breakpoint by the
+   constitution's "Layout and scroll contract" rule 1 (matches Home.css's equivalent
+   block; without this the fixed-viewport shell stays on at phone widths and, combined
+   with the mobile URL bar shrinking the visual viewport, can clip the table's last rows
+   and the add-account panel's submit button — code-review finding). */
+@media (max-width: 760px) {
+  html,
+  body {
+    height: auto;
+  }
+  .people-shell {
+    height: auto;
+    overflow: visible;
+  }
+  .people-scroll {
+    overflow: visible;
+  }
+}
