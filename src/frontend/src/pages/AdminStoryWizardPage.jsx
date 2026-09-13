@@ -82,6 +82,13 @@ function writeActiveDraftId(draftId) {
 // required when more than one condition is defined") — the "<field>: " prefix is stripped
 // since the message is already shown right next to that field.
 function fieldErrorMessage(err, fieldKey) {
+  // An expired or rejected sign-in is not a problem with what was typed, so it must not
+  // be reported in the field's own words — it needs the administrator to sign in again
+  // (#137).
+  const status = err?.response?.status;
+  if (status === 401 || status === 403) {
+    return "Your sign-in has expired. Reload the page to sign in again, then save.";
+  }
   const backendMessage = err?.response?.data?.message;
   if (!backendMessage) return "Could not save this — please try again.";
   const prefix = `${fieldKey}: `;
@@ -161,7 +168,6 @@ export function AdminStoryWizardPage() {
   const account = msalAccounts[0];
   const accountKey = account?.homeAccountId ?? account?.username ?? null;
 
-  const [token, setToken] = useState(null);
   const [draft, setDraft] = useState(null);
   const [story, setStory] = useState(null);
   const [activeStep, setActiveStep] = useState(STEPS[0].key);
@@ -175,18 +181,27 @@ export function AdminStoryWizardPage() {
 
   useUnsavedChangesWarning(isDirty);
 
+  // Resolved lazily, per call, rather than acquired once on mount and kept in state —
+  // the wizard is a long-lived screen, and a token acquired when it opened can easily
+  // have expired by the time the administrator saves a field, which the backend
+  // correctly rejects with a 401 (#137). Same idiom as AdminPage's own `getToken`.
+  const getToken = useCallback(async () => {
+    const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
+    return tokenResponse.accessToken;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- accountKey is the stable dependency
+  }, [instance, accountKey]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
+      const accessToken = await getToken();
       if (cancelled) return;
-      setToken(tokenResponse.accessToken);
 
       // Edit mode (FR-003): open a fresh edit draft seeded from the story every time
       // this route is entered — there is nothing to resume from sessionStorage, since
       // the draft is bound to `storyId`, not to this browser session.
       if (isEditMode) {
-        const data = await createEditDraft(tokenResponse.accessToken, storyId);
+        const data = await createEditDraft(accessToken, storyId);
         if (cancelled) return;
         setDraft(data.draft);
         return;
@@ -197,7 +212,7 @@ export function AdminStoryWizardPage() {
       const activeDraftId = readActiveDraftId();
       if (activeDraftId) {
         try {
-          const existing = await getDraft(tokenResponse.accessToken, activeDraftId);
+          const existing = await getDraft(accessToken, activeDraftId);
           if (cancelled) return;
           if (existing?.draft) {
             setDraft(existing.draft);
@@ -219,7 +234,7 @@ export function AdminStoryWizardPage() {
         writeActiveDraftId(null);
       }
 
-      const data = await createDraft(tokenResponse.accessToken);
+      const data = await createDraft(accessToken);
       // Recorded before the cancellation check: the draft exists on the server either
       // way, so a wizard that unmounted mid-create must still be able to resume it
       // rather than abandon it and create another.
@@ -230,8 +245,7 @@ export function AdminStoryWizardPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- accountKey is the stable dependency
-  }, [instance, accountKey, isEditMode, storyId]);
+  }, [getToken, isEditMode, storyId]);
 
   const applyWriteResult = useCallback(
     (data) => {
@@ -257,11 +271,15 @@ export function AdminStoryWizardPage() {
   // would otherwise become a silent unhandled promise rejection with no visible feedback
   // (e.g. a completionCriteria write missing `rule` used to fail this way with no on-screen
   // sign anything went wrong — #33 follow-up).
+  // Returns whether the write actually landed, so a step that offers its own explicit
+  // Save can confirm only a real save — reporting "Saved" for a write the server refused
+  // is how an administrator loses work without knowing it (#137). Callers that fire and
+  // forget can keep ignoring the result.
   const handlePatch = useCallback(
     async (updates) => {
       const fieldKey = Object.keys(updates)[0];
       try {
-        const data = await patchDraft(token, draft.id, updates);
+        const data = await patchDraft(await getToken(), draft.id, updates);
         setFieldErrors((current) => {
           if (!(fieldKey in current)) return current;
           const rest = { ...current };
@@ -269,32 +287,34 @@ export function AdminStoryWizardPage() {
           return rest;
         });
         applyWriteResult(data);
+        return true;
       } catch (err) {
         setFieldErrors((current) => ({ ...current, [fieldKey]: fieldErrorMessage(err, fieldKey) }));
+        return false;
       }
     },
-    [token, draft, applyWriteResult],
+    [getToken, draft, applyWriteResult],
   );
 
   // A single pass over the administrator's idea (#227) — the returned draft's worldPrompt
   // is the whole result, so it flows through the same write path as any other field write.
   const handleSuggestWorldPrompt = useCallback(
     async (idea) => {
-      const data = await suggestWorldPrompt(token, draft.id, idea);
+      const data = await suggestWorldPrompt(await getToken(), draft.id, idea);
       applyWriteResult(data);
     },
-    [token, draft, applyWriteResult],
+    [getToken, draft, applyWriteResult],
   );
 
   // Re-fetches the draft currently being edited without touching activeStep
   // or restarting the resume/create-new-draft flow above (FR-003).
   const refreshDraft = useCallback(async () => {
-    if (!token || !draft?.id || refreshingRef.current) return;
+    if (!draft?.id || refreshingRef.current) return;
     refreshingRef.current = true;
     setRefreshing(true);
     setRefreshError(null);
     try {
-      const existing = await getDraft(token, draft.id);
+      const existing = await getDraft(await getToken(), draft.id);
       if (existing?.draft) {
         setDraft(existing.draft);
       }
@@ -304,7 +324,7 @@ export function AdminStoryWizardPage() {
       refreshingRef.current = false;
       setRefreshing(false);
     }
-  }, [token, draft?.id]);
+  }, [getToken, draft?.id]);
 
   usePublishRefresh({ refresh: refreshDraft, loading: refreshing });
 
@@ -313,13 +333,13 @@ export function AdminStoryWizardPage() {
   const handleGenerate = useCallback(async () => {
     setGenerateStatus("generating");
     try {
-      const data = await generateStory(token, draft.id);
+      const data = await generateStory(await getToken(), draft.id);
       applyWriteResult(data);
       setGenerateStatus("idle");
     } catch {
       setGenerateStatus("error");
     }
-  }, [token, draft, applyWriteResult]);
+  }, [getToken, draft, applyWriteResult]);
 
   // Edit mode's terminal action (FR-003, FR-006): applies the draft back to its source
   // story. A stale save (FR-006) shows the reload-and-reapply message instead of a
@@ -327,13 +347,13 @@ export function AdminStoryWizardPage() {
   const handleSaveChanges = useCallback(async () => {
     setGenerateStatus("generating");
     try {
-      const data = await saveDraftToStory(token, draft.id);
+      const data = await saveDraftToStory(await getToken(), draft.id);
       applyWriteResult(data);
       setGenerateStatus("idle");
     } catch (err) {
       setGenerateStatus(err?.response?.status === 409 ? "stale" : "error");
     }
-  }, [token, draft, applyWriteResult]);
+  }, [getToken, draft, applyWriteResult]);
 
   if (story) {
     return (
@@ -363,7 +383,7 @@ export function AdminStoryWizardPage() {
 
         <hr className="hr" style={{ margin: "24px 0" }} />
         <h3>Publish & assign</h3>
-        <StepPublish story={story} token={token} onStoryChange={setStory} />
+        <StepPublish story={story} token={getToken} onStoryChange={setStory} />
       </div>
     );
   }
