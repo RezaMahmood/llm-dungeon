@@ -10,9 +10,9 @@ and MUST be corrected, not worked around.
 
 ## Where the work happens
 
-One piece of work at a time, anywhere in the repo. There is no session
-isolation rule: Claude may move around the checkout, switch branches, and
-sync with `main` as the work requires.
+One piece of work at a time. Claude may move around the checkout, switch
+branches, and sync with `main` as the work requires; how much isolation a
+piece of work gets is a judgement about its size, not a fixed rule.
 
 - **Branch first; never commit to `main`.** If the session starts on
   `main`, cutting the task's branch is its first act. `main` itself is
@@ -29,14 +29,33 @@ sync with `main` as the work requires.
   GitHub. Resolve by understanding both sides; never discard a side to
   make the conflict go away, and never force-push over someone's work.
   `speckit-trunk-sync` remains the scripted path for spec-kit commands.
-- **Worktrees, containers and directories are all optional.** Work in the
-  primary checkout, in a git worktree, or in a devcontainer — whichever
-  the user set up. No branch type requires any of them, and nothing is
-  off-limits to read or edit. `bin/wt` is a human entrypoint Claude MUST
-  NOT invoke, because it execs a new `claude` session; `bin/wt-sync` and
-  a bare `bin/wt-prune` only report, and Claude MAY run them.
-  `bin/wt-prune --yes` deletes branches and worktrees, so run it only
-  when the user asks for that run.
+- **Size the isolation to the work.** A small, self-contained change — a
+  bug fix, a docs edit, one spec tweak — belongs on an ad-hoc branch in
+  whatever checkout the session started in. Work that is materially
+  large or impactful — a new spec or feature, three or more components,
+  anything on the *blast radius* list below — gets its own worktree
+  first: from the primary checkout,
+  `git worktree add --relative-paths .worktrees/<branch> <branch>`
+  (`-b <branch> <base>` if it is new), then work there and say so. One
+  worktree per branch, named for it, is what the tooling assumes. Cut it
+  from current `origin/main`, not from whatever `HEAD` points at — the
+  exceptions are continuing the same feature's branch, addressing review
+  feedback on an open PR, and work that genuinely needs unmerged code.
+  Name the base when it isn't `main`.
+- **Elevate on collision.** If another session is on this branch —
+  `git worktree list` shows it checked out elsewhere, or commits and
+  working-tree changes appear that this session did not make — stop,
+  commit or stash what is in hand, and take the work to a worktree
+  instead of sharing the branch. Git allows only one worktree per
+  branch, so if the other session holds it, cut your own branch from it
+  there and say which branch the work is now on.
+- **Containers and directories stay optional.** A worktree may run on the
+  host or in its own devcontainer — whichever the user set up. Nothing is
+  off-limits to read or edit. `bin/wt` is the human entrypoint for the
+  same worktree setup and Claude MUST NOT invoke it, because it execs a
+  new `claude` session; `bin/wt-sync` and a bare `bin/wt-prune` only
+  report, and Claude MAY run them. `bin/wt-prune --yes` deletes branches
+  and worktrees, so run it only when the user asks for that run.
 - **Run tests, linters and builds where the toolchain is.** If a
   devcontainer is running for this checkout, prefix the command to
   execute in it (e.g.
