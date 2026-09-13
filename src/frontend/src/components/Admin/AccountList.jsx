@@ -11,11 +11,14 @@ const ROLE_TAG_CLASS = {
 
 // Short, locale-aware date (e.g. "12 Aug"), mirroring AdminPage.jsx's formatLastPublished
 // pattern. Renders nothing — never a placeholder — when dateAdded is absent.
+// A fixed locale ("en-GB": day before month, e.g. "12 Aug"), not the environment's
+// default (`toLocaleDateString(undefined, ...)`) — the viewer's/CI runner's locale
+// otherwise silently reorders this to "Aug 12" (en-US), which is what broke CI here.
 function formatDateAdded(iso) {
   if (!iso) return null;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
 // Two honest sign-in states only (030-people-admin-design-spec Scope note / D3): the
