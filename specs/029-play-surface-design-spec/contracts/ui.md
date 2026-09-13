@@ -84,7 +84,7 @@ default for every non-play screen using `TitleBar`).
 Consumes the same `StoryPane`/`StatusPanel`/`InstructionInput`/`SuggestedActions` and the new
 shared `Play.css` classes, so `010-story-test-play-done`'s transcript view gets the same
 chapter header and progress bar "for free" and does not visually diverge from the real play
-surface. That inheritance is asserted, not assumed (tasks.md T027).
+surface. That inheritance is asserted, not assumed (tasks.md T029).
 It does **not** gain a Refresh control (test-play sessions aren't
 resumable/shareable across tabs the way a real session is, and `019-spa-refresh-button`'s
 scope never named this screen).

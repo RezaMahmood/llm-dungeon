@@ -41,7 +41,7 @@
   focus indicator that a natively `disabled` button can never show (now
   `aria-disabled`, keeping it in the tab order), and the constitution's
   Readability rule #1 prose treatment (`text-wrap: pretty` and the body-size /
-  line-height floor) had no requirement or task covering it (now T002). SC-003
+  line-height floor) had no requirement or task covering it (now T004). SC-003
   gained an owning task (T031) and a second documented exception, the mockup's
   spelling-forgiveness hint, which this product does not implement.
 - `03-play-spec.md` is named as the canonical acceptance reference but is not yet

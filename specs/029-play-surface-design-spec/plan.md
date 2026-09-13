@@ -99,10 +99,10 @@ surface.
   the four interaction states stay in the shared layer; and the segmented progress bar is
   promoted to a shared class rather than forked (research.md Decision 5). Readability &
   interaction rule #5 (suggested actions always alongside free text) is already satisfied
-  today and is unchanged here — T004 adds the assertion that guards it through the restyle.
+  today and is unchanged here — T003 adds the assertion that guards it through the restyle.
   Readability & interaction rule #1 (narrative prose at or above body size, its line-height or
   greater, `text-wrap: pretty`) is **not** satisfied today: the mockup's prose carries it and
-  `StoryPane` does not. T002 closes that gap on `.play-text`.
+  `StoryPane` does not. T004 closes that gap on `.play-text`.
 - **X. PII Protection by Design** — PASS. No new field, no new PII surface.
 - **XII. Right-Sized Scope** — PASS. No new infrastructure, no new persistent
   environment; purely conformance work on one existing screen.
