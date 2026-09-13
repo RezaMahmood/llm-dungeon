@@ -2,6 +2,7 @@ import { useMsal } from "@azure/msal-react";
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
+import PendingButton from "../Common/PendingButton.jsx";
 import { loginRequest } from "../../services/msalConfig.js";
 import "./LoginScreen.css";
 
@@ -41,14 +42,14 @@ export function LoginScreen() {
       <h1>LLM Dungeon Adventure</h1>
       <p className="text-muted">Sign in to continue</p>
       <hr className="hr" />
-      <button
-        type="button"
+      <PendingButton
         className="btn btn-primary btn-block"
         onClick={handleSignIn}
-        disabled={status === "loading"}
+        pending={status === "loading"}
+        pendingLabel="Redirecting to Microsoft…"
       >
-        {status === "loading" ? "Redirecting to Microsoft…" : "Sign in with Microsoft"}
-      </button>
+        Sign in with Microsoft
+      </PendingButton>
       {(status === "cancelled" || status === "failed" || status === "sessionExpired") && (
         <div role="alert" className="login-error">
           {message}

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import PendingButton from "../../Common/PendingButton.jsx";
+
 export function StepNameCover({ draft, onPatch, onDirtyChange, fieldErrors = {} }) {
   const [name, setName] = useState(draft.name || "");
   const [coverImageUrl, setCoverImageUrl] = useState(draft.coverImageUrl || "");
@@ -31,7 +33,7 @@ export function StepNameCover({ draft, onPatch, onDirtyChange, fieldErrors = {} 
     setSaving(true);
     setSaveFailed(false);
     try {
-      const ok = await onPatch({ name, coverImageUrl, blurb });
+      const ok = await onPatch({ name, coverImageUrl, blurb }, { quiet: true });
       setSaved(ok !== false);
       setSaveFailed(ok === false);
     } finally {
@@ -83,9 +85,15 @@ export function StepNameCover({ draft, onPatch, onDirtyChange, fieldErrors = {} 
         />
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        <button type="button" className="btn btn-primary" onClick={handleSave} disabled={!dirty || saving}>
-          {saving ? "Saving…" : "Save"}
-        </button>
+        <PendingButton
+          className="btn btn-primary"
+          onClick={handleSave}
+          disabled={!dirty}
+          pending={saving}
+          pendingLabel="Saving…"
+        >
+          Save
+        </PendingButton>
         {saved && !dirty && <span className="text-muted" style={{ fontSize: "13px" }}>Saved</span>}
         {saveFailed && (
           <span role="alert" className="text-muted" style={{ fontSize: "13px" }}>

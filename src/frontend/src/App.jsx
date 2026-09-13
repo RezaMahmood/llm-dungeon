@@ -10,6 +10,7 @@ import { CapabilitiesProvider } from "./context/CapabilitiesContext.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import ErrorBoundary from "./observability/ErrorBoundary.jsx";
 import { PageViewTracker } from "./observability/appInsights.js";
+import PendingIndicator from "./components/Common/PendingIndicator.jsx";
 
 // Lazy-loaded: each page becomes its own chunk, fetched on navigation instead of
 // bundled into the initial (login/menu) payload — keeps the always-loaded bundle
@@ -25,7 +26,7 @@ const GamePage = lazy(() => import("./pages/GamePage.jsx"));
 function PageFallback() {
   return (
     <div style={{ padding: "var(--space-6)" }}>
-      <p className="text-muted">Loading…</p>
+      <PendingIndicator />
     </div>
   );
 }

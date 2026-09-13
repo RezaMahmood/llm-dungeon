@@ -7,6 +7,7 @@ import StoryDeleteAction from "../components/Admin/StoryDeleteAction.jsx";
 import StoryPublishActions from "../components/Admin/StoryPublishActions.jsx";
 import { loginRequest } from "../services/msalConfig.js";
 import { listStories } from "../services/storyDraftService.js";
+import PendingIndicator from "../components/Common/PendingIndicator.jsx";
 
 // Formatted for the Status tag's hover title (026-token-usage FR-006) — undefined/invalid
 // input renders no title at all, never a fabricated date.
@@ -124,7 +125,7 @@ export function AdminPage() {
       <StoryConfigUpload token={getToken} onImported={refresh} />
       <hr className="hr" />
 
-      {loading && <p className="text-muted">Loading stories…</p>}
+      {loading && <PendingIndicator>Loading stories…</PendingIndicator>}
 
       {!loading && error && (
         <div>

@@ -65,6 +65,27 @@ describe("Story wizard saves with a current token and confirms only real saves (
     generateStory.mockReset();
   });
 
+  // issue #347: a blur-saved field writes to the server with no control of its own to grey
+  // out, so the wizard has to say once, in one place, that a write is out.
+  it("shows a Saving… indicator while a blur-saved field's write is in flight", async () => {
+    let resolvePatch;
+    patchDraft.mockReturnValue(new Promise((resolve) => (resolvePatch = resolve)));
+
+    renderWizard();
+    await screen.findByRole("tablist");
+    await userEvent.click(screen.getByRole("tab", { name: /world & setting/i }));
+
+    await userEvent.type(screen.getByLabelText(/^world prompt/i), "A lighthouse on a cold coast.");
+    await userEvent.tab();
+
+    const pending = await screen.findByRole("status");
+    expect(pending).toHaveTextContent(/saving/i);
+    expect(pending.querySelector(".spinner")).toBeInTheDocument();
+
+    resolvePatch({ status: "success", draft: { ...EMPTY_DRAFT, worldPrompt: "A lighthouse on a cold coast." } });
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+  });
+
   it("sends a token acquired for this write, not the one the wizard opened with", async () => {
     // The wizard is a long-lived screen: the token it opened with can have expired by
     // the time the administrator gets round to saving a name.

@@ -21,6 +21,7 @@ import ReadyToPlayList from "../components/Home/ReadyToPlayList.jsx";
 import SessionRemovedDialog from "../components/Home/SessionRemovedDialog.jsx";
 import SessionDeleteAction from "../components/Home/SessionDeleteAction.jsx";
 import WelcomeBand from "../components/Home/WelcomeBand.jsx";
+import PendingIndicator from "../components/Common/PendingIndicator.jsx";
 
 export function HomePage() {
   const { instance, accounts } = useMsal();
@@ -112,7 +113,11 @@ export function HomePage() {
   // Account states MainMenu owned before this feature (FR-017) — Home must explain these
   // in place, never render empty story columns or a raw error.
   if (capabilitiesLoading) {
-    return <div className="home-shell">Loading…</div>;
+    return (
+      <div className="home-shell">
+        <PendingIndicator />
+      </div>
+    );
   }
 
   if (denied) {

@@ -9,6 +9,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import "../components/Play/Play.css";
+import PendingButton from "../components/Common/PendingButton.jsx";
+import PendingIndicator from "../components/Common/PendingIndicator.jsx";
 import InstructionInput from "../components/Play/InstructionInput.jsx";
 import PauseDialog from "../components/Play/PauseDialog.jsx";
 import StatusPanel from "../components/Play/StatusPanel.jsx";
@@ -40,6 +42,8 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit,
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState(null);
   const [pauseOpen, setPauseOpen] = useState(false);
+  const [exiting, setExiting] = useState(false);
+  const [resuming, setResuming] = useState(false);
   const [checkpointNotice, setCheckpointNotice] = useState(null);
   const checkpointNoticeTimer = useRef(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -91,6 +95,7 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit,
     // The turns themselves are already persisted; only the marker can be lost. FR-006a
     // still requires telling the player, so a failure is passed along to `onExit` —
     // this page unmounts immediately after, so it cannot show the notice itself.
+    setExiting(true);
     try {
       const token = await getToken();
       await saveCheckpoint(token, sessionId);
@@ -98,6 +103,8 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit,
     } catch {
       onExit("We couldn't record that checkpoint, but your progress is safe.");
     }
+    // Deliberately not reset: `onExit` navigates away and this page unmounts. Clearing it
+    // here would only un-grey the buttons for the instant before that happens.
   }, [getToken, sessionId, onExit]);
 
   // Published to the header AuthenticatedLayout renders, so this page never grows a
@@ -199,6 +206,7 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit,
   };
 
   const handleResume = async () => {
+    setResuming(true);
     try {
       const token = await getToken();
       await resumeSession(token, sessionId);
@@ -209,6 +217,8 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit,
         return;
       }
       setNotice({ type: "error", message: "Couldn't resume this story. Please try again." });
+    } finally {
+      setResuming(false);
     }
   };
 
@@ -238,9 +248,14 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit,
                   <p role="alert" className="text-muted play-notice">
                     {notice.message}
                   </p>
-                  <button type="button" className="btn btn-primary" onClick={handleResume}>
+                  <PendingButton
+                    className="btn btn-primary"
+                    onClick={handleResume}
+                    pending={resuming}
+                    pendingLabel="Resuming…"
+                  >
                     Resume this story
-                  </button>
+                  </PendingButton>
                 </div>
               ) : notice?.type === "story_deleted" || notice?.type === "story_unpublished" ? (
                 <div>
@@ -258,6 +273,14 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit,
                       {notice.message}
                     </p>
                   )}
+                  {/* The turn itself is the product's slowest call — the model writes the
+                      next scene. Without this the inputs simply go dead and the page reads
+                      as broken (issue #347). */}
+                  {(submitting || refreshing) && (
+                    <PendingIndicator className="text-muted play-notice">
+                      {submitting ? "The story is thinking…" : "Catching up on your story…"}
+                    </PendingIndicator>
+                  )}
                   <SuggestedActions actions={latest.suggestedActions} onSelect={handleSubmit} disabled={disabled} />
                   <InstructionInput value={inputValue} onChange={setInputValue} onSubmit={handleSubmit} disabled={disabled} />
                 </>
@@ -274,7 +297,12 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit,
       </div>
 
       {pauseOpen && (
-        <PauseDialog locationLabel={latest.locationLabel} onKeepPlaying={() => setPauseOpen(false)} onConfirmExit={handleConfirmExit} />
+        <PauseDialog
+          locationLabel={latest.locationLabel}
+          onKeepPlaying={() => setPauseOpen(false)}
+          onConfirmExit={handleConfirmExit}
+          saving={exiting}
+        />
       )}
     </div>
   );

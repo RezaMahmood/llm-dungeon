@@ -32,6 +32,26 @@ describe("StoryPublishActions (005 FR-010/FR-011/FR-013, extracted per research.
     unpublishStory.mockReset();
   });
 
+  // issue #347: publishing is a slow, material call — the confirm button must go inert and
+  // say so, not sit there looking unclicked while the request is out.
+  it("greys out the confirm button and spins while the publish request is in flight", async () => {
+    let resolvePublish;
+    publishStory.mockImplementationOnce(() => new Promise((resolve) => { resolvePublish = resolve; }));
+    render(<StoryPublishActions story={UNPUBLISHED_STORY} token="tok" onStoryChange={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /^publish$/i }));
+    const dialog = screen.getByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: /^publish$/i }));
+
+    const confirm = await within(dialog).findByRole("button", { name: /publishing…/i });
+    expect(confirm).toBeDisabled();
+    expect(confirm).toHaveAttribute("aria-busy", "true");
+    expect(confirm.querySelector(".spinner")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: /not yet/i })).toBeDisabled();
+
+    resolvePublish({ story: { ...UNPUBLISHED_STORY, published: true } });
+  });
+
   it("renders the current published state", () => {
     render(<StoryPublishActions story={UNPUBLISHED_STORY} token="tok" onStoryChange={vi.fn()} />);
     expect(screen.getByText(/unpublished/i)).toBeInTheDocument();

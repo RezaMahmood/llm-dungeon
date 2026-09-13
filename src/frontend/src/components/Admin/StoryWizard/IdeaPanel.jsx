@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import PendingButton from "../../Common/PendingButton.jsx";
+
 // One pass, not a conversation (#227): the idea goes to the model once and the suggestion
 // it returns lands in the world prompt field below. Nothing is echoed back here — there is
 // no exchange history to show, so the panel stays a single input and a button.
@@ -36,9 +38,14 @@ export function IdeaPanel({ onSuggestWorldPrompt }) {
           onChange={(event) => setIdea(event.target.value)}
           placeholder="Describe your idea"
         />
-        <button type="submit" className="btn btn-primary" disabled={status === "suggesting"}>
-          {status === "suggesting" ? "Writing…" : "Suggest world prompt"}
-        </button>
+        <PendingButton
+          type="submit"
+          className="btn btn-primary"
+          pending={status === "suggesting"}
+          pendingLabel="Writing…"
+        >
+          Suggest world prompt
+        </PendingButton>
       </form>
       {status === "error" && (
         <div role="alert" className="text-muted">

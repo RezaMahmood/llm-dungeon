@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 
 import { loginRequest } from "../services/msalConfig.js";
 import { getStoryConfiguration } from "../services/storyDraftService.js";
+import PendingIndicator from "../components/Common/PendingIndicator.jsx";
 
 /**
  * A story's complete configuration file, read-only, byte-for-byte what the Download
@@ -77,7 +78,7 @@ export function AdminStoryConfigurationPage() {
       </div>
       <hr className="hr" />
 
-      {loading && <p className="text-muted">Loading configuration…</p>}
+      {loading && <PendingIndicator>Loading configuration…</PendingIndicator>}
 
       {!loading && error && (
         <div>

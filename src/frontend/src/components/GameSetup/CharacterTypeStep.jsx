@@ -1,10 +1,12 @@
+import PendingIndicator from "../Common/PendingIndicator.jsx";
+
 /**
  * Step 3: choose a character type from the selected adventure's set (FR-003, FR-003a).
  * A single type is still shown as an explicit radio choice, never auto-selected (edge case).
  */
 export function CharacterTypeStep({ characterTypes, loading, error, selectedName, onSelect }) {
   if (loading) {
-    return <p className="text-muted">Loading character types…</p>;
+    return <PendingIndicator>Loading character types…</PendingIndicator>;
   }
 
   if (error) {

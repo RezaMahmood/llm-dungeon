@@ -6,6 +6,7 @@ import { useRefreshContext } from "../../context/RefreshContext.jsx";
 import { useCapabilities } from "../../hooks/useCapabilities.js";
 import { listSavedGames, saveCheckpoint } from "../../services/gameService.js";
 import { loginRequest } from "../../services/msalConfig.js";
+import { Spinner } from "../Common/PendingButton.jsx";
 import RefreshButton from "../Common/RefreshButton.jsx";
 import LogoutSavePrompt from "./LogoutSavePrompt.jsx";
 
@@ -44,6 +45,9 @@ export function NavBar() {
   const [promptOpen, setPromptOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [failureMessage, setFailureMessage] = useState(null);
+  // Sign-out asks the server whether a game is in progress before it decides what to do,
+  // so the link can sit there for a moment doing nothing visible (issue #347).
+  const [signingOut, setSigningOut] = useState(false);
 
   // Exactly one item can match, since every destination has a distinct path (FR-007).
   const current = (path) => (pathname === path ? "page" : undefined);
@@ -53,6 +57,8 @@ export function NavBar() {
   // block sign-out (FR-004).
   const handleSignOut = async (event) => {
     event.preventDefault();
+    if (signingOut) return;
+    setSigningOut(true);
     try {
       const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
       const data = await listSavedGames(tokenResponse.accessToken);
@@ -63,6 +69,7 @@ export function NavBar() {
         setActiveSessionId(active.sessionId);
         setFailureMessage(null);
         setPromptOpen(true);
+        setSigningOut(false);
         return;
       }
     } catch {
@@ -207,8 +214,14 @@ export function NavBar() {
         }}
       >
         {published && <RefreshButton onClick={published.refresh} loading={published.loading} />}
-        <a href="/login" style={LINK_STYLE} onClick={handleSignOut}>
-          Sign out
+        <a
+          href="/login"
+          style={{ ...LINK_STYLE, display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}
+          onClick={handleSignOut}
+          aria-busy={signingOut || undefined}
+        >
+          {signingOut && <Spinner />}
+          {signingOut ? "Signing out…" : "Sign out"}
         </a>
         <span className="tag tag-neutral truncate" style={{ maxWidth: "28ch" }}>
           {userName}

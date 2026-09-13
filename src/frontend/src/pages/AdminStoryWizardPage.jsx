@@ -7,6 +7,8 @@ import StepPublish from "../components/Admin/StoryWizard/StepPublish.jsx";
 import StepSessionLength from "../components/Admin/StoryWizard/StepSessionLength.jsx";
 import StepToneReadingLevel from "../components/Admin/StoryWizard/StepToneReadingLevel.jsx";
 import StepWorldSetting from "../components/Admin/StoryWizard/StepWorldSetting.jsx";
+import PendingButton from "../components/Common/PendingButton.jsx";
+import PendingIndicator from "../components/Common/PendingIndicator.jsx";
 import { usePublishRefresh } from "../context/RefreshContext.jsx";
 import { useUnsavedChangesWarning } from "../hooks/useUnsavedChangesWarning.js";
 import { loginRequest } from "../services/msalConfig.js";
@@ -178,6 +180,13 @@ export function AdminStoryWizardPage() {
   const [generateStatus, setGenerateStatus] = useState("idle"); // idle | generating | error | stale
   const [fieldErrors, setFieldErrors] = useState({}); // { [fieldKey]: message }
   const [loadError, setLoadError] = useState(null);
+  // Blur-saved fields (world setting, character types, completion criteria) write to the
+  // server without any control of their own to grey out, so the wizard counts what is in
+  // flight and says so once, in one place (issue #347). A count, not a boolean: leaving a
+  // field can start a second write while the first is still out. Steps with their own Save
+  // button pass `quiet` — that button already spins, and a second "Saving…" beneath it
+  // would say the same thing twice.
+  const [pendingWrites, setPendingWrites] = useState(0);
 
   useUnsavedChangesWarning(isDirty);
 
@@ -276,8 +285,9 @@ export function AdminStoryWizardPage() {
   // is how an administrator loses work without knowing it (#137). Callers that fire and
   // forget can keep ignoring the result.
   const handlePatch = useCallback(
-    async (updates) => {
+    async (updates, { quiet = false } = {}) => {
       const fieldKey = Object.keys(updates)[0];
+      if (!quiet) setPendingWrites((n) => n + 1);
       try {
         const data = await patchDraft(await getToken(), draft.id, updates);
         setFieldErrors((current) => {
@@ -291,6 +301,8 @@ export function AdminStoryWizardPage() {
       } catch (err) {
         setFieldErrors((current) => ({ ...current, [fieldKey]: fieldErrorMessage(err, fieldKey) }));
         return false;
+      } finally {
+        if (!quiet) setPendingWrites((n) => n - 1);
       }
     },
     [getToken, draft, applyWriteResult],
@@ -401,7 +413,7 @@ export function AdminStoryWizardPage() {
   if (!draft) {
     return (
       <div style={{ padding: "var(--space-6)" }}>
-        <p className="text-muted">{isEditMode ? "Loading story…" : "Starting a new story…"}</p>
+        <PendingIndicator>{isEditMode ? "Loading story…" : "Starting a new story…"}</PendingIndicator>
       </div>
     );
   }
@@ -482,22 +494,21 @@ export function AdminStoryWizardPage() {
         fieldErrors={fieldErrors}
       />
 
+      {pendingWrites > 0 && (
+        <PendingIndicator style={{ marginTop: "16px", fontSize: "13px" }}>Saving…</PendingIndicator>
+      )}
+
       <hr className="hr" style={{ margin: "32px 0 20px" }} />
       <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-        <button
-          type="button"
+        <PendingButton
           className="btn btn-primary"
-          disabled={!isReadyToGenerate(draft) || generateStatus === "generating"}
+          disabled={!isReadyToGenerate(draft)}
+          pending={generateStatus === "generating"}
+          pendingLabel={isEditMode ? "Saving…" : "Generating…"}
           onClick={isEditMode ? handleSaveChanges : handleGenerate}
         >
-          {isEditMode
-            ? generateStatus === "generating"
-              ? "Saving…"
-              : "Save changes"
-            : generateStatus === "generating"
-              ? "Generating…"
-              : "Generate story"}
-        </button>
+          {isEditMode ? "Save changes" : "Generate story"}
+        </PendingButton>
         <span className="text-muted" style={{ fontSize: "13px" }}>
           {isReadyToGenerate(draft)
             ? isEditMode

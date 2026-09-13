@@ -11,6 +11,8 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import CharacterNameStep, { MAX_CHARACTER_NAME_LENGTH } from "../components/GameSetup/CharacterNameStep.jsx";
 import CharacterTypeStep from "../components/GameSetup/CharacterTypeStep.jsx";
+import PendingButton from "../components/Common/PendingButton.jsx";
+import PendingIndicator from "../components/Common/PendingIndicator.jsx";
 import { createSession, getAdventure, getSession, resumeSession } from "../services/gameService.js";
 import { loginRequest } from "../services/msalConfig.js";
 import PlayPage from "./PlayPage.jsx";
@@ -213,7 +215,7 @@ export function GamePage() {
     if (resuming) {
       return (
         <PageContainer>
-          <p className="text-muted">Resuming your story…</p>
+          <PendingIndicator>Resuming your story…</PendingIndicator>
         </PageContainer>
       );
     }
@@ -273,9 +275,14 @@ export function GamePage() {
           gap: "16px",
         }}
       >
-        <button type="button" className="btn btn-primary" onClick={handleStart} disabled={submitting}>
-          {submitting ? "Starting…" : "Start playing"}
-        </button>
+        <PendingButton
+          className="btn btn-primary"
+          onClick={handleStart}
+          pending={submitting}
+          pendingLabel="Starting…"
+        >
+          Start playing
+        </PendingButton>
       </div>
     </PageContainer>
   );
