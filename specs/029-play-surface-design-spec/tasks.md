@@ -162,20 +162,20 @@ the canonical design gives it, inert and honestly labelled (FR-007, D2).
 keyboard focus reaches it and shows the accent focus ring, a screen reader announces it as
 unavailable, and clicking it changes nothing.
 
-- [ ] **T019** [US2] `tests/Play/StatusPanel.test.jsx` — a "Stuck? Get a hint" button renders
+- [X] **T019** [US2] `tests/Play/StatusPanel.test.jsx` — a "Stuck? Get a hint" button renders
   between the progress section and the autosave notice; it carries `aria-disabled="true"`; the
   native `disabled` attribute is absent and the element stays keyboard-reachable; the "Hints
   are coming soon." note renders alongside; clicking changes nothing rendered. Assert state
   through the accessible name/state, not a CSS class. A test that accepts `disabled` would pass
   against an implementation that fails US2 AS2.
-- [ ] **T020** [US2] `src/components/Play/StatusPanel.jsx` — add a `<button type="button">`
+- [X] **T020** [US2] `src/components/Play/StatusPanel.jsx` — add a `<button type="button">`
   carrying `btn btn-secondary btn-block` and `aria-disabled="true"`, with no click handler,
   between the progress section and the autosave notice per `03-play.html:91`, followed by a
   `.play-hint-pending` note reading "Hints are coming soon." Per D2.
-- [ ] **T021** [US2] `src/styles/designTokens.css` — widen the existing rule at line 132 to
+- [X] **T021** [US2] `src/styles/designTokens.css` — widen the existing rule at line 132 to
   `.btn:disabled, .btn[aria-disabled="true"]`, so the unavailable treatment reaches an
   `aria-disabled` control. Per D3 this belongs in the shared layer, not `Play.css`.
-- [ ] **T022** [US2] `src/components/Play/Play.css` — add `.play-hint` and
+- [X] **T022** [US2] `src/components/Play/Play.css` — add `.play-hint` and
   `.play-hint-pending`. Layout and spacing only.
 
 **Checkpoint**: US2 ships independently. The panel matches the canonical composition and the
