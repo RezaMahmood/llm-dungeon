@@ -1,4 +1,6 @@
-import { memo } from "react";
+import { memo, useEffect, useRef } from "react";
+
+import "./Play.css";
 
 /**
  * Scrolling narrative history for the play surface (specs/designs/03-play.html,
@@ -10,44 +12,29 @@ import { memo } from "react";
  * actually added — without this, every keystroke would re-map the whole turn history.
  */
 export const StoryPane = memo(function StoryPane({ turns }) {
+  const scrollerRef = useRef(null);
+
+  // Scroll to the newest content on mount and after every new turn (029, FR-004) —
+  // the transcript is the only part of the play surface that ever moves.
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (scroller) scroller.scrollTop = scroller.scrollHeight;
+  }, [turns.length]);
+
   return (
-    <div
-      className="storyscroll"
-      style={{ flex: 1, overflowY: "auto", padding: "32px 40px 20px" }}
-      aria-live="polite"
-    >
-      <div style={{ maxWidth: "64ch" }}>
+    <div ref={scrollerRef} className="storyscroll play-transcript" aria-live="polite">
+      <div style={{ maxWidth: "64ch" /* no token covers this measure — deliberate exception */ }}>
         {turns.map((turn) => (
           <div key={turn.turnNumber}>
             {turn.playerInput != null && (
-              <div style={{ marginBottom: "22px" }}>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    color: "color-mix(in srgb, var(--color-text) 45%, transparent)",
-                    marginBottom: "6px",
-                  }}
-                >
-                  You
-                </div>
-                <p style={{ margin: 0, fontSize: "19px", lineHeight: 1.65 }}>{turn.playerInput}</p>
+              <div className="play-entry">
+                <div className="play-label">You</div>
+                <p className="play-text play-text-player">{turn.playerInput}</p>
               </div>
             )}
-            <div style={{ marginBottom: "22px" }}>
-              <div
-                style={{
-                  fontSize: "11px",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  color: "color-mix(in srgb, var(--color-text) 45%, transparent)",
-                  marginBottom: "6px",
-                }}
-              >
-                The story
-              </div>
-              <p style={{ margin: 0, fontSize: "19px", lineHeight: 1.65 }}>{turn.narrativeText}</p>
+            <div className="play-entry">
+              <div className="play-label">The story</div>
+              <p className="play-text">{turn.narrativeText}</p>
             </div>
           </div>
         ))}

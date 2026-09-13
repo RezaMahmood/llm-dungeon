@@ -9,6 +9,7 @@ import { useMsal } from "@azure/msal-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
+import "../components/Play/Play.css";
 import InstructionInput from "../components/Play/InstructionInput.jsx";
 import StatusPanel from "../components/Play/StatusPanel.jsx";
 import StoryPane from "../components/Play/StoryPane.jsx";
@@ -143,7 +144,7 @@ export function AdminStoryTestPlayPage() {
   }
 
   return (
-    <div className="shell" style={{ height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+    <div className="play-shell">
       <div
         style={{
           flex: "none",
@@ -162,10 +163,10 @@ export function AdminStoryTestPlayPage() {
         </button>
       </div>
 
-      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 292px", minHeight: 0 }}>
+      <div className="play-main">
         <div style={{ display: "flex", flexDirection: "column", minHeight: 0, borderRight: "2px solid var(--color-divider)" }}>
           <StoryPane turns={turns} />
-          <div style={{ flex: "none", borderTop: "2px solid var(--color-divider)", padding: "16px 40px 22px" }}>
+          <div className="play-dock">
             {status === "concluded" ? (
               <div>
                 <h1 style={{ margin: "0 0 8px", fontSize: "20px" }}>Playthrough concluded</h1>
@@ -185,7 +186,7 @@ export function AdminStoryTestPlayPage() {
             ) : (
               <>
                 {notice && (
-                  <p role="alert" className="text-muted" style={{ margin: "0 0 10px", fontSize: "13px" }}>
+                  <p role="alert" className="text-muted play-notice">
                     {notice.message}
                   </p>
                 )}

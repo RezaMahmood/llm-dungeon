@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import "../components/Play/Play.css";
 import InstructionInput from "../components/Play/InstructionInput.jsx";
 import PauseDialog from "../components/Play/PauseDialog.jsx";
 import StatusPanel from "../components/Play/StatusPanel.jsx";
@@ -131,18 +132,14 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
   };
 
   return (
-    <div className="shell" style={{ height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, position: "relative" }}>
-        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 292px", minHeight: 0 }}>
+    <div className="play-shell">
+      <div className="play-body">
+        <div className="play-main">
           <div style={{ display: "flex", flexDirection: "column", minHeight: 0, borderRight: "2px solid var(--color-divider)" }}>
             <StoryPane turns={turns} />
-            <div style={{ flex: "none", borderTop: "2px solid var(--color-divider)", padding: "16px 40px 22px" }}>
+            <div className="play-dock">
               {checkpointNotice && (
-                <p
-                  role={checkpointNotice.type === "error" ? "alert" : "status"}
-                  className="text-muted"
-                  style={{ margin: "0 0 10px", fontSize: "13px" }}
-                >
+                <p role={checkpointNotice.type === "error" ? "alert" : "status"} className="text-muted play-notice">
                   {checkpointNotice.message}
                 </p>
               )}
@@ -152,7 +149,7 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
                 </p>
               ) : notice?.type === "session_inactive" ? (
                 <div>
-                  <p role="alert" className="text-muted" style={{ margin: "0 0 10px" }}>
+                  <p role="alert" className="text-muted play-notice">
                     {notice.message}
                   </p>
                   <button type="button" className="btn btn-primary" onClick={handleResume}>
@@ -161,7 +158,7 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
                 </div>
               ) : notice?.type === "story_deleted" || notice?.type === "story_unpublished" ? (
                 <div>
-                  <p role="alert" className="text-muted" style={{ margin: "0 0 10px" }}>
+                  <p role="alert" className="text-muted play-notice">
                     {notice.message}
                   </p>
                   <button type="button" className="btn btn-primary" onClick={() => onExit()}>
@@ -171,7 +168,7 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
               ) : (
                 <>
                   {notice && (
-                    <p role="alert" className="text-muted" style={{ margin: "0 0 10px", fontSize: "13px" }}>
+                    <p role="alert" className="text-muted play-notice">
                       {notice.message}
                     </p>
                   )}
