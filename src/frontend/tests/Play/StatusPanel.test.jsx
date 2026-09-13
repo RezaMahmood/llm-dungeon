@@ -33,4 +33,32 @@ describe("StatusPanel (008-core-gameplay-done)", () => {
     expect(screen.getByRole("status")).toHaveTextContent(/you succeeded/i);
     expect(screen.getByRole("status")).toHaveTextContent(/the player escaped the cove/i);
   });
+
+  it("renders one segment per chapter, with the first `current` marked filled (029, FR-006)", () => {
+    const { container } = render(
+      <StatusPanel
+        locationLabel="The keeper's stairs"
+        goalLabel={null}
+        progress={{ current: 3, total: 5 }}
+        completionReason={null}
+      />,
+    );
+
+    const segments = container.querySelectorAll(".progress-bars span");
+    expect(segments).toHaveLength(5);
+    expect(Array.from(segments).filter((span) => span.classList.contains("filled"))).toHaveLength(3);
+    expect(segments[0]).toHaveClass("filled");
+    expect(segments[1]).toHaveClass("filled");
+    expect(segments[2]).toHaveClass("filled");
+    expect(segments[3]).not.toHaveClass("filled");
+    expect(segments[4]).not.toHaveClass("filled");
+  });
+
+  it("renders no segmented bar when there is no progress (029, FR-006)", () => {
+    const { container } = render(
+      <StatusPanel locationLabel="The cove" goalLabel={null} progress={null} completionReason={null} />,
+    );
+
+    expect(container.querySelectorAll(".progress-bars")).toHaveLength(0);
+  });
 });

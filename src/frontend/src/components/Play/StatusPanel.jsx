@@ -37,6 +37,14 @@ export function StatusPanel({ locationLabel, goalLabel, progress, completionReas
               of {progress.total} chapters
             </span>
           </div>
+          {/* The numeral/text above already carries the "3 of 5" meaning in text, so the
+              bar itself is a visual reinforcement, never the only place the count lives
+              (constitution, Accessibility — meaning is never carried by color alone). */}
+          <div className="progress-bars" style={{ marginTop: "10px" }}>
+            {Array.from({ length: progress.total }, (_, index) => (
+              <span key={index} className={index < progress.current ? "filled" : undefined} />
+            ))}
+          </div>
         </>
       )}
 

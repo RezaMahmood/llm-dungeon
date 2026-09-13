@@ -257,6 +257,23 @@ textarea.input { min-height: 90px; resize: vertical; }
 .dialog-body { font-size: 14px; opacity: 0.85; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
 
+/* Segmented chapter/step-progress bar — one span per unit, `.filled` marks completed
+   ones. Shared by Home's in-progress cards (028-home-page-redesign) and the play
+   surface's status panel (029); promoted here so a second screen never forks its own
+   fill/neutral treatment (Principle VIII). The 8px segment height matches
+   specs/designs/03-play.html's status panel, the larger of the two contexts; Home's
+   more compact card keeps its own height override in Home.css (matching
+   specs/designs/07-home.html), since that's a real difference between the two
+   canonical mockups, not drift to eliminate. */
+.progress-bars {
+  width: 100%; display: flex; gap: 4px;
+}
+.progress-bars span {
+  height: 8px; flex: 1; background: var(--color-neutral-300);
+}
+.progress-bars span.filled {
+  background: var(--color-accent);
+}
 
 /* — narrowly-scoped layout utilities (no visual-design opinion of their own) — */
 .nav-divider {

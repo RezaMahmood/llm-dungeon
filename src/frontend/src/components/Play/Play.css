@@ -50,6 +50,19 @@
   overflow-y: auto;
   padding: var(--space-8) 40px 20px;
 }
+/* Chapter identifier, pinned above the turn list inside the scrolling content
+   (specs/designs/03-play.html) — the numeral's color is an .ovnum modifier, so it's set
+   inline alongside the shared class rather than duplicated here. */
+.play-chapter-num {
+  font-size: 80px;
+}
+.play-chapter-line {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent-700);
+  margin: 6px 0 24px;
+}
 .play-entry {
   margin-bottom: 22px;
 }

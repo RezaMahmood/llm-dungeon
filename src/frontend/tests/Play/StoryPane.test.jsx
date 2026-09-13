@@ -88,4 +88,41 @@ describe("StoryPane (008-core-gameplay-done)", () => {
 
     expect(container.querySelector(".storyscroll").scrollTop).toBe(1200);
   });
+
+  it("renders the chapter numeral and kicker when the latest turn reports progress (029, FR-002)", () => {
+    render(
+      <StoryPane
+        turns={[
+          {
+            turnNumber: 0,
+            narrativeText: "A spiral of stairs climbs into the dark.",
+            playerInput: null,
+            locationLabel: "The keeper's stairs",
+            progress: { current: 3, total: 5 },
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("03")).toBeInTheDocument();
+    expect(screen.getByText("Chapter three — The keeper's stairs")).toBeInTheDocument();
+  });
+
+  it("renders neither the numeral nor the kicker when the latest turn reports no progress (029, FR-002)", () => {
+    render(
+      <StoryPane
+        turns={[
+          {
+            turnNumber: 0,
+            narrativeText: "The door creaks open.",
+            playerInput: null,
+            locationLabel: "Lighthouse entrance",
+            progress: null,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.queryByText(/^chapter /i)).not.toBeInTheDocument();
+  });
 });
