@@ -22,7 +22,17 @@ import { getSession, resumeSession, saveCheckpoint, submitInteraction } from "..
 // itself (Constitution "Save and session behaviour" #2: "visibly and briefly").
 const CHECKPOINT_NOTICE_MS = 4000;
 
-export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit }) {
+/**
+ * The session itself is gone (031-sessions-admin-design-spec FR-012). Distinct from
+ * `story_deleted`, which the two shared a response with until 031 split them: a player
+ * whose session was deleted under a live story must not be told their story was deleted.
+ * This one never renders an in-place notice — the player leaves for Home (FR-012, D7).
+ */
+function isSessionRemoved(err) {
+  return err.response?.status === 404 && err.response?.data?.error === "session_removed";
+}
+
+export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit, onSessionRemoved }) {
   const [turns, setTurns] = useState(() => initialTurns.map((turn) => ({ ...turn, playerInput: turn.playerInput ?? null })));
   const [status, setStatus] = useState("active");
   const [completionReason, setCompletionReason] = useState(null);
@@ -59,7 +69,13 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
       const token = await getToken();
       const data = await saveCheckpoint(token, sessionId);
       setCheckpointNotice({ type: "success", message: `Checkpoint saved at ${data.checkpoint.label}` });
-    } catch {
+    } catch (err) {
+      // A removed session is not a failed save — there is nothing left to save into, and
+      // "your progress is safe" would be false. The player leaves instead (FR-012).
+      if (isSessionRemoved(err)) {
+        onSessionRemoved?.();
+        return;
+      }
       setCheckpointNotice({
         type: "error",
         message: "We couldn't record that checkpoint, but your progress is safe.",
@@ -67,7 +83,7 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
     }
     if (checkpointNoticeTimer.current) clearTimeout(checkpointNoticeTimer.current);
     checkpointNoticeTimer.current = setTimeout(() => setCheckpointNotice(null), CHECKPOINT_NOTICE_MS);
-  }, [getToken, sessionId]);
+  }, [getToken, sessionId, onSessionRemoved]);
 
   // A failed save must never block, delay, or reverse departure (FR-006a) — the
   // checkpoint call is best-effort and `onExit` always runs.
@@ -111,7 +127,9 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
     } catch (err) {
       const responseStatus = err.response?.status;
       const body = err.response?.data;
-      if (responseStatus === 404 && body?.error === "story_deleted") {
+      if (isSessionRemoved(err)) {
+        onSessionRemoved?.();
+      } else if (responseStatus === 404 && body?.error === "story_deleted") {
         setNotice({
           type: "story_deleted",
           message: body?.message || "Story has been deleted. You can no longer continue this story.",
@@ -146,7 +164,9 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
     } catch (err) {
       const responseStatus = err.response?.status;
       const body = err.response?.data;
-      if (responseStatus === 429) {
+      if (isSessionRemoved(err)) {
+        onSessionRemoved?.();
+      } else if (responseStatus === 429) {
         setNotice({ type: "rate_limited", message: body?.message || "Slow down a little." });
         setInputValue(input);
       } else if (responseStatus === 409 && body?.error === "interaction_in_progress") {
@@ -183,7 +203,11 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
       const token = await getToken();
       await resumeSession(token, sessionId);
       setNotice(null);
-    } catch {
+    } catch (err) {
+      if (isSessionRemoved(err)) {
+        onSessionRemoved?.();
+        return;
+      }
       setNotice({ type: "error", message: "Couldn't resume this story. Please try again." });
     }
   };

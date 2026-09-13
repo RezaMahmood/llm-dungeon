@@ -11,4 +11,11 @@ export async function listSessions(token) {
   return response.data;
 }
 
-export default { listSessions };
+export async function deleteSession(token, sessionId) {
+  const response = await client.delete(`/manage/sessions/${sessionId}`, {
+    headers: { "X-Custom-Authorization": `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export default { listSessions, deleteSession };

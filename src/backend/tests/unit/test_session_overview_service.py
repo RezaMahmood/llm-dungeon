@@ -5,12 +5,17 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from backend.models.provisioned_account_entry import ProvisionedAccountEntry
+from backend.services.play_session_service import SessionNotFoundError as PlaySessionNotFoundError
 from backend.services.session_overview_service import (
     DELETED_STORY_LABEL,
     UNPROVISIONED_ACCOUNT_LABEL,
+    SessionNotFoundError,
     SessionOverviewService,
 )
+from backend.services import test_play_session_service as test_play_module
 
 PLAYER_OID = "oid-player-1"
 ADMIN_OID = "oid-admin-1"
@@ -150,3 +155,50 @@ def test_list_sessions_queries_regardless_of_status(monkeypatch):
 
     assert len(queries) == 2
     assert all("status" not in sql for sql in queries)
+
+
+# --- Deleting a session (031-sessions-admin-design-spec FR-006, research.md Decision 1) ---
+
+
+def _delete_service(play_service=None, test_play_service=None):
+    return SessionOverviewService(
+        cosmos_service=MagicMock(),
+        story_service=MagicMock(),
+        account_provisioning_service=MagicMock(),
+        play_session_service=play_service or MagicMock(),
+        test_play_session_service=test_play_service or MagicMock(),
+    )
+
+
+def test_delete_session_deletes_a_player_session_without_touching_test_play():
+    play = MagicMock()
+    test_play = MagicMock()
+    service = _delete_service(play, test_play)
+
+    assert service.delete_session("session-p1") == "player"
+
+    play.delete_session_as_administrator.assert_called_once_with("session-p1")
+    # The id resolved in the first container, so the second is never reached.
+    test_play.delete_session_as_administrator.assert_not_called()
+
+
+def test_delete_session_falls_back_to_the_test_play_container():
+    play = MagicMock()
+    play.delete_session_as_administrator.side_effect = PlaySessionNotFoundError()
+    test_play = MagicMock()
+    service = _delete_service(play, test_play)
+
+    assert service.delete_session("session-t1") == "test"
+
+    test_play.delete_session_as_administrator.assert_called_once_with("session-t1")
+
+
+def test_delete_session_raises_when_neither_container_holds_the_id():
+    play = MagicMock()
+    play.delete_session_as_administrator.side_effect = PlaySessionNotFoundError()
+    test_play = MagicMock()
+    test_play.delete_session_as_administrator.side_effect = test_play_module.SessionNotFoundError()
+    service = _delete_service(play, test_play)
+
+    with pytest.raises(SessionNotFoundError):
+        service.delete_session("nope")

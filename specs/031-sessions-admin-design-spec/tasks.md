@@ -73,14 +73,14 @@ Referenced by number below rather than restated in each task.
 
 **⚠️ CRITICAL**: D2. The screen is untraceable to a screen contract until T002 lands.
 
-- [ ] **T002** Amend `.specify/memory/constitution.md`'s **Administrator — sessions** screen
+- [X] **T002** Amend `.specify/memory/constitution.md`'s **Administrator — sessions** screen
   contract: name `specs/designs/08-admin-sessions.html` and `08-admin-sessions-spec.md` as its
   acceptance reference, replace "read-only list" with the list plus an administrator delete
   behind a confirmation dialog, and drop the "no prototype screen"/"defers this screen's visual
   design" clauses. Bump the version MINOR (9.0.0 → 9.1.0), update **Last Amended**, and replace
   the Sync Impact Report with this amendment's (Principle XIV: the report carries only the
   current amendment).
-- [ ] **T003** Record the supersession in `specs/026-token-usage/spec.md`: mark FR-016 as
+- [X] **T003** Record the supersession in `specs/026-token-usage/spec.md`: mark FR-016 as
   superseded by `031-sessions-admin-design-spec` FR-006 in one line, edited in place — no
   retained narrative of the old decision (Principle XIV).
 
@@ -99,27 +99,27 @@ and see the empty state. No delete involved.
 
 ### Tests for User Story 1
 
-- [ ] **T004** [P] [US1] Write `tests/components/SessionsTable.test.jsx` covering: the five
+- [X] **T004** [P] [US1] Write `tests/components/SessionsTable.test.jsx` covering: the five
   columns in order; `(deleted story)` rendered as an italic label, not an empty cell; a token
   total of `0` rendering as `0`; a four-figure total thousands-separated; a full UUID present
   and wrapping (no truncation); the account rendered muted.
-- [ ] **T005** [P] [US1] Extend `tests/integration/admin_sessions_list.test.jsx` for the
+- [X] **T005** [P] [US1] Extend `tests/integration/admin_sessions_list.test.jsx` for the
   heading: `{n} sessions across {m} stories`, `1 session across 1 story` singularising both
   halves independently, two sessions of one story counting that story once, deleted-story rows
   excluded from `m`, and `No sessions` plus the explanatory paragraph when the list is empty.
 
 ### Implementation for User Story 1
 
-- [ ] **T006** [US1] Add `src/components/Admin/AdminSessions.css` — page-scoped structure only
+- [X] **T006** [US1] Add `src/components/Admin/AdminSessions.css` — page-scoped structure only
   (D8): fixed shell with the content area as the sole scroll container, full-width container
   with a 16px gutter and **no `max-width` wrapper**, kicker, the `ALL SESSIONS` label,
   monospace wrapping id cell, right-aligned `tabular-nums` numeric column, the italic
   deleted-story label, the 1%-width nowrap action column, and the caption. Follow
   `AdminAccounts.css` for anything the two screens share (contracts/ui.md §1).
-- [ ] **T007** [US1] Add `src/components/Admin/SessionsTable.jsx` — the `.table` with
+- [X] **T007** [US1] Add `src/components/Admin/SessionsTable.jsx` — the `.table` with
   `<th scope="col">` headers in the design's order, the per-row cells, and a `sessions` prop.
   Render the actions column but leave the action slot to US2.
-- [ ] **T008** [US1] Rewrite `src/pages/AdminSessionsPage.jsx` onto the design's shell: import
+- [X] **T008** [US1] Rewrite `src/pages/AdminSessionsPage.jsx` onto the design's shell: import
   `AdminSessions.css`, render the `SESSIONS` kicker and the computed heading, the `ALL
   SESSIONS` label, `SessionsTable`, and the caption; render the empty state in place of the
   table when there are no sessions; keep the existing loading and error states. Derive both
@@ -140,41 +140,41 @@ and a 404; the table always agrees with the server afterwards.
 
 ### Backend tests
 
-- [ ] **T009** [P] [US2] Extend `src/backend/tests/unit/test_play_session_service.py`:
+- [X] **T009** [P] [US2] Extend `src/backend/tests/unit/test_play_session_service.py`:
   `delete_session_as_administrator` deletes a session owned by someone else and deletes
   regardless of `status` (`active`, `inactive`, `concluded`); raises `SessionNotFoundError` for
   an unknown id and for one that vanishes mid-delete; and — the guard that matters —
   `delete_player_session`'s ownership check is unchanged.
-- [ ] **T010** [P] [US2] Extend `src/backend/tests/unit/test_test_play_session_service.py`: the
+- [X] **T010** [P] [US2] Extend `src/backend/tests/unit/test_test_play_session_service.py`: the
   same for the test-play service, plus `Story.lastTestPlayedAt` untouched (so a story stays
   publishable after its test session is deleted) and `Story.totalTokens` not decremented.
-- [ ] **T011** [P] [US2] Extend `src/backend/tests/unit/test_session_overview_service.py`:
+- [X] **T011** [P] [US2] Extend `src/backend/tests/unit/test_session_overview_service.py`:
   `delete_session` finds a player session, finds a test-play session, and raises
   `SessionNotFoundError` when neither container holds the id — asserting it never reaches the
   second container once the first has deleted.
-- [ ] **T012** [US2] Extend `src/backend/tests/integration/test_admin_sessions_endpoint.py` for
+- [X] **T012** [US2] Extend `src/backend/tests/integration/test_admin_sessions_endpoint.py` for
   `DELETE /api/manage/sessions/{sessionId}`: 200 with the deleted body, 404 for an unknown id,
   403 for a signed-in non-administrator, 401 unauthenticated (contracts/api.md).
 
 ### Backend implementation
 
-- [ ] **T013** [P] [US2] Add `delete_session_as_administrator(session_id)` to
+- [X] **T013** [P] [US2] Add `delete_session_as_administrator(session_id)` to
   `src/backend/services/play_session_service.py` — no owner check, `SessionNotFoundError` when
   absent, tolerant of a concurrent delete (D4).
-- [ ] **T014** [P] [US2] Add `delete_session_as_administrator(session_id)` to
+- [X] **T014** [P] [US2] Add `delete_session_as_administrator(session_id)` to
   `src/backend/services/test_play_session_service.py`, same contract, never touching the
   `Story` (D4).
-- [ ] **T015** [US2] Add `delete_session(session_id)` to
+- [X] **T015** [US2] Add `delete_session(session_id)` to
   `src/backend/services/session_overview_service.py` — try the player service, fall back to the
   test-play service on `SessionNotFoundError`, re-raise if neither holds it (D3). Depends on
   T013, T014.
-- [ ] **T016** [US2] Add the `delete_session` handler to `src/backend/api/admin/sessions.py`
+- [X] **T016** [US2] Add the `delete_session` handler to `src/backend/api/admin/sessions.py`
   behind `authorize_admin`, returning the shapes in contracts/api.md, and register
   `DELETE manage/sessions/{sessionId}` in `src/backend/function_app.py`.
 
 ### Frontend tests
 
-- [ ] **T017** [P] [US2] Add `tests/integration/admin_sessions_delete.test.jsx`: the row's
+- [X] **T017** [P] [US2] Add `tests/integration/admin_sessions_delete.test.jsx`: the row's
   Delete opens the dialog and deletes nothing; the dialog body names the id's first 8
   characters and the account; "Keep it", the backdrop and Escape each cancel leaving no pending
   state; confirming removes the row and recomputes the heading; a failed delete keeps the row
@@ -183,14 +183,14 @@ and a 404; the table always agrees with the server afterwards.
 
 ### Frontend implementation
 
-- [ ] **T018** [P] [US2] Add `deleteSession(token, sessionId)` to `src/services/sessionService.js`
+- [X] **T018** [P] [US2] Add `deleteSession(token, sessionId)` to `src/services/sessionService.js`
   (contracts/api.md → *Frontend service surface*).
-- [ ] **T019** [US2] Add `src/components/Admin/SessionDeleteAction.jsx` — the ghost Delete
+- [X] **T019** [US2] Add `src/components/Admin/SessionDeleteAction.jsx` — the ghost Delete
   button with the Lucide `trash-2` icon and a row-distinguishing accessible name, owning the
   dialog state and rendering `Common/ConfirmDeleteDialog` with the copy in contracts/ui.md §5
   (D8). **Not** to be confused with the existing `components/Home/SessionDeleteAction.jsx`
   (plan.md → *Naming collision*).
-- [ ] **T020** [US2] Wire it in: `SessionsTable` renders the action per row;
+- [X] **T020** [US2] Wire it in: `SessionsTable` renders the action per row;
   `AdminSessionsPage` removes the row and recomputes the heading only on a confirmed server
   response, and renders the failure and already-removed notices (FR-014, FR-015 — never
   optimistic, research.md Decision 9).
@@ -211,19 +211,19 @@ confirm the story-deleted outcome is unchanged.
 
 ### Backend tests
 
-- [ ] **T021** [P] [US3] Extend `src/backend/tests/integration/test_game_sessions_endpoint.py`:
+- [X] **T021** [P] [US3] Extend `src/backend/tests/integration/test_game_sessions_endpoint.py`:
   for each of `POST …/interactions`, `POST …/resume`, `GET …/{id}` and `POST …/checkpoints`, a
   missing session returns `404 session_removed` with the D6 message.
-- [ ] **T022** [P] [US3] In the same file, the paired regression: for each handler that has
+- [X] **T022** [P] [US3] In the same file, the paired regression: for each handler that has
   one, a **deleted story** still returns `404 story_deleted` and an **unpublished story** still
   returns `409 story_unpublished`, unchanged. These two outcomes shared a code path before this
   feature; this task is what proves they were separated rather than swapped.
-- [ ] **T023** [P] [US3] Assert `DELETE /api/game/sessions/{sessionId}` still returns
+- [X] **T023** [P] [US3] Assert `DELETE /api/game/sessions/{sessionId}` still returns
   `404 not_found`, deliberately unchanged (contracts/api.md → *Explicitly not changed*).
 
 ### Backend implementation
 
-- [ ] **T024** [US3] In `src/backend/api/game/sessions.py`, split the
+- [X] **T024** [US3] In `src/backend/api/game/sessions.py`, split the
   `except (SessionNotFoundError, AdventureNotFoundError)` handlers in `submit_interaction`,
   `resume_session` and `get_session` so `SessionNotFoundError` returns a new
   `_session_removed_response()` and `AdventureNotFoundError` keeps `_story_deleted_response()`;
@@ -232,27 +232,27 @@ confirm the story-deleted outcome is unchanged.
 
 ### Frontend tests
 
-- [ ] **T025** [P] [US3] Extend `tests/Play/PlayPage.test.jsx`: on `session_removed` from a
+- [X] **T025** [P] [US3] Extend `tests/Play/PlayPage.test.jsx`: on `session_removed` from a
   submit, a checkpoint save, and a refresh, the page raises `onSessionRemoved` and does **not**
   render an in-place notice or a "Return to your story list" button; `story_deleted` still
   renders its existing in-place notice unchanged.
-- [ ] **T026** [P] [US3] Add `tests/integration/home_session_removed.test.jsx`: a
+- [X] **T026** [P] [US3] Add `tests/integration/home_session_removed.test.jsx`: a
   `session_removed` on the play surface lands on Home with the dialog; dismissing leaves a
   working Home with the session absent from In progress; a reload does not refire the dialog;
   and a Resume from a stale list raises the same outcome.
 
 ### Frontend implementation
 
-- [ ] **T027** [P] [US3] Add `src/components/Home/SessionRemovedDialog.jsx` — the design
+- [X] **T027** [P] [US3] Add `src/components/Home/SessionRemovedDialog.jsx` — the design
   system's `.dialog`/`.dialog-backdrop` with `role="dialog"`, `aria-modal`, the D6 copy, and a
   single acknowledging action.
-- [ ] **T028** [US3] In `src/pages/PlayPage.jsx`, add an `onSessionRemoved` prop and branch to
+- [X] **T028** [US3] In `src/pages/PlayPage.jsx`, add an `onSessionRemoved` prop and branch to
   it on `err.response.data.error === "session_removed"` in `handleSubmit`, `handleRefresh`,
   `handleSaveCheckpoint` and `handleResume` — leaving, not noticing in place (D7).
-- [ ] **T029** [US3] In `src/pages/GamePage.jsx`, pass `onSessionRemoved` through to
+- [X] **T029** [US3] In `src/pages/GamePage.jsx`, pass `onSessionRemoved` through to
   `navigate("/menu", { state: { sessionRemoved: true }, replace: true })`, and handle the same
   error on its own resume path so a stale Resume lands identically.
-- [ ] **T030** [US3] In `src/pages/HomePage.jsx`, read the one-shot route state, render
+- [X] **T030** [US3] In `src/pages/HomePage.jsx`, read the one-shot route state, render
   `SessionRemovedDialog`, and clear the state on mount so a reload does not refire it
   (data-model.md → *Client state*).
 
@@ -268,10 +268,10 @@ happened and lands somewhere they can act.
 **Independent Test**: Trigger refresh; the table and heading redraw without leaving the screen,
 and a failed refresh keeps the old table behind a notice.
 
-- [ ] **T031** [P] [US4] Add `tests/integration/admin_sessions_refresh.test.jsx`: refresh
+- [X] **T031** [P] [US4] Add `tests/integration/admin_sessions_refresh.test.jsx`: refresh
   re-reads the list and recomputes the heading; a failed refresh keeps the previously loaded
   table visible behind an `role="alert"` notice and never blanks it (FR-016).
-- [ ] **T032** [US4] Wire `AdminSessionsPage` to `usePublishRefresh`/`useRefreshable` the way
+- [X] **T032** [US4] Wire `AdminSessionsPage` to `usePublishRefresh`/`useRefreshable` the way
   `AdminAccountsPage` and `HomePage` already do, replacing the page's hand-rolled `refresh`
   callback (D8) — and keep the existing table rendered on a refresh failure.
 
@@ -281,17 +281,17 @@ and a failed refresh keeps the old table behind a notice.
 
 ## Phase 7: Polish & cross-cutting
 
-- [ ] **T033** [P] Run `npm --prefix src/frontend run lint` and fix anything it reports in the
+- [X] **T033** [P] Run `npm --prefix src/frontend run lint` and fix anything it reports in the
   files this feature touched.
-- [ ] **T034** [P] Confirm no token, colour, spacing or font literal was introduced outside
+- [X] **T034** [P] Confirm no token, colour, spacing or font literal was introduced outside
   `designTokens.css`, and that no button's interaction states are re-declared in
   `AdminSessions.css` (Principle VIII, D8).
-- [ ] **T035** Verify the accessibility bar on the new surfaces: the table is a real
+- [X] **T035** Verify the accessibility bar on the new surfaces: the table is a real
   `<table>` with `<th scope="col">`; each row's Delete has an accessible name that
   distinguishes it from the other rows; both dialogs are keyboard-operable, dismissible with
   Escape, and return focus sensibly on close; `(deleted story)` carries its meaning as text,
   not colour.
-- [ ] **T036** Run the full gate: `pytest src/backend/tests` and
+- [X] **T036** Run the full gate: `pytest src/backend/tests` and
   `npm --prefix src/frontend run test`, in the devcontainer if one is running for this
   checkout. Record what actually ran and what it returned, for the PR description.
 - [ ] **T037** Walk `quickstart.md`'s manual steps, including step 17 (deleting a *story* still

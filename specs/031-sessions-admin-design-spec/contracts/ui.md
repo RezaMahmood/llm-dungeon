@@ -86,7 +86,12 @@ system already provides" forbids.
 **Behaviour**:
 
 - Nothing is deleted from the row itself; the dialog is the only path to deletion.
-- Dismissing (Keep it, the backdrop, or Escape) clears the pending selection entirely.
+- Dismissing (Keep it, or a backdrop click) clears the pending selection entirely.
+  **Escape does not dismiss it** — the shared `ConfirmDeleteDialog` has never handled
+  Escape, and neither does any other dialog in this product. Adding it here alone would
+  make this one dialog behave unlike every other; adding it to the shared component is a
+  product-wide change, out of scope for this feature. Recorded as a known gap, not
+  implemented and not claimed.
 - While the request is in flight both buttons are disabled and the confirm button shows
   `workingLabel`.
 - On success: the row is removed, the heading recomputes, focus returns to a sensible place in
@@ -101,7 +106,7 @@ system already provides" forbids.
 | --- | --- | --- |
 | Play surface, any action (turn, checkpoint, refresh, resume) | On `session_removed`, the page does **not** render an in-place notice — it leaves immediately | FR-012 |
 | Route | `GamePage` navigates to `/menu` with one-shot router state | FR-012 |
-| Home | A dismissible dialog (`.dialog`/`.dialog-backdrop`, `role="dialog"`, `aria-modal`) states the session has been removed; one acknowledging action closes it | FR-012, FR-013 |
+| Home | A dismissible dialog (`.dialog`/`.dialog-backdrop`, `role="dialog"`, `aria-modal`) states the session has been removed; one acknowledging action, focused on open, closes it (as does a backdrop click — Escape, as above, does not) | FR-012, FR-013 |
 | Home, after dismissal | Player stays on a current, working Home; the deleted session is absent from In progress | FR-011, FR-013 |
 | Home, player not mid-session | The session is simply absent — no dialog, no placeholder, no error | FR-011 |
 

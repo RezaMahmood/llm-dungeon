@@ -477,3 +477,87 @@ def test_submit_exchange_adds_the_same_tokens_to_both_the_session_and_the_story_
     updated_story = stories.get_story(story.id)
     assert updated_session.totalTokens == DEFAULT_TURN_TOKENS
     assert updated_story.totalTokens == DEFAULT_TURN_TOKENS
+
+
+# --- delete_session_as_administrator (031-sessions-admin-design-spec FR-006/FR-008/FR-009) ---
+
+
+def test_admin_delete_removes_a_test_session_run_by_another_administrator():
+    """No ownership check on this path — `delete_session` would raise ForbiddenError."""
+    story = _story()
+    service, cosmos, _llm, _stories = _service(story)
+    session = service.create_session(story.id, ADMIN_ID)
+
+    service.delete_session_as_administrator(session.id)
+
+    assert session.id not in cosmos.get_container(config.TEST_PLAY_SESSIONS_CONTAINER).items
+
+
+def test_admin_delete_preserves_last_test_played_at_so_the_story_stays_publishable():
+    """FR-010 of 010-story-test-play-done: the test-play marker lives on the Story, not on
+    the session, so cleaning up the session must not un-test-play the story."""
+    story = _story()
+    service, cosmos, _llm, stories = _service(story, llm_turn_data=_turn_data(success=[0]))
+    session = service.create_session(story.id, ADMIN_ID)
+    _clear_rate_limit(cosmos, session.id)
+    service.submit_exchange(session.id, ADMIN_ID, "search for the keeper")
+
+    service.delete_session_as_administrator(session.id)
+
+    assert stories.get_story(story.id).lastTestPlayedAt is not None
+
+
+def test_admin_delete_does_not_decrement_the_storys_token_total():
+    """031 FR-009: the story absorbed these tokens when they were spent; deletion is not a
+    refund."""
+    story = _story()
+    service, cosmos, _llm, stories = _service(story, llm_turn_data=_turn_data(success=[0]))
+    session = service.create_session(story.id, ADMIN_ID)
+    _clear_rate_limit(cosmos, session.id)
+    service.submit_exchange(session.id, ADMIN_ID, "search for the keeper")
+    tokens_before = stories.get_story(story.id).totalTokens
+
+    service.delete_session_as_administrator(session.id)
+
+    assert stories.get_story(story.id).totalTokens == tokens_before
+
+
+def test_admin_delete_raises_not_found_for_an_unknown_session():
+    """Unlike `delete_session`, which returns quietly: the Sessions screen has to tell
+    "deleted it" from "already gone" (FR-015)."""
+    story = _story()
+    service, _cosmos, _llm, _stories = _service(story)
+
+    try:
+        service.delete_session_as_administrator("never-existed")
+        assert False, "expected SessionNotFoundError"
+    except SessionNotFoundError:
+        pass
+
+
+def test_admin_delete_raises_not_found_on_a_second_delete():
+    story = _story()
+    service, _cosmos, _llm, _stories = _service(story)
+    session = service.create_session(story.id, ADMIN_ID)
+
+    service.delete_session_as_administrator(session.id)
+
+    try:
+        service.delete_session_as_administrator(session.id)
+        assert False, "expected SessionNotFoundError"
+    except SessionNotFoundError:
+        pass
+
+
+def test_admin_delete_leaves_the_owner_checked_delete_untouched():
+    """research.md Decision 2: adding the admin path must not have relaxed the
+    administrator-scoped one."""
+    story = _story()
+    service, _cosmos, _llm, _stories = _service(story)
+    session = service.create_session(story.id, ADMIN_ID)
+
+    try:
+        service.delete_session(session.id, OTHER_ADMIN_ID)
+        assert False, "expected ForbiddenError"
+    except ForbiddenError:
+        pass

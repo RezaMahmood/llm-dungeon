@@ -388,3 +388,73 @@ describe("PlayPage (008-core-gameplay-done)", () => {
     await waitFor(() => expect(screen.getByLabelText(/what do you do next/i)).not.toBeDisabled());
   });
 });
+
+describe("PlayPage — the session itself has been removed (031 FR-012)", () => {
+  const removed = {
+    response: {
+      status: 404,
+      data: {
+        error: "session_removed",
+        message: "This session has been removed. You can start this story again from your home page.",
+        promptReturnToList: true,
+      },
+    },
+  };
+
+  beforeEach(() => {
+    submitInteraction.mockReset();
+    resumeSession.mockReset();
+    saveCheckpoint.mockReset();
+    getSession.mockReset();
+  });
+
+  it("leaves on a submit rather than showing an in-place notice", async () => {
+    submitInteraction.mockRejectedValue(removed);
+    const onSessionRemoved = vi.fn();
+    renderPlayPage({ onSessionRemoved });
+
+    await userEvent.click(screen.getByRole("button", { name: "look around" }));
+
+    await waitFor(() => expect(onSessionRemoved).toHaveBeenCalled());
+    // D7: the player is taken to Home, not parked behind a notice with a button.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /return to your story list/i })).not.toBeInTheDocument();
+  });
+
+  it("leaves on a checkpoint save instead of claiming the progress is safe", async () => {
+    saveCheckpoint.mockRejectedValue(removed);
+    const onSessionRemoved = vi.fn();
+    renderPlayPageWithTitleBar({ onSessionRemoved });
+
+    await userEvent.click(screen.getByRole("button", { name: /save a checkpoint/i }));
+
+    await waitFor(() => expect(onSessionRemoved).toHaveBeenCalled());
+    expect(screen.queryByText(/your progress is safe/i)).not.toBeInTheDocument();
+  });
+
+  it("leaves on a refresh", async () => {
+    getSession.mockRejectedValue(removed);
+    const onSessionRemoved = vi.fn();
+    renderPlayPageWithTitleBar({ onSessionRemoved });
+
+    await userEvent.click(screen.getByRole("button", { name: /refresh/i }));
+
+    await waitFor(() => expect(onSessionRemoved).toHaveBeenCalled());
+  });
+
+  it("still shows the in-place story-deleted notice, which is a different thing", async () => {
+    submitInteraction.mockRejectedValue({
+      response: {
+        status: 404,
+        data: { error: "story_deleted", message: "Story has been deleted. You can no longer continue this story." },
+      },
+    });
+    const onSessionRemoved = vi.fn();
+    renderPlayPage({ onSessionRemoved });
+
+    await userEvent.click(screen.getByRole("button", { name: "look around" }));
+
+    expect(await screen.findByRole("button", { name: /return to your story list/i })).toBeInTheDocument();
+    expect(onSessionRemoved).not.toHaveBeenCalled();
+  });
+});

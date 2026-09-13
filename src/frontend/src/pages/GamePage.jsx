@@ -7,7 +7,7 @@
  */
 import { useMsal } from "@azure/msal-react";
 import { useCallback, useEffect, useState } from "react";
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import CharacterNameStep, { MAX_CHARACTER_NAME_LENGTH } from "../components/GameSetup/CharacterNameStep.jsx";
 import CharacterTypeStep from "../components/GameSetup/CharacterTypeStep.jsx";
@@ -35,6 +35,7 @@ export function GamePage() {
   const { instance, accounts } = useMsal();
   const account = accounts[0];
   const { state } = useLocation();
+  const navigate = useNavigate();
   const { adventureId, resumeSessionId, isActiveForPlayer } = state || {};
 
   const [characterName, setCharacterName] = useState("");
@@ -56,6 +57,14 @@ export function GamePage() {
     const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
     return tokenResponse.accessToken;
   }, [instance, account]);
+
+  // The session this page is playing (or about to resume) no longer exists
+  // (031-sessions-admin-design-spec FR-012). The player is taken to Home and told there,
+  // rather than left on a dead screen behind an in-place notice — `replace` so Back
+  // cannot return them to it.
+  const goHomeSessionRemoved = useCallback(() => {
+    navigate("/menu", { state: { sessionRemoved: true }, replace: true });
+  }, [navigate]);
 
   // Character-setup path: Home already chose the adventure (FR-006) — this only needs
   // that adventure's character types and display name.
@@ -115,7 +124,9 @@ export function GamePage() {
         // message rather than a generic one.
         const responseStatus = err.response?.status;
         const body = err.response?.data;
-        if (responseStatus === 404 && body?.error === "story_deleted") {
+        if (responseStatus === 404 && body?.error === "session_removed") {
+          goHomeSessionRemoved();
+        } else if (responseStatus === 404 && body?.error === "story_deleted") {
           setResumeError(body?.message || "Story has been deleted. You can no longer continue this story.");
         } else if (responseStatus === 409 && body?.error === "story_unpublished") {
           setResumeError(body?.message || "Story has been unpublished. You can no longer continue this story.");
@@ -177,6 +188,7 @@ export function GamePage() {
         storyName={session.storyName}
         initialTurns={session.initialTurns}
         getToken={getToken}
+        onSessionRemoved={goHomeSessionRemoved}
         onExit={(checkpointFailureMessage) => {
           // PlayPage unmounts as soon as this runs, so a failed exit-save's notice
           // (FR-006a) has to be shown here, once we're back on this screen.

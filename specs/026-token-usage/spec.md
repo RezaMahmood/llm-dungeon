@@ -114,7 +114,7 @@ As an admin, I want a dedicated page listing every gameplay session — both rea
 - **FR-013**: The per-turn token count MUST be persisted against that turn, but is not required to be shown anywhere in the admin UI.
 - **FR-014**: System MUST maintain a running total of tokens used across an entire gameplay session (player or test-play), updated as each new turn's tokens are recorded.
 - **FR-015**: System MUST provide a Sessions page listing every gameplay session — both real player sessions and admin test-play sessions — with, for each session: the name of the story it belongs to, a session identifier, its total token count, and the email address of whoever played it (the real player, or the admin who ran a test play).
-- **FR-016**: The Sessions page MUST be read-only: it MUST NOT provide any way to create, edit, or delete a session or its data.
+- **FR-016**: *Superseded by `031-sessions-admin-design-spec` FR-006 — the page now offers an administrator delete behind a confirmation dialog.* The Sessions page MUST NOT provide any way to create or edit a session or its data.
 - **FR-017**: The Sessions page MUST be reachable as its own item in the existing admin navigation menu, alongside the existing menu items.
 - **FR-018**: A gameplay session with no recorded turns yet (e.g. just started) MUST show a total token count of 0 on the Sessions page, not a blank cell or an error.
 

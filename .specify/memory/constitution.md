@@ -1,30 +1,23 @@
 <!--
 Sync Impact Report
-Version change: 8.2.0 -> 9.0.0
-Modified principles: XIII (AI Agent Division of Labor) — the sync requirement is kept but
-  no longer forbids reading another checkout; the division of labor, the merge prohibition
-  and the issue-closing conditions are unchanged.
+Version change: 9.0.0 -> 9.1.0
+Modified principles: none.
 Modified sections:
-  - Development Workflow & Quality Gates: the session-isolation requirement ("A session
-    MUST NOT read or write another session's checkout or worktree") is REMOVED, and the
-    worktree/container bullets are restated as tools a contributor may use rather than a
-    separation anyone must maintain. The constitution-staleness gate is downgraded from a
-    block to a warning.
-  - Principle XIII and AI Agent / GitHub Handoff Requirements: the requirement that an
-    artifact's claims about existing code match `origin/main` is unchanged, but it is now
-    stated as an accuracy rule about the trunk rather than a ban on reading other
-    branches, worktrees or checkouts.
+  - UI Design System Requirements → Screen contracts → "Administrator — sessions": the
+    contract gains a prototype reference (`specs/designs/08-admin-sessions.html` and
+    `08-admin-sessions-spec.md`), so its visual-design deferral and its "no prototype
+    screen" marker are withdrawn. The list is no longer described as read-only: each row
+    gains a confirmed, one-at-a-time delete, and the contract now fixes what deletion
+    destroys (saved progress and transcript), what it must not touch (any story's
+    cumulative token total), and what a player mid-session is owed when their session is
+    deleted (return to the landing page, told the session was removed, as an outcome
+    distinct from a deleted or unpublished story).
 Added sections: none.
-Removed sections: the session-isolation requirement (see above).
-Rationale for MAJOR: a governance requirement is withdrawn, not clarified. Concurrent
-  multi-session work is no longer a project requirement — work is taken one bug or feature
-  at a time — so the isolation rule and the hooks enforcing it were blocking ordinary
-  work (a session unable to edit after a branch change, unable to resolve a conflict
-  locally, or forced into a container for a one-line change) while protecting against a
-  collision that no longer occurs. Worktrees and containers survive as options; only their
-  compulsory, enforced separation is gone. The 8.2.0 amendment this supersedes (screen
-  contracts repointed to `specs/designs/07-home.html`, and page-level scroll permitted
-  below the mobile breakpoint) is untouched by this one and stays in force.
+Removed sections: none.
+Rationale for MINOR: a screen contract gains an acceptance reference and an affordance, and
+  states the behaviour that affordance implies. Nothing is removed or redefined, and no
+  other screen's contract changes. The deferral this withdraws was `026-token-usage`'s own,
+  covering styling only, and is withdrawn because the styling now exists.
 Deferred/TODO placeholders: none.
 Earlier Sync Impact Reports are in this file's git history.
 --># LLM Dungeon Adventure Constitution
@@ -578,12 +571,18 @@ which the deferral relaxes.
   authoring wizard or a re-upload. Introduced by `012-story-editing-and-review`, whose
   FR-012 defers these two screens' visual design; that deferral is recorded as an explicit
   exception in that feature's plan and covers styling only.
-- **Administrator — sessions** (no prototype screen) — a read-only list of every gameplay
-  session (real player and admin test play), each row showing its story, a session
-  identifier, its cumulative token total, and the email of whoever played it. Reachable as
-  its own admin navigation item alongside Stories and People. Introduced by
-  `026-token-usage`, whose spec defers this screen's visual design; that deferral is
-  recorded as an explicit exception in that feature's plan and covers styling only.
+- **Administrator — sessions** (`specs/designs/08-admin-sessions.html`, with
+  `08-admin-sessions-spec.md` as the written half of the same reference) — a list of every
+  gameplay session (real player and admin test play), each row showing its story, a session
+  identifier, its cumulative token total, and the email of whoever played it. A session whose
+  story has been deleted is labelled as such in text and stays listed. Reachable as its own
+  admin navigation item alongside Stories and People. Each row offers a delete, always behind
+  a confirmation dialog naming the session, never in bulk; deleting a session removes its
+  saved progress and transcript and never decrements any story's cumulative token total. A
+  player who acts on a session that has been deleted is returned to the post-login landing
+  page and told the session has been removed — an outcome distinct from a deleted or
+  unpublished story. Introduced by `026-token-usage` and given its prototype and its delete
+  affordance by `031-sessions-admin-design-spec`.
 
 ### Save and session behaviour
 
@@ -629,4 +628,4 @@ visual-rules, interaction-state, or layout and scroll requirements as a blocking
 feature may ship a screen that is not traceable to a screen contract above or to a
 documented amendment extending one.
 
-**Version**: 9.0.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
+**Version**: 9.1.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-13
