@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import PendingButton from "../Common/PendingButton.jsx";
 import { addAccount } from "../../services/accountService.js";
 
 const MESSAGES = {
@@ -103,9 +104,14 @@ export function AccountForm({ token, onAdded }) {
           </p>
         </div>
         <hr className="hr" />
-        <button type="submit" className="btn btn-primary btn-block" disabled={status === "submitting"}>
-          {status === "submitting" ? "Adding…" : "Add account"}
-        </button>
+        <PendingButton
+          type="submit"
+          className="btn btn-primary btn-block"
+          pending={status === "submitting"}
+          pendingLabel="Adding…"
+        >
+          Add account
+        </PendingButton>
         {status === "error" && (
           <div role="alert" className="text-muted">
             {message}

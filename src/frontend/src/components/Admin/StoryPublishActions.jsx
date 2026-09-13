@@ -1,3 +1,4 @@
+import PendingButton from "../Common/PendingButton.jsx";
 import { usePublishToggle } from "../../hooks/usePublishToggle.js";
 
 /**
@@ -54,20 +55,25 @@ export function StoryPublishActions({ story, token, onStoryChange, onPublished, 
       )}
 
       {!story.published && (
-        <button type="button" className="btn btn-primary" disabled={status === "working"} onClick={requestPublish}>
-          {status === "working" ? "Publishing…" : "Publish"}
-        </button>
+        <PendingButton
+          className="btn btn-primary"
+          pending={status === "working"}
+          pendingLabel="Publishing…"
+          onClick={requestPublish}
+        >
+          Publish
+        </PendingButton>
       )}
 
       {story.published && (
-        <button
-          type="button"
+        <PendingButton
           className="btn btn-secondary"
-          disabled={status === "working"}
+          pending={status === "working"}
+          pendingLabel="Unpublishing…"
           onClick={requestUnpublish}
         >
           Unpublish
-        </button>
+        </PendingButton>
       )}
 
       {gateMessage && (
@@ -92,22 +98,17 @@ export function StoryPublishActions({ story, token, onStoryChange, onPublished, 
               Are you sure? Publishing makes this story available to every player.
             </div>
             <div className="dialog-actions">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={cancelPublish}
-                disabled={status === "working"}
-              >
+              <PendingButton className="btn btn-secondary" onClick={cancelPublish} disabled={status === "working"}>
                 Not yet
-              </button>
-              <button
-                type="button"
+              </PendingButton>
+              <PendingButton
                 className="btn btn-primary"
                 onClick={confirmPublish}
-                disabled={status === "working"}
+                pending={status === "working"}
+                pendingLabel="Publishing…"
               >
-                {status === "working" ? "Publishing…" : "Publish"}
-              </button>
+                Publish
+              </PendingButton>
             </div>
           </div>
         </div>
@@ -123,22 +124,17 @@ export function StoryPublishActions({ story, token, onStoryChange, onPublished, 
               Are you sure? Unpublishing removes this story from every player&rsquo;s adventure list.
             </div>
             <div className="dialog-actions">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={cancelUnpublish}
-                disabled={status === "working"}
-              >
+              <PendingButton className="btn btn-secondary" onClick={cancelUnpublish} disabled={status === "working"}>
                 Keep it published
-              </button>
-              <button
-                type="button"
+              </PendingButton>
+              <PendingButton
                 className="btn btn-primary"
                 onClick={confirmUnpublish}
-                disabled={status === "working"}
+                pending={status === "working"}
+                pendingLabel="Unpublishing…"
               >
-                {status === "working" ? "Unpublishing…" : "Unpublish"}
-              </button>
+                Unpublish
+              </PendingButton>
             </div>
           </div>
         </div>

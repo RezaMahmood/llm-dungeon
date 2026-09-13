@@ -5,9 +5,11 @@
  * as "nothing happened".
  *
  * Applied first to the destructive actions (story delete, saved-session delete, admin
- * session delete), which is where a silent no-op is most alarming and a second click is
- * most costly. It is deliberately generic so the rest of the app's async calls can adopt
- * the same language incrementally rather than each inventing its own.
+ * session delete), where a silent no-op is most alarming and a second click most costly,
+ * and now to every user-actioned backend call in the product — publish/unpublish, account
+ * add and remove, configuration import, the wizard's saves and generate, sign-in, game
+ * start, test-play restart, and both exit dialogs. `PendingIndicator` is its counterpart
+ * for calls no single control owns (screen loads, a turn the story engine is writing).
  *
  * `as="span"` exists for `Home/SessionDeleteAction.jsx`, whose trigger sits inside the
  * session card's whole-card `<a>` and therefore cannot be a nested `<button>`. That
@@ -23,6 +25,7 @@ export function Spinner() {
 
 export function PendingButton({
   as = "button",
+  type = "button",
   pending = false,
   pendingLabel,
   disabled = false,
@@ -60,7 +63,7 @@ export function PendingButton({
   }
 
   return (
-    <button {...rest} type="button" className={className} aria-busy={pending || undefined} disabled={inactive} onClick={handleClick}>
+    <button {...rest} type={type} className={className} aria-busy={pending || undefined} disabled={inactive} onClick={handleClick}>
       {content}
     </button>
   );

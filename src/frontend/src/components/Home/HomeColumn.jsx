@@ -4,6 +4,8 @@
  * two as near-identical copies of the same kicker/heading/loading/error scaffold, differing
  * only in their inner content.
  */
+import PendingIndicator from "../Common/PendingIndicator.jsx";
+
 export function HomeColumn({
   as: Tag = "section",
   className,
@@ -23,7 +25,7 @@ export function HomeColumn({
       </div>
       <div className="home-colbody">
         {loading ? (
-          <p className="text-muted">{loadingMessage}</p>
+          <PendingIndicator>{loadingMessage}</PendingIndicator>
         ) : error ? (
           <p role="alert" className="text-muted">
             {errorMessage}

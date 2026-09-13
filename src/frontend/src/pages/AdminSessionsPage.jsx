@@ -8,6 +8,7 @@ import { usePublishRefresh } from "../context/RefreshContext.jsx";
 import { useRefreshable } from "../hooks/useRefreshable.js";
 import { loginRequest } from "../services/msalConfig.js";
 import { deleteSession, listSessions } from "../services/sessionService.js";
+import PendingIndicator from "../components/Common/PendingIndicator.jsx";
 
 /**
  * The admin "Sessions" destination — every gameplay session in the instance, real player
@@ -112,7 +113,7 @@ export function AdminSessionsPage() {
         )}
 
         {loading && data === null ? (
-          <p className="text-muted">Loading sessions…</p>
+          <PendingIndicator>Loading sessions…</PendingIndicator>
         ) : sessions.length === 0 ? (
           <p className="sessions-empty text-muted">
             No sessions yet. They appear here as soon as someone starts a story.

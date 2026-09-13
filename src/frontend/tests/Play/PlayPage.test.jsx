@@ -267,6 +267,27 @@ describe("PlayPage (008-core-gameplay-done)", () => {
     expect(onExit).toHaveBeenCalledWith(expect.stringMatching(/couldn't record that checkpoint/i));
   });
 
+  // issue #347: the exit records a checkpoint first, so the pressed button must go inert
+  // rather than let a second press queue a second save.
+  it("greys out the pause dialog and spins while the exit's checkpoint save is in flight", async () => {
+    let resolveSave;
+    saveCheckpoint.mockReturnValue(new Promise((resolve) => (resolveSave = resolve)));
+    const user = userEvent.setup();
+    renderPlayPageWithTitleBar();
+
+    await user.click(screen.getByRole("button", { name: /pause/i }));
+    await user.click(screen.getByRole("button", { name: /save and exit to my stories/i }));
+
+    const exitButton = await screen.findByRole("button", { name: /saving your story…/i });
+    expect(exitButton).toBeDisabled();
+    expect(exitButton).toHaveAttribute("aria-busy", "true");
+    // The way back into the game stays live: the save has no timeout, and a stalled one
+    // must not leave the dialog with no way out.
+    expect(screen.getByRole("button", { name: /keep playing/i })).toBeEnabled();
+
+    resolveSave({ checkpoint: { label: "Lighthouse entrance" } });
+  });
+
   it("exits with no argument via Save and exit to my stories when the save succeeds", async () => {
     saveCheckpoint.mockResolvedValue({ checkpoint: { label: "Lighthouse entrance", turnNumber: 0, createdAt: "now" } });
     const user = userEvent.setup();
@@ -358,6 +379,68 @@ describe("PlayPage (008-core-gameplay-done)", () => {
 
     expect(await screen.findByText(/story has been unpublished/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /return to your story list/i })).toBeInTheDocument();
+  });
+
+  // issue #347: the turn is the product's slowest backend call. Disabling the input is not
+  // on its own an indication that anything is happening — say so on screen.
+  it("says the story is thinking while a turn is in flight, and stops once it lands", async () => {
+    let resolveSubmit;
+    submitInteraction.mockReturnValue(new Promise((resolve) => (resolveSubmit = resolve)));
+    const user = userEvent.setup();
+    renderPlayPage();
+
+    await user.type(screen.getByLabelText(/what do you do next/i), "look around");
+    await user.click(screen.getByRole("button", { name: /^go$/i }));
+
+    const pending = await screen.findByRole("status");
+    expect(pending).toHaveTextContent(/the story is thinking/i);
+    expect(pending.querySelector(".spinner")).toBeInTheDocument();
+
+    resolveSubmit({
+      status: "active",
+      narrative: { ...OPENING_NARRATIVE, turnNumber: 1, narrativeText: "A spiral of stairs climbs into the dark." },
+    });
+    await waitFor(() => expect(screen.queryByText(/the story is thinking/i)).not.toBeInTheDocument());
+  });
+
+  // issue #347: the checkpoint control is a backend call like any other — it says it is
+  // working, and a second click while it is out must not post a second checkpoint.
+  it("greys out the checkpoint control and ignores a second click while the save is in flight", async () => {
+    let resolveSave;
+    saveCheckpoint.mockReturnValue(new Promise((resolve) => (resolveSave = resolve)));
+    const user = userEvent.setup();
+    renderPlayPageWithTitleBar();
+
+    await user.click(screen.getByRole("button", { name: /save a checkpoint/i }));
+
+    const saving = await screen.findByRole("button", { name: /^saving…$/i });
+    expect(saving).toBeDisabled();
+    expect(saving).toHaveAttribute("aria-busy", "true");
+
+    await user.click(saving);
+    expect(saveCheckpoint).toHaveBeenCalledOnce();
+
+    resolveSave({ checkpoint: { label: "Lighthouse entrance" } });
+    await screen.findByText(/checkpoint saved at lighthouse entrance/i);
+  });
+
+  // The header must not claim a refresh is running just because a turn is in flight — the
+  // dock already says the story is thinking (issue #347).
+  it("leaves the refresh control inert but not spinning while a turn is in flight", async () => {
+    let resolveSubmit;
+    submitInteraction.mockReturnValue(new Promise((resolve) => (resolveSubmit = resolve)));
+    const user = userEvent.setup();
+    renderPlayPageWithTitleBar();
+
+    await user.type(screen.getByLabelText(/what do you do next/i), "look around");
+    await user.click(screen.getByRole("button", { name: /^go$/i }));
+
+    const refresh = screen.getByRole("button", { name: /^refresh$/i });
+    expect(refresh).toBeDisabled();
+    expect(refresh).not.toHaveAttribute("aria-busy");
+
+    resolveSubmit({ status: "active", narrative: { ...OPENING_NARRATIVE, turnNumber: 1 } });
+    await waitFor(() => expect(screen.getByRole("button", { name: /^refresh$/i })).not.toBeDisabled());
   });
 
   it("disables the refresh control while a submit is in flight, and Go/chips while a refresh is in flight (029)", async () => {

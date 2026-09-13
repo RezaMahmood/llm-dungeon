@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import PendingButton from "../Common/PendingButton.jsx";
 import { importStoryConfiguration } from "../../services/storyDraftService.js";
 
 /**
@@ -130,17 +131,17 @@ export function StoryConfigUpload({ token, onImported }) {
               This uploads a new configuration for story {confirmOverwriteStoryId}, replacing its current content.
             </div>
             <div className="dialog-actions">
-              <button type="button" className="btn btn-secondary" onClick={reset} disabled={status === "working"}>
+              <PendingButton className="btn btn-secondary" onClick={reset} disabled={status === "working"}>
                 Cancel
-              </button>
-              <button
-                type="button"
+              </PendingButton>
+              <PendingButton
                 className="btn btn-primary"
                 onClick={handleConfirmOverwrite}
-                disabled={status === "working"}
+                pending={status === "working"}
+                pendingLabel="Uploading…"
               >
-                {status === "working" ? "Uploading…" : "Overwrite"}
-              </button>
+                Overwrite
+              </PendingButton>
             </div>
           </div>
         </div>
@@ -157,12 +158,18 @@ export function StoryConfigUpload({ token, onImported }) {
               <input id="new-story-title" value={title} onChange={(event) => setTitle(event.target.value)} required />
             </div>
             <div className="dialog-actions">
-              <button type="button" className="btn btn-secondary" onClick={reset} disabled={status === "working"}>
+              <PendingButton className="btn btn-secondary" onClick={reset} disabled={status === "working"}>
                 Cancel
-              </button>
-              <button type="submit" className="btn btn-primary" disabled={status === "working" || !title}>
-                {status === "working" ? "Uploading…" : "Create story"}
-              </button>
+              </PendingButton>
+              <PendingButton
+                type="submit"
+                className="btn btn-primary"
+                pending={status === "working"}
+                pendingLabel="Uploading…"
+                disabled={!title}
+              >
+                Create story
+              </PendingButton>
             </div>
           </form>
         </div>

@@ -4,6 +4,7 @@ import { Navigate } from "react-router-dom";
 
 import { useCapabilities } from "../../hooks/useCapabilities.js";
 import AuthenticatedLayout from "../Layout/AuthenticatedLayout.jsx";
+import PendingIndicator from "../Common/PendingIndicator.jsx";
 
 /**
  * Wraps a route that requires authentication and, optionally, a specific
@@ -23,7 +24,7 @@ export function ProtectedRoute({ capability, children }) {
   const { hasPlayer, hasAdministrator, loading } = useCapabilities();
 
   if (inProgress !== InteractionStatus.None) {
-    return <div>Loading…</div>;
+    return <PendingIndicator />;
   }
 
   if (!isAuthenticated) {
@@ -31,7 +32,7 @@ export function ProtectedRoute({ capability, children }) {
   }
 
   if (loading) {
-    return <div>Loading…</div>;
+    return <PendingIndicator />;
   }
 
   const capabilityMap = { Player: hasPlayer, Administrator: hasAdministrator };

@@ -1,5 +1,6 @@
 import { memo, useCallback, useState } from "react";
 
+import PendingButton from "../Common/PendingButton.jsx";
 import { removeAccount } from "../../services/accountService.js";
 
 // Player -> tag-outline, Administrator -> tag-accent (05-admin-users-spec.md §6;
@@ -157,22 +158,21 @@ export function AccountList({ accounts = [], token, currentUserEmail, onRemoved 
               </div>
             )}
             <div className="dialog-actions">
-              <button
-                type="button"
+              <PendingButton
                 className="btn btn-secondary"
                 onClick={() => setPendingEmail(null)}
                 disabled={status === "removing"}
               >
                 Keep it
-              </button>
-              <button
-                type="button"
+              </PendingButton>
+              <PendingButton
                 className="btn btn-primary"
                 onClick={handleConfirmRemove}
-                disabled={status === "removing"}
+                pending={status === "removing"}
+                pendingLabel="Removing…"
               >
-                {status === "removing" ? "Removing…" : "Remove account"}
-              </button>
+                Remove account
+              </PendingButton>
             </div>
           </div>
         </div>

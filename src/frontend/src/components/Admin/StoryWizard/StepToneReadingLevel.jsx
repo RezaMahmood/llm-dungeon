@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import PendingButton from "../../Common/PendingButton.jsx";
+
 export function StepToneReadingLevel({ draft, onPatch, onDirtyChange }) {
   const [tone, setTone] = useState(draft.tone || "");
   const [readingLevel, setReadingLevel] = useState(draft.readingLevel || "");
@@ -19,7 +21,7 @@ export function StepToneReadingLevel({ draft, onPatch, onDirtyChange }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onPatch({ tone, readingLevel });
+      await onPatch({ tone, readingLevel }, { quiet: true });
       setSaved(true);
     } finally {
       setSaving(false);
@@ -53,9 +55,15 @@ export function StepToneReadingLevel({ draft, onPatch, onDirtyChange }) {
         />
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        <button type="button" className="btn btn-primary" onClick={handleSave} disabled={!dirty || saving}>
-          {saving ? "Saving…" : "Save"}
-        </button>
+        <PendingButton
+          className="btn btn-primary"
+          onClick={handleSave}
+          disabled={!dirty}
+          pending={saving}
+          pendingLabel="Saving…"
+        >
+          Save
+        </PendingButton>
         {saved && !dirty && <span className="text-muted" style={{ fontSize: "13px" }}>Saved</span>}
       </div>
     </div>

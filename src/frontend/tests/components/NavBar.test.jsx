@@ -240,6 +240,27 @@ describe("NavBar sign-out save prompt (009-save-and-continue, FR-004, research.m
     mockUseCapabilities.mockReturnValue(capabilities(true, false));
   });
 
+  // issue #347: sign-out asks the server whether a game is in progress first, so the link
+  // has to say it is working rather than look ignored while that call is out.
+  it("says it is signing out while the in-progress lookup is in flight, and ignores a second click", async () => {
+    let resolveLookup;
+    listSavedGames.mockReturnValue(new Promise((resolve) => (resolveLookup = resolve)));
+    const user = userEvent.setup();
+    renderAt("/menu");
+
+    await user.click(screen.getByRole("link", { name: "Sign out" }));
+
+    const link = await screen.findByRole("link", { name: /signing out…/i });
+    expect(link).toHaveAttribute("aria-busy", "true");
+    expect(link.querySelector(".spinner")).toBeInTheDocument();
+
+    await user.click(link);
+    expect(listSavedGames).toHaveBeenCalledOnce();
+
+    resolveLookup({ sessions: [] });
+    await waitFor(() => expect(logoutRedirect).toHaveBeenCalledOnce());
+  });
+
   it("shows the prompt when a session is active and isActiveForPlayer", async () => {
     listSavedGames.mockResolvedValue({
       sessions: [{ sessionId: "s1", isActiveForPlayer: true }],

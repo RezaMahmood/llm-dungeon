@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import PendingButton from "../../Common/PendingButton.jsx";
+
 export function StepSessionLength({ draft, onPatch, onDirtyChange }) {
   const [sessionLengthMinutes, setSessionLengthMinutes] = useState(draft.sessionLengthMinutes ?? "");
   const [chapters, setChapters] = useState(draft.chapters ?? "");
@@ -20,10 +22,13 @@ export function StepSessionLength({ draft, onPatch, onDirtyChange }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onPatch({
-        sessionLengthMinutes: sessionLengthMinutes ? Number(sessionLengthMinutes) : null,
-        chapters: chapters ? Number(chapters) : null,
-      });
+      await onPatch(
+        {
+          sessionLengthMinutes: sessionLengthMinutes ? Number(sessionLengthMinutes) : null,
+          chapters: chapters ? Number(chapters) : null,
+        },
+        { quiet: true },
+      );
       setSaved(true);
     } finally {
       setSaving(false);
@@ -59,9 +64,15 @@ export function StepSessionLength({ draft, onPatch, onDirtyChange }) {
         />
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        <button type="button" className="btn btn-primary" onClick={handleSave} disabled={!dirty || saving}>
-          {saving ? "Saving…" : "Save"}
-        </button>
+        <PendingButton
+          className="btn btn-primary"
+          onClick={handleSave}
+          disabled={!dirty}
+          pending={saving}
+          pendingLabel="Saving…"
+        >
+          Save
+        </PendingButton>
         {saved && !dirty && <span className="text-muted" style={{ fontSize: "13px" }}>Saved</span>}
       </div>
     </div>

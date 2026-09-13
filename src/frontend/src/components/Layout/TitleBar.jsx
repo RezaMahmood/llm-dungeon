@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { usePlayTitle } from "../../context/PlayTitleContext.jsx";
 import { useRefreshContext } from "../../context/RefreshContext.jsx";
+import PendingButton from "../Common/PendingButton.jsx";
 import RefreshButton from "../Common/RefreshButton.jsx";
 
 /**
@@ -30,6 +31,7 @@ export function TitleBar({ storyTitle = "", onSaveCheckpoint, onPauseExit }) {
   const confirmExit = onPauseExit ?? published?.onPauseExit;
   const handlePauseExit = confirmExit ?? (() => navigate("/menu"));
   const saveCheckpoint = onSaveCheckpoint ?? published?.onSaveCheckpoint;
+  const savingCheckpoint = published?.savingCheckpoint ?? false;
 
   const brandStyle = {
     fontFamily: "var(--font-heading)",
@@ -81,11 +83,20 @@ export function TitleBar({ storyTitle = "", onSaveCheckpoint, onPauseExit }) {
         data-nav-slot="trailing-actions"
         style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flex: "none" }}
       >
-        {publishedRefresh && <RefreshButton onClick={publishedRefresh.refresh} loading={publishedRefresh.loading} />}
+        {publishedRefresh && <RefreshButton
+            onClick={publishedRefresh.refresh}
+            loading={publishedRefresh.loading}
+            disabled={publishedRefresh.disabled}
+          />}
         {saveCheckpoint && (
-          <button className="btn btn-secondary" type="button" onClick={saveCheckpoint}>
+          <PendingButton
+            className="btn btn-secondary"
+            onClick={saveCheckpoint}
+            pending={savingCheckpoint}
+            pendingLabel="Saving…"
+          >
             Save a checkpoint
-          </button>
+          </PendingButton>
         )}
         <button className="btn btn-primary" type="button" onClick={handlePauseExit}>
           Pause &amp; exit

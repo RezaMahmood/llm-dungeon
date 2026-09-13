@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 
+import PendingButton from "../Common/PendingButton.jsx";
+
 /**
  * Save-before-sign-out prompt (009-save-and-continue, FR-004, FR-005) — offered only
  * when the player has an active game in progress (NavBar decides that). Progress is
@@ -47,33 +49,31 @@ export function LogoutSavePrompt({ saving, failureMessage, onSave, onDontSave, o
           </p>
         )}
         <hr className="hr" style={{ margin: "6px 0" }} />
-        <button
+        <PendingButton
           className="btn btn-primary btn-block"
-          type="button"
           style={{ padding: "14px 16px", fontSize: "16px", margin: 0 }}
           onClick={onSave}
-          disabled={saving}
+          pending={saving}
+          pendingLabel="Saving…"
         >
           Save and sign out
-        </button>
-        <button
+        </PendingButton>
+        <PendingButton
           className="btn btn-secondary btn-block"
-          type="button"
           style={{ padding: "14px 16px", margin: "10px 0 0" }}
           onClick={onDontSave}
           disabled={saving}
         >
           Sign out without saving
-        </button>
-        <button
+        </PendingButton>
+        <PendingButton
           className="btn btn-secondary btn-block"
-          type="button"
           style={{ padding: "14px 16px", margin: "10px 0 0" }}
           onClick={onCancel}
           disabled={saving}
         >
           Cancel
-        </button>
+        </PendingButton>
       </div>
     </div>
   );

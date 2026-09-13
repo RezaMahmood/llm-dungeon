@@ -9,6 +9,7 @@ import { useAuth } from "../hooks/useAuth.js";
 import { useRefreshable } from "../hooks/useRefreshable.js";
 import { listAccounts } from "../services/accountService.js";
 import { loginRequest } from "../services/msalConfig.js";
+import PendingIndicator from "../components/Common/PendingIndicator.jsx";
 
 export function AdminAccountsPage() {
   const { instance, accounts: msalAccounts } = useMsal();
@@ -49,7 +50,7 @@ export function AdminAccountsPage() {
           </p>
         )}
         {loading && !accounts ? (
-          <p className="text-muted">Loading accounts…</p>
+          <PendingIndicator>Loading accounts…</PendingIndicator>
         ) : (
           <div className="people-grid">
             <AccountList

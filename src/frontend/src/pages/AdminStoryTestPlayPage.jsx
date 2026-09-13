@@ -10,6 +10,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import "../components/Play/Play.css";
+import PendingButton from "../components/Common/PendingButton.jsx";
+import PendingIndicator from "../components/Common/PendingIndicator.jsx";
 import InstructionInput from "../components/Play/InstructionInput.jsx";
 import StatusPanel from "../components/Play/StatusPanel.jsx";
 import StoryPane from "../components/Play/StoryPane.jsx";
@@ -138,7 +140,7 @@ export function AdminStoryTestPlayPage() {
   if (!story || !sessionId || !latest) {
     return (
       <div style={{ padding: "var(--space-6)" }}>
-        <p className="text-muted">Starting a test session…</p>
+        <PendingIndicator>Starting a test session…</PendingIndicator>
       </div>
     );
   }
@@ -190,6 +192,7 @@ export function AdminStoryTestPlayPage() {
                     {notice.message}
                   </p>
                 )}
+                {submitting && <PendingIndicator className="text-muted play-notice">The story is thinking…</PendingIndicator>}
                 <SuggestedActions actions={latest.suggestedActions} onSelect={handleSubmit} disabled={disabled} />
                 <InstructionInput value={inputValue} onChange={setInputValue} onSubmit={handleSubmit} disabled={disabled} />
               </>
@@ -215,12 +218,17 @@ export function AdminStoryTestPlayPage() {
               never affected.
             </div>
             <div className="dialog-actions">
-              <button type="button" className="btn btn-secondary" onClick={cancelRestart} disabled={restarting}>
+              <PendingButton className="btn btn-secondary" onClick={cancelRestart} disabled={restarting}>
                 Keep playing
-              </button>
-              <button type="button" className="btn btn-primary" onClick={confirmRestart} disabled={restarting}>
-                {restarting ? "Restarting…" : "Restart"}
-              </button>
+              </PendingButton>
+              <PendingButton
+                className="btn btn-primary"
+                onClick={confirmRestart}
+                pending={restarting}
+                pendingLabel="Restarting…"
+              >
+                Restart
+              </PendingButton>
             </div>
           </div>
         </div>
