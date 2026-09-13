@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 
-export function StepNameCover({ draft, onPatch, onDirtyChange }) {
+export function StepNameCover({ draft, onPatch, onDirtyChange, fieldErrors = {} }) {
   const [name, setName] = useState(draft.name || "");
   const [coverImageUrl, setCoverImageUrl] = useState(draft.coverImageUrl || "");
   const [blurb, setBlurb] = useState(draft.blurb || "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   useEffect(() => setName(draft.name || ""), [draft.name]);
   useEffect(() => setCoverImageUrl(draft.coverImageUrl || ""), [draft.coverImageUrl]);
@@ -22,14 +23,25 @@ export function StepNameCover({ draft, onPatch, onDirtyChange }) {
     return () => onDirtyChange?.(false);
   }, [dirty, onDirtyChange]);
 
+  // "Saved" must mean the server accepted the write. `onPatch` handles its own errors
+  // rather than rejecting (the other steps fire it from blur handlers without awaiting
+  // it), so it reports the outcome by returning false — confirming a save the server
+  // refused is how an administrator silently loses a story name (#137).
   const handleSave = async () => {
     setSaving(true);
+    setSaveFailed(false);
     try {
-      await onPatch({ name, coverImageUrl, blurb });
-      setSaved(true);
+      const ok = await onPatch({ name, coverImageUrl, blurb });
+      setSaved(ok !== false);
+      setSaveFailed(ok === false);
     } finally {
       setSaving(false);
     }
+  };
+
+  const noteEdit = () => {
+    setSaved(false);
+    setSaveFailed(false);
   };
 
   return (
@@ -42,7 +54,7 @@ export function StepNameCover({ draft, onPatch, onDirtyChange }) {
           value={name}
           onChange={(event) => {
             setName(event.target.value);
-            setSaved(false);
+            noteEdit();
           }}
         />
       </div>
@@ -54,7 +66,7 @@ export function StepNameCover({ draft, onPatch, onDirtyChange }) {
           value={coverImageUrl}
           onChange={(event) => {
             setCoverImageUrl(event.target.value);
-            setSaved(false);
+            noteEdit();
           }}
         />
       </div>
@@ -66,7 +78,7 @@ export function StepNameCover({ draft, onPatch, onDirtyChange }) {
           value={blurb}
           onChange={(event) => {
             setBlurb(event.target.value);
-            setSaved(false);
+            noteEdit();
           }}
         />
       </div>
@@ -75,6 +87,11 @@ export function StepNameCover({ draft, onPatch, onDirtyChange }) {
           {saving ? "Saving…" : "Save"}
         </button>
         {saved && !dirty && <span className="text-muted" style={{ fontSize: "13px" }}>Saved</span>}
+        {saveFailed && (
+          <span role="alert" className="text-muted" style={{ fontSize: "13px" }}>
+            {fieldErrors.name || "Could not save this — please try again."}
+          </span>
+        )}
       </div>
     </div>
   );
