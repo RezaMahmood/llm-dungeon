@@ -120,7 +120,11 @@ export function AdminSessionsPage() {
         ) : (
           <>
             <div className="sessions-table-label">All sessions</div>
-            <SessionsTable sessions={sessions} onSelectDelete={handleSelectDelete} />
+            <SessionsTable
+              sessions={sessions}
+              onSelectDelete={handleSelectDelete}
+              deletingSessionId={deleting ? pending?.sessionId ?? null : null}
+            />
             <p className="sessions-caption text-muted">
               Deleting a session permanently removes the player&rsquo;s saved progress and its
               transcript. The tokens it spent stay counted in the usage telemetry.

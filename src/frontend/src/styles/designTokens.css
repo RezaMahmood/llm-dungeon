@@ -312,3 +312,19 @@ textarea.input { min-height: 90px; resize: vertical; }
 .truncate {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
 }
+
+/* — pending actions — a control that has been actioned but not yet answered (issue #347).
+   `.btn:disabled`'s existing opacity does the greying; this is the "still working" half,
+   sized in `em` so it matches whatever label it sits beside. */
+.spinner {
+  width: 1em; height: 1em; flex: none;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spinner-rotate 0.7s linear infinite;
+}
+@keyframes spinner-rotate { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  /* The ring still reads as "in progress" next to the pending label; only the motion goes. */
+  .spinner { animation: none; }
+}

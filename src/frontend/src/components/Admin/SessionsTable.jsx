@@ -1,5 +1,7 @@
 import { memo } from "react";
 
+import PendingButton from "../Common/PendingButton.jsx";
+
 /**
  * The Sessions (admin) table — every gameplay session in the instance, player and admin
  * test-play alike, with a per-row delete (specs/designs/08-admin-sessions-spec.md §5,
@@ -35,7 +37,7 @@ function TrashIcon() {
 
 // Memoized with a stable `onSelectDelete` so opening the confirm dialog for one row
 // doesn't re-render every other row (the same reason AccountRow is memoized).
-const SessionRow = memo(function SessionRow({ session, onSelectDelete }) {
+const SessionRow = memo(function SessionRow({ session, onSelectDelete, deleting = false }) {
   const storyDeleted = session.storyName === DELETED_STORY_LABEL;
 
   return (
@@ -51,25 +53,29 @@ const SessionRow = memo(function SessionRow({ session, onSelectDelete }) {
       <td className="sessions-tokens-cell">{(session.totalTokens || 0).toLocaleString("en-GB")}</td>
       <td className="sessions-account-cell text-muted">{session.email}</td>
       <td className="sessions-actions-cell">
-        <button
-          type="button"
+        <PendingButton
           className="btn btn-ghost"
           // The icon is decorative, so the label carries the name — and it names the
           // session, so a screen-reader user picking from a column of "Delete" buttons
           // can tell the rows apart.
           aria-label={`Delete session ${session.sessionId}`}
           style={{ padding: "6px 10px", fontSize: "12px", gap: "6px", whiteSpace: "nowrap" }}
+          // The dialog covers the table while the delete runs, but the row underneath is
+          // what the administrator actioned — it should not still look clickable when
+          // the dialog closes on a failure (issue #347).
+          pending={deleting}
+          pendingLabel="Deleting…"
           onClick={() => onSelectDelete(session)}
         >
-          <TrashIcon />
+          {!deleting && <TrashIcon />}
           Delete
-        </button>
+        </PendingButton>
       </td>
     </tr>
   );
 });
 
-export function SessionsTable({ sessions = [], onSelectDelete }) {
+export function SessionsTable({ sessions = [], onSelectDelete, deletingSessionId = null }) {
   return (
     <table className="table" style={{ marginTop: "10px" }}>
       <thead>
@@ -87,7 +93,14 @@ export function SessionsTable({ sessions = [], onSelectDelete }) {
       </thead>
       <tbody>
         {sessions.map((session) => (
-          <SessionRow key={session.sessionId} session={session} onSelectDelete={onSelectDelete} />
+          <SessionRow
+            key={session.sessionId}
+            session={session}
+            onSelectDelete={onSelectDelete}
+            // A boolean, not the id, so the memo keeps every other row from re-rendering
+            // when one row's delete starts.
+            deleting={session.sessionId === deletingSessionId}
+          />
         ))}
       </tbody>
     </table>

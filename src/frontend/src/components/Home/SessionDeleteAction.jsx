@@ -1,4 +1,5 @@
 import ConfirmDeleteDialog from "../Common/ConfirmDeleteDialog.jsx";
+import PendingButton from "../Common/PendingButton.jsx";
 import { useDeleteSession } from "../../hooks/useDeleteSession.js";
 
 /**
@@ -31,20 +32,24 @@ export function SessionDeleteAction({ session, token, onDeleted }) {
 
   return (
     <>
-      <span
+      <PendingButton
+        as="span"
         className="home-btn-danger btn"
         role="button"
         tabIndex={0}
         title="Delete this session"
         aria-label="Delete this session"
         style={{ padding: "9px 12px", fontSize: "13px", gap: "6px" }}
+        pending={status === "working"}
+        pendingLabel="Deleting…"
         onClick={stopAndRun(requestDelete)}
         onKeyDown={(event) => {
+          if (status === "working") return;
           if (event.key === "Enter" || event.key === " ") stopAndRun(requestDelete)(event);
         }}
       >
         Delete
-      </span>
+      </PendingButton>
 
       {status === "error" && (
         <div role="alert" className="text-muted" style={{ fontSize: "12px", marginTop: "4px" }}>
