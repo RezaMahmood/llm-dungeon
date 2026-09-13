@@ -41,15 +41,17 @@ export function HomePage() {
     return tokenResponse.accessToken;
   }, [instance, account]);
 
-  // An account without Player capability (admin-only) is never served either list
-  // (spec.md Edge Cases) — HomePage's caller handles that state before this data matters,
-  // so this simply avoids an API call that would only 403.
+  // Starts on mount, in parallel with the capabilities check (#337): a player's stories and
+  // sessions are an independent lookup from their identity/role, so gating this on
+  // `hasPlayer` only bought two sequential round-trips plus a throwaway empty first fetch.
+  // An account without Player capability (admin-only, pending or denied) never renders
+  // either list (spec.md Edge Cases) — those branches return before `data` is read, so a
+  // request that 403s here is discarded rather than shown.
   const fetchHomeData = useCallback(async () => {
-    if (!hasPlayer) return { adventures: [], sessions: [] };
     const token = await getToken();
     const [adventuresData, sessionsData] = await Promise.all([listAdventures(token), listSavedGames(token)]);
     return { adventures: adventuresData.adventures || [], sessions: sessionsData.sessions || [] };
-  }, [getToken, hasPlayer]);
+  }, [getToken]);
 
   const { data, loading, error, refresh } = useRefreshable(fetchHomeData);
 
@@ -77,11 +79,16 @@ export function HomePage() {
   // (031-sessions-admin-design-spec FR-012/FR-013). Cleared from history on arrival so a
   // reload doesn't refire the dialog, while the dialog's own visibility lives in state.
   const [sessionRemoved, setSessionRemoved] = useState(() => Boolean(location.state?.sessionRemoved));
+  // The same one-shot mechanism carries a failed exit-checkpoint's message from GamePage
+  // (009-save-and-continue FR-006a): the player now leaves the game for Home directly
+  // (#346), so the notice has to be shown on arrival here rather than on the screen they
+  // used to be dropped back onto.
+  const [checkpointExitNotice, setCheckpointExitNotice] = useState(() => location.state?.checkpointExitNotice ?? null);
   useEffect(() => {
-    if (location.state?.sessionRemoved) {
-      setSessionRemoved(true);
-      navigate(location.pathname, { replace: true, state: null });
-    }
+    if (!location.state?.sessionRemoved && !location.state?.checkpointExitNotice) return;
+    if (location.state.sessionRemoved) setSessionRemoved(true);
+    if (location.state.checkpointExitNotice) setCheckpointExitNotice(location.state.checkpointExitNotice);
+    navigate(location.pathname, { replace: true, state: null });
   }, [location.pathname, location.state, navigate]);
 
   const firstName = (account?.name ?? account?.username ?? "").trim().split(/\s+/)[0] || "there";
@@ -149,6 +156,11 @@ export function HomePage() {
 
   return (
     <div className="home-shell">
+      {checkpointExitNotice && (
+        <p role="status" className="text-muted" style={{ margin: 0, padding: "var(--space-4) var(--space-4) 0", fontSize: "13px" }}>
+          {checkpointExitNotice}
+        </p>
+      )}
       <WelcomeBand firstName={firstName} inProgressCount={sessions.length} />
       <div className="home-cols">
         <ReadyToPlayList stories={readyToPlay} loading={loading} error={error} onPlay={handlePlay} />

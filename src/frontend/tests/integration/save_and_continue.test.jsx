@@ -33,8 +33,6 @@ vi.mock("../../src/services/gameService.js", () => ({
 }));
 
 import NavBar from "../../src/components/Layout/NavBar.jsx";
-import TitleBar from "../../src/components/Layout/TitleBar.jsx";
-import { PlayTitleProvider } from "../../src/context/PlayTitleContext.jsx";
 import GamePage from "../../src/pages/GamePage.jsx";
 
 const SESSION_DETAIL = {
@@ -113,27 +111,9 @@ describe("Save and continue: Resume -> play (009-save-and-continue, narrowed by 
     expect(getSession).not.toHaveBeenCalled();
   });
 
-  it("shows a checkpoint-failure notice back on this screen after Save and exit fails", async () => {
-    resumeSession.mockResolvedValue({ status: "active", sessionId: "session-1" });
-    saveCheckpoint.mockRejectedValue(new Error("network error"));
-    const user = userEvent.setup();
-    render(
-      <MemoryRouter initialEntries={[{ pathname: "/game", state: { resumeSessionId: "session-1", isActiveForPlayer: false } }]}>
-        <PlayTitleProvider>
-          <TitleBar />
-          <GamePage />
-        </PlayTitleProvider>
-      </MemoryRouter>,
-    );
-
-    await screen.findByText("You find the stairs.");
-    await user.click(screen.getByRole("button", { name: /pause & exit/i }));
-    await user.click(screen.getByRole("button", { name: /save and exit to my stories/i }));
-
-    expect(await screen.findByText(/couldn't record that checkpoint/i)).toBeInTheDocument();
-    // Back on this screen, not stuck on the play surface.
-    expect(screen.getByRole("link", { name: /back to home/i })).toBeInTheDocument();
-  });
+  // Pause-and-exit's own outcome — including a failed exit checkpoint's notice (FR-006a)
+  // — now belongs to Home rather than to this page, and is covered end to end in
+  // game_exit_to_home.test.jsx (#346).
 });
 
 describe("Save and continue: sign-out round trip (009-save-and-continue, US2 Acceptance Scenarios 3-4)", () => {
