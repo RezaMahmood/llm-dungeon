@@ -39,9 +39,11 @@ these requirements are recorded in this spec's own Clarifications section and, i
 Merge order: this slice lands **after** `032`, which creates the avatar description it stores
 and displays.
 
-**This is a governance change.** FR-004 amends the constitution's Play surface screen
-contract, and FR-005 introduces new per-player persisted data — both on the blast-radius list
-in `CLAUDE.md`, so `/code-review ultra` applies at PR time (user-triggered).
+**This touches persisted data.** FR-005 introduces new per-player persisted data, which is on
+the blast-radius list in `CLAUDE.md`, so `/code-review ultra` applies at PR time
+(user-triggered). It is no longer also a governance change: FR-004 required amending the
+constitution's Play surface screen contract, and constitution v10.0.0 withdrew every screen
+contract (issue #340), so that requirement is withdrawn.
 
 One assumption left open for planning: that removing a player's account removes their stored
 descriptions, which is `003-account-provisioning-done`'s territory.

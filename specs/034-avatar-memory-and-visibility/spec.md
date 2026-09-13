@@ -29,7 +29,7 @@ The two halves of this slice — remembering and showing — are independent of 
 
 ### Session 2026-09-13
 
-- Q: During play, where should the player be able to see the avatar description they wrote at setup? → A: In the play surface's status panel, read-only, alongside location, goal and progress. The constitution's play-surface screen contract is amended accordingly.
+- Q: During play, where should the player be able to see the avatar description they wrote at setup? → A: In the play surface's status panel, read-only, alongside location, goal and progress.
 - Q: When a player starts another new game later, should their previous avatar description be offered back as a prefill? → A: Yes. Store it against the player's profile, one valid description per story, prefilled at session start and optional to keep. When a story is deleted, any stored descriptions for that story are deleted with it.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -87,7 +87,7 @@ A player starting a new game of an adventure they have played before finds the d
 - **FR-001**: System MUST show the player their own avatar description during play, read-only, in the play surface's status panel alongside location, goal, and progress.
 - **FR-002**: The description MUST remain legible and MUST NOT crowd out location, goal, or progress at the 320 px viewport floor the constitution requires.
 - **FR-003**: A session with no avatar description — one created before `032-story-archetypes-player-avatar` shipped — MUST render the status panel without an empty or broken avatar area.
-- **FR-004**: The constitution's **Play surface** screen contract MUST be amended to name the avatar description among what the status panel shows, so the contract and the shipped surface do not disagree. This amendment MUST be carried by this slice rather than left for later.
+- **FR-004**: *Withdrawn.* It required the constitution's **Play surface** screen contract to be amended to name the avatar description among what the status panel shows. Constitution v10.0.0 (issue #340) withdrew every screen contract, so there is nothing to amend and no contract this slice can disagree with; FR-001 is the sole statement of what the status panel shows.
 
 **Remembering the avatar per adventure**
 
@@ -128,7 +128,7 @@ A player starting a new game of an adventure they have played before finds the d
 ## Dependencies
 
 - `032-story-archetypes-player-avatar` — creates the avatar description this slice stores and displays. Must merge first.
-- `008-core-gameplay-done` / the constitution's **Play surface** screen contract — own the status panel FR-001 adds to, and the contract FR-004 amends. The amendment makes this slice a governance change.
+- `008-core-gameplay-done` and `029-play-surface-design-spec` — own the status panel FR-001 adds to.
 - `025-story-delete-done` — owns story deletion, which FR-009 extends.
 - `026-token-usage` / `031-sessions-admin-design-spec` — own session deletion, which FR-010 must leave stored descriptions alone.
 - `003-account-provisioning-done` — owns account removal, which the stored-description deletion assumption depends on.

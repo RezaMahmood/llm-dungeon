@@ -10,7 +10,7 @@
 
 **Input**: User description: "`characterTypes` should describe story-world archetypes, not player identity. `characterTypes` is currently the mechanism for choosing what the player plays as — the player picks exactly one type at setup and it is carried on the session as their identity, injected into the gameplay prompt as who they are. The intended design is different: `characterTypes` should be an admin-authored roster of story-world character archetypes (NPCs, factions, narrative roles) that add depth to the story and are available to the narration as cast material. The player's identity must be independent of that list. The player should be prompted to enter the characteristics of their avatar at the beginning of the game, with some constraints around this — to be determined during spec clarification."
 
-**Design Reference**: The setup flow this changes is governed by `006-adventure-and-character-setup`; its landing/entry surface is the "Adventure select" screen contract (`specs/designs/07-home.html`). This feature adds no new screen; it replaces one step of an existing flow.
+**Design Reference**: The setup flow this changes is governed by `006-adventure-and-character-setup`; its landing/entry surface is owned by `028-home-page-redesign`. This feature adds no new screen; it replaces one step of an existing flow.
 
 ## Overview
 
