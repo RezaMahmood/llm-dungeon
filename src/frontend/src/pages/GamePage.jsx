@@ -51,7 +51,6 @@ export function GamePage() {
 
   const [resuming, setResuming] = useState(Boolean(resumeSessionId));
   const [resumeError, setResumeError] = useState(null);
-  const [checkpointExitNotice, setCheckpointExitNotice] = useState(null);
 
   const getToken = useCallback(async () => {
     const tokenResponse = await instance.acquireTokenSilent({ ...loginRequest, account });
@@ -65,6 +64,22 @@ export function GamePage() {
   const goHomeSessionRemoved = useCallback(() => {
     navigate("/menu", { state: { sessionRemoved: true }, replace: true });
   }, [navigate]);
+
+  // Pause-and-exit confirmed (009-save-and-continue FR-006). The player asked to leave
+  // the game, so they go to Home — falling back to this page's own resume/setup shell
+  // left them on a near-empty screen holding only a "Back to Home" link (#346).
+  // PlayPage unmounts as it exits, so a failed exit-save's notice (FR-006a) travels with
+  // them as route state and is shown by Home. `replace` so Back cannot return them to
+  // the session they just left.
+  const goHomeAfterExit = useCallback(
+    (checkpointFailureMessage) => {
+      navigate("/menu", {
+        state: checkpointFailureMessage ? { checkpointExitNotice: checkpointFailureMessage } : null,
+        replace: true,
+      });
+    },
+    [navigate],
+  );
 
   // Character-setup path: Home already chose the adventure (FR-006) — this only needs
   // that adventure's character types and display name.
@@ -189,12 +204,7 @@ export function GamePage() {
         initialTurns={session.initialTurns}
         getToken={getToken}
         onSessionRemoved={goHomeSessionRemoved}
-        onExit={(checkpointFailureMessage) => {
-          // PlayPage unmounts as soon as this runs, so a failed exit-save's notice
-          // (FR-006a) has to be shown here, once we're back on this screen.
-          setCheckpointExitNotice(checkpointFailureMessage || null);
-          setSession(null);
-        }}
+        onExit={goHomeAfterExit}
       />
     );
   }
@@ -207,19 +217,13 @@ export function GamePage() {
         </PageContainer>
       );
     }
-    // Reached either because resuming failed (resumeError set) or because the player
-    // exited a successfully resumed session back to here (checkpointExitNotice, or
-    // neither — a plain way back).
+    // Reached only because resuming failed (resumeError set) — exiting a live session
+    // now leaves for Home directly (#346) rather than landing back here.
     return (
       <PageContainer>
         {resumeError && (
           <p role="alert" style={{ fontSize: "12px", color: "var(--color-accent-700)" }}>
             {resumeError}
-          </p>
-        )}
-        {checkpointExitNotice && (
-          <p role="status" className="text-muted" style={{ fontSize: "13px" }}>
-            {checkpointExitNotice}
           </p>
         )}
         <Link to="/menu" className="btn btn-secondary">
@@ -233,11 +237,6 @@ export function GamePage() {
     <PageContainer>
       <h1 style={{ margin: 0, fontSize: "36px" }}>{adventureName || "Set up your game"}</h1>
       <hr className="hr" style={{ margin: "22px 0 32px" }} />
-      {checkpointExitNotice && (
-        <p role="status" className="text-muted" style={{ fontSize: "13px", margin: "8px 0 32px" }}>
-          {checkpointExitNotice}
-        </p>
-      )}
 
       <section aria-labelledby="step1-heading">
         <h2 id="step1-heading" style={{ fontSize: "16px", margin: "0 0 12px" }}>
