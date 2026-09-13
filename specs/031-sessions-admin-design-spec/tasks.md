@@ -18,10 +18,10 @@ Referenced by number below rather than restated in each task.
 
 - **D1 — Canonical reference.** Vendored by T001. Nothing here can be checked against the
   design until it lands.
-- **D2 — Governance gate.** The constitution's **Administrator — sessions** screen contract
-  says "no prototype screen" and "a read-only list". This feature contradicts both, so T002
-  amends it. The screen MUST NOT ship ahead of that amendment (spec FR-021, research.md
-  Decision 10).
+- **D2 — Governance gate: withdrawn.** T002 amended the constitution's **Administrator —
+  sessions** screen contract, which this feature contradicted. Constitution v10.0.0 (issue
+  #340) then withdrew every screen contract, so no gate remains and FR-021 is withdrawn with
+  it.
 - **D3 — One delete endpoint, no client-supplied kind.** `DELETE
   /api/manage/sessions/{sessionId}` resolves player vs test-play server-side from the id alone
   (research.md Decision 1). `sessionType` is never sent back.

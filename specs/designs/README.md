@@ -99,10 +99,11 @@ One `.nav` bar, same markup on every signed-in surface.
   design-system classes and token-based styles — no mockup is expected, and their absence from
   this reference is not an omission to be fixed before implementation. Visual styling is
   follow-up work; the accessibility bar still applies in full. The wizard those screens link to
-  is 04, unchanged. Their **behavioral** contract is not absent: constitution v2.1.0 adds an
-  "Administrator — stories & configuration" screen contract (a contract without a prototype,
-  which that section now explicitly permits), and that text is the acceptance reference for
-  these two screens until a prototype is drawn.
+  is 04, unchanged. Their **behavioral** contract is not absent: it lives in the specs that own
+  these screens — `012-story-editing-and-review`, `011-story-import`, `005-story-publishing-done`,
+  `025-story-delete-done` and `026-token-usage` — which are the acceptance reference for both
+  screens until a prototype is drawn. (The constitution carried a duplicate "Administrator —
+  stories & configuration" contract until v10.0.0 withdrew every screen contract; issue #340.)
 - **Test play (04, step 05):** the "Flag this reply" button is deliberately not implemented —
   `010-story-test-play-done` specifies no in-session flagging; a problem found while testing is fixed
   by editing the story afterwards through the wizard. "Restart test" is implemented, but aborts

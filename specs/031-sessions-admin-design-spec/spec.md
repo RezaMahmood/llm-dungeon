@@ -284,9 +284,10 @@ are re-read from the server while the administrator stays on the Sessions screen
   styling, and the confirmation dialog — MUST be built from the project's shared design system
   and its centralized button language, reusing the confirmation-dialog and table patterns the
   People screen already established rather than introducing page-specific equivalents.
-- **FR-021**: The constitution's **Administrator — sessions** screen contract MUST be amended
-  to name the canonical design files as its acceptance reference and to permit the delete
-  affordance, before this screen ships (see *Scope note*).
+- **FR-021**: *Withdrawn.* It required the constitution's **Administrator — sessions** screen
+  contract to be amended before this screen ships. Constitution v10.0.0 (issue #340) withdrew
+  every screen contract, so there is nothing to amend; this spec is the sole statement of the
+  screen's acceptance reference and its delete affordance.
 
 ### Key Entities
 

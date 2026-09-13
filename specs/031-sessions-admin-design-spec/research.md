@@ -88,7 +88,7 @@ story again from your home page." — it never says who removed it.
 deleted it from this screen, or the player deleted it themselves from Home in another tab. The
 server observes only that the document is gone. Naming an administrator would be asserting
 something unobserved, and would read as an accusation in the case where the player did it to
-themselves. Constitution "Readability & interaction requirements" #6 also requires plain, warm,
+themselves. Constitution "Readability & interaction requirements" #4 also requires plain, warm,
 concrete copy with a next action, which the second sentence supplies.
 
 ---

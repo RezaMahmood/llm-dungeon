@@ -59,10 +59,10 @@ panel's layout and spacing do not match the canonical design without it, which i
 feature's whole purpose). Call an LLM/backend endpoint for a story-aware hint (rejected —
 that *is* the separate feature).
 
-**Constitution note**: the "Play surface" screen contract requires "a hint action", which an
-unavailable control does not yet deliver. plan.md's Constitution Check records this as a named,
-time-boxed deferral rather than a PASS. The broader problem — the constitution stating
-functional requirements that belong in feature specs — is tracked as issue #340.
+**Constitution note**: deferring the hint's behaviour is this spec's own scoping decision.
+Supersedes: it was previously a named deferral against the "Play surface" screen contract's
+"a hint action" — constitution v10.0.0 withdrew the Screen contracts section entirely
+(issue #340).
 
 ## Decision 3: Header Refresh reuses `RefreshContext`/`getSession`, exactly as `NavBar` does elsewhere
 

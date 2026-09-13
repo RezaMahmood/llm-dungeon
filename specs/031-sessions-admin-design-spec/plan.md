@@ -109,13 +109,12 @@ edits (constitution screen contract, `specs/designs/README.md`) and the vendored
 - **Layout and scroll contract** — PASS. Rule 1 is satisfied by the fixed shell with the content
   area as the sole scroll container; rules 2–3 are play-surface-only. Rule 4 (320px) is
   satisfied by the design's wrapping cells, which is also why FR-017 forbids horizontal scroll.
-- **Screen contracts** — **PASS ONLY WITH THE AMENDMENT (spec FR-021).** The current
-  **Administrator — sessions** contract reads "no prototype screen" and "a read-only list …
-  Introduced by `026-token-usage`, whose spec defers this screen's visual design". This feature
-  contradicts both halves deliberately. Governance is explicit that no feature may ship a screen
-  untraceable to a contract or an amendment extending one, so the amendment is a required task
-  of this feature, not a follow-up. It is MINOR: a contract gains a prototype reference and an
-  affordance; nothing is removed or redefined.
+- **Screen contracts** — **NO LONGER APPLICABLE.** Constitution v10.0.0 (issue #340) withdrew
+  the Screen contracts section, so there is no **Administrator — sessions** contract to
+  contradict, no traceability gate, and nothing for FR-021 (now withdrawn) to amend. The
+  canonical design files and the delete affordance are stated by this spec alone. Supersedes:
+  the v9.x contract read "no prototype screen" and "a read-only list", which this feature
+  deliberately contradicted and amended as a required task.
 
 **Complexity Tracking**: One deviation from the canonical mockup is recorded rather than
 justified away — the confirmation dialog's buttons sit in a row (`ConfirmDeleteDialog`) rather
