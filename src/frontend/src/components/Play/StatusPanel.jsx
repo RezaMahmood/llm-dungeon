@@ -52,7 +52,7 @@ export function StatusPanel({ locationLabel, goalLabel, progress, completionReas
         <>
           <hr className="hr" style={{ margin: "20px 0", height: "1px" }} />
           <div className="play-label">The story has ended</div>
-          <p style={{ margin: "8px 0 0", fontSize: "15px", lineHeight: 1.5 }} role="status">
+          <p className="play-goal" role="status">
             {REASON_LABELS[completionReason.type] || "The story ended"}
             {completionReason.detail ? ` — ${completionReason.detail}` : ""}
           </p>

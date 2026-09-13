@@ -323,4 +323,68 @@ describe("PlayPage (008-core-gameplay-done)", () => {
     expect(screen.getByText(OPENING_NARRATIVE.narrativeText)).toBeInTheDocument();
     expect(screen.getByLabelText(/what do you do next/i)).toHaveValue("look around");
   });
+
+  it("routes a deleted-story refresh failure to the same notice and exit action a deleted-story submit failure uses (029)", async () => {
+    getSession.mockRejectedValue({
+      response: {
+        status: 404,
+        data: { error: "story_deleted", message: "Story has been deleted. You can no longer continue this story." },
+      },
+    });
+    const user = userEvent.setup();
+    const { onExit } = renderPlayPageWithTitleBar();
+
+    await user.click(screen.getByRole("button", { name: /^refresh$/i }));
+
+    expect(await screen.findByText(/story has been deleted/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /return to your story list/i }));
+    expect(onExit).toHaveBeenCalled();
+  });
+
+  it("routes an unpublished-story refresh failure the same way (029)", async () => {
+    getSession.mockRejectedValue({
+      response: {
+        status: 409,
+        data: {
+          error: "story_unpublished",
+          message: "Story has been unpublished. You can no longer continue this story.",
+        },
+      },
+    });
+    const user = userEvent.setup();
+    renderPlayPageWithTitleBar();
+
+    await user.click(screen.getByRole("button", { name: /^refresh$/i }));
+
+    expect(await screen.findByText(/story has been unpublished/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /return to your story list/i })).toBeInTheDocument();
+  });
+
+  it("disables the refresh control while a submit is in flight, and Go/chips while a refresh is in flight (029)", async () => {
+    let resolveSubmit;
+    submitInteraction.mockReturnValue(new Promise((resolve) => (resolveSubmit = resolve)));
+    let resolveRefresh;
+    getSession.mockReturnValue(new Promise((resolve) => (resolveRefresh = resolve)));
+    const user = userEvent.setup();
+    renderPlayPageWithTitleBar();
+
+    await user.type(screen.getByLabelText(/what do you do next/i), "look around");
+    await user.click(screen.getByRole("button", { name: /^go$/i }));
+    expect(screen.getByRole("button", { name: /^refresh$/i })).toBeDisabled();
+
+    resolveSubmit({
+      status: "active",
+      narrative: { ...OPENING_NARRATIVE, turnNumber: 1 },
+    });
+    await waitFor(() => expect(screen.getByRole("button", { name: /^refresh$/i })).not.toBeDisabled());
+
+    await user.click(screen.getByRole("button", { name: /^refresh$/i }));
+    expect(screen.getByLabelText(/what do you do next/i)).toBeDisabled();
+
+    resolveRefresh({
+      status: "success",
+      session: { sessionId: "session-1", turns: [OPENING_NARRATIVE], status: "active", completionReason: null },
+    });
+    await waitFor(() => expect(screen.getByLabelText(/what do you do next/i)).not.toBeDisabled());
+  });
 });

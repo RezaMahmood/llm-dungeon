@@ -34,10 +34,18 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
   const checkpointNoticeTimer = useRef(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshNotice, setRefreshNotice] = useState(null);
+  // A submit and a refresh both replace `turns` wholesale from their own response —
+  // if both were in flight at once, whichever resolves last would silently overwrite
+  // the other's result (e.g. a refresh issued just before a submit's POST is
+  // persisted server-side can return the pre-submit turn list and, resolving after the
+  // submit, erase the just-added turn from view). A ref rather than state because the
+  // guard must see the current value inside a callback whose own closure doesn't
+  // change when `submitting`/`refreshing` do.
+  const busyRef = useRef(false);
 
   const latest = turns[turns.length - 1];
   const locked = notice?.type === "lockout";
-  const disabled = status === "concluded" || locked || submitting;
+  const disabled = status === "concluded" || locked || submitting || refreshing;
 
   useEffect(
     () => () => {
@@ -85,8 +93,13 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
   // research.md Decision 3) — reuses the same getSession call GamePage's resume path
   // already makes, rather than inventing a second way to fetch this shape. `inputValue`
   // is never touched by either path (FR-010): a failure must not discard what the
-  // player had already typed.
+  // player had already typed. Deleted/unpublished failures route into the same
+  // notice branches handleSubmit's own equivalent failures already use, complete
+  // with their exit action — a permanent failure with only "try again" has no path
+  // out, unlike the specific case handleSubmit already covers.
   const handleRefresh = useCallback(async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setRefreshing(true);
     setRefreshNotice(null);
     try {
@@ -95,15 +108,32 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
       setTurns(data.session.turns.map((turn) => ({ ...turn, playerInput: turn.playerInput ?? null })));
       setStatus(data.session.status);
       setCompletionReason(data.session.completionReason || null);
-    } catch {
-      setRefreshNotice({ message: "Couldn't refresh the story. Please try again." });
+    } catch (err) {
+      const responseStatus = err.response?.status;
+      const body = err.response?.data;
+      if (responseStatus === 404 && body?.error === "story_deleted") {
+        setNotice({
+          type: "story_deleted",
+          message: body?.message || "Story has been deleted. You can no longer continue this story.",
+        });
+      } else if (responseStatus === 409 && body?.error === "story_unpublished") {
+        setNotice({
+          type: "story_unpublished",
+          message: body?.message || "Story has been unpublished. You can no longer continue this story.",
+        });
+      } else {
+        setRefreshNotice({ message: "Couldn't refresh the story. Please try again." });
+      }
     } finally {
       setRefreshing(false);
+      busyRef.current = false;
     }
   }, [getToken, sessionId]);
-  usePublishRefresh({ refresh: handleRefresh, loading: refreshing });
+  usePublishRefresh({ refresh: handleRefresh, loading: refreshing || submitting });
 
   const handleSubmit = async (input) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setSubmitting(true);
     setNotice(null);
     try {
@@ -144,6 +174,7 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit 
       }
     } finally {
       setSubmitting(false);
+      busyRef.current = false;
     }
   };
 
