@@ -7,6 +7,7 @@ Use these as the acceptance reference in the spec-kit spec.
     01-login.html          Microsoft SSO
     02-story-select.html   in-progress, then unopened (superseded by 07 — see below)
     03-play.html           story pane + status panel + pause screen
+    03-play-spec.md        written spec for 03 — layout, states, data contract
     04-admin-wizard.html   six steps, world prompt step active
     05-admin-users.html    add player/administrator; per-row remove with confirm
     06-game-setup.html     start-new-game: adventure → character name → character type
@@ -32,6 +33,20 @@ One `.nav` bar, same markup on every signed-in surface.
 
 ## Notes for implementers
 
+- **Play (03) supersedes its own earlier markup:** `029-play-surface-design-spec` replaces
+  `03-play.html` with issue #332's attached mockup and adds `03-play-spec.md` (the written
+  spec that accompanies it) as a second acceptance reference for that screen. The two agree;
+  where a detail is easier to state in prose than to read off the markup, `03-play-spec.md`
+  is the one to cite.
+- **Prototype-only affordances on 03, must not ship:** the incoming mockup adds a "Turns
+  played" state switcher (`.statebar`, `.lbl`, `.sw`, and the `<script>` driving it) at the
+  top of the page, used only to preview the 1/2/5/10-turn states `03-play-spec.md` §8
+  describes. It is not part of the shipped page — real implementation reaches those states
+  from actual session data, never from a switcher. The spelling-forgiveness hint (the
+  `hidden` block under the command form) is a different kind of exclusion: it is not a
+  prototype artifact but a real affordance the design calls for that this product
+  deliberately does not implement (`029-play-surface-design-spec`'s spec.md Assumptions) —
+  no feature in this repo detects, flags, or corrects a player's spelling.
 - **Home (07) supersedes 02 as the acceptance reference:** `028-home-page-redesign` replaces
   the post-login landing page with 07's welcome band + two-column
   ready-to-play/in-progress layout, matching `07-home-spec.md`. `02-story-select.html` is
@@ -85,6 +100,7 @@ One `.nav` bar, same markup on every signed-in surface.
   `008-core-gameplay-done` — is wired up by `009-save-and-continue` (FR-003): it records a
   server-labelled, timestamped marker and shows a brief visible confirmation, with no new
   chrome added to this screen.
-- No inline classes were invented beyond three utilities in each page's `<style>`
+- No inline classes were invented beyond three shipped utilities across each page's `<style>`
   (`.ovnum`, `.rowhov`, `.storyscroll`); everything else is a design-system class or a
-  token-based inline style.
+  token-based inline style. 03's `.statebar`/`.lbl`/`.sw` are the one exception, and they are
+  exempt because they are prototype-only and must not ship (see above).
