@@ -1,4 +1,4 @@
-import { render, screen, waitForElementToBeRemoved } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, waitForElementToBeRemoved } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -61,6 +61,19 @@ describe("Admin story configuration viewer (FR-002, FR-004, SC-001)", () => {
     const blobArg = global.URL.createObjectURL.mock.calls[0][0];
     const blobText = await blobArg.text();
     expect(blobText).toBe(CONFIGURATION_TEXT);
+  });
+
+  it("revokes the object URL only after the click tick, so the download is not dropped (#268)", async () => {
+    getStoryConfiguration.mockResolvedValue(CONFIGURATION_TEXT);
+    renderPage();
+    await waitForElementToBeRemoved(() => screen.queryByText(/loading configuration/i));
+
+    fireEvent.click(screen.getByRole("button", { name: /^download$/i }));
+
+    // Same tick as the anchor click: revoking here races the browser's read of the blob.
+    expect(global.URL.revokeObjectURL).not.toHaveBeenCalled();
+
+    await waitFor(() => expect(global.URL.revokeObjectURL).toHaveBeenCalledWith("blob:mock-url"));
   });
 
   it("offers a retry when the configuration cannot be loaded", async () => {
