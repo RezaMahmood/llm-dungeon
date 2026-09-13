@@ -216,30 +216,30 @@ checkpoint/pause-and-exit behaviour (FR-011) is untouched.
 
 ## Phase 6: Regression, conformance, handoff
 
-- [ ] **T027** [P] Align the autosave copy with the mockup: `StatusPanel` reads "Autosaved after
+- [X] **T027** [P] Align the autosave copy with the mockup: `StatusPanel` reads "Autosaved after
   every turn" today, `03-play.html:92` reads "Saved automatically after every turn." SC-003
   requires the mockup's wording, so change `src/components/Play/StatusPanel.jsx` and
   `tests/Play/AutosaveDisclosure.test.jsx` together, and update any selector in that test file
   affected by the class refactor. The disclosure stays present at all times (FR-008); only the
   wording moves.
-- [ ] **T028** [P] Review `tests/Play/PlaySurfaceLayout.test.jsx` and
+- [X] **T028** [P] Review `tests/Play/PlaySurfaceLayout.test.jsx` and
   `tests/Play/InstructionInput.test.jsx` against Phases 2–5. Update only selectors affected by
   the class refactor; the asserted behaviour — exactly one title bar, the pause confirmation
   gate, the command submitted as typed — may not change.
-- [ ] **T029** [P] `tests/components/AdminStoryTestPlayPage.test.jsx` — update selectors
+- [X] **T029** [P] `tests/components/AdminStoryTestPlayPage.test.jsx` — update selectors
   affected by T010, then add an assertion that the inherited affordances actually render: for a
   test-play turn carrying `progress`, the chapter header and the segmented bar appear, as
   contracts/ui.md promises. Without it that page can silently diverge from the play surface.
-- [ ] **T030** Run `npm --prefix src/frontend test`, `npm --prefix src/frontend run lint` and
+- [X] **T030** Run `npm --prefix src/frontend test`, `npm --prefix src/frontend run lint` and
   `npm --prefix src/frontend run build`. All three green (FR-013, SC-005).
-- [ ] **T031** Discharge **SC-003**: walk `specs/designs/03-play-spec.md` section by section and
+- [X] **T031** Discharge **SC-003**: walk `specs/designs/03-play-spec.md` section by section and
   `03-play.html` element by element against the built screen, recording each element as present
   in the position the design gives it. Exactly two exceptions may be recorded, per D7; any third
   gap is fixed or raised before the PR. Nothing else in this list discharges SC-003 — T032's
   scenario walks flows, not elements. Carry the outcome into the PR description.
-- [ ] **T032** Run quickstart.md's manual scenario (steps 1–6) against the dev server and record
+- [X] **T032** Run quickstart.md's manual scenario (steps 1–6) against the dev server and record
   the outcome for the PR description's Testing section.
-- [ ] **T033** Open the follow-up GitHub issue for the deferred hint action — what a hint says,
+- [X] **T033** Open the follow-up GitHub issue for the deferred hint action — what a hint says,
   where it comes from, and how the control is enabled — referencing spec.md's *Scope note*,
   plan.md's Screen-contracts exception, and issue #332. Label it `enhancement`. The screen
   contract is not met until that work ships, and nothing should depend on someone remembering
