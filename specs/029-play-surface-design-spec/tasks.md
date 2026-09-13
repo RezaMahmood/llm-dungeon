@@ -192,20 +192,20 @@ state, reusing `019-spa-refresh-button`'s existing pattern (FR-009, FR-010).
 reload while staying on the play screen; confirm a failed refresh keeps the transcript and any
 typed input, with a notice.
 
-- [ ] **T023** [P] [US3] `tests/components/TitleBar.test.jsx` — no refresh control renders when
+- [X] **T023** [P] [US3] `tests/components/TitleBar.test.jsx` — no refresh control renders when
   nothing is published; a published refresh renders `RefreshButton` ahead of "Save a
   checkpoint" and "Pause & exit" and invokes it on click; the control is disabled while
   `loading` is true.
-- [ ] **T024** [P] [US3] `tests/Play/PlayPage.test.jsx` — the published refresh calls
+- [X] **T024** [P] [US3] `tests/Play/PlayPage.test.jsx` — the published refresh calls
   `getSession(token, sessionId)` and replaces `turns`/`status`/`completionReason`; a rejected
   `getSession` leaves the transcript and any typed input untouched and shows an inline notice.
-- [ ] **T025** [US3] `src/pages/PlayPage.jsx` — import `getSession` from
+- [X] **T025** [US3] `src/pages/PlayPage.jsx` — import `getSession` from
   `../services/gameService.js` and `usePublishRefresh` from `../context/RefreshContext.jsx`
   (both already exported). Add a `handleRefresh` that re-fetches the session and replaces
   `turns`/`status`/`completionReason` on success, or surfaces the existing inline notice on
   failure; publish it as `usePublishRefresh({ refresh, loading })`. Neither path touches
   `inputValue`.
-- [ ] **T026** [US3] `src/components/Layout/TitleBar.jsx` — read `useRefreshContext` and render
+- [X] **T026** [US3] `src/components/Layout/TitleBar.jsx` — read `useRefreshContext` and render
   the shared `RefreshButton` as the first element of the trailing-actions cluster whenever a
   refresh is published, as `NavBar` already does.
 
