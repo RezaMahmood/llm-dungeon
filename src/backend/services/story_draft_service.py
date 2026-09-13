@@ -25,7 +25,7 @@ from backend.services.llm_service import (
     LLMService,
 )
 from backend.services.story_config_file import StoryConfiguration
-from backend.services.story_service import StaleStoryError, StoryService
+from backend.services.story_service import StaleStoryError, StoryNotFoundError, StoryService
 
 logger = logging.getLogger("story_draft_service")
 
@@ -176,7 +176,8 @@ class StoryDraftService:
         apply an edit draft back to its source story and delete the draft. Returns `None`
         if the draft doesn't exist. Raises `WrongDraftModeError` for a creation draft,
         `DraftIncompleteError` if the Completeness Rule isn't met, `DraftNotFoundError` if
-        the source story is gone, `StaleStoryError` if the story changed since the draft
+        the source story is gone (whether it was already missing at the read, or
+        hard-deleted between the read and the write), `StaleStoryError` if the story changed since the draft
         was seeded (the draft is left intact), and `ContentGenerationFailedError`/
         `ContentGenerationRateLimitedError` if narrativeGuidance/startingPoint regeneration
         fails (the story is left unchanged in every failure case). A draft carries neither
@@ -220,7 +221,14 @@ class StoryDraftService:
         # already adds derived.tokens for us; this pre-adds the draft's own share
         # (research.md Decision 2, edit case).
         derived = replace(derived, tokens=derived.tokens + draft.totalTokens)
-        updated = self._stories.apply_content_write(story, configuration, admin_oid, derived)
+        try:
+            updated = self._stories.apply_content_write(story, configuration, admin_oid, derived)
+        except StoryNotFoundError as exc:
+            # The story was hard-deleted (025-story-delete FR-003) between the read above
+            # and the write — same answer as a story already gone before the read, so the
+            # save reports 404 rather than surfacing a Cosmos error as a 500. The draft is
+            # left intact, as in every other failure case here.
+            raise DraftNotFoundError("Story not found") from exc
         self._container().delete_item(item=draft.id, partition_key=draft.id)
         return updated
 

@@ -278,6 +278,14 @@ administrator's copy being out of date, and the action is simply to repeat it. T
 costs no extra LLM call — `narrativeGuidance` and `startingPoint` are resolved before the
 write.
 
+A story hard-deleted (025-story-delete FR-003) between that read and the write is not a
+write conflict: `apply_content_write` raises `StoryNotFoundError`, exactly as it does for a
+story already gone at read time, so `POST …/import` answers `404 story_not_found` and
+`POST …/drafts/{draftId}/save` answers `404 not_found` ("Story not found"). The publish and
+unpublish writes carry the same `_etag` precondition for the same reason — without it the
+write would recreate the deleted document — and answer `404 not_found`, or
+`409 write_conflict` if a concurrent content write wins the precondition twice.
+
 ---
 
 ## Route registration (`src/backend/function_app.py`)

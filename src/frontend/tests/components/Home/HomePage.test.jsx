@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -153,6 +153,8 @@ describe("HomePage", () => {
 
   it("FR-017: denied account sees the access-denied screen, not story columns", async () => {
     mockUseCapabilities.mockReturnValue(grantedCapabilities({ hasPlayer: false, denied: true }));
+    listAdventures.mockRejectedValue(new Error("403"));
+    listSavedGames.mockRejectedValue(new Error("403"));
 
     render(
       <MemoryRouter>
@@ -161,11 +163,13 @@ describe("HomePage", () => {
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/access not granted/i);
-    expect(listAdventures).not.toHaveBeenCalled();
+    expect(screen.queryByText(/ready to play/i)).not.toBeInTheDocument();
   });
 
   it("FR-017: an account with no capabilities sees Access Pending, not empty columns", async () => {
     mockUseCapabilities.mockReturnValue(grantedCapabilities({ hasPlayer: false, hasAdministrator: false }));
+    listAdventures.mockRejectedValue(new Error("403"));
+    listSavedGames.mockRejectedValue(new Error("403"));
 
     render(
       <MemoryRouter>
@@ -174,6 +178,51 @@ describe("HomePage", () => {
     );
 
     expect(await screen.findByText(/access pending/i)).toBeInTheDocument();
-    expect(listAdventures).not.toHaveBeenCalled();
+    expect(screen.queryByText(/ready to play/i)).not.toBeInTheDocument();
+  });
+
+  it("FR-017: an admin-only account sees the admin-only message, not empty columns", async () => {
+    mockUseCapabilities.mockReturnValue(grantedCapabilities({ hasPlayer: false, hasAdministrator: true }));
+    listAdventures.mockRejectedValue(new Error("403"));
+    listSavedGames.mockRejectedValue(new Error("403"));
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/no player stories here/i)).toBeInTheDocument();
+    expect(screen.queryByText(/ready to play/i)).not.toBeInTheDocument();
+  });
+
+  // #337: the stories/sessions lookup is independent of the capabilities lookup, so it
+  // must start on mount rather than waiting for /api/auth/me to resolve.
+  it("starts the stories/sessions fetch while capabilities are still loading (#337)", async () => {
+    mockUseCapabilities.mockReturnValue(grantedCapabilities({ hasPlayer: false, loading: true }));
+    listAdventures.mockResolvedValue({ adventures: [story()] });
+    listSavedGames.mockResolvedValue({ sessions: [] });
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    );
+
+    // Still showing the capabilities-loading state, yet the data request is already away.
+    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    await waitFor(() => expect(listAdventures).toHaveBeenCalledTimes(1));
+    expect(listSavedGames).toHaveBeenCalledTimes(1);
+  });
+
+  it("issues exactly one stories/sessions fetch once capabilities resolve (#337)", async () => {
+    mockUseCapabilities.mockReturnValue(grantedCapabilities());
+    listAdventures.mockResolvedValue({ adventures: [story()] });
+    listSavedGames.mockResolvedValue({ sessions: [] });
+
+    await renderHome();
+
+    expect(listAdventures).toHaveBeenCalledTimes(1);
+    expect(listSavedGames).toHaveBeenCalledTimes(1);
   });
 });
