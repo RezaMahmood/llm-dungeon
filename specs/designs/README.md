@@ -69,10 +69,18 @@ One `.nav` bar, same markup on every signed-in surface.
 - **People (05):** roles are Player and/or Administrator — an account may hold both, so the
   role field is checkboxes, not a segmented control, and at least one must be selected. Accounts are Microsoft identities —
   no password field anywhere. Removal is one account at a time, always behind the confirm
-  dialog (`.confirm.show`); there is no bulk selection by design. The list is sorted alphabetically
-  by email, and an account that has never completed sign-in shows a status of "Pending first
-  sign-in" (sign-off recorded in `014-account-listing`'s tasks.md T001; not depicted in this
-  static mockup).
+  dialog (`.dialog-backdrop`/`.dialog`); there is no bulk selection by design.
+  `030-people-admin-design-spec` (issue #333) replaces `05-admin-users.html` with that issue's
+  attached mockup and adds `05-admin-users-spec.md` as a second acceptance reference, and also
+  updates `styles.css` with a shared button-language block (`.btn-primary`/`.btn-secondary`/
+  `.btn-ghost`/`.nav a`) used across every screen. Two parts of the mockup are deliberately
+  **not** implemented, per that spec's Scope note and Assumptions: the separate **Name**
+  column (the backend has no display-name field, only email) and the third **Status** state
+  "Signed out · {relative time}" (the backend has no live session/presence tracking, only a
+  one-time first-sign-in timestamp) — only "Signed in" and "Never signed in" are shown. The
+  list is sorted alphabetically by email in the shipped implementation (the mockup shows
+  newest-added-first; not carried over, since no other screen in this app sorts by recency for
+  a management table).
 - **No prototype screen for `012-story-editing-and-review`:** its administrator story list and
   read-only story-configuration viewer are deliberately absent here. Per that spec's FR-012 and
   the user decision of 2026-09-06, both ship as plain, unstyled pages built only from

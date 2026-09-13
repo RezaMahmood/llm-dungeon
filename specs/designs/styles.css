@@ -250,3 +250,18 @@ textarea.input { min-height: 90px; resize: vertical; }
 .dialog-body { font-size: 14px; opacity: 0.85; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
 
+
+/* — interactive button language (shared across screens) — */
+.btn { transition: background 0.12s, color 0.12s, border-color 0.12s, box-shadow 0.12s; }
+.btn-secondary { border: 2px solid var(--color-text); background: var(--color-bg); }
+.btn-secondary:hover { background: var(--color-accent); color: var(--color-bg); border-color: var(--color-accent); }
+.btn-secondary:active { background: var(--color-accent-600); border-color: var(--color-accent-600); }
+.btn-primary { border: 2px solid var(--color-accent); }
+.btn-primary:hover { background: var(--color-accent-600); border-color: var(--color-accent-600); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 25%, transparent); }
+.btn-primary:active { background: var(--color-accent-700); border-color: var(--color-accent-700); box-shadow: none; }
+.btn-ghost { border: 2px solid var(--color-divider); color: var(--color-neutral-700); }
+.btn-ghost:hover { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-bg); }
+.btn-ghost:active { background: var(--color-accent-600); border-color: var(--color-accent-600); }
+.nav a { border-bottom: 2px solid transparent; }
+.nav a:hover { border-bottom-color: var(--color-accent); }
+.nav a[aria-current="page"] { border-bottom-color: var(--color-accent); }
