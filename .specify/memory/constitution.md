@@ -4,7 +4,8 @@ Version change: 9.1.0 -> 10.0.0
 Modified principles: none.
 This amendment withdraws every functional requirement from this file. What a feature does
 is its spec's to state; this file states principles, workflow, architecture, and the
-non-functional bar the work is held to. It names no screen and no feature spec.
+non-functional bar the work is held to. It names no screen, no feature spec, and no path
+under `specs/`.
 Modified principles:
   - XI. Implementer Design Latitude: design judgement is now guided by the design system
     and the feature's own spec, not by "screen contracts".
@@ -468,9 +469,9 @@ GitHub-side actions only — they do not change where code is written or tested.
   inputs, form fields, cards, navigation, tables, tags, dialogs, dividers, segmented
   controls); a screen MUST NOT reimplement a control the system already provides, or
   introduce a component or visual-style class duplicating one.
-- The token stylesheet MUST be vendored into the app as a single layer, never re-derived,
-  re-typed, or forked per screen. Its source is the "Modernist" stylesheet held at
-  `specs/designs/styles.css`, copied in unmodified.
+- The token stylesheet — the "Modernist" design system — MUST live in the app as a single
+  layer, never re-derived, re-typed, or forked per screen. A screen that needs a token the
+  layer lacks extends that one layer; it does not keep its own copy.
 - A screen MAY introduce a small number of narrowly scoped layout or behavior utility
   classes with no visual-design opinion of their own (a numeral treatment, a row hover tint,
   a scroll-container rule); everything else MUST be a design-system class or a token-based
