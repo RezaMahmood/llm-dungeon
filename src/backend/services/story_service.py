@@ -419,6 +419,17 @@ class StoryService:
                     match_condition=MatchConditions.IfNotModified,
                 )
                 return story
+            except CosmosResourceNotFoundError:
+                # Hard-deleted between the read above and this write. The same outcome as
+                # finding it already gone at read time (the `item is None` branch): the
+                # turn itself is already persisted on the test-play session, so a caller
+                # that cannot accrue tokens to a story that no longer exists should not
+                # see its turn fail.
+                logger.info(
+                    "Test-play token accrual found the story already deleted",
+                    extra={"story_id": story_id},
+                )
+                return None
             except CosmosAccessConditionFailedError:
                 if attempt >= max_attempts:
                     logger.warning(

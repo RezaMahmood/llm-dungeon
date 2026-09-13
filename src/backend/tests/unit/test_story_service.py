@@ -236,10 +236,16 @@ def test_publish_returns_gate_sentinel_when_gate_not_satisfied():
     story = _story(lastTestPlayedAt=None)
     service, cosmos, _llm = _service_with_etag(story)
 
+    container = cosmos.get_container("stories")
+    etag_before = container.items[story.id]["_etag"]
+
     result = service.publish(story.id)
 
     assert result is PUBLISH_GATE_NOT_SATISFIED
-    assert cosmos.get_container("stories").items[story.id]["published"] is False
+    # The seeded story is already unpublished, so asserting on `published` alone would
+    # pass whether or not a write happened — the etag is what proves none did.
+    assert container.items[story.id]["_etag"] == etag_before
+    assert container.items[story.id]["published"] is False
 
 
 def test_publish_sets_published_and_stamps_last_published_at_when_gate_satisfied():
@@ -372,6 +378,18 @@ def test_record_test_play_returns_none_for_missing_story():
     service = StoryService(cosmos_service=cosmos)
 
     assert service.record_test_play("missing", 10) is None
+
+
+def test_record_test_play_returns_none_when_the_story_is_deleted_between_the_read_and_the_write():
+    """The third read-modify-write path #281 names. A delete inside the etag window used to
+    escape as CosmosResourceNotFoundError, turning an already-persisted test-play turn into
+    a 500 for its caller; it now reports the story gone, as a read-time miss already did."""
+    story = _story()
+    service, cosmos, _llm = _service_with_etag(story)
+    _delete_after_read(cosmos.get_container("stories"), story.id)
+
+    assert service.record_test_play(story.id, 250) is None
+    assert story.id not in cosmos.get_container("stories").items
 
 
 def test_record_test_play_retries_against_a_fresh_read_on_a_lost_etag_race():

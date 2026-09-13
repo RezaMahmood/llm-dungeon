@@ -41,11 +41,19 @@ Both endpoints are reachable from two callers with no difference in behavior (FR
 }
 ```
 
+**Response (409 Conflict)** — a concurrent write to the same story won the `_etag` race twice, so the publish-state change was not applied (issue #281). The write is conditional precisely so a racing content write cannot be silently clobbered; the client may retry:
+```json
+{
+  "error": "write_conflict",
+  "message": "Another change to this story landed at the same time. Try again."
+}
+```
+
 ---
 
 ## POST /api/manage/stories/{storyId}/unpublish
 
-**Purpose**: Unpublish a previously published story, removing it from the player-facing adventure list (FR-004). Idempotent (FR-006). Never affects in-progress play sessions (FR-005). No server-side precondition — the "are you sure?" confirmation (FR-013) is enforced client-side only, before this call is made.
+**Purpose**: Unpublish a previously published story, removing it from the player-facing adventure list (FR-004). Idempotent (FR-006). Never affects in-progress play sessions (FR-005). The "are you sure?" confirmation (FR-013) is enforced client-side only, before this call is made; the write itself carries an `_etag` precondition (issue #281), so a story deleted mid-write is never resurrected and a lost race surfaces as `409` rather than overwriting the winner.
 
 **Request**: No body.
 
@@ -64,6 +72,14 @@ Both endpoints are reachable from two callers with no difference in behavior (FR
 **Response (404 Not Found)**:
 ```json
 { "error": "not_found", "message": "Story not found" }
+```
+
+**Response (409 Conflict)** — a concurrent write to the same story won the `_etag` race twice, so the publish-state change was not applied (issue #281). The write is conditional precisely so a racing content write cannot be silently clobbered; the client may retry:
+```json
+{
+  "error": "write_conflict",
+  "message": "Another change to this story landed at the same time. Try again."
+}
 ```
 
 ### Validation Rules (both endpoints)

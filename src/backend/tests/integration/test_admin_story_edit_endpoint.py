@@ -476,3 +476,6 @@ def test_save_draft_returns_404_when_the_story_is_deleted_between_the_read_and_t
     assert body["error"] == "not_found"
     assert body["message"] == "Story not found"
     assert "story-1" not in story_service._container().items
+    # The draft is the admin's unsaved work: a save that could not land must not consume
+    # it, or the failure would cost them the edit as well as the story.
+    assert draft_service.get_draft(draft_id) is not None
