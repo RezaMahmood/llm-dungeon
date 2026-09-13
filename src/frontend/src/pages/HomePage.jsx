@@ -41,15 +41,17 @@ export function HomePage() {
     return tokenResponse.accessToken;
   }, [instance, account]);
 
-  // An account without Player capability (admin-only) is never served either list
-  // (spec.md Edge Cases) — HomePage's caller handles that state before this data matters,
-  // so this simply avoids an API call that would only 403.
+  // Starts on mount, in parallel with the capabilities check (#337): a player's stories and
+  // sessions are an independent lookup from their identity/role, so gating this on
+  // `hasPlayer` only bought two sequential round-trips plus a throwaway empty first fetch.
+  // An account without Player capability (admin-only, pending or denied) never renders
+  // either list (spec.md Edge Cases) — those branches return before `data` is read, so a
+  // request that 403s here is discarded rather than shown.
   const fetchHomeData = useCallback(async () => {
-    if (!hasPlayer) return { adventures: [], sessions: [] };
     const token = await getToken();
     const [adventuresData, sessionsData] = await Promise.all([listAdventures(token), listSavedGames(token)]);
     return { adventures: adventuresData.adventures || [], sessions: sessionsData.sessions || [] };
-  }, [getToken, hasPlayer]);
+  }, [getToken]);
 
   const { data, loading, error, refresh } = useRefreshable(fetchHomeData);
 
