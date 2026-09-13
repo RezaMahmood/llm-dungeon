@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM Dungeon — Admin: sessions</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+html, body { height: 100%; }
+body { margin: 0; overflow: hidden; }
+.shell { height: 100vh; overflow: hidden; display: flex; flex-direction: column; font-family: var(--font-body); color: var(--color-text); }
+.ovnum { font-family: var(--font-heading); font-weight: 800; letter-spacing: -0.05em; line-height: 0.8; }
+.confirm { display: none; }
+/* toggle: add class "show" to .confirm to display the delete confirmation */
+.confirm.show { display: grid; }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; overflow-wrap: anywhere; }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+th.num { text-align: right; }
+.deleted { color: var(--color-neutral-700); font-style: italic; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="nav" style="background:var(--color-bg);flex:none;gap:0">
+    <span class="nav-brand" style="margin-right:28px">LLM Dungeon <span style="font-weight:400;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-accent-700);margin-left:8px">Admin</span></span>
+    <a href="04-admin-wizard.html" style="padding:10px 14px">Stories</a>
+    <a href="04-admin-wizard.html" style="padding:10px 14px">New story</a>
+    <a href="05-admin-users.html" style="padding:10px 14px">People</a>
+    <a href="08-admin-sessions.html" style="padding:10px 14px" aria-current="page">Sessions</a>
+    <span style="width:1px;align-self:stretch;background:var(--color-divider);margin:0 16px"></span>
+    <a href="06-home.html" style="padding:10px 14px">Player view</a>
+    <button class="btn btn-ghost" type="button" title="Refresh" aria-label="Refresh" onclick="location.reload()" style="margin-left:auto;gap:8px;padding:8px 12px;font-size:13px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+      Refresh
+    </button>
+    <a href="01-login.html" style="padding:10px 14px;margin-left:12px">Sign out</a>
+    <span class="tag tag-neutral" style="margin-left:16px">Ms Okafor</span>
+  </div>
+
+<div style="flex:1;overflow:auto;position:relative">
+  <div style="padding:28px 16px 64px">
+    <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent-700)">Sessions</div>
+    <h2 style="margin:4px 0 0" id="headline">14 sessions across 3 stories</h2>
+    <hr class="hr" style="margin:20px 0 32px">
+
+    <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 50%, transparent)">All sessions</div>
+    <table class="table" style="margin-top:10px">
+      <thead>
+        <tr>
+          <th>Story</th>
+          <th>Session ID</th>
+          <th class="num">Total tokens</th>
+          <th>Account</th>
+          <th style="width:1%"></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <p class="text-muted" style="margin:16px 0 0;font-size:13px;max-width:60ch">Deleting a session removes the player&rsquo;s saved progress and its transcript. Token totals stay in the usage record.</p>
+  </div>
+
+  <div class="dialog-backdrop confirm">
+    <div class="dialog" style="width:min(460px,100%);padding:32px">
+      <div class="dialog-title" style="font-size:24px">Delete this session?</div>
+      <div class="dialog-body" id="confirmBody">The player loses their saved progress for this story. This cannot be undone.</div>
+      <hr class="hr" style="margin:6px 0">
+      <button class="btn btn-primary btn-block" type="button" style="padding:13px 16px;margin:0" onclick="confirmDelete()">Delete session</button>
+      <button class="btn btn-secondary btn-block" type="button" style="padding:13px 16px;margin:0" onclick="closeConfirm()">Keep it</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+const sessions = [
+  { story: null, id: "d668d9f8-9e26-4161-a95c-8500e8333219", tokens: 0, email: "riz74@company.internal" },
+  { story: "Space Pirates from Clown Space", id: "5e871cbe-b979-41f9-b7a8-dd114243f8fa", tokens: 0, email: "riz74@company.internal" },
+  { story: "Space Pirates from Clown Space", id: "cda0a7ad-c176-40bf-810d-f7f371f15a2b", tokens: 0, email: "riz74@company.internal" },
+  { story: "Space Pirates from Clown Space", id: "d8e42539-24ed-447c-899c-e203e1861bee", tokens: 0, email: "elisande.mahmood@company.internal" },
+  { story: "Space Pirates from Clown Space", id: "7534edaf-9482-456a-a35e-89f46fae2d6c", tokens: 0, email: "oliver.mahmood@company.internal" },
+  { story: "Space Pirates from Clown Space", id: "04beffd3-98b3-4e0c-9900-1717fc8cbb99", tokens: 0, email: "oliver.mahmood@company.internal" },
+  { story: "Space Pirates from Clown Space", id: "077421e5-e0e7-443a-96ab-d9d2d480ee14", tokens: 16393, email: "riz74@company.internal" },
+  { story: "Basement of Rats", id: "916737d7-597e-4468-b980-0edf90f2cc17", tokens: 68854, email: "oliver.mahmood@company.internal" },
+  { story: "Space Pirates from Clown Space", id: "441ef055-fbf9-442f-ae5c-b2155c8b4c8b", tokens: 0, email: "riz74@company.internal" },
+  { story: "Space Pirates from Clown Space", id: "2b8cd98f-db5b-4c26-939b-739b91d2c8f6", tokens: 0, email: "riz74@company.internal" },
+  { story: "Space Pirates from Clown Space", id: "b8738c7e-a069-43eb-9b78-bdc3a21ed5bb", tokens: 0, email: "riz74@company.internal" },
+  { story: "Space Pirates from Clown Space", id: "4f48dda4-beb5-4f7a-9964-ca716ee3b9b9", tokens: 0, email: "riz74@company.internal" },
+  { story: "Basement of Rats", id: "888d44ef-25d4-4e68-b7ef-649741905155", tokens: 67639, email: "riz74@company.internal" },
+  { story: "Basement of Rats", id: "70313a7f-7556-4f3b-b072-711a8e32c50c", tokens: 0, email: "riz74@company.internal" }
+];
+
+let pending = null;
+
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+
+function render() {
+  document.getElementById("rows").innerHTML = sessions.map((s, i) =>
+    '<tr>'
+    + '<td>' + (s.story ? esc(s.story) : '<span class="deleted">(deleted story)</span>') + '</td>'
+    + '<td class="mono text-muted">' + esc(s.id) + '</td>'
+    + '<td class="num">' + s.tokens.toLocaleString("en-GB") + '</td>'
+    + '<td class="text-muted" style="overflow-wrap:anywhere">' + esc(s.email) + '</td>'
+    + '<td style="white-space:nowrap"><button class="btn btn-ghost" type="button" style="padding:6px 10px;font-size:12px;white-space:nowrap;gap:6px" onclick="askDelete(' + i + ')">'
+    + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M3 6h18"></path><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg>Delete</button></td>'
+    + '</tr>').join("");
+
+  const storyCount = new Set(sessions.filter(s => s.story).map(s => s.story)).size;
+  document.getElementById("headline").textContent =
+    sessions.length + (sessions.length === 1 ? " session across " : " sessions across ") + storyCount + (storyCount === 1 ? " story" : " stories");
+}
+
+function askDelete(i) {
+  pending = i;
+  const s = sessions[i];
+  document.getElementById("confirmBody").textContent =
+    "Session " + s.id.slice(0, 8) + "… for " + s.email + " will be removed, along with its saved progress. This cannot be undone.";
+  document.querySelector(".confirm").classList.add("show");
+}
+
+function closeConfirm() {
+  pending = null;
+  document.querySelector(".confirm").classList.remove("show");
+}
+
+function confirmDelete() {
+  if (pending !== null) sessions.splice(pending, 1);
+  closeConfirm();
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
