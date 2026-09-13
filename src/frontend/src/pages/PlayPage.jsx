@@ -43,9 +43,11 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit,
   const [notice, setNotice] = useState(null);
   const [pauseOpen, setPauseOpen] = useState(false);
   const [exiting, setExiting] = useState(false);
+  const [savingCheckpoint, setSavingCheckpoint] = useState(false);
   const [resuming, setResuming] = useState(false);
   const [checkpointNotice, setCheckpointNotice] = useState(null);
   const checkpointNoticeTimer = useRef(null);
+  const checkpointRef = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshNotice, setRefreshNotice] = useState(null);
   // A submit and a refresh both replace `turns` wholesale from their own response —
@@ -69,6 +71,11 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit,
   );
 
   const handleSaveCheckpoint = useCallback(async () => {
+    // Guarded like the submit and refresh paths: without this a slow save takes a second
+    // click and posts a second checkpoint, racing two notice timers (issue #347).
+    if (checkpointRef.current) return;
+    checkpointRef.current = true;
+    setSavingCheckpoint(true);
     try {
       const token = await getToken();
       const data = await saveCheckpoint(token, sessionId);
@@ -77,6 +84,8 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit,
       // A removed session is not a failed save — there is nothing left to save into, and
       // "your progress is safe" would be false. The player leaves instead (FR-012).
       if (isSessionRemoved(err)) {
+        checkpointRef.current = false;
+        setSavingCheckpoint(false);
         onSessionRemoved?.();
         return;
       }
@@ -85,6 +94,8 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit,
         message: "We couldn't record that checkpoint, but your progress is safe.",
       });
     }
+    checkpointRef.current = false;
+    setSavingCheckpoint(false);
     if (checkpointNoticeTimer.current) clearTimeout(checkpointNoticeTimer.current);
     checkpointNoticeTimer.current = setTimeout(() => setCheckpointNotice(null), CHECKPOINT_NOTICE_MS);
   }, [getToken, sessionId, onSessionRemoved]);
@@ -110,7 +121,12 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit,
   // Published to the header AuthenticatedLayout renders, so this page never grows a
   // second title bar with its own, unconfirmed way out (FR-016).
   const openPauseDialog = useCallback(() => setPauseOpen(true), []);
-  usePublishPlayTitle({ storyTitle: storyName, onPauseExit: openPauseDialog, onSaveCheckpoint: handleSaveCheckpoint });
+  usePublishPlayTitle({
+    storyTitle: storyName,
+    onPauseExit: openPauseDialog,
+    onSaveCheckpoint: handleSaveCheckpoint,
+    savingCheckpoint,
+  });
 
   // Re-syncs the play screen against the session's currently recorded state (FR-009,
   // research.md Decision 3) — reuses the same getSession call GamePage's resume path
@@ -154,7 +170,10 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit,
       busyRef.current = false;
     }
   }, [getToken, sessionId]);
-  usePublishRefresh({ refresh: handleRefresh, loading: refreshing || submitting });
+  // `loading` is what the control spins and says "Refreshing…" for; `disabled` only makes
+  // it inert. A submit must not make the header claim a refresh is running while the dock
+  // already says the story is thinking (issue #347).
+  usePublishRefresh({ refresh: handleRefresh, loading: refreshing, disabled: submitting });
 
   const handleSubmit = async (input) => {
     if (busyRef.current) return;

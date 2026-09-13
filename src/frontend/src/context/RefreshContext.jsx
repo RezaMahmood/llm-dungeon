@@ -17,17 +17,21 @@ export function RefreshProvider({ children }) {
 
 /**
  * Called by the currently-mounted page with its `useRefreshable` output.
- * Publishes `{ refresh, loading }` while mounted; clears it on unmount so
+ * Publishes `{ refresh, loading, disabled }` while mounted; clears it on unmount so
  * navigating away removes the control from the nav bar before the next
  * page's own effect runs.
+ *
+ * `loading` means a refresh is actually in flight — the control spins and says so.
+ * `disabled` (optional) only makes it inert, for a page that has some *other* call
+ * running that a refresh must not race.
  */
-export function usePublishRefresh({ refresh, loading }) {
+export function usePublishRefresh({ refresh, loading, disabled = false }) {
   const ctx = useContext(RefreshContext);
   const setValue = ctx?.setValue;
 
   const publish = useCallback(() => {
-    setValue?.({ refresh, loading });
-  }, [setValue, refresh, loading]);
+    setValue?.({ refresh, loading, disabled });
+  }, [setValue, refresh, loading, disabled]);
 
   useEffect(() => {
     publish();

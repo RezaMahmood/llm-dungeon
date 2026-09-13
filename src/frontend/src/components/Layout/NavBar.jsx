@@ -75,6 +75,10 @@ export function NavBar() {
     } catch {
       // Lookup failed — fall through to a plain sign-out rather than blocking it.
     }
+    // Reset before redirecting (not just on the prompt path) so the link recovers if
+    // logoutRedirect() doesn't actually navigate away — otherwise the in-flight guard
+    // above would swallow every retry click. Same reasoning as handleSaveAndSignOut.
+    setSigningOut(false);
     instance.logoutRedirect();
   };
 
@@ -213,7 +217,7 @@ export function NavBar() {
           minWidth: 0,
         }}
       >
-        {published && <RefreshButton onClick={published.refresh} loading={published.loading} />}
+        {published && <RefreshButton onClick={published.refresh} loading={published.loading} disabled={published.disabled} />}
         <a
           href="/login"
           style={{ ...LINK_STYLE, display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}

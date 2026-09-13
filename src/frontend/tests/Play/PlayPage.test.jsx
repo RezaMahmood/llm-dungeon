@@ -281,7 +281,9 @@ describe("PlayPage (008-core-gameplay-done)", () => {
     const exitButton = await screen.findByRole("button", { name: /saving your story…/i });
     expect(exitButton).toBeDisabled();
     expect(exitButton).toHaveAttribute("aria-busy", "true");
-    expect(screen.getByRole("button", { name: /keep playing/i })).toBeDisabled();
+    // The way back into the game stays live: the save has no timeout, and a stalled one
+    // must not leave the dialog with no way out.
+    expect(screen.getByRole("button", { name: /keep playing/i })).toBeEnabled();
 
     resolveSave({ checkpoint: { label: "Lighthouse entrance" } });
   });
@@ -399,6 +401,46 @@ describe("PlayPage (008-core-gameplay-done)", () => {
       narrative: { ...OPENING_NARRATIVE, turnNumber: 1, narrativeText: "A spiral of stairs climbs into the dark." },
     });
     await waitFor(() => expect(screen.queryByText(/the story is thinking/i)).not.toBeInTheDocument());
+  });
+
+  // issue #347: the checkpoint control is a backend call like any other — it says it is
+  // working, and a second click while it is out must not post a second checkpoint.
+  it("greys out the checkpoint control and ignores a second click while the save is in flight", async () => {
+    let resolveSave;
+    saveCheckpoint.mockReturnValue(new Promise((resolve) => (resolveSave = resolve)));
+    const user = userEvent.setup();
+    renderPlayPageWithTitleBar();
+
+    await user.click(screen.getByRole("button", { name: /save a checkpoint/i }));
+
+    const saving = await screen.findByRole("button", { name: /^saving…$/i });
+    expect(saving).toBeDisabled();
+    expect(saving).toHaveAttribute("aria-busy", "true");
+
+    await user.click(saving);
+    expect(saveCheckpoint).toHaveBeenCalledOnce();
+
+    resolveSave({ checkpoint: { label: "Lighthouse entrance" } });
+    await screen.findByText(/checkpoint saved at lighthouse entrance/i);
+  });
+
+  // The header must not claim a refresh is running just because a turn is in flight — the
+  // dock already says the story is thinking (issue #347).
+  it("leaves the refresh control inert but not spinning while a turn is in flight", async () => {
+    let resolveSubmit;
+    submitInteraction.mockReturnValue(new Promise((resolve) => (resolveSubmit = resolve)));
+    const user = userEvent.setup();
+    renderPlayPageWithTitleBar();
+
+    await user.type(screen.getByLabelText(/what do you do next/i), "look around");
+    await user.click(screen.getByRole("button", { name: /^go$/i }));
+
+    const refresh = screen.getByRole("button", { name: /^refresh$/i });
+    expect(refresh).toBeDisabled();
+    expect(refresh).not.toHaveAttribute("aria-busy");
+
+    resolveSubmit({ status: "active", narrative: { ...OPENING_NARRATIVE, turnNumber: 1 } });
+    await waitFor(() => expect(screen.getByRole("button", { name: /^refresh$/i })).not.toBeDisabled());
   });
 
   it("disables the refresh control while a submit is in flight, and Go/chips while a refresh is in flight (029)", async () => {

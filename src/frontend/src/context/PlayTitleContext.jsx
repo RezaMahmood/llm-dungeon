@@ -24,15 +24,17 @@ export function PlayTitleProvider({ children }) {
  * continue) its checkpoint-save handler. Publishes them while mounted and clears them on
  * unmount, so navigating away returns the header to its plain state. `onPauseExit` and
  * `onSaveCheckpoint` must both be referentially stable (wrap them in `useCallback`).
+ * `savingCheckpoint` says that save is in flight, so the header's control can grey itself
+ * out and spin rather than take a second click (issue #347).
  */
-export function usePublishPlayTitle({ storyTitle, onPauseExit, onSaveCheckpoint }) {
+export function usePublishPlayTitle({ storyTitle, onPauseExit, onSaveCheckpoint, savingCheckpoint = false }) {
   const ctx = useContext(PlayTitleContext);
   const setValue = ctx?.setValue;
 
   useEffect(() => {
-    setValue?.({ storyTitle, onPauseExit, onSaveCheckpoint });
+    setValue?.({ storyTitle, onPauseExit, onSaveCheckpoint, savingCheckpoint });
     return () => setValue?.(null);
-  }, [setValue, storyTitle, onPauseExit, onSaveCheckpoint]);
+  }, [setValue, storyTitle, onPauseExit, onSaveCheckpoint, savingCheckpoint]);
 }
 
 /** Called by `TitleBar` to read what the play page published, if anything. */

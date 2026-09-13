@@ -6,8 +6,10 @@ import PendingButton from "../Common/PendingButton.jsx";
  * specs/designs/03-play.html's pause dialog.
  *
  * `saving`: the exit records a checkpoint first, which is a backend call that can be slow,
- * so the button that was pressed spins and both buttons go inert until it comes back
- * (issue #347) — otherwise the dialog just sits there and the player presses again.
+ * so the button that was pressed spins and stops responding until it comes back (issue
+ * #347) — otherwise the dialog just sits there and the player presses again. "Keep
+ * playing" deliberately stays live: the save has no timeout, and greying out the way back
+ * into the game would turn a stalled request into a dialog with no way out at all.
  */
 export function PauseDialog({ locationLabel, onKeepPlaying, onConfirmExit, saving = false }) {
   return (
@@ -34,7 +36,6 @@ export function PauseDialog({ locationLabel, onKeepPlaying, onConfirmExit, savin
           className="btn btn-primary btn-block"
           style={{ padding: "14px 16px", fontSize: "16px", margin: 0 }}
           onClick={onKeepPlaying}
-          disabled={saving}
         >
           Keep playing
         </PendingButton>

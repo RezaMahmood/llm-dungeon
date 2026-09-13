@@ -9,14 +9,14 @@ import { Spinner } from "./PendingButton.jsx";
  * than sitting still (issue #347): a static refresh glyph beside "Refreshing…" reads as
  * a control that did nothing.
  */
-export function RefreshButton({ onClick, loading }) {
+export function RefreshButton({ onClick, loading, disabled = false }) {
   return (
     <button
       className="btn btn-ghost"
       type="button"
       title="Refresh"
       aria-label="Refresh"
-      disabled={loading}
+      disabled={loading || disabled}
       aria-busy={loading || undefined}
       onClick={onClick}
       style={{ gap: 8, padding: "8px 12px", fontSize: 13 }}
