@@ -27,9 +27,36 @@ const STALE_STORY_MESSAGE = "This story changed since you opened it. Reload it a
 // draft, stranding work the server had already saved (FR-005, SC-003).
 const ACTIVE_DRAFT_KEY = "llmdungeon.storyWizard.activeDraftId";
 
+// A draft expires server-side 24h after its last write (DRAFT_TTL_SECONDS in
+// backend/models/story_draft.py, reset by every draft write). The remembered id is
+// stamped with the time of the write that produced it, so a resume the server can only
+// answer with 404 is dropped here instead of being spent as a request — an expected
+// "nothing to resume" state should never reach the administrator's console as a failed
+// request (#135). The stamp slides with the server's TTL because every successful write
+// re-stamps it, exactly as every write resets `ttl` on the document.
+const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
+
 function readActiveDraftId() {
   try {
-    return sessionStorage.getItem(ACTIVE_DRAFT_KEY);
+    const raw = sessionStorage.getItem(ACTIVE_DRAFT_KEY);
+    if (!raw) return null;
+    let record = null;
+    try {
+      record = JSON.parse(raw);
+    } catch {
+      // Written by a build that stored the bare id: its age is unknowable, so it can
+      // only be guessed at with a request that may 404. Drop it instead.
+      record = null;
+    }
+    if (!record || typeof record !== "object" || !record.id || typeof record.savedAt !== "number") {
+      writeActiveDraftId(null);
+      return null;
+    }
+    if (Date.now() - record.savedAt >= DRAFT_TTL_MS) {
+      writeActiveDraftId(null);
+      return null;
+    }
+    return record.id;
   } catch {
     return null;
   }
@@ -38,7 +65,7 @@ function readActiveDraftId() {
 function writeActiveDraftId(draftId) {
   try {
     if (draftId) {
-      sessionStorage.setItem(ACTIVE_DRAFT_KEY, draftId);
+      sessionStorage.setItem(ACTIVE_DRAFT_KEY, JSON.stringify({ id: draftId, savedAt: Date.now() }));
     } else {
       sessionStorage.removeItem(ACTIVE_DRAFT_KEY);
     }
@@ -144,6 +171,7 @@ export function AdminStoryWizardPage() {
   const refreshingRef = useRef(false);
   const [generateStatus, setGenerateStatus] = useState("idle"); // idle | generating | error | stale
   const [fieldErrors, setFieldErrors] = useState({}); // { [fieldKey]: message }
+  const [loadError, setLoadError] = useState(null);
 
   useUnsavedChangesWarning(isDirty);
 
@@ -175,17 +203,28 @@ export function AdminStoryWizardPage() {
             setDraft(existing.draft);
             return;
           }
-        } catch {
-          // Draft is gone (already generated, or expired) — fall through and
-          // start a fresh one rather than dead-ending the administrator.
+        } catch (err) {
+          if (cancelled) return;
+          // Only the server saying the draft is gone (already generated, or expired)
+          // justifies forgetting it and starting over. Any other failure — offline, a
+          // 401, a 5xx — says nothing about whether the draft still exists, and
+          // starting a fresh one there would strand work the administrator had saved.
+          const status = err?.response?.status;
+          if (status !== 404 && status !== 410) {
+            setLoadError(err);
+            return;
+          }
         }
         if (cancelled) return;
         writeActiveDraftId(null);
       }
 
       const data = await createDraft(tokenResponse.accessToken);
-      if (cancelled) return;
+      // Recorded before the cancellation check: the draft exists on the server either
+      // way, so a wizard that unmounted mid-create must still be able to resume it
+      // rather than abandon it and create another.
       writeActiveDraftId(data.draft?.id ?? null);
+      if (cancelled) return;
       setDraft(data.draft);
     })();
     return () => {
@@ -194,16 +233,24 @@ export function AdminStoryWizardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- accountKey is the stable dependency
   }, [instance, accountKey, isEditMode, storyId]);
 
-  const applyWriteResult = useCallback((data) => {
-    if (data.status === "generated" || data.status === "saved") {
-      // The draft became (or was applied back to) a story — there is nothing left to resume.
-      writeActiveDraftId(null);
-      setStory(data.story);
-      setDraft(null);
-    } else {
-      setDraft(data.draft);
-    }
-  }, []);
+  const applyWriteResult = useCallback(
+    (data) => {
+      if (data.status === "generated" || data.status === "saved") {
+        // The draft became (or was applied back to) a story — there is nothing left to resume.
+        writeActiveDraftId(null);
+        setStory(data.story);
+        setDraft(null);
+      } else {
+        // Every draft write resets the document's server-side TTL, so re-stamp the
+        // remembered id to keep the client's idea of when it expires in step with the
+        // server's. Edit drafts are bound to a storyId and are never resumed from
+        // session storage, so they are deliberately not recorded here.
+        if (!isEditMode && data.draft?.id) writeActiveDraftId(data.draft.id);
+        setDraft(data.draft);
+      }
+    },
+    [isEditMode],
+  );
 
   // Caught here, not by callers — StepWorldSetting/CharacterTypeList/CompletionCriteriaFields
   // all fire onPatch from a blur/change handler without awaiting it, so a rejection here
@@ -317,6 +364,16 @@ export function AdminStoryWizardPage() {
         <hr className="hr" style={{ margin: "24px 0" }} />
         <h3>Publish & assign</h3>
         <StepPublish story={story} token={token} onStoryChange={setStory} />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div style={{ padding: "var(--space-6)" }}>
+        <p role="alert">
+          Couldn&rsquo;t open your story draft. Your saved progress is still there &mdash; reload the page to try again.
+        </p>
       </div>
     );
   }
