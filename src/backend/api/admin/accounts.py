@@ -32,6 +32,9 @@ def _account_summary(entry) -> dict:
         # seed administrator's row (T061's server-side check in remove_account
         # is the actual enforcement, per Constitution Principle II).
         "isSeedAdmin": bool(config.SEED_ADMIN_EMAIL) and entry.email == config.SEED_ADMIN_EMAIL.lower(),
+        # Already stored on every entry; exposed here so the People screen can show an
+        # "Added" date (030-people-admin-design-spec FR-008).
+        "dateAdded": entry.dateAdded,
     }
 
 

@@ -45,7 +45,7 @@ describe("AccountList", () => {
     expect(screen.getByText("Administrator")).toBeInTheDocument();
   });
 
-  it("shows bound status as Signed in / Pending first sign-in", () => {
+  it("shows bound status as Signed in / Never signed in, and never a third signed-out state", () => {
     render(
       <AccountList
         accounts={[
@@ -56,7 +56,34 @@ describe("AccountList", () => {
     );
 
     expect(screen.getByText("Signed in")).toBeInTheDocument();
-    expect(screen.getByText("Pending first sign-in")).toBeInTheDocument();
+    expect(screen.getByText("Never signed in")).toBeInTheDocument();
+    expect(screen.queryByText(/signed out/i)).not.toBeInTheDocument();
+  });
+
+  it("gives Player an outline tag and Administrator an accent tag", () => {
+    render(
+      <AccountList
+        accounts={[{ email: "dual@example.com", roles: ["Player", "Administrator"], bound: true }]}
+      />,
+    );
+
+    expect(screen.getByText("Player")).toHaveClass("tag-outline");
+    expect(screen.getByText("Administrator")).toHaveClass("tag-accent");
+  });
+
+  it("shows a short formatted Added date, and nothing when dateAdded is absent", () => {
+    render(
+      <AccountList
+        accounts={[
+          { email: "dated@example.com", roles: ["Player"], bound: true, dateAdded: "2026-08-12T09:03:00Z" },
+          { email: "undated@example.com", roles: ["Player"], bound: false },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("12 Aug")).toBeInTheDocument();
+    const undatedRow = screen.getByText("undated@example.com").closest("tr");
+    expect(undatedRow.cells[3]).toHaveTextContent("");
   });
 
   it("renders an empty table when there are no accounts", () => {

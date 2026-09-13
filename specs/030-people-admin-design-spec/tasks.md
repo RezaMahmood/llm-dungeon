@@ -51,7 +51,7 @@ Referenced by number below rather than restated in each task.
 
 ## Phase 1: Setup — canonical design reference
 
-- [ ] **T001** Vendor issue #333's attachments into `specs/designs/`: replace
+- [X] **T001** Vendor issue #333's attachments into `specs/designs/`: replace
   `05-admin-users.html` and `styles.css` with the attached versions, and add
   `05-admin-users-spec.md`. Update `specs/designs/README.md`'s People (05) note to record that
   `030-people-admin-design-spec` supersedes the old markup, name the button-language block now
@@ -68,12 +68,12 @@ Referenced by number below rather than restated in each task.
 nav underline) must exist in the app's token layer before any story's UI can be checked
 against the canonical mockup.
 
-- [ ] **T002** Append the canonical `styles.css`'s shared button-interaction block (`.btn`
+- [X] **T002** Append the canonical `styles.css`'s shared button-interaction block (`.btn`
   transition; `.btn-secondary`/`.btn-primary`/`.btn-ghost` border/hover/press rules; `.nav a`
   bottom-border states) to `src/frontend/src/styles/designTokens.css`, in the same relative
   position (after the existing button rules), matching D5. Do not remove or rewrite the
   existing rules — this is additive only.
-- [ ] **T003** [P] Manually verify (per quickstart.md step 10) that an unrelated screen already
+- [X] **T003** [P] Manually verify (per quickstart.md step 10) that an unrelated screen already
   using `.btn-primary`/`.btn-secondary` (e.g. Home's primary action, or the admin Stories list)
   picks up the new border/hover/press treatment with no code change on that screen.
 
@@ -95,39 +95,39 @@ bound/never-bound and single/dual-role states; confirm the table and layout matc
 
 > Write these first; confirm they fail before implementing.
 
-- [ ] **T004** [P] [US1] In `src/backend/tests/integration/test_admin_accounts_endpoint.py`,
+- [X] **T004** [P] [US1] In `src/backend/tests/integration/test_admin_accounts_endpoint.py`,
   update `test_list_accounts_returns_every_entry_with_email_and_roles` and
   `test_add_account_*`'s exact-shape assertions (the `body["account"] ==` / `body["accounts"]
   ==` checks) to include `"dateAdded"`, and add a new test asserting `dateAdded` is `None` for
   an entry created with no `dateAdded` set and the ISO string for one that has it.
-- [ ] **T005** [P] [US1] In `src/frontend/tests/components/AccountList.test.jsx`, add
+- [X] **T005** [P] [US1] In `src/frontend/tests/components/AccountList.test.jsx`, add
   assertions: a bound account's row shows "Signed in" text and a `.status-on` dot; a
   never-bound account's row shows "Never signed in" and a `.status-off` dot; the design's
   third-state text ("Signed out") never appears anywhere; a `Player`-only account renders a
   `tag-outline` tag and an `Administrator`-holding account renders a `tag-accent` tag; a row
   with a `dateAdded` value renders a short formatted date, and a row with none renders no
   placeholder text.
-- [ ] **T006** [P] [US1] In `src/frontend/tests/integration/admin_accounts.test.jsx`, add an
+- [X] **T006** [P] [US1] In `src/frontend/tests/integration/admin_accounts.test.jsx`, add an
   assertion that the page heading reads `{n} accounts in LLM Dungeon` where `n` matches the
   loaded account count, and that the accounts table and add-account panel both render within
   the page (grid presence, not exact pixel layout).
 
 ### Implementation for User Story 1
 
-- [ ] **T007 [US1]** In `src/backend/api/admin/accounts.py`, add `"dateAdded": entry.dateAdded`
+- [X] **T007 [US1]** In `src/backend/api/admin/accounts.py`, add `"dateAdded": entry.dateAdded`
   to `_account_summary()`'s returned dict (D6, FR-008). Run T004 to confirm it now passes.
-- [ ] **T008 [P] [US1]** Create `src/frontend/src/components/Admin/AdminAccounts.css`
+- [X] **T008 [P] [US1]** Create `src/frontend/src/components/Admin/AdminAccounts.css`
   (page-scoped, mirrors `Home.css`/`Play.css`): the `PEOPLE` kicker treatment, the `.hr`
   spacing, the `.people-grid` two-column layout (`repeat(auto-fit, minmax(min(100%, 420px),
   1fr)); gap: 40px; align-items: start`), and the Status classes
   (`.status`/`.status .dot`/`.status-on .dot`/`.status-off .dot`/`.status-off`) exactly as
   `05-admin-users-spec.md` §6.1 specifies (square dot, no border-radius).
-- [ ] **T009 [US1]** Rewrite `src/frontend/src/pages/AdminAccountsPage.jsx`: drop the
+- [X] **T009 [US1]** Rewrite `src/frontend/src/pages/AdminAccountsPage.jsx`: drop the
   `max-width` wrapper, add the `PEOPLE` kicker + `<h2>{accounts.length} accounts in LLM
   Dungeon</h2>` heading, wrap `AccountList`/`AccountForm` in `.people-grid`, add the muted
   caption below the table ("Removing an account revokes access at the next sign-in. Stories
   the player has finished stay in the class record."), and import `AdminAccounts.css`.
-- [ ] **T010 [US1]** In `src/frontend/src/components/Admin/AccountList.jsx`: reorder/update
+- [X] **T010 [US1]** In `src/frontend/src/components/Admin/AccountList.jsx`: reorder/update
   table columns to Microsoft account / Role / Status / Added / *(actions)*; change
   `ROLE_TAG_CLASS` so `Player → "tag tag-outline"` (Administrator stays `"tag tag-accent"`,
   research.md Decision 5); replace the current Status cell text (`"Signed in"`/`"Pending first
@@ -136,7 +136,7 @@ bound/never-bound and single/dual-role states; confirm the table and layout matc
   `AdminPage.jsx`'s `formatLastPublished`, rendering nothing when absent); keep the Remove
   button's existing eligibility logic, restyled to `padding: 6px 10px; font-size: 12px` per
   design spec §6; add `overflow-wrap: anywhere` to the Microsoft-account cell (FR-006).
-- [ ] **T011 [US1]** Run T004–T006 and confirm they pass; run the full existing
+- [X] **T011 [US1]** Run T004–T006 and confirm they pass; run the full existing
   `test_admin_accounts_endpoint.py`, `AccountList.test.jsx`, and `admin_accounts.test.jsx`
   suites and confirm nothing else regresses.
 
@@ -157,20 +157,20 @@ gates it.
 
 ### Tests for User Story 2
 
-- [ ] **T012** [P] [US2] In `src/frontend/tests/components/AccountForm.test.jsx`, add
+- [X] **T012** [P] [US2] In `src/frontend/tests/components/AccountForm.test.jsx`, add
   assertions: the panel renders the `.ovnum` "+", the "Add someone" heading, the muted
   Microsoft-account-sign-in line, both role checkboxes' descriptive text ("Sees only the
   stories assigned to their class." / "Creates and edits stories, adds and removes
   accounts."), and the submit button as `.btn.btn-primary.btn-block`; existing
   submit/validation-error behavior assertions are unchanged.
-- [ ] **T013** [P] [US2] In `src/frontend/tests/components/AccountList.test.jsx` (or a
+- [X] **T013** [P] [US2] In `src/frontend/tests/components/AccountList.test.jsx` (or a
   dedicated removal test if one already exists — check first), confirm the confirmation
   dialog's markup/copy is unchanged and that self/seed-admin rows still render no Remove
   action — regression coverage only, no new behavior.
 
 ### Implementation for User Story 2
 
-- [ ] **T014 [US2]** Restyle `src/frontend/src/components/Admin/AccountForm.jsx` into the
+- [X] **T014 [US2]** Restyle `src/frontend/src/components/Admin/AccountForm.jsx` into the
   "Add someone" panel per `05-admin-users-spec.md` §7: `.ovnum` `+`, `<h3>`, muted intro line,
   labelled Microsoft-account field (placeholder `ada.bell@school.internal`), a "Roles — choose
   one or both" field with the two checkbox rows and their descriptions, the muted note below
@@ -178,7 +178,7 @@ gates it.
   existing state/validation/submit logic (`hasPlayer`/`hasAdministrator`/`MESSAGES`) unchanged.
   Panel container styling (border/background/padding) added to `AdminAccounts.css` (T008) or
   inline token-based styles, per D4.
-- [ ] **T015 [US2]** Run T012–T013 and confirm they pass; run the existing
+- [X] **T015 [US2]** Run T012–T013 and confirm they pass; run the existing
   `AccountForm.test.jsx` and any removal-flow tests in full and confirm no regression.
 
 **Checkpoint**: User Stories 1 and 2 both work independently — the full People screen matches
@@ -197,14 +197,14 @@ confirm the table re-reads from the server without navigating away.
 
 ### Tests for User Story 3
 
-- [ ] **T016** [P] [US3] Check `src/frontend/tests/integration/admin_accounts_refresh.test.jsx`
+- [X] **T016** [P] [US3] Check `src/frontend/tests/integration/admin_accounts_refresh.test.jsx`
   for existing coverage of a successful refresh and a failed refresh (notice shown, table
   retained). If either is missing, add it; otherwise confirm both already pass unchanged
   against the restyled page (no new assertions needed — this story requires no new code).
 
 ### Implementation for User Story 3
 
-- [ ] **T017 [US3]** No production code change expected (Refresh is already wired). If T016
+- [X] **T017 [US3]** No production code change expected (Refresh is already wired). If T016
   surfaces a gap caused by the restyle (e.g. a selector the test relies on moved), fix the
   minimal selector/markup issue in `AdminAccountsPage.jsx`/`AccountList.jsx` only.
 
@@ -214,16 +214,24 @@ confirm the table re-reads from the server without navigating away.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] **T018** [P] Remove now-dead inline styles left over from the pre-restyle
+- [X] **T018** [P] Remove now-dead inline styles left over from the pre-restyle
   `AdminAccountsPage.jsx`/`AccountList.jsx`/`AccountForm.jsx` (e.g. any leftover `style={{...}}`
   the design-system classes now replace).
-- [ ] **T019** Run the full frontend suite (`npx vitest run`) and full backend suite (`pytest`)
+- [X] **T019** Run the full frontend suite (`npx vitest run`) and full backend suite (`pytest`)
   and confirm no unrelated regression.
-- [ ] **T020** Walk `05-admin-users-spec.md` section by section against the implemented screen
+- [X] **T020** Walk `05-admin-users-spec.md` section by section against the implemented screen
   (SC-003) and confirm every element is present in the position the design gives it, with
   exactly the two documented exceptions (D2, D7). Record the walkthrough result in the PR
-  description.
+  description. Result: conformant, with the two documented exceptions (no Name column/field;
+  two-state Status). This walkthrough also caught and fixed two fidelity gaps: the hr's
+  `20px 0 32px` spacing had drifted, and the design's own wrapping div around the two role
+  checkboxes turned out to be load-bearing — without it, `designTokens.css`'s
+  `.field > label { display: block }` rule outranks `.people-role-option`'s `display: flex` on
+  specificity, silently breaking the checkbox-row layout.
 - [ ] **T021** Run `quickstart.md` end-to-end (all 10 steps) against a local dev environment.
+  Not run this session — no local Cosmos DB emulator / Azure Functions host was started, so
+  this needs a manual pass (or CI) before merge; steps 1-9 are covered by the automated
+  integration tests above, but a real-browser check (step 10 especially) has not happened.
 
 ---
 

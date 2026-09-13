@@ -1,6 +1,7 @@
 import { useMsal } from "@azure/msal-react";
 import { useCallback, useState } from "react";
 
+import "../components/Admin/AdminAccounts.css";
 import AccountForm from "../components/Admin/AccountForm.jsx";
 import AccountList from "../components/Admin/AccountList.jsx";
 import { usePublishRefresh } from "../context/RefreshContext.jsx";
@@ -28,27 +29,35 @@ export function AdminAccountsPage() {
   const { data: accounts, loading, error, refresh } = useRefreshable(fetchAccounts);
   usePublishRefresh({ refresh, loading });
 
+  const count = accounts?.length ?? 0;
+
   return (
-    <div style={{ maxWidth: "1020px", padding: "var(--space-6) var(--space-4) 64px" }}>
-      <h1 style={{ margin: 0 }}>People</h1>
-      <hr className="hr" />
-      <AccountForm token={token} onAdded={refresh} />
-      <hr className="hr" />
-      {error && (
-        <p role="alert" className="text-muted">
-          Couldn&rsquo;t refresh the account list. Showing the last loaded results.
-        </p>
-      )}
-      {loading && !accounts ? (
-        <p className="text-muted">Loading accounts…</p>
-      ) : (
-        <AccountList
-          accounts={accounts || []}
-          token={token}
-          currentUserEmail={user?.email}
-          onRemoved={refresh}
-        />
-      )}
+    <div className="people-shell">
+      <div className="people-header">
+        <div className="people-kicker">People</div>
+        <h2 className="people-heading">{count} accounts in LLM Dungeon</h2>
+        <hr className="hr" style={{ margin: "20px 0 32px" }} />
+      </div>
+      <div className="people-scroll">
+        {error && (
+          <p role="alert" className="text-muted">
+            Couldn&rsquo;t refresh the account list. Showing the last loaded results.
+          </p>
+        )}
+        {loading && !accounts ? (
+          <p className="text-muted">Loading accounts…</p>
+        ) : (
+          <div className="people-grid">
+            <AccountList
+              accounts={accounts || []}
+              token={token}
+              currentUserEmail={user?.email}
+              onRemoved={refresh}
+            />
+            <AccountForm token={token} onAdded={refresh} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

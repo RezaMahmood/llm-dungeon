@@ -30,15 +30,18 @@ modifiers; every control keeps its design-system class (`btn btn-primary`, `btn 
 ### `AdminAccountsPage`
 
 **Rendering contract**:
-- Full-bleed content container — `padding: 28px 16px 64px`, **no `max-width` wrapper** (the
-  design spec §2 is explicit that this is a deliberate departure from other admin pages, so
-  the table gets its full width).
+- Fixed shell / scrolling content split (`.people-shell`/`.people-scroll`), matching the same
+  pattern `Home.css`'s `.home-shell`/`.home-colbody` already establishes: `.people-shell` is
+  `height: 100vh; overflow: hidden; display: flex; flex-direction: column`; `.people-header`
+  is `flex: none`; `.people-scroll` is `flex: 1; min-height: 0; overflow: auto`. No
+  `max-width` wrapper anywhere (the design spec §2 is explicit that this is a deliberate
+  departure from other admin pages, so the table gets its full width).
 - Kicker `PEOPLE` above an `<h2>` reading `{n} accounts in LLM Dungeon`, where `n` is
   `accounts.length` — recomputed on every load/add/remove/refresh.
-- `.hr` below the heading, then a two-column grid (`.people-grid`:
-  `grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 40px;
-  align-items: start`) containing the accounts table (left) and `AccountForm`'s panel (right,
-  `max-width: 420px`).
+- `.hr` below the heading (inside `.people-header`, so it doesn't scroll away), then — inside
+  `.people-scroll` — a two-column grid (`.people-grid`: `grid-template-columns:
+  repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 40px; align-items: start`) containing
+  the accounts table (left) and `AccountForm`'s panel (right, `max-width: 420px`).
 - A muted caption below the table: "Removing an account revokes access at the next sign-in.
   Stories the player has finished stay in the class record." (static copy, not
   data-dependent).
