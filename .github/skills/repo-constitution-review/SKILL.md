@@ -49,7 +49,7 @@ can find the source of truth.
   `frontend-deploy.yml`, `infrastructure-deploy.yml`) must not be
   restructured to trigger independently of the build/test gate.
 - **No new persistent environment** beyond local dev and the single live
-  environment (Principle XII) — question a new workflow that stands up a
+  environment (Principle XI) — question a new workflow that stands up a
   staging/UAT/QA deployment target.
 - Reusable workflow calls (`_build-backend.yml`, `_build-frontend.yml`)
   should stay called via `uses: ./.github/workflows/...`, not duplicated
@@ -110,7 +110,7 @@ can find the source of truth.
 ## PR / commit / issue hygiene (GitHub artifacts, not code)
 
 - **No PII in PR descriptions, comments, commit messages, or issues**
-  (Principle X) — GitHub history here is effectively permanent and broadly
+  (Principle IX) — GitHub history here is effectively permanent and broadly
   accessible; a record involving PII should be referenced indirectly
   (role/internal ID) rather than by name/email/etc.
 - **No direct pushes to `main`** — all changes go through a PR (Development
@@ -132,7 +132,7 @@ can find the source of truth.
   `CONTRIBUTING.md`) warrants the deepest tier whatever its size — flag
   one that recommends less.
 
-## AI-agent GitHub handoff (Principle XIII)
+## AI-agent GitHub handoff (Principle XII)
 
 - A PR opened by a local AI agent (Claude Code or similar) MUST be labelled
   `AI Generated` and `Claude`, MUST NOT link to the agent's own

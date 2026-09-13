@@ -19,7 +19,7 @@ This command is normally invoked **automatically** as a mandatory pre-hook
 already positioned the session on the correct feature branch. Its
 job is to bring `origin/main` into that branch before any spec-related work
 (planning included, not implementation alone) starts, per Constitution
-Principle XIII's sync-before-work rule — so a plan, task list, or
+Principle XII's sync-before-work rule — so a plan, task list, or
 implementation is never written against a stale or diverged tree.
 
 It syncs from `origin/main` specifically, not from the branch's own

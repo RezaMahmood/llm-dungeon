@@ -15,7 +15,7 @@ a substitute for local automated testing.
 
 Rationale: confidence comes from tests that verify real behavior, not from a metric, and
 only a PR-gated suite enforces that consistently. The project maintains no test-only
-cloud environment (Principle XII), so local stubs are the only way to keep integration
+cloud environment (Principle XI), so local stubs are the only way to keep integration
 tests both fast and fully automated.
 
 ### II. Secure-by-Default Access (NON-NEGOTIABLE)
@@ -102,14 +102,7 @@ Rationale: this project's screens are built incrementally across many features; 
 one enforced design system and accessibility bar, screens built in different cycles drift
 apart visually and behaviorally and become harder to maintain.
 
-### IX. *(Retired)*
-This number governed manual/user-verified testing as part of feature completion. The
-project now handles that entirely outside the speckit workflow, so this constitution takes
-no position on it — neither requiring it nor guaranteeing it is non-blocking. The number
-stays retired, unreassigned, rather than renumbering Principles X–XIV, so their existing
-external references keep resolving.
-
-### X. PII Protection by Design (NON-NEGOTIABLE)
+### IX. PII Protection by Design (NON-NEGOTIABLE)
 Personally identifiable information — a real person's email address, name, phone number,
 physical address, or any other data identifying a specific individual — MUST live only in
 a secure, access-controlled store: the application's database, Azure Key Vault, or an
@@ -124,7 +117,7 @@ retained indefinitely, and are not access-controlled the way the application's o
 are. PII posted there cannot reliably be un-published, which defeats the point of
 restricting where that data may live.
 
-### XI. Implementer Design Latitude (Non-Blocking)
+### X. Implementer Design Latitude (Non-Blocking)
 For a feature with a user-facing UI, the implementing agent or team MAY proceed straight
 to implementation on its own design judgment, guided by the design system (Principle VIII,
 UI Design System Requirements) and its own spec. A pre-implementation mockup or
@@ -138,7 +131,7 @@ workflow, rather than up front. Principle VIII still constrains whatever is buil
 project's design system, token layer, and accessibility bar, regardless of who approved the
 layout.
 
-### XII. Right-Sized Scope — Not Enterprise-Grade (NON-NEGOTIABLE)
+### XI. Right-Sized Scope — Not Enterprise-Grade (NON-NEGOTIABLE)
 This is a small application for a specific, named set of users, not an enterprise product,
 and MUST NOT be designed or specified as one. A spec, plan, or task MUST NOT introduce an
 enterprise-grade pattern — including single sign-on or federated identity beyond the
@@ -155,7 +148,7 @@ cost, and complexity for a project with neither the user base nor the requiremen
 justify them. This turns Principle IV's general YAGNI stance into an enforced process
 check for the patterns most likely to be assumed rather than requested.
 
-### XIII. AI Agent Division of Labor: Agents Push & Open PRs, Humans Merge (NON-NEGOTIABLE)
+### XII. AI Agent Division of Labor: Agents Push & Open PRs, Humans Merge (NON-NEGOTIABLE)
 A local AI coding agent MAY write code, run local tests, and perform all spec-related
 work — intake, specify, clarify, plan, tasks, analyze. Spec-related work MUST stay local:
 it MUST NOT be delegated to a GitHub-side review agent.
@@ -207,7 +200,7 @@ work is the root prevention for artifacts that assert identifiers existing only 
 unmerged branch: once the branch carries `origin/main`, reading the tree is reading the
 trunk.
 
-### XIV. Spec Artifacts and Code Stay Clean — Git Is the History
+### XIII. Spec Artifacts and Code Stay Clean — Git Is the History
 A feature's spec artifacts (`spec.md`, `plan.md`, `research.md`, `data-model.md`,
 `quickstart.md`, `tasks.md`, and anything else under that feature's `specs/` folder)
 record decisions, not the history of decisions. A line or two of rationale beside a
@@ -248,7 +241,7 @@ restating the spec drifts out of sync with it as the code evolves.
   session handling, an access-control check at every server-side entry point, secure default
   configuration, and safe handling of dependencies with known vulnerabilities. This is a
   baseline proportionate to the project's size, not enterprise security tooling
-  (Principle XII).
+  (Principle XI).
 - The local automation bypass (Principle I, Principle II) MUST be gated by a build-time or
   deploy-time condition that is structurally absent from the live environment's build and
   deploy configuration — for example a code path wired in only for local test runs — never a
@@ -276,11 +269,11 @@ restating the spec drifts out of sync with it as the code evolves.
 - Runtime and framework major versions follow Principle III.
 - This is a proportionate baseline for a small application's supply chain, not an
   enterprise supply-chain program: no SBOM generation and no third-party vendor security
-  review unless a concrete, stated requirement calls for it (Principle XII).
+  review unless a concrete, stated requirement calls for it (Principle XI).
 
 ## PII & Data Protection Requirements
 
-Principle X fixes where PII may live and which surfaces it MUST NOT reach. These are its
+Principle IX fixes where PII may live and which surfaces it MUST NOT reach. These are its
 specifics:
 
 - The permitted stores are the application's database (e.g. Cosmos DB), Azure Key Vault, or
@@ -311,7 +304,7 @@ specifics:
 
 ## AI Agent / GitHub Handoff Requirements
 
-Principle XIII fixes the division of labor. These are its mechanics, and they govern
+Principle XII fixes the division of labor. These are its mechanics, and they govern
 GitHub-side actions only — they do not change where code is written or tested.
 
 - A pull request an agent opens MUST carry the `AI Generated` label and a label naming the
@@ -327,7 +320,7 @@ GitHub-side actions only — they do not change where code is written or tested.
   equally prohibited, and the rule holds regardless of what any tool's configuration happens
   to permit. Writing the fix, pushing the branch, and opening the pull request are not
   restricted by this rule; only the GitHub-side merge is.
-- When an agent closes an issue under Principle XIII's two conditions, it MUST state what it
+- When an agent closes an issue under Principle XII's two conditions, it MUST state what it
   verified. Where either condition fails, it MUST leave the issue open and say why.
 - Syncing a branch before spec-related work means `git fetch origin` followed by a
   fast-forward, merge or rebase of `origin/main` into the branch, resolving any conflict
@@ -351,7 +344,7 @@ GitHub-side actions only — they do not change where code is written or tested.
   blocks merge.
 - Every pull request MUST have a review pass before merge, covering correctness, compliance
   with this constitution, and meaningful test quality rather than the mere presence of
-  tests. That pass is performed by an AI review agent on the pull request (Principle XIII);
+  tests. That pass is performed by an AI review agent on the pull request (Principle XII);
   this project has one maintainer, so a second contributor's approving review is
   unavailable and the repository ruleset accordingly requires zero approving reviews.
   Review depth MUST be chosen deliberately rather than defaulted to, weighing blast radius
@@ -364,13 +357,11 @@ GitHub-side actions only — they do not change where code is written or tested.
   actually tested and what that returned, what is deliberately left undone, and the review
   tier being recommended. It MUST NOT claim a check that was not run, quote a measurement
   that was not taken, or assert an approving review.
-- A passing test suite and a green CI run make a feature complete and mergeable. This
-  constitution does not require, or forbid, any manual or user-verified testing step beyond
-  that; where the project wants one, it happens outside the speckit workflow.
+- A passing test suite and a green CI run make a feature complete and mergeable.
 - A cross-artifact consistency analysis MUST treat as blocking any statement that code
   already exists — a module path, symbol, constant, field, or endpoint — where that code is
   absent from `origin/main` and is not declared as a named, not-yet-merged dependency
-  (Principle XIII). Identifiers an artifact proposes to create are not findings.
+  (Principle XII). Identifiers an artifact proposes to create are not findings.
 - Work MAY run in the primary checkout, in a git worktree (`bin/wt <branch>`), or in a
   devcontainer. No branch type requires any of them, and none is refused any of them; the
   choice is the contributor's per session, never a precondition for working. Worktrees and
@@ -404,7 +395,7 @@ GitHub-side actions only — they do not change where code is written or tested.
   (including a worktree's devcontainer, where one is used) and the single live environment
   in Azure.
   The project MUST NOT stand up an additional persistent environment — staging, UAT, QA —
-  without a documented requirement and a constitution amendment (Principle XII).
+  without a documented requirement and a constitution amendment (Principle XI).
 - The only path from a merged change to the live environment is a GitHub Actions workflow;
   there is no manual or portal deployment path for application code.
 - Credentials and configuration needed by deployment workflows MUST be stored as GitHub
