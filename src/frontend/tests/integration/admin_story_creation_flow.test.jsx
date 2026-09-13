@@ -42,6 +42,9 @@ const EMPTY_DRAFT = {
 
 describe("Admin story creation: empty draft through generated, unpublished story", () => {
   beforeEach(() => {
+    // Each test opens a brand-new wizard, so no draft may be remembered from the last
+    // one — otherwise the page tries to resume it instead of starting fresh.
+    sessionStorage.clear();
     acquireTokenSilent.mockReset().mockResolvedValue({ accessToken: "tok" });
     createDraft.mockReset();
     patchDraft.mockReset();
