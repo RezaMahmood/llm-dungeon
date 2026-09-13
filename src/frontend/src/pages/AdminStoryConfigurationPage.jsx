@@ -49,7 +49,10 @@ export function AdminStoryConfigurationPage() {
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
-    URL.revokeObjectURL(url);
+    // Defer the revoke: anchor.click() starts the download asynchronously, and
+    // revoking on the same tick can invalidate the URL before the browser has
+    // finished reading the blob, silently dropping the download.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   return (
