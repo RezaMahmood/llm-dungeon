@@ -340,19 +340,55 @@ class StoryService:
         """FR-008 gate: a qualifying test play must exist since content was last saved."""
         return story.lastTestPlayedAt is not None and story.lastTestPlayedAt >= story.contentUpdatedAt
 
+    def _write_published(self, story_id: str, published: bool) -> Story | None | _PublishGateNotSatisfied:
+        """The shared read-modify-write behind `publish`/`unpublish`, guarded by the Cosmos
+        `_etag` (`MatchConditions.IfNotModified`) rather than a bare `upsert_item`. The
+        precondition is what keeps a publish-state flip from **recreating** a story that a
+        concurrent `delete_story` removed between the read and the write: 025-story-delete
+        FR-003 promises a permanent removal, and the delete has already cascaded the
+        story's play sessions away (FR-004), so a resurrected row would be a published
+        story nobody can play. A delete that lands in that window returns `None` — the same
+        not-found the story's absence at read time produces. A lost `_etag` race (a
+        concurrent content write) is retried once against a fresh read; a second failure
+        raises `WriteConflictError`, which both endpoints map to `409 write_conflict`."""
+        max_attempts = 2
+        for attempt in range(1, max_attempts + 1):
+            item = self._read_item(story_id)
+            if item is None:
+                return None
+            story = Story.from_dict(item)
+            if published:
+                if not self.can_publish(story):
+                    return PUBLISH_GATE_NOT_SATISFIED
+                story.published = True
+                story.lastPublishedAt = _now()
+            else:
+                story.published = False
+            try:
+                self._container().replace_item(
+                    item=story.id,
+                    body=story.to_dict(),
+                    etag=item["_etag"],
+                    match_condition=MatchConditions.IfNotModified,
+                )
+                return story
+            except CosmosResourceNotFoundError:
+                # Deleted between the read above and this write — never resurrect it.
+                logger.info(
+                    "Publish-state write found the story already deleted",
+                    extra={"story_id": story_id, "published": published},
+                )
+                return None
+            except CosmosAccessConditionFailedError:
+                if attempt >= max_attempts:
+                    raise WriteConflictError() from None
+
     def publish(self, story_id: str) -> Story | None | _PublishGateNotSatisfied:
         """Publish `story_id` (FR-003), idempotent (FR-006), gated by FR-008. Returns `None`
-        if the story doesn't exist, `PUBLISH_GATE_NOT_SATISFIED` if the gate blocks it, or the
-        updated `Story` on success."""
-        story = self.get_story(story_id)
-        if story is None:
-            return None
-        if not self.can_publish(story):
-            return PUBLISH_GATE_NOT_SATISFIED
-        story.published = True
-        story.lastPublishedAt = _now()
-        self._container().upsert_item(story.to_dict())
-        return story
+        if the story doesn't exist (or was deleted mid-write), `PUBLISH_GATE_NOT_SATISFIED`
+        if the gate blocks it, or the updated `Story` on success. Raises
+        `WriteConflictError` if a concurrent write wins the `_etag` race twice."""
+        return self._write_published(story_id, True)
 
     def record_test_play(self, story_id: str, tokens_used: int) -> Optional[Story]:
         """010-story-test-play-done FR-004/FR-010: stamp `lastTestPlayedAt` on a qualifying
@@ -383,6 +419,17 @@ class StoryService:
                     match_condition=MatchConditions.IfNotModified,
                 )
                 return story
+            except CosmosResourceNotFoundError:
+                # Hard-deleted between the read above and this write. The same outcome as
+                # finding it already gone at read time (the `item is None` branch): the
+                # turn itself is already persisted on the test-play session, so a caller
+                # that cannot accrue tokens to a story that no longer exists should not
+                # see its turn fail.
+                logger.info(
+                    "Test-play token accrual found the story already deleted",
+                    extra={"story_id": story_id},
+                )
+                return None
             except CosmosAccessConditionFailedError:
                 if attempt >= max_attempts:
                     logger.warning(
@@ -393,13 +440,12 @@ class StoryService:
 
     def unpublish(self, story_id: str) -> Optional[Story]:
         """Unpublish `story_id` (FR-004), idempotent (FR-006); `lastPublishedAt` is left
-        untouched (FR-012). No server-side precondition beyond the story existing."""
-        story = self.get_story(story_id)
-        if story is None:
-            return None
-        story.published = False
-        self._container().upsert_item(story.to_dict())
-        return story
+        untouched (FR-012). Returns `None` if the story doesn't exist or was deleted
+        mid-write; raises `WriteConflictError` if a concurrent write wins the `_etag` race
+        twice."""
+        result = self._write_published(story_id, False)
+        # The gate sentinel is a publish-only outcome; unpublish never returns it.
+        return result if isinstance(result, Story) else None
 
     def delete_story(self, story_id: str) -> bool:
         """Permanently remove `story_id` (025-story-delete-done FR-003) — a hard delete, not a
@@ -465,7 +511,9 @@ class StoryService:
         check). A matching version but a failed precondition means a concurrent
         publish/unpublish landed with a fresh `_etag`; the write is retried once against
         that fresh row, preserving its `published` state. A second precondition failure
-        raises `WriteConflictError` (contracts/api.md → Write conflicts)."""
+        raises `WriteConflictError` (contracts/api.md → Write conflicts). A story deleted
+        between the read and the write raises `StoryNotFoundError`, exactly as one already
+        gone at read time does."""
         expected_version = story.contentVersion
         max_attempts = 2
         for attempt in range(1, max_attempts + 1):
@@ -485,6 +533,11 @@ class StoryService:
                     match_condition=MatchConditions.IfNotModified,
                 )
                 return updated
+            except CosmosResourceNotFoundError as exc:
+                # Deleted between the read above and this write (025-story-delete FR-003) —
+                # the same not-found the story's absence at read time raises, so both
+                # callers answer 404 rather than letting a Cosmos error surface as a 500.
+                raise StoryNotFoundError() from exc
             except CosmosAccessConditionFailedError:
                 if attempt >= max_attempts:
                     raise WriteConflictError() from None
