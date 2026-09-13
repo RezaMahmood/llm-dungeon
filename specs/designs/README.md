@@ -101,9 +101,9 @@ One `.nav` bar, same markup on every signed-in surface.
   follow-up work; the accessibility bar still applies in full. The wizard those screens link to
   is 04, unchanged. Their **behavioral** contract is not absent: it lives in the specs that own
   these screens — `012-story-editing-and-review`, `011-story-import`, `005-story-publishing-done`,
-  `025-story-delete-done` and `026-token-usage` — which the constitution's
-  "Administrator — stories & configuration" registry entry names, and which are the acceptance
-  reference for both screens until a prototype is drawn.
+  `025-story-delete-done` and `026-token-usage` — which are the acceptance reference for both
+  screens until a prototype is drawn. (The constitution carried a duplicate "Administrator —
+  stories & configuration" contract until v10.0.0 withdrew every screen contract; issue #340.)
 - **Test play (04, step 05):** the "Flag this reply" button is deliberately not implemented —
   `010-story-test-play-done` specifies no in-session flagging; a problem found while testing is fixed
   by editing the story afterwards through the wizard. "Restart test" is implemented, but aborts

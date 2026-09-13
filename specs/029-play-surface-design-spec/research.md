@@ -61,7 +61,8 @@ that *is* the separate feature).
 
 **Constitution note**: deferring the hint's behaviour is this spec's own scoping decision.
 Supersedes: it was previously a named deferral against the "Play surface" screen contract's
-"a hint action", withdrawn by constitution v10.0.0 (issue #340).
+"a hint action" — constitution v10.0.0 withdrew the Screen contracts section entirely
+(issue #340).
 
 ## Decision 3: Header Refresh reuses `RefreshContext`/`getSession`, exactly as `NavBar` does elsewhere
 

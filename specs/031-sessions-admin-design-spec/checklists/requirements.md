@@ -35,10 +35,10 @@
   requesting user on 2026-09-13 and recorded in Assumptions: detection of a deleted session is
   on the player's next action (no polling, no push), and both player and administrator
   test-play sessions are deletable.
-- The spec names two governing-document changes inside its own scope: `026-token-usage`
-  FR-016 (read-only Sessions page) is superseded by FR-006, and the constitution's
-  **Administrator — sessions** screen contract must be amended (FR-021) before the screen
-  ships. Planning must carry both.
+- The spec names one governing-document change inside its own scope: `026-token-usage`
+  FR-016 (read-only Sessions page) is superseded by FR-006. Planning must carry it. (FR-021
+  named a second — amending the constitution's **Administrator — sessions** screen contract —
+  withdrawn when constitution v10.0.0 removed every screen contract; issue #340.)
 - The canonical design's table caption ("Token totals stay in the usage record") is
   deliberately reworded rather than implemented literally — the application keeps no
   per-session usage ledger that survives the session document. Recorded as a *Scope note* and

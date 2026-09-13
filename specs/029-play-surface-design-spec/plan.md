@@ -114,15 +114,13 @@ surface.
   sub-desktop responsive behavior out of scope, matching the canonical design's own
   exclusion. Recorded here as an explicit, justified exception per Principle VIII rather
   than claimed as a pass, and carried in the PR description as a known limit.
-- **Screen contracts** — PASS. The constitution's "Play surface" entry names
-  `specs/designs/03-play.html` and `03-play-spec.md` as the acceptance reference and leaves
-  this screen's affordances to the specs that own it. The status panel delivers location,
-  goal and progress; the hint control ships inert, its behaviour deferred to a separate
-  feature (spec.md *Scope note*, research.md Decision 2), which is this spec's own scoping
-  decision to make. Supersedes: previously recorded as a deferral against a constitutional
-  requirement, withdrawn by constitution v10.0.0 (issue #340).
-  `03-play.html`/`03-play-spec.md` are updated in place (issue #332's attachments), not
-  replaced with a different canonical screen, so the reference itself is unchanged.
+- **Screen contracts** — NO LONGER APPLICABLE. `specs/designs/03-play.html` and
+  `03-play-spec.md` remain this screen's acceptance reference, named here and in
+  `specs/designs/README.md`. The status panel delivers location, goal and progress; the hint
+  control ships inert, its behaviour deferred to a separate feature (spec.md *Scope note*,
+  research.md Decision 2) — this spec's own scoping decision. Supersedes: recorded here as a
+  deferral against a constitutional requirement until constitution v10.0.0 withdrew the
+  Screen contracts section entirely (issue #340).
 
 **Complexity Tracking**: the layout-and-scroll exception above is a scope *reduction*
 against existing constitution text, not added complexity, so it takes no Complexity

@@ -2,35 +2,40 @@
 Sync Impact Report
 Version change: 9.1.0 -> 10.0.0
 Modified principles: none.
+This amendment withdraws every functional requirement from this file. What a feature does
+is its spec's to state; this file states principles, workflow, architecture, and the
+non-functional bar the work is held to. It names no screen and no feature spec.
+Modified principles:
+  - XI. Implementer Design Latitude: design judgement is now guided by the design system
+    and the feature's own spec, not by "screen contracts".
 Modified sections:
-  - UI Design System Requirements → Screen contracts: redefined. A contract is now a
-    registry entry — the screen's name, its acceptance reference, and the feature specs
-    that own its behaviour — and states no functional requirement of its own. The
-    per-screen enumerations of required affordances, entry points and business rules are
-    withdrawn; each is already owned by a named spec, which may now scope it as an
-    ordinary product decision rather than by amendment.
   - UI Design System Requirements → Readability & interaction requirements: #4 (forgiving
     interpretation of player input) and #5 (suggested actions always available) withdrawn
-    as gameplay behaviour. Remaining rules renumbered: old #6 is now #4, old #7 now #5.
-  - UI Design System Requirements → Layout and scroll contract #2: unchanged in force, but
-    reworded so it fixes the play surface's scroll split without implying the affordances
-    it lists are required. Which of them the screen offers is its owning spec's decision.
-Added sections: none. The screen registry gains one row, **Adventure & character setup**
-  (`specs/designs/06-game-setup.html`, `006-adventure-and-character-setup`) — a screen the
-  product already ships that no contract listed, which Governance's traceability rule
-  requires. The row imposes nothing the redefinition above does not impose on every screen.
+    as product behaviour. The remainder is generalised off this product's vocabulary —
+    "long-form reading prose" rather than story prose, "user-facing copy" rather than
+    player-facing — and the example naming a specific control is dropped. Old #6 and #7
+    are renumbered #4 and #5.
+  - UI Design System Requirements → Layout and scroll contract: reduced to what is
+    genuinely non-functional. The fixed shell (#1) and the 320px floor (now #3) stand. The
+    rule naming one screen's panes is generalised to "chrome around a scrolling region
+    stays fixed" (#2), and the auto-scroll-to-newest-turn rule is withdrawn as behaviour.
+  - Governance: the screen-traceability requirement is replaced by its inverse — a
+    statement that affordances, entry points and business rules are the spec's, and that
+    scoping one out is a product decision rather than an amendment.
+Added sections: none.
 Removed sections:
+  - UI Design System Requirements → Screen contracts, in full. It enumerated this
+    product's screens, their required affordances, their entry points and their business
+    rules, and pointed at the feature specs that state the same things — a second,
+    competing copy of requirements that drifted from the specs that own them.
   - UI Design System Requirements → Save and session behaviour (#1–#4). Autosave cadence,
-    named checkpoints, what exiting preserves and per-adventure session length are owned
-    by `008-core-gameplay-done` and `009-save-and-continue`.
+    named checkpoints, what exiting preserves, and per-adventure session length are
+    product behaviour.
 Rationale for MAJOR: governance requirements are withdrawn, not clarified. Requirements
-  this file previously imposed on every feature are now imposed by none of it; a plan whose
+  this file imposed on every feature are now imposed by none of it; a plan whose
   Constitution Check cited a withdrawn rule is no longer checking anything, and a scope
   decision that previously needed an amendment no longer does.
 Deferred/TODO placeholders: none.
-Not carried anywhere: the story-authoring wizard contract's requirement that an adventure's
-  content-safety configuration be captured. No feature spec owns it and no implementation
-  provides it, so it is withdrawn rather than moved; a spec wanting it must state it.
 Earlier Sync Impact Reports are in this file's git history.
 --># LLM Dungeon Adventure Constitution
 
@@ -160,8 +165,8 @@ restricting where that data may live.
 
 ### XI. Implementer Design Latitude (Non-Blocking)
 For a feature with a user-facing UI, the implementing agent or team MAY proceed straight
-to implementation on its own design judgment, guided by the design system and screen
-contracts (Principle VIII, UI Design System Requirements). A pre-implementation mockup or
+to implementation on its own design judgment, guided by the design system (Principle VIII,
+UI Design System Requirements) and its own spec. A pre-implementation mockup or
 sign-off from the requesting user or product owner is NOT required and MUST NOT be used to
 block or delay implementation. A task list MAY include a design walkthrough as an optional,
 non-blocking checkpoint at the author's discretion.
@@ -337,7 +342,7 @@ specifics:
   token count, computed cost for that call, and latency, as structured telemetry rather
   than free-text logs.
 - Prompt and response telemetry MUST be attributable to a request or session, so cost and
-  performance trace back to a specific player action.
+  performance trace back to a specific user action.
 - The telemetry MUST support aggregate views (Application Insights dashboards or workbooks)
   of total AI spend, token consumption trends, and LLM latency and error rates over time.
 - Captured prompts and responses are operational data and MUST remain inside the same
@@ -464,8 +469,8 @@ GitHub-side actions only — they do not change where code is written or tested.
   controls); a screen MUST NOT reimplement a control the system already provides, or
   introduce a component or visual-style class duplicating one.
 - The token stylesheet MUST be vendored into the app as a single layer, never re-derived,
-  re-typed, or forked per screen. Its source is `specs/designs/styles.css` (the "Modernist"
-  design system), copied in unmodified per `specs/designs/README.md`.
+  re-typed, or forked per screen. Its source is the "Modernist" stylesheet held at
+  `specs/designs/styles.css`, copied in unmodified.
 - A screen MAY introduce a small number of narrowly scoped layout or behavior utility
   classes with no visual-design opinion of their own (a numeral treatment, a row hover tint,
   a scroll-container rule); everything else MUST be a design-system class or a token-based
@@ -482,7 +487,7 @@ GitHub-side actions only — they do not change where code is written or tested.
    darker, more legible variant.
 5. Layout structure (grid, equal-width cells, consistent horizontal rhythm) stays visible
    rather than hidden behind whitespace.
-6. Oversized numerals (a chapter number, a list index, a wizard step) are the one permitted
+6. Oversized numerals (a step number, a list index, a section number) are the one permitted
    expressive typographic device; they remain type, not illustration. No illustration or
    emoji appears elsewhere in the product.
 7. Photography is rendered in grayscale; imagery is never tinted or colorized.
@@ -502,18 +507,16 @@ screens MUST NOT restyle these locally.
 
 ### Readability & interaction requirements
 
-1. Story and narrative prose renders at or above the design system's body text size, with
-   its line-height or greater, and modern text wrapping (`text-wrap: pretty` or equivalent).
+1. Long-form reading prose renders at or above the design system's body text size, with its
+   line-height or greater, and modern text wrapping (`text-wrap: pretty` or equivalent).
 2. An interface label rendered below the body text size MUST be uppercase with
    letter-spacing.
-3. Touch and click targets MUST be at least 24x24 CSS px (WCAG 2.5.8). The player's
-   free-text instruction input is taller than a standard control.
-4. Player-facing copy is plain, warm, and concrete — no technical jargon or raw error codes
-   — and every failure or dead-end state offers a next action.
-5. Player-facing surfaces MUST NOT use shaming language, artificial time pressure, or
-   punitive UI patterns. This governs tone and interface pressure only; the game's own
-   configured success and failure outcomes (`008-core-gameplay-done`) remain a legitimate,
-   narratively framed part of gameplay.
+3. Touch and click targets MUST be at least 24x24 CSS px (WCAG 2.5.8).
+4. User-facing copy is plain, warm, and concrete — no technical jargon or raw error codes —
+   and every failure or dead-end state offers a next action.
+5. The interface MUST NOT use shaming language, artificial time pressure, or punitive UI
+   patterns. This governs tone and interface pressure only, never what outcomes a feature
+   may legitimately produce.
 
 ### Layout and scroll contract
 
@@ -521,49 +524,11 @@ screens MUST NOT restyle these locally.
    tablet widths without exception. Below the mobile breakpoint a screen MAY switch to
    page-level scrolling instead, provided every fixed-viewport surface above that breakpoint
    still honors this rule unchanged.
-2. On the play surface only the story pane scrolls; every other element the screen offers —
-   its title bar, instruction input, suggested actions and status panel — stays fixed and
-   reachable. Which of those the screen offers is its owning spec's to decide.
-3. The story pane auto-scrolls to the newest turn.
-4. Every primary surface MUST remain usable down to a 320 px viewport width. Below that
-   floor, secondary panels (e.g. the status panel) collapse above the primary content rather
-   than disappearing, and the input row stays pinned.
-
-### Screen contracts
-
-A screen contract is a registry entry, not a second specification. Each one names a screen
-this product ships, points at that screen's acceptance reference, and names the feature
-specs that own its behaviour. A contract states no functional requirement of its own: which
-affordances a screen offers, which entry points reach it, and which business rules it
-enforces are the owning specs' to state, to change, and to scope out as ordinary product
-decisions, with no amendment to this file. What every listed screen is held to is the bar
-above — design tokens and components, the non-negotiable visual rules, interaction states,
-readability, the layout and scroll contract, and accessibility.
-
-The prototype at `specs/designs/` is the acceptance reference for layout and copy, and its
-README (`specs/designs/README.md`) records each screen's prototype-only affordances and
-deliberate non-implementations. Where the prototype and the requirements above disagree,
-those requirements win. Where the prototype and an owning spec disagree about behaviour,
-that spec wins.
-
-A screen MAY have no prototype — because its governing spec defers visual design, or
-because none has been drawn yet. Its owning specs are then its sole acceptance reference,
-for layout and copy as well as behaviour. The absence relaxes none of the requirements
-above.
-
-| Screen | Acceptance reference | Behaviour owned by |
-|---|---|---|
-| **Login** | `specs/designs/01-login.html` | `002-login-and-access-control-done`; the identity path is additionally bound by Principle II |
-| **Adventure select** | `specs/designs/07-home.html`, `07-home-spec.md` | `028-home-page-redesign`, `009-save-and-continue`, `025-story-delete-done` |
-| **Adventure & character setup** | `specs/designs/06-game-setup.html` | `006-adventure-and-character-setup` |
-| **Play surface** | `specs/designs/03-play.html`, `03-play-spec.md` | `008-core-gameplay-done`, `009-save-and-continue`, `029-play-surface-design-spec` |
-| **Administrator story-authoring wizard** | `specs/designs/04-admin-wizard.html` | `004-story-creation-done`, `005-story-publishing-done`, `010-story-test-play-done`, `017-story-publish-test-play-gate` |
-| **Administrator — people** | `specs/designs/05-admin-users.html`, `05-admin-users-spec.md` | `003-account-provisioning-done`, `014-account-listing`, `030-people-admin-design-spec`; accounts are Microsoft identities only (Principle II) |
-| **Administrator — stories & configuration** | no prototype — the owning specs are the reference | `005-story-publishing-done`, `011-story-import`, `012-story-editing-and-review`, `025-story-delete-done`, `026-token-usage` |
-| **Administrator — sessions** | `specs/designs/08-admin-sessions.html`, `08-admin-sessions-spec.md` | `026-token-usage`, `031-sessions-admin-design-spec` |
-
-`specs/designs/02-story-select.html` is retained as historical prior art only and is no
-longer a live acceptance reference for any contract above.
+2. Where a screen scrolls one region within that fixed shell, the chrome around it —
+   headers, input rows, side panels — stays fixed and reachable rather than scrolling away.
+3. Every primary surface MUST remain usable down to a 320 px viewport width. Below that
+   floor, secondary panels collapse above the primary content rather than disappearing, and
+   any persistent input row stays pinned.
 
 ### Accessibility
 
@@ -596,8 +561,11 @@ Report replaces its predecessor at the top of this file.
 Every implementation plan (`plan.md`) MUST include a Constitution Check stating how each UI
 Design System requirement is satisfied or requesting an explicit, justified exception. A
 cross-artifact consistency analysis MUST treat a contradiction with the design-token,
-visual-rules, interaction-state, or layout and scroll requirements as a blocking finding. No
-feature may ship a screen that is not traceable to a screen contract above or to a
-documented amendment extending one.
+visual-rules, interaction-state, or layout and scroll requirements as a blocking finding.
+
+What a screen is for, which affordances it offers, which entry points reach it, and which
+business rules it enforces are its feature spec's to state and to change. This constitution
+takes no position on any of them, and a spec that scopes one of them out is making an
+ordinary product decision, not seeking an amendment.
 
 **Version**: 10.0.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-13
