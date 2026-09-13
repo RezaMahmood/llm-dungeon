@@ -88,4 +88,25 @@ describe("SessionsTable (08-admin-sessions-spec.md §5)", () => {
     // 08-admin-sessions-spec.md §7: accent stays reserved.
     expect(screen.getByRole("button", { name: "Delete session aaa" })).toHaveClass("btn-ghost");
   });
+  it("greys out and spins only the row whose delete is in flight (issue #347)", async () => {
+    const onSelectDelete = vi.fn();
+    const { container } = render(
+      <SessionsTable
+        sessions={[session({ sessionId: "aaa" }), session({ sessionId: "bbb" })]}
+        onSelectDelete={onSelectDelete}
+        deletingSessionId="aaa"
+      />,
+    );
+
+    const pendingRow = screen.getByRole("button", { name: "Delete session aaa" });
+    expect(pendingRow).toBeDisabled();
+    expect(pendingRow).toHaveAttribute("aria-busy", "true");
+    expect(container.querySelectorAll(".spinner")).toHaveLength(1);
+
+    // The other rows stay actionable — one delete in flight does not freeze the table.
+    const otherRow = screen.getByRole("button", { name: "Delete session bbb" });
+    expect(otherRow).toBeEnabled();
+    await userEvent.click(otherRow);
+    expect(onSelectDelete).toHaveBeenCalledTimes(1);
+  });
 });

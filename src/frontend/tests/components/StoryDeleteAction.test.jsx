@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -63,5 +63,29 @@ describe("StoryDeleteAction (025-story-delete-done FR-001, FR-002)", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(deleteStory).not.toHaveBeenCalled();
     expect(onDeleted).not.toHaveBeenCalled();
+  });
+  it("greys out both the dialog and the trigger, and spins, while the delete is in flight (issue #347)", async () => {
+    let resolveDelete;
+    deleteStory.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveDelete = resolve;
+    }));
+    const onDeleted = vi.fn();
+    const { container } = render(<StoryDeleteAction story={STORY} token="tok" onDeleted={onDeleted} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /^delete$/i }));
+    const dialog = screen.getByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+
+    // The request has not come back: the confirm button says so and cannot be fired
+    // again, "Keep it" is inert too, and the trigger underneath is no longer actionable.
+    const confirm = within(dialog).getByRole("button", { name: /deleting/i });
+    expect(confirm).toBeDisabled();
+    expect(confirm).toHaveAttribute("aria-busy", "true");
+    expect(within(dialog).getByRole("button", { name: /keep it/i })).toBeDisabled();
+    expect(container.querySelector(".spinner")).toBeInTheDocument();
+    expect(deleteStory).toHaveBeenCalledTimes(1);
+
+    resolveDelete({ status: "deleted", storyId: "story-1" });
+    await waitFor(() => expect(onDeleted).toHaveBeenCalledWith("story-1"));
   });
 });

@@ -1,4 +1,5 @@
 import ConfirmDeleteDialog from "../Common/ConfirmDeleteDialog.jsx";
+import PendingButton from "../Common/PendingButton.jsx";
 import { useDeleteStory } from "../../hooks/useDeleteStory.js";
 
 /**
@@ -22,9 +23,14 @@ export function StoryDeleteAction({ story, token, onDeleted }) {
 
   return (
     <div className="field">
-      <button type="button" className="btn btn-secondary" disabled={status === "working"} onClick={requestDelete}>
+      <PendingButton
+        className="btn btn-secondary"
+        pending={status === "working"}
+        pendingLabel="Deleting…"
+        onClick={requestDelete}
+      >
         Delete
-      </button>
+      </PendingButton>
 
       {status === "error" && (
         <div role="alert" className="text-muted" style={{ marginTop: "8px" }}>
