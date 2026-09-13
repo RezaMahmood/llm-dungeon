@@ -129,7 +129,10 @@ figcaption {
   border-radius: var(--radius-md);
 }
 .btn svg { display: block; }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+/* [aria-disabled="true"] gets the same look as a natively disabled button, for a
+   control that must stay focusable — a natively disabled element drops out of the tab
+   order (029, StatusPanel's "Stuck? Get a hint"; constitution, Interaction states). */
+.btn:disabled, .btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
 .btn-primary { background: var(--color-accent); color: var(--color-bg); }
 .btn-primary:hover { background: var(--color-accent-600); }
 .btn-primary:active { background: var(--color-accent-700); }

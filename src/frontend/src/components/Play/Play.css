@@ -160,6 +160,16 @@
   gap: var(--space-2);
   margin-top: var(--space-1);
 }
+/* "Stuck? Get a hint" (spec.md FR-007). Layout and spacing only — the inert/disabled
+   look comes from the shared .btn[aria-disabled="true"] rule (designTokens.css). */
+.play-hint {
+  padding: 14px;
+  margin: 0;
+}
+.play-hint-pending {
+  margin: var(--space-1) 0 0;
+  font-size: 12px;
+}
 .play-autosave {
   margin-top: auto;
   padding-top: var(--space-6);

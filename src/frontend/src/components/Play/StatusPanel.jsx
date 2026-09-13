@@ -59,6 +59,22 @@ export function StatusPanel({ locationLabel, goalLabel, progress, completionReas
         </>
       )}
 
+      <hr className="hr" style={{ margin: "20px 0", height: "1px" }} />
+      {/*
+       * "Stuck? Get a hint" (spec.md FR-007, *Scope note*; research.md Decision 2). The
+       * design shows this control; the guidance behind it is a separate, not-yet-built
+       * feature, so it ships here as a real, honestly-inert button rather than inventing
+       * stand-in behaviour. aria-disabled, never the native `disabled` attribute: a
+       * natively disabled button drops out of the tab order and could never show the
+       * focus indicator spec.md US2 AS2 and the constitution's Interaction-states rule
+       * both require. contracts/ui.md's .btn[aria-disabled="true"] selector (designTokens.css)
+       * still gives it the disabled look.
+       */}
+      <button type="button" className="btn btn-secondary btn-block play-hint" aria-disabled="true">
+        Stuck? Get a hint
+      </button>
+      <p className="text-muted play-hint-pending">Hints are coming soon.</p>
+
       {/* FR-017: the play surface states that progress is autosaved after every turn.
           specs/designs/03-play.html places this at the foot of the status panel. */}
       <div className="text-muted play-autosave">Autosaved after every turn</div>
