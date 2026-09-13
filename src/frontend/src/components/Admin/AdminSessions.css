@@ -1,0 +1,97 @@
+/*
+ * Sessions (admin) screen layout and page-scoped structural rules
+ * (specs/designs/08-admin-sessions.html, 08-admin-sessions-spec.md). Colors, spacing and
+ * type all come from the design-token layer (Principle VIII); the rules below are the same
+ * page-scoped structural pattern Home.css/Play.css/AdminAccounts.css already establish.
+ *
+ * 08-admin-sessions-spec.md §2: this screen and People "must be indistinguishable in
+ * structure", so the shell/header/scroll rules deliberately mirror AdminAccounts.css. The
+ * one structural difference is that the content container has no max-width — the table
+ * needs the full width.
+ */
+.sessions-shell {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.sessions-header {
+  flex: none;
+  padding: 28px 16px 0;
+}
+.sessions-kicker {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent-700);
+}
+.sessions-heading {
+  margin: 4px 0 0;
+}
+.sessions-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 16px 64px;
+}
+
+.sessions-table-label {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 50%, transparent);
+}
+/* .text-muted (designTokens.css) supplies the color; these add only layout/size. */
+.sessions-caption {
+  font-size: 13px;
+  max-width: 60ch;
+  margin-top: var(--space-4);
+}
+.sessions-empty {
+  font-size: 15px;
+  max-width: 60ch;
+}
+
+/* Full session UUID: wraps inside its cell rather than widening the table (FR-017). The
+   font stack is the one the design names for identifiers; no token covers a monospace
+   family, and there is no other monospace text in the product to share one with. */
+.sessions-id-cell {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.sessions-account-cell {
+  overflow-wrap: anywhere;
+}
+/* Digit-aligned totals, so a column of numbers can be compared down the page (FR-005). */
+.sessions-tokens-cell,
+th.sessions-tokens-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* A story that has been deleted — carried as text, never as colour alone. */
+.sessions-deleted-story {
+  color: var(--color-neutral-700);
+  font-style: italic;
+}
+.sessions-actions-cell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+/* Mobile — the page-level scroll the constitution's "Layout and scroll contract" rule 1
+   permits below the mobile breakpoint (mirrors AdminAccounts.css's equivalent block). */
+@media (max-width: 760px) {
+  html,
+  body {
+    height: auto;
+  }
+  .sessions-shell {
+    height: auto;
+    overflow: visible;
+  }
+  .sessions-scroll {
+    overflow: visible;
+  }
+}

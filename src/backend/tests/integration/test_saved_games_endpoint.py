@@ -445,3 +445,43 @@ def test_list_sessions_marks_row_available_when_story_published(request_factory)
     response = _list(request_factory, service)
 
     assert json.loads(response.get_body())["sessions"][0]["available"] is True
+
+
+# --- session_removed on the read and checkpoint paths (031 FR-012/FR-012a) ---
+
+
+def test_get_session_for_a_removed_session_returns_session_removed(request_factory):
+    story = _story()
+    service, _cosmos = _service(story)
+
+    response = _get(request_factory, service, "no-such-session")
+
+    assert response.status_code == 404
+    body = json.loads(response.get_body())
+    assert body["error"] == "session_removed"
+    assert body["promptReturnToList"] is True
+
+
+def test_create_checkpoint_for_a_removed_session_returns_session_removed(request_factory):
+    """Was a plain `not_found`, which the play surface showed as a generic "couldn't save
+    that checkpoint, your progress is safe" — false once the session is gone (031 FR-012)."""
+    story = _story()
+    service, _cosmos = _service(story)
+
+    response = _checkpoint(request_factory, service, "no-such-session")
+
+    assert response.status_code == 404
+    assert json.loads(response.get_body())["error"] == "session_removed"
+
+
+def test_get_session_against_a_deleted_story_still_says_story_deleted(request_factory):
+    """The other half of the split: a genuinely deleted story is unaffected."""
+    story = _story()
+    service, cosmos = _service(story)
+    session = _existing_session(cosmos, story)
+    del cosmos.get_container(config.STORIES_CONTAINER).items[story.id]
+
+    response = _get(request_factory, service, session.id)
+
+    assert response.status_code == 404
+    assert json.loads(response.get_body())["error"] == "story_deleted"

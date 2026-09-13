@@ -12,6 +12,8 @@ Use these as the acceptance reference in the spec-kit spec.
     05-admin-users.html    add player/administrator; per-row remove with confirm
     06-game-setup.html     start-new-game: adventure → character name → character type
     07-home.html           post-login landing page: welcome band + ready-to-play/in-progress
+    08-admin-sessions.html every session in the instance; per-row delete with confirm
+    08-admin-sessions-spec.md  written spec for 08 — layout, states, data contract
 
 ## Copying into the repo
 
@@ -81,6 +83,16 @@ One `.nav` bar, same markup on every signed-in surface.
   list is sorted alphabetically by email in the shipped implementation (the mockup shows
   newest-added-first; not carried over, since no other screen in this app sorts by recency for
   a management table).
+- **Sessions (08):** the administrator's view of every session in the instance, added by
+  `031-sessions-admin-design-spec` (issue #335) — the first prototype for this screen, which
+  `026-token-usage` shipped unstyled. Same shell and nav as 05; the two admin list pages must
+  be indistinguishable in structure. `08-admin-sessions-spec.md` is the written acceptance
+  reference alongside the markup. The per-row **Delete** action is real and supersedes
+  `026-token-usage` FR-016 ("the Sessions page MUST be read-only"); it covers both player and
+  administrator test-play sessions, always behind the confirm dialog. One deliberate
+  deviation, per that spec's Scope note: the table caption is reworded, because the design's
+  "Token totals stay in the usage record" implies a per-session usage ledger this application
+  does not keep — a player session's total lives on the session document and goes with it.
 - **No prototype screen for `012-story-editing-and-review`:** its administrator story list and
   read-only story-configuration viewer are deliberately absent here. Per that spec's FR-012 and
   the user decision of 2026-09-06, both ship as plain, unstyled pages built only from

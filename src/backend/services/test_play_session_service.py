@@ -263,6 +263,24 @@ class TestPlaySessionService:
         except CosmosResourceNotFoundError:
             pass
 
+    def delete_session_as_administrator(self, session_id: str) -> None:
+        """Permanently remove any administrator's test-play session, whoever ran it
+        (031-sessions-admin-design-spec FR-006/FR-008). Like `delete_session`, never
+        clears `Story.lastTestPlayedAt` (FR-010) — so a story stays publishable after its
+        test session is cleaned up — and never decrements `Story.totalTokens`, which
+        already absorbed these tokens when they were spent (031 FR-009).
+
+        Separate from `delete_session`'s owner-checked path for the reason in research.md
+        Decision 2. Unlike `delete_session`, a missing session raises
+        `SessionNotFoundError` rather than returning quietly: the Sessions screen needs to
+        tell "deleted it" from "it was already gone" (031 FR-015)."""
+        if self._read_item(session_id) is None:
+            raise SessionNotFoundError()
+        try:
+            self._container().delete_item(item=session_id, partition_key=session_id)
+        except CosmosResourceNotFoundError as exc:
+            raise SessionNotFoundError() from exc
+
     def get_session(self, session_id: str, administrator_id: str) -> TestPlaySession:
         item = self._read_item(session_id)
         if item is None:

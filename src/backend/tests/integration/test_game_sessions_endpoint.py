@@ -758,3 +758,71 @@ def test_delete_session_twice_returns_404_the_second_time(request_factory):
 
     assert first.status_code == 200
     assert second.status_code == 404
+
+
+# --- session_removed, split from story_deleted (031-sessions-admin-design-spec FR-012a) ---
+#
+# Before 031, a missing session and a missing story shared `story_deleted`. Once an
+# administrator can delete a session under a live story, that would tell the player their
+# story was deleted when it was not. These assert the split; the `story_deleted` tests
+# above assert the other half of it — that a genuinely deleted story is unaffected.
+
+
+def test_submit_interaction_against_a_removed_session_returns_session_removed(request_factory):
+    story = _story()
+    service, _cosmos, _llm, _safety = _service(story)
+
+    response = _interact(request_factory, service, "missing-session", {"input": "look around"})
+
+    assert response.status_code == 404
+    body = json.loads(response.get_body())
+    assert body["error"] == "session_removed"
+    assert body["promptReturnToList"] is True
+    # Names no actor: the server cannot tell an admin's delete from the player's own in
+    # another tab (research.md Decision 4).
+    assert "administrator" not in body["message"].lower()
+
+
+def test_resume_against_a_removed_session_returns_session_removed(request_factory):
+    story = _story()
+    service, _cosmos, _llm, _safety = _service(story)
+
+    response = _resume(request_factory, service, "missing-session")
+
+    assert response.status_code == 404
+    assert json.loads(response.get_body())["error"] == "session_removed"
+
+
+def test_submit_interaction_against_a_session_deleted_under_a_live_story_says_session_not_story(request_factory):
+    """The case 031 exists for: the story is alive and still on the player's home page, so
+    saying "story deleted" would be false."""
+    story = _story()
+    service, cosmos, _llm, _safety = _service(story, llm_turn_data=_turn_data())
+    created = json.loads(
+        _create(
+            request_factory,
+            service,
+            {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"},
+        ).get_body()
+    )
+    _clear_rate_limit(cosmos, created["sessionId"])
+    # The administrator deletes the session; the story stays exactly where it was.
+    service.delete_session_as_administrator(created["sessionId"])
+    assert story.id in cosmos.get_container(config.STORIES_CONTAINER).items
+
+    response = _interact(request_factory, service, created["sessionId"], {"input": "look around"})
+
+    assert response.status_code == 404
+    assert json.loads(response.get_body())["error"] == "session_removed"
+
+
+def test_player_delete_of_their_own_session_keeps_its_plain_not_found(request_factory):
+    """Deliberately unchanged (contracts/api.md): deleting a saved game that is already
+    gone is not a bump, and nothing routes the player anywhere on it."""
+    story = _story()
+    service, _cosmos, _llm, _safety = _service(story)
+
+    response = _delete(request_factory, service, "missing-session")
+
+    assert response.status_code == 404
+    assert json.loads(response.get_body())["error"] == "not_found"

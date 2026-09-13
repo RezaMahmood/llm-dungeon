@@ -1599,3 +1599,80 @@ def test_delete_player_session_translates_a_race_lost_delete_into_not_found():
         service.delete_player_session(session.id, PLAYER_ID)
 
     container.delete_item = real_delete_item
+
+
+# --- delete_session_as_administrator (031-sessions-admin-design-spec FR-006/FR-008) ---
+
+
+def test_admin_delete_removes_a_session_owned_by_someone_else():
+    """The whole point of the admin path: no ownership check. `delete_player_session`
+    would raise ForbiddenError here."""
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+
+    service.delete_session_as_administrator(session.id)
+
+    assert service.list_player_sessions(PLAYER_ID) == []
+
+
+@pytest.mark.parametrize("status", ["active", "inactive", "concluded"])
+def test_admin_delete_removes_a_session_whatever_its_status(status):
+    """FR-006 puts no condition on status — an abandoned, inactive or finished session is
+    equally deletable."""
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story, status=status)
+
+    service.delete_session_as_administrator(session.id)
+
+    with pytest.raises(SessionNotFoundError):
+        service.get_session_for_player(session.id, PLAYER_ID)
+
+
+def test_admin_delete_raises_not_found_for_an_unknown_session():
+    story = _story()
+    service, _cosmos, _llm, _safety = _make_service(story)
+
+    with pytest.raises(SessionNotFoundError):
+        service.delete_session_as_administrator("no-such-session")
+
+
+def test_admin_delete_raises_not_found_on_a_second_delete():
+    """Two administrators deleting the same row: the second is told it is already gone
+    (FR-015), never a 500."""
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+
+    service.delete_session_as_administrator(session.id)
+
+    with pytest.raises(SessionNotFoundError):
+        service.delete_session_as_administrator(session.id)
+
+
+def test_admin_delete_translates_a_race_lost_delete_into_not_found():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+    container = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER)
+    real_delete_item = container.delete_item
+    container.delete_item = MagicMock(side_effect=CosmosResourceNotFoundError)
+
+    with pytest.raises(SessionNotFoundError):
+        service.delete_session_as_administrator(session.id)
+
+    container.delete_item = real_delete_item
+
+
+def test_admin_delete_leaves_the_owner_checked_delete_untouched():
+    """The guard that matters (research.md Decision 2): adding the admin path must not
+    have relaxed the player-facing one into accepting someone else's session."""
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story)
+
+    with pytest.raises(ForbiddenError):
+        service.delete_player_session(session.id, OTHER_PLAYER_ID)
+
+    assert len(service.list_player_sessions(PLAYER_ID)) == 1

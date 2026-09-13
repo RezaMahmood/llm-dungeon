@@ -62,6 +62,21 @@ def _story_deleted_response() -> func.HttpResponse:
     )
 
 
+def _session_removed_response() -> func.HttpResponse:
+    """The player's session itself is gone — distinct from the story being gone
+    (031-sessions-admin-design-spec FR-012a). Names no actor: the server cannot tell an
+    administrator's delete from this player's own delete in another tab (research.md
+    Decision 4)."""
+    return json_response(
+        {
+            "error": "session_removed",
+            "message": "This session has been removed. You can start this story again from your home page.",
+            "promptReturnToList": True,
+        },
+        status_code=404,
+    )
+
+
 def _story_unpublished_response() -> func.HttpResponse:
     return json_response(
         {
@@ -146,7 +161,9 @@ def submit_interaction(
         return _lockout_response(exc)
     except InvalidInputError:
         return error_response(400, "invalid_input", "Type an action to continue.")
-    except (SessionNotFoundError, AdventureNotFoundError):
+    except SessionNotFoundError:
+        return _session_removed_response()
+    except AdventureNotFoundError:
         return _story_deleted_response()
     except StoryUnpublishedError:
         return _story_unpublished_response()
@@ -182,7 +199,9 @@ def resume_session(
     service = play_session_service or PlaySessionService()
     try:
         session = service.resume_session(session_id=session_id, player_id=user_oid)
-    except (SessionNotFoundError, AdventureNotFoundError):
+    except SessionNotFoundError:
+        return _session_removed_response()
+    except AdventureNotFoundError:
         return _story_deleted_response()
     except StoryUnpublishedError:
         return _story_unpublished_response()
@@ -227,7 +246,9 @@ def get_session(
     service = play_session_service or PlaySessionService()
     try:
         detail = service.get_session_detail_for_player(session_id=session_id, player_id=user_oid)
-    except (SessionNotFoundError, AdventureNotFoundError):
+    except SessionNotFoundError:
+        return _session_removed_response()
+    except AdventureNotFoundError:
         return _story_deleted_response()
     except StoryUnpublishedError:
         return _story_unpublished_response()
@@ -254,7 +275,7 @@ def create_checkpoint(
     try:
         marker = service.record_checkpoint(session_id=session_id, player_id=user_oid)
     except SessionNotFoundError:
-        return error_response(404, "not_found", "Session not found")
+        return _session_removed_response()
     except ForbiddenError:
         return forbidden_access_not_granted()
     except SessionConcludedError:

@@ -507,6 +507,25 @@ class PlaySessionService:
         except CosmosResourceNotFoundError as exc:
             raise SessionNotFoundError() from exc
 
+    def delete_session_as_administrator(self, session_id: str) -> None:
+        """Permanently remove any player's session, whoever owns it and whatever its
+        `status` (031-sessions-admin-design-spec FR-006/FR-008) — never the story, and
+        never `Story.totalTokens`, which a play session never contributed to (FR-009).
+
+        Deliberately a separate method rather than an optional-owner mode on
+        `delete_player_session`: an authorization check that can be skipped by passing a
+        falsy argument is one typo away from every existing call site (research.md
+        Decision 2). Its only caller is behind `authorize_admin`.
+
+        Raises `SessionNotFoundError` when no such session exists, including the race
+        where it vanishes between the read and the delete."""
+        if self._read_item(session_id) is None:
+            raise SessionNotFoundError()
+        try:
+            self._container().delete_item(item=session_id, partition_key=session_id)
+        except CosmosResourceNotFoundError as exc:
+            raise SessionNotFoundError() from exc
+
     def get_session_detail_for_player(self, session_id: str, player_id: str) -> dict[str, Any]:
         """The Saved Game Detail shape (data-model.md), including every turn and
         checkpoint — sufficient to rebuild the play surface exactly as the player left it

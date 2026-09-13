@@ -6,8 +6,8 @@
  * and responsive rules.
  */
 import { useMsal } from "@azure/msal-react";
-import { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { usePublishRefresh } from "../context/RefreshContext.jsx";
 import { useCapabilities } from "../hooks/useCapabilities.js";
@@ -18,6 +18,7 @@ import "../components/Home/Home.css";
 import AccessDeniedScreen from "../components/Login/AccessDeniedScreen.jsx";
 import InProgressList from "../components/Home/InProgressList.jsx";
 import ReadyToPlayList from "../components/Home/ReadyToPlayList.jsx";
+import SessionRemovedDialog from "../components/Home/SessionRemovedDialog.jsx";
 import SessionDeleteAction from "../components/Home/SessionDeleteAction.jsx";
 import WelcomeBand from "../components/Home/WelcomeBand.jsx";
 
@@ -25,6 +26,7 @@ export function HomePage() {
   const { instance, accounts } = useMsal();
   const account = accounts[0];
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     hasPlayer,
     hasAdministrator,
@@ -70,6 +72,17 @@ export function HomePage() {
   // FR-004: a story with an active session for this player never also appears as
   // ready-to-play.
   const readyToPlay = (data?.adventures || []).filter((adventure) => !inProgressAdventureIds.has(adventure.id));
+
+  // A one-shot signal from GamePage that the session the player was in has been deleted
+  // (031-sessions-admin-design-spec FR-012/FR-013). Cleared from history on arrival so a
+  // reload doesn't refire the dialog, while the dialog's own visibility lives in state.
+  const [sessionRemoved, setSessionRemoved] = useState(() => Boolean(location.state?.sessionRemoved));
+  useEffect(() => {
+    if (location.state?.sessionRemoved) {
+      setSessionRemoved(true);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate]);
 
   const firstName = (account?.name ?? account?.username ?? "").trim().split(/\s+/)[0] || "there";
 
@@ -149,6 +162,7 @@ export function HomePage() {
           )}
         />
       </div>
+      {sessionRemoved && <SessionRemovedDialog onDismiss={() => setSessionRemoved(false)} />}
     </div>
   );
 }
