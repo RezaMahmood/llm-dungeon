@@ -147,7 +147,7 @@ describe("Play surface inside the /game layout (FR-016, SC-013)", () => {
   it("keeps the autosave disclosure visible on the composed screen (FR-017)", () => {
     renderPlaySurface();
 
-    expect(screen.getAllByText(/autosaved after every turn/i)).toHaveLength(1);
+    expect(screen.getAllByText(/saved automatically after every turn/i)).toHaveLength(1);
   });
 
   it.each([1, 2, 5, 10])(

@@ -6,7 +6,7 @@
  * carries its own design-system class (btn btn-secondary, input, btn btn-primary): these
  * rules are additive, never a restyle of the shared interaction states.
  *
- * Values are translated to the nearest --space-*/--font-*/--color-* token; the two values
+ * Values are translated to the nearest --space, --font or --color token; the two values
  * with no token — the 292px status-panel width and the 64ch transcript measure — are kept
  * as literals and named below as deliberate exceptions (research.md Decision 4).
  */

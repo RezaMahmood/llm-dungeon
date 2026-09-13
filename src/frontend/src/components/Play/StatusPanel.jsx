@@ -76,8 +76,9 @@ export function StatusPanel({ locationLabel, goalLabel, progress, completionReas
       <p className="text-muted play-hint-pending">Hints are coming soon.</p>
 
       {/* FR-017: the play surface states that progress is autosaved after every turn.
-          specs/designs/03-play.html places this at the foot of the status panel. */}
-      <div className="text-muted play-autosave">Autosaved after every turn</div>
+          specs/designs/03-play.html places this at the foot of the status panel and
+          gives it this exact wording (03-play.html:92; SC-003). */}
+      <div className="text-muted play-autosave">Saved automatically after every turn.</div>
     </div>
   );
 }

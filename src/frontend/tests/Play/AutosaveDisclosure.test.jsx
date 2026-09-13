@@ -36,10 +36,10 @@ describe("Autosave disclosure (008-core-gameplay-done, FR-017, SC-014)", () => {
     submitInteraction.mockReset();
   });
 
-  it("shows the 'Autosaved after every turn' label on the play surface", () => {
+  it("shows the 'Saved automatically after every turn.' label on the play surface", () => {
     renderPlayPage();
 
-    expect(screen.getByText(/autosaved after every turn/i)).toBeInTheDocument();
+    expect(screen.getByText(/saved automatically after every turn/i)).toBeInTheDocument();
   });
 
   it("keeps the label visible after further turns", async () => {
@@ -61,7 +61,7 @@ describe("Autosave disclosure (008-core-gameplay-done, FR-017, SC-014)", () => {
     await user.click(screen.getByRole("button", { name: /^go$/i }));
 
     expect(await screen.findByText(/a spiral of stairs/i)).toBeInTheDocument();
-    expect(screen.getByText(/autosaved after every turn/i)).toBeInTheDocument();
+    expect(screen.getByText(/saved automatically after every turn/i)).toBeInTheDocument();
   });
 
   it("keeps the label visible once the session has concluded", async () => {
@@ -84,6 +84,6 @@ describe("Autosave disclosure (008-core-gameplay-done, FR-017, SC-014)", () => {
     await user.click(screen.getByRole("button", { name: /^go$/i }));
 
     expect(await screen.findByText(/this story has ended/i)).toBeInTheDocument();
-    expect(screen.getByText(/autosaved after every turn/i)).toBeInTheDocument();
+    expect(screen.getByText(/saved automatically after every turn/i)).toBeInTheDocument();
   });
 });
