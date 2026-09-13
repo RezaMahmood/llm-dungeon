@@ -77,11 +77,16 @@ export function HomePage() {
   // (031-sessions-admin-design-spec FR-012/FR-013). Cleared from history on arrival so a
   // reload doesn't refire the dialog, while the dialog's own visibility lives in state.
   const [sessionRemoved, setSessionRemoved] = useState(() => Boolean(location.state?.sessionRemoved));
+  // The same one-shot mechanism carries a failed exit-checkpoint's message from GamePage
+  // (009-save-and-continue FR-006a): the player now leaves the game for Home directly
+  // (#346), so the notice has to be shown on arrival here rather than on the screen they
+  // used to be dropped back onto.
+  const [checkpointExitNotice, setCheckpointExitNotice] = useState(() => location.state?.checkpointExitNotice ?? null);
   useEffect(() => {
-    if (location.state?.sessionRemoved) {
-      setSessionRemoved(true);
-      navigate(location.pathname, { replace: true, state: null });
-    }
+    if (!location.state?.sessionRemoved && !location.state?.checkpointExitNotice) return;
+    if (location.state.sessionRemoved) setSessionRemoved(true);
+    if (location.state.checkpointExitNotice) setCheckpointExitNotice(location.state.checkpointExitNotice);
+    navigate(location.pathname, { replace: true, state: null });
   }, [location.pathname, location.state, navigate]);
 
   const firstName = (account?.name ?? account?.username ?? "").trim().split(/\s+/)[0] || "there";
@@ -149,6 +154,11 @@ export function HomePage() {
 
   return (
     <div className="home-shell">
+      {checkpointExitNotice && (
+        <p role="status" className="text-muted" style={{ margin: 0, padding: "var(--space-4) var(--space-4) 0", fontSize: "13px" }}>
+          {checkpointExitNotice}
+        </p>
+      )}
       <WelcomeBand firstName={firstName} inProgressCount={sessions.length} />
       <div className="home-cols">
         <ReadyToPlayList stories={readyToPlay} loading={loading} error={error} onPlay={handlePlay} />
