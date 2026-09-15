@@ -107,6 +107,14 @@ export function GamePage() {
         const data = await getAdventure(token, adventureId);
         if (!cancelled) {
           setAdventureName(data.adventure?.name || null);
+          // Prefill from the player's own stored description for this adventure
+          // (034-avatar-memory-and-visibility FR-006, FR-007). The functional update
+          // guards against a slow response landing after the player has already started
+          // typing — it must never overwrite text they've entered.
+          const stored = data.adventure?.avatarDescription;
+          if (stored) {
+            setAvatarDescription((prev) => (prev === "" ? stored : prev));
+          }
         }
       } catch {
         // Non-fatal: the heading falls back to a generic label below.
@@ -141,6 +149,7 @@ export function GamePage() {
             sessionId: data.session.sessionId,
             storyName: data.session.adventureName,
             initialTurns: data.session.turns,
+            avatarDescription: data.session.avatarDescription,
           });
         }
       } catch (err) {
@@ -193,6 +202,7 @@ export function GamePage() {
         sessionId: data.sessionId,
         storyName: adventureName || "Adventure",
         initialTurns: [data.narrative],
+        avatarDescription: avatarDescription.trim(),
       });
     } catch (err) {
       if (err.response?.status === 423) {
@@ -219,6 +229,7 @@ export function GamePage() {
         sessionId={session.sessionId}
         storyName={session.storyName}
         initialTurns={session.initialTurns}
+        avatarDescription={session.avatarDescription}
         getToken={getToken}
         onSessionRemoved={goHomeSessionRemoved}
         onExit={goHomeAfterExit}

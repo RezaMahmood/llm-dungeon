@@ -16,6 +16,7 @@ from backend.config import config
 from backend.models.play_session import PlayerInteraction, PlaySession
 from backend.models.story import CharacterType, CompletionCriteria, Story
 from backend.services.play_session_service import PlaySessionService
+from backend.services.stored_avatar_description_service import StoredAvatarDescriptionService
 from backend.services.story_service import StoryService
 
 ADMIN_OID = "550e8400-e29b-41d4-a716-446655440000"
@@ -58,6 +59,8 @@ class FakeCosmosService:
             rows = [r for r in rows if r.get("adventureId") == param_map.get("@adventureId")]
         if "c.status = 'active'" in sql:
             rows = [r for r in rows if r.get("status") == "active"]
+        if "c.storyId = @storyId" in sql:
+            rows = [r for r in rows if r.get("storyId") == param_map.get("@storyId")]
         return rows
 
 
@@ -106,7 +109,8 @@ def _services_with(story: Story | None, sessions: list[PlaySession] | None = Non
     for session in sessions or []:
         cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).upsert_item(session.to_dict())
     play_sessions = PlaySessionService(cosmos_service=cosmos, story_service=stories)
-    return stories, play_sessions, cosmos
+    avatars = StoredAvatarDescriptionService(cosmos_service=cosmos)
+    return stories, play_sessions, avatars, cosmos
 
 
 def _authorized(request_factory, story_id):
@@ -127,11 +131,11 @@ def _patched_authorize_admin():
 
 def test_delete_returns_200_and_removes_the_story(request_factory):
     story = _story()
-    stories, play_sessions, _cosmos = _services_with(story)
+    stories, play_sessions, avatars, _cosmos = _services_with(story)
 
     with _patched_authorize_admin():
         response = delete_story(
-            _authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions
+            _authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions, stored_avatar_description_service=avatars
         )
 
     assert response.status_code == 200
@@ -141,10 +145,10 @@ def test_delete_returns_200_and_removes_the_story(request_factory):
 
 def test_get_after_delete_returns_404(request_factory):
     story = _story()
-    stories, play_sessions, _cosmos = _services_with(story)
+    stories, play_sessions, avatars, _cosmos = _services_with(story)
 
     with _patched_authorize_admin():
-        delete_story(_authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions)
+        delete_story(_authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions, stored_avatar_description_service=avatars)
         get_response = get_story(
             request_factory(
                 method="GET",
@@ -159,11 +163,11 @@ def test_get_after_delete_returns_404(request_factory):
 
 
 def test_delete_returns_404_for_a_story_id_that_never_existed(request_factory):
-    stories, play_sessions, _cosmos = _services_with(None)
+    stories, play_sessions, avatars, _cosmos = _services_with(None)
 
     with _patched_authorize_admin():
         response = delete_story(
-            _authorized(request_factory, "missing"), story_service=stories, play_session_service=play_sessions
+            _authorized(request_factory, "missing"), story_service=stories, play_session_service=play_sessions, stored_avatar_description_service=avatars
         )
 
     assert response.status_code == 404
@@ -172,14 +176,14 @@ def test_delete_returns_404_for_a_story_id_that_never_existed(request_factory):
 
 def test_deleting_an_already_deleted_story_returns_404_not_a_fresh_200(request_factory):
     story = _story()
-    stories, play_sessions, _cosmos = _services_with(story)
+    stories, play_sessions, avatars, _cosmos = _services_with(story)
 
     with _patched_authorize_admin():
         first = delete_story(
-            _authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions
+            _authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions, stored_avatar_description_service=avatars
         )
         second = delete_story(
-            _authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions
+            _authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions, stored_avatar_description_service=avatars
         )
 
     assert first.status_code == 200
@@ -189,11 +193,11 @@ def test_deleting_an_already_deleted_story_returns_404_not_a_fresh_200(request_f
 
 def test_delete_succeeds_for_a_published_story(request_factory):
     story = _story(published=True)
-    stories, play_sessions, _cosmos = _services_with(story)
+    stories, play_sessions, avatars, _cosmos = _services_with(story)
 
     with _patched_authorize_admin():
         response = delete_story(
-            _authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions
+            _authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions, stored_avatar_description_service=avatars
         )
 
     assert response.status_code == 200
@@ -201,11 +205,11 @@ def test_delete_succeeds_for_a_published_story(request_factory):
 
 def test_delete_succeeds_for_an_unpublished_story(request_factory):
     story = _story(published=False)
-    stories, play_sessions, _cosmos = _services_with(story)
+    stories, play_sessions, avatars, _cosmos = _services_with(story)
 
     with _patched_authorize_admin():
         response = delete_story(
-            _authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions
+            _authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions, stored_avatar_description_service=avatars
         )
 
     assert response.status_code == 200
@@ -213,10 +217,10 @@ def test_delete_succeeds_for_an_unpublished_story(request_factory):
 
 def test_delete_rejects_unauthenticated_request(request_factory):
     story = _story()
-    stories, play_sessions, _cosmos = _services_with(story)
+    stories, play_sessions, avatars, _cosmos = _services_with(story)
 
     response = delete_story(
-        _authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions
+        _authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions, stored_avatar_description_service=avatars
     )
 
     assert response.status_code in (401, 403)
@@ -228,10 +232,10 @@ def test_delete_rejects_unauthenticated_request(request_factory):
 def test_delete_removes_a_single_active_session_for_the_story(request_factory):
     story = _story()
     session = _session(story.id, "player-1")
-    stories, play_sessions, cosmos = _services_with(story, [session])
+    stories, play_sessions, avatars, cosmos = _services_with(story, [session])
 
     with _patched_authorize_admin():
-        delete_story(_authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions)
+        delete_story(_authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions, stored_avatar_description_service=avatars)
 
     assert session.id not in cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items
 
@@ -240,10 +244,10 @@ def test_delete_removes_sessions_from_multiple_players(request_factory):
     story = _story()
     session_a = _session(story.id, "player-1")
     session_b = _session(story.id, "player-2")
-    stories, play_sessions, cosmos = _services_with(story, [session_a, session_b])
+    stories, play_sessions, avatars, cosmos = _services_with(story, [session_a, session_b])
 
     with _patched_authorize_admin():
-        delete_story(_authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions)
+        delete_story(_authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions, stored_avatar_description_service=avatars)
 
     sessions_left = cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items
     assert session_a.id not in sessions_left
@@ -253,21 +257,41 @@ def test_delete_removes_sessions_from_multiple_players(request_factory):
 def test_delete_leaves_a_concluded_session_for_that_story_in_place(request_factory):
     story = _story()
     concluded = _session(story.id, "player-1", status="concluded")
-    stories, play_sessions, cosmos = _services_with(story, [concluded])
+    stories, play_sessions, avatars, cosmos = _services_with(story, [concluded])
 
     with _patched_authorize_admin():
-        delete_story(_authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions)
+        delete_story(_authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions, stored_avatar_description_service=avatars)
 
     assert concluded.id in cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items
 
 
+def test_delete_removes_every_stored_avatar_description_for_the_story(request_factory):
+    """034-avatar-memory-and-visibility FR-009, FR-009a: cascade-deleted with the story,
+    and Story.totalTokens is never touched by the deletion."""
+    story = _story(totalTokens=42)
+    stories, play_sessions, avatars, cosmos = _services_with(story)
+    avatars.store("player-1", story.id, "A one-eyed lighthouse keeper.")
+    avatars.store("player-2", story.id, "A sharp-eyed detective.")
+
+    with _patched_authorize_admin():
+        delete_story(
+            _authorized(request_factory, story.id),
+            story_service=stories,
+            play_session_service=play_sessions,
+            stored_avatar_description_service=avatars,
+        )
+
+    assert avatars.get("player-1", story.id) is None
+    assert avatars.get("player-2", story.id) is None
+
+
 def test_delete_with_no_sessions_still_succeeds(request_factory):
     story = _story()
-    stories, play_sessions, _cosmos = _services_with(story)
+    stories, play_sessions, avatars, _cosmos = _services_with(story)
 
     with _patched_authorize_admin():
         response = delete_story(
-            _authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions
+            _authorized(request_factory, story.id), story_service=stories, play_session_service=play_sessions, stored_avatar_description_service=avatars
         )
 
     assert response.status_code == 200

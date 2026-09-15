@@ -257,6 +257,30 @@ def test_get_session_returns_200_with_every_turn_and_full_summary_for_owner(requ
     assert body["checkpoints"] == []
 
 
+def test_get_session_includes_the_sessions_own_avatar_description(request_factory):
+    """034-avatar-memory-and-visibility FR-001: the session's own avatar description is
+    part of the detail shape the play surface rebuilds from."""
+    story = _story()
+    service, cosmos = _service(story)
+    session = _existing_session(cosmos, story, avatarDescription="A one-eyed lighthouse keeper.")
+
+    response = _get(request_factory, service, session.id)
+
+    body = json.loads(response.get_body())["session"]
+    assert body["avatarDescription"] == "A one-eyed lighthouse keeper."
+
+
+def test_get_session_avatar_description_is_null_for_a_pre_existing_session(request_factory):
+    story = _story()
+    service, cosmos = _service(story)
+    session = _existing_session(cosmos, story, avatarDescription=None)
+
+    response = _get(request_factory, service, session.id)
+
+    body = json.loads(response.get_body())["session"]
+    assert body["avatarDescription"] is None
+
+
 def test_get_session_returns_403_for_another_player_never_404(request_factory):
     story = _story()
     service, cosmos = _service(story)

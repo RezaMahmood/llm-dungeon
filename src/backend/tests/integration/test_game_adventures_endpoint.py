@@ -107,10 +107,17 @@ def test_get_adventure_returns_character_types_for_published_story(request_facto
             "characterTypes": [ct.to_dict() for ct in story.characterTypes],
         }
     ]
+    avatars = MagicMock()
+    avatars.get.return_value = None
     req = request_factory(method="GET", url="/api/game/adventures/story-1", route_params={"adventureId": "story-1"}, token="valid-token")
 
     with _patched_auth():
-        response = get_adventure(req, story_service=story_service, account_provisioning_service=_authorized_player())
+        response = get_adventure(
+            req,
+            story_service=story_service,
+            account_provisioning_service=_authorized_player(),
+            stored_avatar_description_service=avatars,
+        )
 
     assert response.status_code == 200
     body = json.loads(response.get_body())
@@ -118,6 +125,68 @@ def test_get_adventure_returns_character_types_for_published_story(request_facto
         {"name": "Detective", "description": "Sharp-eyed."},
         {"name": "Ghost", "description": None},
     ]
+
+
+def test_get_adventure_includes_the_callers_own_stored_avatar_description(request_factory):
+    """034-avatar-memory-and-visibility FR-006, FR-011: the response carries the caller's
+    own stored description, looked up by the authenticated player's id, never one supplied
+    by the request."""
+    cosmos = MagicMock()
+    story_service = StoryService(cosmos_service=cosmos)
+    story = _published_story()
+    cosmos.query.return_value = [
+        {
+            "id": story.id,
+            "name": story.name,
+            "published": story.published,
+            "characterTypes": [ct.to_dict() for ct in story.characterTypes],
+        }
+    ]
+    avatars = MagicMock()
+    avatars.get.return_value = "A one-eyed lighthouse keeper's apprentice."
+    req = request_factory(method="GET", url="/api/game/adventures/story-1", route_params={"adventureId": "story-1"}, token="valid-token")
+
+    with _patched_auth():
+        response = get_adventure(
+            req,
+            story_service=story_service,
+            account_provisioning_service=_authorized_player(),
+            stored_avatar_description_service=avatars,
+        )
+
+    assert response.status_code == 200
+    body = json.loads(response.get_body())
+    assert body["adventure"]["avatarDescription"] == "A one-eyed lighthouse keeper's apprentice."
+    avatars.get.assert_called_once_with(USER_OID, story.id)
+
+
+def test_get_adventure_avatar_description_is_null_when_none_stored(request_factory):
+    """FR-007: a player with no stored description for this adventure starts with an
+    empty field."""
+    cosmos = MagicMock()
+    story_service = StoryService(cosmos_service=cosmos)
+    story = _published_story()
+    cosmos.query.return_value = [
+        {
+            "id": story.id,
+            "name": story.name,
+            "published": story.published,
+            "characterTypes": [ct.to_dict() for ct in story.characterTypes],
+        }
+    ]
+    avatars = MagicMock()
+    avatars.get.return_value = None
+    req = request_factory(method="GET", url="/api/game/adventures/story-1", route_params={"adventureId": "story-1"}, token="valid-token")
+
+    with _patched_auth():
+        response = get_adventure(
+            req,
+            story_service=story_service,
+            account_provisioning_service=_authorized_player(),
+            stored_avatar_description_service=avatars,
+        )
+
+    assert json.loads(response.get_body())["adventure"]["avatarDescription"] is None
 
 
 def test_get_adventure_returns_404_for_unpublished_story(request_factory):

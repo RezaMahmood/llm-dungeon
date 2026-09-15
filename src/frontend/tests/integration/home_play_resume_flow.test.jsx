@@ -112,6 +112,11 @@ describe("Home -> Play -> character setup -> session start (FR-006, SC-002)", ()
       characterName: "Wren",
       avatarDescription: "A one-eyed lighthouse keeper's apprentice who fears the dark.",
     });
+
+    // 034-avatar-memory-and-visibility FR-001: shown read-only in the status panel.
+    expect(
+      screen.getByText("A one-eyed lighthouse keeper's apprentice who fears the dark."),
+    ).toBeInTheDocument();
   });
 });
 
@@ -140,5 +145,24 @@ describe("Home -> Resume -> session reopened without character setup (FR-007, SC
     expect(screen.queryByLabelText(/character name/i)).not.toBeInTheDocument();
     expect(resumeSession).toHaveBeenCalledWith("tok", "session-1");
     expect(getSession).toHaveBeenCalledWith("tok", "session-1");
+  });
+
+  it("renders the status panel cleanly with no avatar area for a session with no stored description (034 FR-003)", async () => {
+    getSession.mockReset().mockResolvedValue({
+      status: "success",
+      session: {
+        sessionId: "session-1",
+        adventureName: IN_PROGRESS_SESSION.adventureName,
+        avatarDescription: null,
+        turns: [{ turnNumber: 2, narrativeText: "You reach the top of the stairs.", suggestedActions: ["Look around"], locationLabel: "The keeper's stairs", goalLabel: null, progress: { current: 3, total: 5 } }],
+      },
+    });
+    const user = userEvent.setup();
+    renderApp("/menu");
+
+    await user.click(await screen.findByRole("link", { name: /resume/i }));
+
+    expect(await screen.findByText(/you reach the top of the stairs/i)).toBeInTheDocument();
+    expect(screen.queryByText(/who you are/i)).not.toBeInTheDocument();
   });
 });
