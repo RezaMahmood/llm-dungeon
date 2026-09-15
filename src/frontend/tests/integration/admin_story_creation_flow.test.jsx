@@ -112,7 +112,7 @@ describe("Admin story creation: empty draft through generated, unpublished story
       },
       readyToGenerate: false,
     });
-    await userEvent.click(screen.getByRole("button", { name: /add character type/i }));
+    await userEvent.click(screen.getByRole("button", { name: /add a character/i }));
     await userEvent.type(screen.getByLabelText(/character name/i), "Curious Cousin");
     await userEvent.tab();
 

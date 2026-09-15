@@ -56,7 +56,6 @@ class TestPlaySession:
     storyId: str
     administratorId: str
     characterName: str
-    characterType: str
     startedAt: str
     lastInteractionAt: str
     status: str = "active"
@@ -72,6 +71,11 @@ class TestPlaySession:
     # Running cumulative token total for this test-play session (data-model.md →
     # TestPlaySession) — also added to Story.totalTokens (research.md Decision 3).
     totalTokens: int = 0
+    # The fixed tester avatar description (032-story-archetypes-player-avatar FR-024).
+    avatarDescription: Optional[str] = None
+    # Superseded by avatarDescription. Widened to Optional so a pre-existing document
+    # still loads; never set on a new test-play session.
+    characterType: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -93,6 +97,7 @@ class TestPlaySession:
             "summary": self.summary,
             "summarizedThroughTurn": self.summarizedThroughTurn,
             "totalTokens": self.totalTokens,
+            "avatarDescription": self.avatarDescription,
         }
 
     @classmethod
@@ -102,7 +107,7 @@ class TestPlaySession:
             storyId=data["storyId"],
             administratorId=data["administratorId"],
             characterName=data["characterName"],
-            characterType=data["characterType"],
+            characterType=data.get("characterType"),
             status=data.get("status", "active"),
             completionReason=data.get("completionReason"),
             satisfiedSuccessConditions=list(data.get("satisfiedSuccessConditions", [])),
@@ -115,4 +120,5 @@ class TestPlaySession:
             summary=data.get("summary"),
             summarizedThroughTurn=data.get("summarizedThroughTurn", 0),
             totalTokens=data.get("totalTokens", 0),
+            avatarDescription=data.get("avatarDescription"),
         )

@@ -16,9 +16,17 @@ from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosReso
 from backend.config import config
 from backend.models.play_session import CheckpointMarker, PlayerInteraction, PlaySession
 from backend.models.player_content_safety_standing import PlayerContentSafetyStanding
+from backend.services.avatar_setup_attempts_service import AvatarSetupAttemptsService
+from backend.services.avatar_validation_service import (
+    AvatarDescriptionBlankError,
+    AvatarDescriptionNotStoryRelevantError,
+    AvatarDescriptionTooLongError,
+    AvatarDescriptionTooShortError,
+    AvatarValidationService,
+)
+from backend.services.completion_rules import evaluate_completion
 from backend.services.cosmos_service import CosmosService, shared_cosmos_service
 from backend.services.llm_service import LLMContentFilteredError, LLMOutputError, LLMRateLimitError, LLMService
-from backend.services.completion_rules import evaluate_completion
 from backend.services.player_content_safety_standing_service import (
     PlayerContentSafetyStandingService,
     describe_lockout,
@@ -52,8 +60,13 @@ FIELD_MESSAGES = {
     "adventureId": "Select an adventure.",
     "characterName_required": "Character name is required.",
     "characterName_too_long": f"Character name must be {MAX_CHARACTER_NAME_LENGTH} characters or fewer.",
-    "characterType_required": "Select a character type for this adventure.",
-    "characterType_invalid": "Choose one of this adventure's character types.",
+    "avatarDescription_required": "Describe your character before you begin.",
+    "avatarDescription_too_short": "Say a bit more about your character (at least 20 characters).",
+    "avatarDescription_too_long": "That description is too long (500 characters or fewer).",
+    "avatarDescription_not_relevant": (
+        "That doesn't read as a description of your character. Try describing who they are, "
+        "what they're like, or what they can do."
+    ),
 }
 
 
@@ -149,12 +162,18 @@ class PlaySessionService:
         story_service: Optional[StoryService] = None,
         llm_service: Optional[LLMService] = None,
         player_content_safety_standing_service: Optional[PlayerContentSafetyStandingService] = None,
+        avatar_validation_service: Optional[AvatarValidationService] = None,
     ) -> None:
         self._cosmos = cosmos_service or shared_cosmos_service()
         self._stories = story_service or StoryService(cosmos_service=self._cosmos)
         self._llm = llm_service or LLMService()
         self._safety = player_content_safety_standing_service or PlayerContentSafetyStandingService(
             cosmos_service=self._cosmos
+        )
+        self._avatar_validation = avatar_validation_service or AvatarValidationService(
+            llm_service=self._llm,
+            story_service=self._stories,
+            attempts_service=AvatarSetupAttemptsService(cosmos_service=self._cosmos),
         )
 
     def _container(self):
@@ -169,7 +188,7 @@ class PlaySessionService:
     # --- Session creation (T042) ---
 
     def create_session(
-        self, adventure_id: str, character_name: str, character_type: str, player_id: str
+        self, adventure_id: str, character_name: str, avatar_description: str, player_id: str
     ) -> PlaySession:
         if self._safety.is_locked_out(player_id):
             raise ContentSafetyLockoutError(self._safety.get_standing(player_id))
@@ -190,22 +209,37 @@ class PlaySessionService:
         elif len(trimmed_name) > MAX_CHARACTER_NAME_LENGTH:
             fields["characterName"] = FIELD_MESSAGES["characterName_too_long"]
 
-        valid_type_names = {ct.name for ct in story.characterTypes}
-        if not character_type:
-            fields["characterType"] = FIELD_MESSAGES["characterType_required"]
-        elif character_type not in valid_type_names:
-            fields["characterType"] = FIELD_MESSAGES["characterType_invalid"]
+        # Cost-free checks only here (FR-010) — cheap enough to run even if the name has
+        # already failed, so both field errors surface together (FR-004).
+        trimmed_avatar: Optional[str] = None
+        try:
+            trimmed_avatar = self._avatar_validation.validate_format(avatar_description or "")
+        except AvatarDescriptionTooShortError:
+            fields["avatarDescription"] = FIELD_MESSAGES["avatarDescription_too_short"]
+        except AvatarDescriptionTooLongError:
+            fields["avatarDescription"] = FIELD_MESSAGES["avatarDescription_too_long"]
+        except AvatarDescriptionBlankError:
+            fields["avatarDescription"] = FIELD_MESSAGES["avatarDescription_required"]
 
         if fields:
             raise InvalidSetupError(fields)
 
-        # Checked after validation, so a mistyped name still gets its field error.
+        # Checked after format validation, so a mistyped name still gets its field error
+        # without also spending a model-backed avatar-check attempt.
         most_recent_start = self._most_recent_session_start(player_id)
         if (
             most_recent_start
             and (_now_dt() - _parse(most_recent_start)).total_seconds() < MIN_SESSION_CREATION_INTERVAL_SECONDS
         ):
             raise RateLimitedError()
+
+        try:
+            validated_avatar = self._avatar_validation.validate_relevance(trimmed_avatar, player_id, story.id)
+        except AvatarDescriptionNotStoryRelevantError:
+            raise InvalidSetupError({"avatarDescription": FIELD_MESSAGES["avatarDescription_not_relevant"]}) from None
+        # AvatarDescriptionCheckUnavailableError (FR-012) and
+        # AvatarValidationAttemptsExceededError (FR-014) propagate to the caller
+        # unchanged — each is distinguishable from an ordinary invalid-setup rejection.
 
         try:
             story = self._stories.ensure_starting_point(story)
@@ -225,7 +259,7 @@ class PlaySessionService:
             adventureId=story.id,
             playerId=player_id,
             characterName=trimmed_name,
-            characterType=character_type,
+            avatarDescription=validated_avatar,
             startedAt=now,
             lastInteractionAt=now,
             isActiveForPlayer=True,
@@ -235,6 +269,9 @@ class PlaySessionService:
         session.turns.append(self._turn_from_data(0, None, story.startingPoint.to_dict(), now))
         self._container().create_item(session.to_dict())
         self._deactivate_other_active_sessions(player_id, exclude_session_id=session.id)
+        # A later, separate setup against this adventure starts its attempt cap fresh
+        # (research.md Decision 3).
+        self._avatar_validation.clear_attempts(player_id, story.id)
         logger.info("Play session created", extra={"session_id": session.id, "adventure_id": adventure_id})
         return session
 

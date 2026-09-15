@@ -11,6 +11,10 @@ import azure.functions as func
 from backend.api.game.middleware import authorize_player
 from backend.api.utils import error_response, forbidden_access_not_granted, json_response
 from backend.services.account_provisioning_service import AccountProvisioningService
+from backend.services.avatar_validation_service import (
+    AvatarDescriptionCheckUnavailableError,
+    AvatarValidationAttemptsExceededError,
+)
 from backend.services.player_content_safety_standing_service import describe_lockout
 from backend.services.play_session_service import (
     AdventureNotFoundError,
@@ -117,7 +121,7 @@ def create_session(
         session = service.create_session(
             adventure_id=body.get("adventureId"),
             character_name=body.get("characterName"),
-            character_type=body.get("characterType"),
+            avatar_description=body.get("avatarDescription"),
             player_id=user_oid,
         )
     except ContentSafetyLockoutError as exc:
@@ -133,6 +137,18 @@ def create_session(
         return error_response(429, "rate_limited", "You've just started a story — take a moment before starting another.")
     except NarrativeUnavailableError:
         return error_response(502, "narrative_unavailable", "Couldn't generate the opening narrative. Please try again.")
+    except AvatarDescriptionCheckUnavailableError:
+        return error_response(
+            503,
+            "avatar_check_unavailable",
+            "We couldn't finish checking your character description. Please try again shortly.",
+        )
+    except AvatarValidationAttemptsExceededError:
+        return error_response(
+            429,
+            "avatar_validation_attempts_exceeded",
+            "That's a lot of attempts for one setup. Take a short break and try again.",
+        )
 
     return json_response(
         {"status": "success", "sessionId": session.id, "narrative": _narrative_dict(session.turns[0])},

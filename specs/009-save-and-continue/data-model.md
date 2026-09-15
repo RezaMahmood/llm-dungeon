@@ -88,8 +88,10 @@ Rows carry **no `turns` array** — the full history belongs to the detail read 
 
 The full session, sufficient to rebuild the play surface exactly as the player left it
 (FR-006): every field of the Saved Game Summary above, plus `status`, `completionReason`,
-`characterType`, the complete `turns` array (each turn exactly as `PlayerInteraction`
-serialises it today), and `checkpoints`.
+`avatarDescription` (`null` on a session saved before `032-story-archetypes-player-avatar`,
+which carries a now-unused `characterType` instead — never converted or backfilled), the
+complete `turns` array (each turn exactly as `PlayerInteraction` serialises it today), and
+`checkpoints`.
 
 Ownership is checked before anything is returned: a session belonging to another player
 gets the same generic 403 `submit_interaction` already returns, never a 404 that would

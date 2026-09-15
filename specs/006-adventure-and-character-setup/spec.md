@@ -56,25 +56,25 @@ A player choosing to start a new game first picks which published adventure to p
 
 - **FR-001**: System MUST present a player starting a new game with the list of currently published adventures to choose from, each distinguishable by name.
 - **FR-002**: System MUST require a player starting a new game to supply a non-blank character name, no longer than 50 characters, before play can begin.
-- **FR-003**: System MUST require a player starting a new game to choose one character type from the set of character types defined by the administrator for the selected adventure, before play can begin.
-- **FR-003a**: System MUST require a player to select an adventure before character name entry and character type selection become available, since the available character types depend on which adventure was chosen.
-- **FR-004**: System MUST prevent a player from starting actual gameplay until an adventure, a character name, and a character type have all been supplied.
-- **FR-004a**: System MUST clear a previously selected character type whenever the player changes their selected adventure, since character types are scoped per adventure; the character name MUST be retained across such a change.
+- **FR-003**: System MUST require a player starting a new game to supply a free-text description of their character's characteristics, before play can begin (`032-story-archetypes-player-avatar` FR-001).
+- **FR-003a**: System MUST require a player to select an adventure before character name entry and the avatar description step become available.
+- **FR-004**: System MUST prevent a player from starting actual gameplay until an adventure, a character name, and an avatar description have all been supplied.
+- **FR-004a**: System MUST retain a player's character name and typed avatar-description text when they change their selected adventure, rather than silently discarding either.
 - **FR-005**: System MUST identify to the player exactly which setup element(s) are still missing when they attempt to start play prematurely.
 - **FR-006**: System MUST display a clear message when no adventures are currently published, rather than an empty adventure list.
-- **FR-007**: Each distinct setup step (adventure selection, character name entry, character type selection, and the completeness gate) MUST have a corresponding automated test verifying its expected behavior.
+- **FR-007**: Each distinct setup step (adventure selection, character name entry, the avatar-description step, and the completeness gate) MUST have a corresponding automated test verifying its expected behavior.
 
 ### Key Entities
 
-- **Character Type**: An administrator-defined option, scoped to a specific adventure, that a player chooses from when setting up a new game against that adventure (defined in `004-story-creation-done` / `011-story-import`).
-- **Play Session Setup**: The adventure, character name, and character type a player has selected for a given play session before gameplay is permitted to begin.
+- **Character Archetype**: An administrator-authored character belonging to a story's world, presented to administrators as cast material the narration can draw on — not a player-selectable option (defined in `004-story-creation-done` / `011-story-import`; repurposed by `033-story-cast-in-narration` and `032-story-archetypes-player-avatar`).
+- **Play Session Setup**: The adventure, character name, and avatar description a player has supplied for a given play session before gameplay is permitted to begin (`032-story-archetypes-player-avatar`).
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: A player can go from choosing "start a new game" to being in active play in three steps or fewer (adventure, name, character type) with no additional required input.
-- **SC-002**: 100% of attempts to start play with an incomplete setup (missing adventure, name, or character type) are blocked in testing, with the missing item identified to the player.
+- **SC-001**: A player can go from choosing "start a new game" to being in active play in three steps or fewer (adventure, name, avatar description) with no additional required input. Superseded by `032-story-archetypes-player-avatar` SC-001.
+- **SC-002**: 100% of attempts to start play with an incomplete setup (missing adventure, name, or avatar description) are blocked in testing, with the missing item identified to the player.
 - **SC-003**: A player can distinguish and choose between multiple published adventures without needing any explanation beyond what's shown in the list.
 
 ## Assumptions

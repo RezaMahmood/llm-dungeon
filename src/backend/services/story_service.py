@@ -438,6 +438,41 @@ class StoryService:
                     )
                     return story
 
+    def record_avatar_validation_tokens(self, story_id: str, tokens_used: int) -> Optional[Story]:
+        """032-story-archetypes-player-avatar FR-016/FR-017: adds a model-backed
+        avatar-description validation call's tokens to `Story.totalTokens`, including for a
+        description that was rejected and never became a session — no `PlaySession`
+        exists yet at validation time, so there is no session total to attribute this to
+        instead. Same bounded `_etag` read-modify-write as `record_test_play` above."""
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            item = self._read_item(story_id)
+            if item is None:
+                return None
+            story = Story.from_dict(item)
+            story.totalTokens += tokens_used
+            try:
+                self._container().replace_item(
+                    item=story.id,
+                    body=story.to_dict(),
+                    etag=item["_etag"],
+                    match_condition=MatchConditions.IfNotModified,
+                )
+                return story
+            except CosmosResourceNotFoundError:
+                logger.info(
+                    "Avatar-validation token accrual found the story already deleted",
+                    extra={"story_id": story_id},
+                )
+                return None
+            except CosmosAccessConditionFailedError:
+                if attempt >= max_attempts:
+                    logger.warning(
+                        "Avatar-validation token accrual lost a repeated etag race; giving up",
+                        extra={"story_id": story_id},
+                    )
+                    return story
+
     def unpublish(self, story_id: str) -> Optional[Story]:
         """Unpublish `story_id` (FR-004), idempotent (FR-006); `lastPublishedAt` is left
         untouched (FR-012). Returns `None` if the story doesn't exist or was deleted

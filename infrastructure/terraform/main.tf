@@ -162,6 +162,18 @@ resource "azurerm_cosmosdb_sql_container" "player_content_safety_standings" {
   partition_key_version = 2
 }
 
+resource "azurerm_cosmosdb_sql_container" "avatar_setup_attempts" {
+  # 032-story-archetypes-player-avatar, research.md Decision 3: a small, per-(player,
+  # story) counter bounding model-backed avatar-description validation attempts within a
+  # single setup.
+  name                  = "avatarSetupAttempts"
+  resource_group_name   = data.azurerm_resource_group.rg.name
+  account_name          = azurerm_cosmosdb_account.cosmos.name
+  database_name         = azurerm_cosmosdb_sql_database.db.name
+  partition_key_paths   = ["/id"]
+  partition_key_version = 2
+}
+
 resource "azurerm_cosmosdb_sql_container" "provisioned_account_entries" {
   # Replaces allowListEntries + capabilityAssignments (003-account-provisioning-done):
   # both were keyed by user_oid; this single container is keyed by lowercased
@@ -283,6 +295,7 @@ resource "azurerm_function_app_flex_consumption" "functions" {
     STORIES_CONTAINER                         = azurerm_cosmosdb_sql_container.stories.name
     PLAY_SESSIONS_CONTAINER                   = azurerm_cosmosdb_sql_container.play_sessions.name
     PLAYER_CONTENT_SAFETY_STANDINGS_CONTAINER = azurerm_cosmosdb_sql_container.player_content_safety_standings.name
+    AVATAR_SETUP_ATTEMPTS_CONTAINER           = azurerm_cosmosdb_sql_container.avatar_setup_attempts.name
     STORAGE_ACCOUNT_URL                       = azurerm_storage_account.app_storage.primary_blob_endpoint
     STORAGE_CONTAINER                         = azurerm_storage_container.assets.name
     AZURE_OPENAI_ENDPOINT                     = azurerm_cognitive_account.openai.endpoint

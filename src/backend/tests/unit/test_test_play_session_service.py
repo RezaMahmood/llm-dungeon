@@ -26,6 +26,7 @@ from backend.services.test_play_session_service import (
     SessionConcludedError,
     SessionNotFoundError,
     StoryNotFoundError,
+    TESTER_AVATAR_DESCRIPTION,
     TestPlaySessionService,
 )
 
@@ -162,7 +163,8 @@ def test_create_session_works_against_a_draft_story():
 
     assert session.storyId == story.id
     assert session.administratorId == ADMIN_ID
-    assert session.characterType == "Curious Cousin"
+    assert session.characterType is None
+    assert session.avatarDescription == TESTER_AVATAR_DESCRIPTION
     assert session.characterName == "Tester"
     assert session.turns[0].turnNumber == 0
     assert session.turns[0].playerInput is None

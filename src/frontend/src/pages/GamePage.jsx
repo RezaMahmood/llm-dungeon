@@ -9,8 +9,11 @@ import { useMsal } from "@azure/msal-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 
+import AvatarDescriptionStep, {
+  MAX_AVATAR_DESCRIPTION_LENGTH,
+  MIN_AVATAR_DESCRIPTION_LENGTH,
+} from "../components/GameSetup/AvatarDescriptionStep.jsx";
 import CharacterNameStep, { MAX_CHARACTER_NAME_LENGTH } from "../components/GameSetup/CharacterNameStep.jsx";
-import CharacterTypeStep from "../components/GameSetup/CharacterTypeStep.jsx";
 import PendingButton from "../components/Common/PendingButton.jsx";
 import PendingIndicator from "../components/Common/PendingIndicator.jsx";
 import { createSession, getAdventure, getSession, resumeSession } from "../services/gameService.js";
@@ -33,6 +36,18 @@ function nameError(name) {
   return null;
 }
 
+function avatarDescriptionError(description) {
+  const trimmed = description.trim();
+  if (!trimmed) return "Describe your character before you begin.";
+  if (trimmed.length < MIN_AVATAR_DESCRIPTION_LENGTH) {
+    return `Say a bit more about your character (at least ${MIN_AVATAR_DESCRIPTION_LENGTH} characters).`;
+  }
+  if (trimmed.length > MAX_AVATAR_DESCRIPTION_LENGTH) {
+    return `That description is too long (${MAX_AVATAR_DESCRIPTION_LENGTH} characters or fewer).`;
+  }
+  return null;
+}
+
 export function GamePage() {
   const { instance, accounts } = useMsal();
   const account = accounts[0];
@@ -41,11 +56,8 @@ export function GamePage() {
   const { adventureId, resumeSessionId, isActiveForPlayer } = state || {};
 
   const [characterName, setCharacterName] = useState("");
-  const [characterType, setCharacterType] = useState(null);
-  const [characterTypes, setCharacterTypes] = useState([]);
+  const [avatarDescription, setAvatarDescription] = useState("");
   const [adventureName, setAdventureName] = useState(null);
-  const [typesLoading, setTypesLoading] = useState(Boolean(adventureId));
-  const [typesError, setTypesError] = useState(null);
 
   const [fieldErrors, setFieldErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -84,24 +96,20 @@ export function GamePage() {
   );
 
   // Character-setup path: Home already chose the adventure (FR-006) — this only needs
-  // that adventure's character types and display name.
+  // its display name. The roster is the story's cast now (032-story-archetypes-player-
+  // avatar), not a player-selectable list, so it is never fetched here.
   useEffect(() => {
     if (!adventureId) return;
     let cancelled = false;
-    setTypesLoading(true);
-    setTypesError(null);
     (async () => {
       try {
         const token = await getToken();
         const data = await getAdventure(token, adventureId);
         if (!cancelled) {
-          setCharacterTypes(data.adventure?.characterTypes || []);
           setAdventureName(data.adventure?.name || null);
         }
-      } catch (err) {
-        if (!cancelled) setTypesError(err);
-      } finally {
-        if (!cancelled) setTypesLoading(false);
+      } catch {
+        // Non-fatal: the heading falls back to a generic label below.
       }
     })();
     return () => {
@@ -164,7 +172,8 @@ export function GamePage() {
     const clientErrors = {};
     const nameProblem = nameError(characterName);
     if (nameProblem) clientErrors.characterName = nameProblem;
-    if (!characterType) clientErrors.characterType = "Select a character type for this adventure.";
+    const avatarProblem = avatarDescriptionError(avatarDescription);
+    if (avatarProblem) clientErrors.avatarDescription = avatarProblem;
 
     if (Object.keys(clientErrors).length > 0) {
       setFieldErrors(clientErrors);
@@ -175,7 +184,11 @@ export function GamePage() {
     setFieldErrors({});
     try {
       const token = await getToken();
-      const data = await createSession(token, { adventureId, characterName: characterName.trim(), characterType });
+      const data = await createSession(token, {
+        adventureId,
+        characterName: characterName.trim(),
+        avatarDescription: avatarDescription.trim(),
+      });
       setSession({
         sessionId: data.sessionId,
         storyName: adventureName || "Adventure",
@@ -183,9 +196,11 @@ export function GamePage() {
       });
     } catch (err) {
       if (err.response?.status === 423) {
-        setFieldErrors({ characterType: err.response.data?.message || "You're temporarily locked out. Please try again later." });
+        setFieldErrors({ avatarDescription: err.response.data?.message || "You're temporarily locked out. Please try again later." });
+      } else if (err.response?.status === 503 || err.response?.status === 429) {
+        setFieldErrors({ avatarDescription: err.response.data?.message || "Something went wrong. Please try again." });
       } else {
-        setFieldErrors(err.response?.data?.fields || { characterType: "Something went wrong. Please try again." });
+        setFieldErrors(err.response?.data?.fields || { avatarDescription: "Something went wrong. Please try again." });
       }
     } finally {
       setSubmitting(false);
@@ -249,20 +264,14 @@ export function GamePage() {
 
       <section aria-labelledby="step2-heading" style={{ marginTop: "40px" }}>
         <h2 id="step2-heading" style={{ fontSize: "16px", margin: "0 0 12px" }}>
-          02 — Choose a character type
+          02 — Describe your character
         </h2>
-        <CharacterTypeStep
-          characterTypes={characterTypes}
-          loading={typesLoading}
-          error={typesError}
-          selectedName={characterType}
-          onSelect={setCharacterType}
+        <AvatarDescriptionStep
+          value={avatarDescription}
+          onChange={setAvatarDescription}
+          error={fieldErrors.avatarDescription}
+          disabled={submitting}
         />
-        {fieldErrors.characterType && (
-          <p role="alert" style={{ fontSize: "12px", color: "var(--color-accent-700)", margin: "8px 0 0" }}>
-            {fieldErrors.characterType}
-          </p>
-        )}
       </section>
 
       <div

@@ -35,7 +35,7 @@ this document — out of scope here).
 | `adventureId` | string | The `Story.id` this session plays (FR-002) |
 | `playerId` | string | The authenticated player's Microsoft object id (`oid`) — scopes exclusivity (FR-006) |
 | `characterName` | string | Echoed from `006`'s setup (already validated there; re-validated here, see contracts) |
-| `characterType` | string | Echoed from `006`'s setup |
+| `avatarDescription` | string or null | The player's free-text character description, validated at setup (`032-story-archetypes-player-avatar`); `null` on a session created before that change, which carries a now-unused `characterType` instead |
 | `status` | `"active"` \| `"concluded"` | FR-010 gate — no interaction accepted once `"concluded"` |
 | `completionReason` | object or null | `{"type": "duration" \| "success" \| "failure", "detail": string \| null}` once concluded (FR-009); `null` while active. `detail` holds the matched success/failure condition text, or `null` for `"duration"` |
 | `satisfiedSuccessConditions` | array of int | Indices into `Story.completionCriteria.successConditions` already satisfied (research.md Decision 6) |
@@ -52,10 +52,11 @@ this document — out of scope here).
 ### Validation Rules
 
 - Created only via `POST /api/game/sessions` (contracts/api.md), which re-validates the
-  same three setup fields `006-adventure-and-character-setup`'s `POST /api/game/start`
-  already validates (adventure exists + published, character name non-blank ≤50 chars,
-  character type valid for that adventure) — this feature does not trust a client-supplied
-  "setup was already validated" claim from an earlier, separate request.
+  same setup fields `006-adventure-and-character-setup`'s setup flow already validates
+  (adventure exists + published, character name non-blank ≤50 chars, avatar description
+  20-500 chars and story-relevant per `032-story-archetypes-player-avatar`) — this feature
+  does not trust a client-supplied "setup was already validated" claim from an earlier,
+  separate request.
 - `status` only ever transitions `"active"` → `"concluded"`, exactly once (FR-009's "record
   which condition... caused the ending" — `completionReason` is set atomically with this
   transition, never overwritten afterward).

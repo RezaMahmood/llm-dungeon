@@ -77,7 +77,7 @@ describe("Home -> Play -> character setup -> session start (FR-006, SC-002)", ()
     listAdventures.mockReset().mockResolvedValue({ adventures: [STORY] });
     listSavedGames.mockReset().mockResolvedValue({ sessions: [] });
     getAdventure.mockReset().mockResolvedValue({
-      adventure: { id: "story-1", name: STORY.name, characterTypes: [{ name: "Detective", description: "Sharp-eyed." }] },
+      adventure: { id: "story-1", name: STORY.name },
     });
     createSession.mockReset();
   });
@@ -100,11 +100,18 @@ describe("Home -> Play -> character setup -> session start (FR-006, SC-002)", ()
       narrative: { turnNumber: 0, narrativeText: "A door creaks open.", suggestedActions: ["look"], locationLabel: "Hall", goalLabel: null, progress: null },
     });
     await user.type(screen.getByLabelText(/character name/i), "Wren");
-    await user.click(await screen.findByRole("radio", { name: /detective/i }));
+    await user.type(
+      screen.getByLabelText(/^describe your character$/i),
+      "A one-eyed lighthouse keeper's apprentice who fears the dark.",
+    );
     await user.click(screen.getByRole("button", { name: /start playing/i }));
 
     expect(await screen.findByText(/a door creaks open/i)).toBeInTheDocument();
-    expect(createSession).toHaveBeenCalledWith("tok", { adventureId: "story-1", characterName: "Wren", characterType: "Detective" });
+    expect(createSession).toHaveBeenCalledWith("tok", {
+      adventureId: "story-1",
+      characterName: "Wren",
+      avatarDescription: "A one-eyed lighthouse keeper's apprentice who fears the dark.",
+    });
   });
 });
 

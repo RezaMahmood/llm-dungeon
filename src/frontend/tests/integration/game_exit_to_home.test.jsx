@@ -147,7 +147,10 @@ describe("Pause and exit lands the player on Home (#346)", () => {
     renderApp([{ pathname: "/game", state: { adventureId: "a1" } }]);
 
     await user.type(await screen.findByLabelText(/character name/i), "Bramble");
-    await user.click(await screen.findByText("Scout"));
+    await user.type(
+      screen.getByLabelText(/^describe your character$/i),
+      "A quick and quiet scout who misses nothing.",
+    );
     await user.click(screen.getByRole("button", { name: /start playing/i }));
 
     await screen.findByText("The door creaks open.");
