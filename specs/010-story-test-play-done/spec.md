@@ -32,7 +32,7 @@ An administrator starts an interactive test conversation against a story's curre
 
 **Why this priority**: This is the core value of the feature — catching a broken or unsafe story before real players see it. Nothing else in this feature matters without it.
 
-**Independent Test**: With one draft story that has a saved world prompt, character types, and completion criteria, start a test-play session, submit a few test instructions, and verify narrative responses are generated consistent with that configuration, using the same interaction model as real gameplay.
+**Independent Test**: With one draft story that has a saved world prompt, a cast of characters, and completion criteria, start a test-play session, submit a few test instructions, and verify narrative responses are generated consistent with that configuration, using the same interaction model as real gameplay.
 
 **Acceptance Scenarios**:
 

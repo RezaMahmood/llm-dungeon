@@ -528,3 +528,55 @@ def test_play_session_from_dict_with_no_checkpoints_key_loads_as_empty_list():
     restored = PlaySession.from_dict(legacy_data)
 
     assert restored.checkpoints == []
+
+
+# --- A player-authored avatar replaces the character type (032-story-archetypes-player-avatar) ---
+
+
+def test_play_session_round_trips_a_new_style_avatar_description():
+    session = PlaySession(
+        id="session-1",
+        adventureId="story-1",
+        playerId="oid-1",
+        characterName="Wren",
+        avatarDescription="A one-eyed lighthouse keeper's apprentice who fears the dark.",
+        startedAt="2026-09-05T00:00:00Z",
+        lastInteractionAt="2026-09-05T00:00:00Z",
+        turns=[_opening_turn()],
+    )
+    assert session.characterType is None
+    restored = PlaySession.from_dict(session.to_dict())
+    assert restored == session
+
+
+def test_play_session_from_dict_with_a_pre_change_document_loads_with_no_avatar_description():
+    """FR-025, FR-026: a session document written before this feature carries a
+    `characterType` and no `avatarDescription` key at all — it must still load, with the
+    old character type never treated as the player's identity again."""
+    legacy_data = {
+        "id": "session-1",
+        "entityType": "PlaySession",
+        "adventureId": "story-1",
+        "playerId": "oid-1",
+        "characterName": "Wren",
+        "characterType": "Detective",
+        "status": "active",
+        "completionReason": None,
+        "satisfiedSuccessConditions": [],
+        "satisfiedFailureConditions": [],
+        "interactionInProgress": False,
+        "isActiveForPlayer": True,
+        "turns": [_opening_turn().to_dict()],
+        "startedAt": "2026-09-05T00:00:00Z",
+        "lastInteractionAt": "2026-09-05T00:00:00Z",
+        "endedAt": None,
+        "summary": None,
+        "summarizedThroughTurn": 0,
+        "checkpoints": [],
+        "totalTokens": 0,
+    }
+
+    restored = PlaySession.from_dict(legacy_data)
+
+    assert restored.characterType == "Detective"
+    assert restored.avatarDescription is None

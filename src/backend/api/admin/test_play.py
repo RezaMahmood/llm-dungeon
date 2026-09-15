@@ -65,7 +65,7 @@ def start_test_play(
         {
             "status": "success",
             "sessionId": session.id,
-            "characterType": session.characterType,
+            "avatarDescription": session.avatarDescription,
             "narrative": _narrative_dict(session.turns[0]),
         },
         status_code=201,

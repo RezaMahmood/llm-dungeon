@@ -128,7 +128,7 @@ From any tab of the wizard, at any point, an administrator can either Abandon or
 
 - **Story**: A complete adventure narrative — name, optional cover image reference, setting/outline, rules the story must keep, character types, and completion criteria — along with whatever guidance is needed to keep the LLM's later narration consistent with it. Newly created in an unpublished state (see `005-story-publishing-done`). Tracks createdAt, updatedAt, createdBy, and updatedBy (the latter two identified by administrator email).
 - **Story-Creation Exchange**: A single turn in the conversation between an administrator and the system while building a Story — the atomic unit of the elicitation process.
-- **Character Type**: An option, scoped to the Story being created, that a player will later choose from when setting up a new game against it (see `006-adventure-and-character-setup`).
+- **Character Archetype**: An administrator-authored character, scoped to the Story being created, presented as cast material the narration can draw on — not an option a player later chooses from (see `033-story-cast-in-narration`, `032-story-archetypes-player-avatar`).
 - **Completion Criteria**: The conditions authored for a Story that determine when a play session ends — an optional maximum duration, one or more success conditions, and optionally one or more failure conditions, together with a rule for whether any one or all configured conditions must be met when more than one is defined. Authored here; enforced during play by `008-core-gameplay-done`.
 - **Wizard Draft**: The in-progress, unsaved state of a story-creation session, held in the administrator's browser (local storage) across all four tabs until a Save persists it to the Story record.
 

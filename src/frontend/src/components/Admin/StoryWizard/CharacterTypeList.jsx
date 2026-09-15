@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Repeatable add/remove rows for character types (FR-008). Edits to name/description
- * commit to the parent (and so the backend, via PATCH) on blur, not per keystroke — a
- * newly added row is local-only until its name is filled in and blurred, so it never
- * round-trips an empty (invalid) name to the draft.
+ * Repeatable add/remove rows authoring the story's cast of characters (FR-008;
+ * 032-story-archetypes-player-avatar FR-023: presented as cast the narration can draw on,
+ * never as options a player chooses from). Edits to name/description commit to the parent
+ * (and so the backend, via PATCH) on blur, not per keystroke — a newly added row is
+ * local-only until its name is filled in and blurred, so it never round-trips an empty
+ * (invalid) name to the draft.
  */
 export function CharacterTypeList({ characterTypes = [], onChange, error }) {
   const [rows, setRows] = useState(characterTypes);
@@ -49,7 +51,12 @@ export function CharacterTypeList({ characterTypes = [], onChange, error }) {
 
   return (
     <div className="field">
-      <label>Character types</label>
+      <label>Cast of characters</label>
+      <p className="text-muted" style={{ fontSize: "12px", margin: "0 0 8px" }}>
+        Story-world characters — NPCs, factions, narrative roles — the narration can draw
+        on as it plays. The player does not choose one of these; they describe their own
+        character separately at setup.
+      </p>
       {rows.map((row, index) => (
         <div key={index} style={{ display: "flex", gap: "10px", marginBottom: "8px" }}>
           <input
@@ -74,7 +81,7 @@ export function CharacterTypeList({ characterTypes = [], onChange, error }) {
         </div>
       ))}
       <button type="button" className="btn btn-secondary" onClick={addRow}>
-        Add character type
+        Add a character
       </button>
       {error && (
         <div role="alert" className="text-muted">

@@ -36,6 +36,9 @@ MIN_INTERACTION_INTERVAL_SECONDS = 2
 
 # Fixed literal (research.md Decision 6) — no character-setup step exists for test play.
 TESTER_CHARACTER_NAME = "Tester"
+# Fixed literal (032-story-archetypes-player-avatar FR-024, research.md Decision 6) —
+# test play never derives an avatar description from the story's roster.
+TESTER_AVATAR_DESCRIPTION = "A curious tester exploring this story to check how it plays."
 
 # Mirrors PlaySessionService's REDACTED_PLAYER_INPUT: a filtered submission is never stored
 # verbatim, since `turns[].playerInput` is replayed into the prompt for every later turn.
@@ -112,10 +115,11 @@ class TestPlaySessionService:
     # --- Session creation (T018, FR-001) ---
 
     def create_session(self, story_id: str, administrator_id: str) -> TestPlaySession:
-        """No `published` check — testing a draft is the point. Defaults the character to
-        `story.characterTypes[0]` with the fixed name `"Tester"` (research.md Decision 6).
-        No qualifying exchange occurs here, so `Story.lastTestPlayedAt` is not written
-        (research.md Decision 9). Turn 0 replays the story's persisted `startingPoint`
+        """No `published` check — testing a draft is the point. Uses the fixed tester name
+        and avatar description (research.md Decision 6) rather than deriving one from
+        `story.characterTypes`, which is cast material only after 032-story-archetypes-
+        player-avatar. No qualifying exchange occurs here, so `Story.lastTestPlayedAt` is
+        not written (research.md Decision 9). Turn 0 replays the story's persisted `startingPoint`
         verbatim rather than generating a fresh opening narrative per session — the same
         fix #279 applied to `PlaySessionService`, since a live per-session LLM call here
         is exactly as unreliable and unnecessary for testing as it was for real play."""
@@ -139,7 +143,7 @@ class TestPlaySessionService:
             storyId=story.id,
             administratorId=administrator_id,
             characterName=TESTER_CHARACTER_NAME,
-            characterType=story.characterTypes[0].name,
+            avatarDescription=TESTER_AVATAR_DESCRIPTION,
             startedAt=now,
             lastInteractionAt=now,
         )

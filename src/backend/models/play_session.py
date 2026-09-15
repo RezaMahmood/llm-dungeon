@@ -81,7 +81,6 @@ class PlaySession:
     adventureId: str
     playerId: str
     characterName: str
-    characterType: str
     startedAt: str
     lastInteractionAt: str
     status: str = "active"
@@ -99,6 +98,13 @@ class PlaySession:
     # Running cumulative token total across every turn and summarization call in this
     # session; never contributes to Story.totalTokens (data-model.md → PlaySession).
     totalTokens: int = 0
+    # The player's free-text description of their character (032-story-archetypes-player-
+    # avatar). Set once at session creation for a new session; None on a session resumed
+    # from before this change.
+    avatarDescription: Optional[str] = None
+    # Superseded by avatarDescription (032-story-archetypes-player-avatar). Widened to
+    # Optional so a pre-existing document still loads; never set on a new session.
+    characterType: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -122,6 +128,7 @@ class PlaySession:
             "summarizedThroughTurn": self.summarizedThroughTurn,
             "checkpoints": [checkpoint.to_dict() for checkpoint in self.checkpoints],
             "totalTokens": self.totalTokens,
+            "avatarDescription": self.avatarDescription,
         }
 
     @classmethod
@@ -131,7 +138,7 @@ class PlaySession:
             adventureId=data["adventureId"],
             playerId=data["playerId"],
             characterName=data["characterName"],
-            characterType=data["characterType"],
+            characterType=data.get("characterType"),
             status=data.get("status", "active"),
             completionReason=data.get("completionReason"),
             satisfiedSuccessConditions=list(data.get("satisfiedSuccessConditions", [])),
@@ -146,4 +153,5 @@ class PlaySession:
             summarizedThroughTurn=data.get("summarizedThroughTurn", 0),
             checkpoints=[CheckpointMarker.from_dict(checkpoint) for checkpoint in data.get("checkpoints", [])],
             totalTokens=data.get("totalTokens", 0),
+            avatarDescription=data.get("avatarDescription"),
         )

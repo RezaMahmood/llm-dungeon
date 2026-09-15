@@ -420,6 +420,37 @@ def test_record_test_play_retries_against_a_fresh_read_on_a_lost_etag_race():
     assert container.items["story-1"]["totalTokens"] == 180
 
 
+def test_record_avatar_validation_tokens_adds_to_the_story_total():
+    """032-story-archetypes-player-avatar FR-016: a validation call's tokens land on the
+    adventure's cumulative total, on top of whatever it already carried."""
+    story = _story(id="story-1", totalTokens=100)
+    service, _cosmos, _llm = _service_with_etag(story)
+
+    result = service.record_avatar_validation_tokens(story.id, 30)
+
+    assert result.totalTokens == 130
+
+
+def test_record_avatar_validation_tokens_counts_a_rejected_descriptions_tokens_too():
+    """FR-016: this method has no notion of accept/reject — the caller decides whether to
+    call it, and a rejected description's tokens are recorded exactly like an accepted
+    one's."""
+    story = _story(id="story-1", totalTokens=0)
+    service, _cosmos, _llm = _service_with_etag(story)
+
+    result = service.record_avatar_validation_tokens(story.id, 17)
+
+    assert result.totalTokens == 17
+
+
+def test_record_avatar_validation_tokens_returns_none_for_missing_story():
+    cosmos = MagicMock()
+    cosmos.get_container.return_value.read_item.side_effect = CosmosResourceNotFoundError
+    service = StoryService(cosmos_service=cosmos)
+
+    assert service.record_avatar_validation_tokens("missing", 10) is None
+
+
 def test_record_test_play_gives_up_without_raising_after_repeated_conflicts():
     """A race lost on every attempt is accepted, not raised — the test-play turn that
     triggered this accrual already persisted successfully, and must not come back to

@@ -119,15 +119,16 @@ mode no Story exists until `handleGenerate()`. Both exits therefore navigate to
 FR-005/FR-008 circular); a story-list row entry point (not required by any FR — left to
 follow-up).
 
-## Decision 6 — Test play needs a character; take it from the story
+## Decision 6 — Test play needs a character; use a fixed tester identity
 
-**Decision**: Default the session's character to the first entry of
-`story.characterTypes` with a fixed name literal `"Tester"`.
+**Decision**: Use a fixed `characterName` literal `"Tester"` and a fixed
+`avatarDescription` literal, never derived from `story.characterTypes` (that roster is
+cast material only, per `033-story-cast-in-narration` / `032-story-archetypes-player-
+avatar`; supersedes deriving the tester's identity from its first entry).
 
-**Rationale**: `PlaySession` requires `characterName`/`characterType`, but neither the
-spec nor the prototype offers the administrator a character-setup step, and adding one
-would exceed scope. The prototype labels the administrator's line `Tester:`.
-`Story.__post_init__` guarantees at least one character type exists.
+**Rationale**: Neither the spec nor the prototype offers the administrator a
+character-setup step, and adding one would exceed scope. The prototype labels the
+administrator's line `Tester:`.
 
 ## Decision 7 — One publish control, extended with confirmation
 

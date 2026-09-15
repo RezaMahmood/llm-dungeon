@@ -36,7 +36,7 @@ Once a player has set up a game (see `006-adventure-and-character-setup`), they 
 
 **Why this priority**: This is the core value of the product — the actual game experience. Nothing else matters if this loop doesn't work.
 
-**Independent Test**: With a play session already set up (adventure, character name, character type), submit a sequence of natural-language actions and verify each response is narratively coherent, reflects prior actions, and is delivered through the text interface.
+**Independent Test**: With a play session already set up (adventure, character name, avatar description), submit a sequence of natural-language actions and verify each response is narratively coherent, reflects prior actions, and is delivered through the text interface.
 
 **Acceptance Scenarios**:
 
@@ -131,7 +131,7 @@ While a player is in an active game, the game automatically ends when the condit
 
 ## Assumptions
 
-- This spec assumes a play session has already been set up with a chosen adventure, character name, and character type, per `006-adventure-and-character-setup`; it does not redefine that setup flow.
+- This spec assumes a play session has already been set up with a chosen adventure, character name, and avatar description, per `006-adventure-and-character-setup` as amended by `032-story-archetypes-player-avatar`; it does not redefine that setup flow.
 - Completion criteria (duration, success, failure, and the any/all combination rule) are authored as part of a story's configuration in `004-story-creation-done` or `011-story-import`; this spec only covers how they are enforced during play, not how they are defined.
 - Saving progress mid-session and resuming later (a save-point/checkpoint mechanism) is a separate capability handled by a different spec (see `009-save-and-continue`); this spec's periodic session summary (FR-014) exists solely to bound the context used for narrative generation and is not, itself, a save-point mechanism — the two are deliberately kept separate.
 - The underlying technology/model used to produce the periodic summary (FR-014) is an implementation choice; it is not required to be the same technology/model used to generate narrative turns.

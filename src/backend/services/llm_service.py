@@ -11,6 +11,7 @@ orchestration from the framework is pulled in (YAGNI)."""
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import json
 import logging
 import threading
@@ -96,8 +97,13 @@ GENERATION_SYSTEM_PROMPT = _load_prompt("generation_system_prompt.txt")
 STARTING_POINT_SYSTEM_PROMPT = _load_prompt("starting_point_system_prompt.txt")
 GAMEPLAY_TURN_SYSTEM_PROMPT = _load_prompt("gameplay_turn_system_prompt.txt")
 GAMEPLAY_SUMMARY_SYSTEM_PROMPT = _load_prompt("gameplay_summary_system_prompt.txt")
+AVATAR_RELEVANCE_SYSTEM_PROMPT = _load_prompt("avatar_relevance_system_prompt.txt")
 
 MAX_NARRATIVE_WORDS = 150
+
+# FR-011: the whole model-backed avatar-relevance check is abandoned, and treated as
+# having reached no verdict, once this elapses (032-story-archetypes-player-avatar).
+AVATAR_RELEVANCE_CHECK_TIMEOUT_SECONDS = 10.0
 
 # Reasoning effort per call, set against what each call has to work out. The gameplay turn
 # judges whether the player's action satisfied a completion condition and that verdict is
@@ -110,6 +116,7 @@ REASONING_EFFORT_GENERATION = config.LLM_REASONING_EFFORT_GENERATION or "low"
 REASONING_EFFORT_STARTING_POINT = config.LLM_REASONING_EFFORT_STARTING_POINT or "low"
 REASONING_EFFORT_GAMEPLAY_TURN = config.LLM_REASONING_EFFORT_GAMEPLAY_TURN or "medium"
 REASONING_EFFORT_GAMEPLAY_SUMMARY = config.LLM_REASONING_EFFORT_GAMEPLAY_SUMMARY or "minimal"
+REASONING_EFFORT_AVATAR_RELEVANCE = config.LLM_REASONING_EFFORT_AVATAR_RELEVANCE or "minimal"
 
 # config.LLM_REASONING_EFFORT set to this omits the parameter, for a model that rejects it.
 REASONING_EFFORT_OFF = "off"
@@ -132,6 +139,13 @@ class LLMContentFilteredError(RuntimeError):
     """Raised when a call fails because the Foundry deployment's default content filter
     rejected the prompt or the completion (008-core-gameplay-done research.md Decision 3).
     Callers map this to a safe in-fiction deflection narrative, never a raw error."""
+
+
+class AvatarRelevanceCheckUnavailableError(RuntimeError):
+    """Raised when the model-backed avatar-relevance check
+    (032-story-archetypes-player-avatar FR-007/FR-008) times out or otherwise fails to
+    reach a verdict. Callers MUST fail closed on this — reject the description — rather
+    than treat it as a pass (FR-012)."""
 
 
 class _WorldPromptResponse(BaseModel):
@@ -170,6 +184,10 @@ class _GameplayTurnResponse(BaseModel):
 
 class _SummaryResponse(BaseModel):
     summary: str
+
+
+class _AvatarRelevanceResponse(BaseModel):
+    isStoryCharacterDescription: bool
 
 
 class LLMService:
@@ -285,6 +303,68 @@ class LLMService:
         )
         return result.summary, tokens_used
 
+    def check_avatar_description(self, description: str) -> tuple[bool, int]:
+        """FR-007/FR-008: judges whether `description` is a story-relevant character
+        description rather than an instruction to the narration or game system. Returns
+        `(is_valid, tokens_used)`. A single attempt only — no rate-limit retry — since
+        FR-011 bounds the whole check at `AVATAR_RELEVANCE_CHECK_TIMEOUT_SECONDS`; raises
+        `AvatarRelevanceCheckUnavailableError` if that elapses or the call otherwise fails,
+        so the caller can fail closed (FR-012) rather than treat "no verdict" as a pass."""
+        span_name = "gen_ai.avatar.relevance_check"
+        with tracer.start_as_current_span(span_name) as span:
+            span.set_attribute("gen_ai.prompt", description)
+            start = time.monotonic()
+            messages = [
+                Message(role="system", contents=[AVATAR_RELEVANCE_SYSTEM_PROMPT]),
+                Message(role="user", contents=[description]),
+            ]
+            options: dict[str, Any] = {"response_format": _AvatarRelevanceResponse}
+            effort = self._resolve_reasoning_effort(REASONING_EFFORT_AVATAR_RELEVANCE)
+            if effort is not None:
+                options["reasoning_effort"] = effort
+            future = asyncio.run_coroutine_threadsafe(self.client.get_response(messages, options=options), _shared_loop())
+            try:
+                response = future.result(timeout=AVATAR_RELEVANCE_CHECK_TIMEOUT_SECONDS)
+            except concurrent.futures.TimeoutError as exc:
+                future.cancel()
+                raise AvatarRelevanceCheckUnavailableError(f"{span_name} did not return within the timeout") from exc
+            except Exception as exc:  # noqa: BLE001 - any failure here means "no verdict"
+                raise AvatarRelevanceCheckUnavailableError(f"{span_name} failed") from exc
+
+            latency_ms = (time.monotonic() - start) * 1000
+            input_tokens, output_tokens, reasoning_tokens, cost_usd = self._extract_usage(response)
+            span.set_attribute("gen_ai.response", response.text or "")
+            span.set_attribute("gen_ai.usage.input_tokens", input_tokens)
+            span.set_attribute("gen_ai.usage.output_tokens", output_tokens)
+            span.set_attribute("gen_ai.usage.reasoning_tokens", reasoning_tokens)
+            span.set_attribute("gen_ai.cost_usd", cost_usd)
+            span.set_attribute("gen_ai.latency_ms", latency_ms)
+
+            try:
+                result = response.value
+            except (ValidationError, ValueError, json.JSONDecodeError) as exc:
+                raise AvatarRelevanceCheckUnavailableError(f"{span_name} returned malformed output") from exc
+            return result.isStoryCharacterDescription, input_tokens + output_tokens
+
+    @staticmethod
+    def _extract_usage(response: Any) -> tuple[int, int, int, float]:
+        """Returns `(input_tokens, output_tokens, reasoning_tokens, cost_usd)`."""
+        usage = response.usage_details
+        # ChatResponse normalizes usage_details to a plain dict on construction
+        # (agent_framework's msgspec-based serialization), not a UsageDetails instance.
+        if isinstance(usage, dict):
+            input_tokens = usage.get("input_token_count") or 0
+            output_tokens = usage.get("output_token_count") or 0
+            reasoning_tokens = usage.get("reasoning_output_token_count") or 0
+        elif usage is not None:
+            input_tokens = getattr(usage, "input_token_count", 0) or 0
+            output_tokens = getattr(usage, "output_token_count", 0) or 0
+            reasoning_tokens = getattr(usage, "reasoning_output_token_count", 0) or 0
+        else:
+            input_tokens = output_tokens = reasoning_tokens = 0
+        cost_usd = input_tokens * config.LLM_INPUT_TOKEN_PRICE_USD + output_tokens * config.LLM_OUTPUT_TOKEN_PRICE_USD
+        return input_tokens, output_tokens, reasoning_tokens, cost_usd
+
     def _call(
         self,
         span_name: str,
@@ -305,20 +385,7 @@ class LLMService:
             )
             latency_ms = (time.monotonic() - start) * 1000
 
-            usage = response.usage_details
-            # ChatResponse normalizes usage_details to a plain dict on construction
-            # (agent_framework's msgspec-based serialization), not a UsageDetails instance.
-            if isinstance(usage, dict):
-                input_tokens = usage.get("input_token_count") or 0
-                output_tokens = usage.get("output_token_count") or 0
-                reasoning_tokens = usage.get("reasoning_output_token_count") or 0
-            elif usage is not None:
-                input_tokens = getattr(usage, "input_token_count", 0) or 0
-                output_tokens = getattr(usage, "output_token_count", 0) or 0
-                reasoning_tokens = getattr(usage, "reasoning_output_token_count", 0) or 0
-            else:
-                input_tokens = output_tokens = reasoning_tokens = 0
-            cost_usd = input_tokens * config.LLM_INPUT_TOKEN_PRICE_USD + output_tokens * config.LLM_OUTPUT_TOKEN_PRICE_USD
+            input_tokens, output_tokens, reasoning_tokens, cost_usd = self._extract_usage(response)
 
             span.set_attribute("gen_ai.response", response.text or "")
             span.set_attribute("gen_ai.usage.input_tokens", input_tokens)
@@ -469,7 +536,13 @@ class LLMService:
             lines.append(f"Reading level: {story.readingLevel}")
         if story.chapters:
             lines.append(f"Total chapters: {story.chapters}")
-        lines.append(f"Character: {session.characterName} ({session.characterType})")
+        if session.avatarDescription:
+            lines.append(f"Character: {session.characterName} — {session.avatarDescription}")
+        else:
+            # A session resumed from before this change carries no avatar description
+            # (032-story-archetypes-player-avatar FR-026/FR-027) — the name alone is
+            # supplied, and what else is known comes from the session's own transcript.
+            lines.append(f"Character: {session.characterName}")
 
         cast_lines = []
         for character_type in story.characterTypes:

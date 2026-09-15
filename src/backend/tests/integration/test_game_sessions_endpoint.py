@@ -142,6 +142,7 @@ def _service(story: Story, llm_turn_data=None, cosmos: FakeCosmosService | None 
         llm.generate_gameplay_turn.return_value = _turn_response(llm_turn_data if llm_turn_data is not None else _turn_data())
     llm.generate_starting_point.return_value = (STARTING_POINT.to_dict(), 15)
     llm.summarize_session_history.return_value = ("Condensed summary.", 8)
+    llm.check_avatar_description.return_value = (True, 10)
     safety = PlayerContentSafetyStandingService(cosmos_service=cosmos)
     stories = StoryService(cosmos_service=cosmos, llm_service=llm)
     service = PlaySessionService(
@@ -231,7 +232,7 @@ def test_create_session_returns_201_with_opening_narrative(request_factory):
     story = _story()
     service, _cosmos, _llm, _safety = _service(story)
 
-    response = _create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"})
+    response = _create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."})
 
     assert response.status_code == 201
     body = json.loads(response.get_body())
@@ -244,7 +245,7 @@ def test_create_session_invalid_setup_returns_400(request_factory):
     story = _story()
     service, _cosmos, _llm, _safety = _service(story)
 
-    response = _create(request_factory, service, {"adventureId": story.id, "characterName": "", "characterType": "Curious Cousin"})
+    response = _create(request_factory, service, {"adventureId": story.id, "characterName": "", "avatarDescription": "A curious cousin who loves solving puzzles."})
 
     assert response.status_code == 400
     assert json.loads(response.get_body())["error"] == "invalid_setup"
@@ -254,7 +255,7 @@ def test_create_session_missing_adventure_returns_404(request_factory):
     story = _story()
     service, _cosmos, _llm, _safety = _service(story)
 
-    response = _create(request_factory, service, {"adventureId": "missing", "characterName": "Wren", "characterType": "Curious Cousin"})
+    response = _create(request_factory, service, {"adventureId": "missing", "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."})
 
     assert response.status_code == 404
 
@@ -264,10 +265,10 @@ def test_creating_sessions_back_to_back_is_rate_limited(request_factory):
     endpoint is throttled."""
     story = _story()
     service, _cosmos, _llm, _safety = _service(story)
-    first = _create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"})
+    first = _create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."})
     assert first.status_code == 201
 
-    second = _create(request_factory, service, {"adventureId": story.id, "characterName": "Ash", "characterType": "Curious Cousin"})
+    second = _create(request_factory, service, {"adventureId": story.id, "characterName": "Ash", "avatarDescription": "A curious cousin who loves solving puzzles."})
 
     assert second.status_code == 429
     assert json.loads(second.get_body())["error"] == "rate_limited"
@@ -279,7 +280,7 @@ def test_create_session_blank_adventure_id_returns_400_not_404(request_factory):
     story = _story()
     service, _cosmos, _llm, _safety = _service(story)
 
-    response = _create(request_factory, service, {"characterName": "Wren", "characterType": "Curious Cousin"})
+    response = _create(request_factory, service, {"characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."})
 
     assert response.status_code == 400
     body = json.loads(response.get_body())
@@ -293,7 +294,7 @@ def test_create_session_returns_423_when_locked_out(request_factory):
     for _ in range(3):
         safety.record_flag(USER_OID)
 
-    response = _create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"})
+    response = _create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."})
 
     assert response.status_code == 423
     assert json.loads(response.get_body())["error"] == "content_safety_lockout"
@@ -305,7 +306,7 @@ def test_create_session_returns_423_when_locked_out(request_factory):
 def test_submit_interaction_returns_200_with_incremented_turn(request_factory):
     story = _story()
     service, cosmos, _llm, _safety = _service(story, llm_turn_data=_turn_data())
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     _clear_rate_limit(cosmos, created["sessionId"])
 
     response = _interact(request_factory, service, created["sessionId"], {"input": "look around"})
@@ -319,7 +320,7 @@ def test_submit_interaction_returns_200_with_incremented_turn(request_factory):
 def test_submit_interaction_blank_input_returns_400(request_factory):
     story = _story()
     service, _cosmos, _llm, _safety = _service(story)
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
 
     response = _interact(request_factory, service, created["sessionId"], {"input": "   "})
 
@@ -339,7 +340,7 @@ def test_submit_interaction_unknown_session_returns_404(request_factory):
 def test_submit_interaction_non_owner_returns_403_never_revealing_existence(request_factory):
     story = _story()
     service, _cosmos, _llm, _safety = _service(story)
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
 
     response = _interact(request_factory, service, created["sessionId"], {"input": "look around"}, oid=OTHER_OID)
 
@@ -350,7 +351,7 @@ def test_submit_interaction_non_owner_returns_403_never_revealing_existence(requ
 def test_submit_interaction_locked_out_returns_423(request_factory):
     story = _story()
     service, _cosmos, _llm, safety = _service(story)
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     for _ in range(3):
         safety.record_flag(USER_OID)
 
@@ -362,7 +363,7 @@ def test_submit_interaction_locked_out_returns_423(request_factory):
 def test_concurrent_interactions_one_succeeds_one_returns_409(request_factory):
     story = _story()
     service, cosmos, _llm, _safety = _service(story, llm_turn_data=_turn_data())
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     session_id = created["sessionId"]
     _clear_rate_limit(cosmos, session_id)
 
@@ -389,7 +390,7 @@ def test_concurrent_interactions_one_succeeds_one_returns_409(request_factory):
 def test_second_immediate_interaction_returns_429(request_factory):
     story = _story()
     service, cosmos, _llm, _safety = _service(story, llm_turn_data=_turn_data())
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     session_id = created["sessionId"]
     _clear_rate_limit(cosmos, session_id)
 
@@ -404,7 +405,7 @@ def test_second_immediate_interaction_returns_429(request_factory):
 def test_interaction_against_concluded_session_returns_409(request_factory):
     story = _story(max_duration_minutes=1)
     service, cosmos, _llm, _safety = _service(story, llm_turn_data=_turn_data("Time's up."))
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     session_id = created["sessionId"]
     import datetime
 
@@ -427,7 +428,7 @@ def test_interaction_against_concluded_session_returns_409(request_factory):
 def test_content_filtered_interaction_returns_200_safe_deflection(request_factory):
     story = _story()
     service, cosmos, llm, _safety = _service(story)
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     _clear_rate_limit(cosmos, created["sessionId"])
     llm.generate_gameplay_turn.side_effect = LLMContentFilteredError("blocked")
 
@@ -442,7 +443,7 @@ def test_override_attempt_returns_200_no_prompt_leak(request_factory):
     story = _story()
     deflection = _turn_data("That doesn't seem to work here.")
     service, cosmos, _llm, _safety = _service(story, llm_turn_data=deflection)
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     _clear_rate_limit(cosmos, created["sessionId"])
 
     response = _interact(
@@ -457,7 +458,7 @@ def test_override_attempt_returns_200_no_prompt_leak(request_factory):
 def test_three_flags_lock_out_player_scoped_per_player(request_factory):
     story = _story()
     service, cosmos, llm, _safety = _service(story)
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     session_id = created["sessionId"]
 
     llm.generate_gameplay_turn.side_effect = LLMContentFilteredError("blocked")
@@ -475,11 +476,11 @@ def test_three_flags_lock_out_player_scoped_per_player(request_factory):
     further = _interact(request_factory, service, session_id, {"input": "anything"})
     assert further.status_code == 423
 
-    create_further = _create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"})
+    create_further = _create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."})
     assert create_further.status_code == 423
 
     other_created = json.loads(
-        _create(request_factory, service, {"adventureId": story.id, "characterName": "Ash", "characterType": "Curious Cousin"}, oid=OTHER_OID).get_body()
+        _create(request_factory, service, {"adventureId": story.id, "characterName": "Ash", "avatarDescription": "A curious cousin who loves solving puzzles."}, oid=OTHER_OID).get_body()
     )
     _clear_rate_limit(cosmos, other_created["sessionId"])
     other_response = _interact(request_factory, service, other_created["sessionId"], {"input": "bad too"}, oid=OTHER_OID)
@@ -493,7 +494,7 @@ def test_twenty_turns_produces_summary_used_on_turn_twenty_one(request_factory):
     story = _story()
     responses = [_turn_data(f"Turn {i}") for i in range(1, 22)]
     service, cosmos, _llm, _safety = _service(story, llm_turn_data=responses)
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     session_id = created["sessionId"]
 
     # Turn 0 is the opening narrative, so the session reaches 20 turns on the 19th action.
@@ -525,9 +526,9 @@ def test_twenty_turns_produces_summary_used_on_turn_twenty_one(request_factory):
 def test_creating_second_session_deactivates_first(request_factory):
     story = _story()
     service, cosmos, _llm, _safety = _service(story)
-    s1 = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    s1 = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     _clear_creation_rate_limit(cosmos)
-    s2 = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Ash", "characterType": "Curious Cousin"}).get_body())
+    s2 = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Ash", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
 
     response = _interact(request_factory, service, s1["sessionId"], {"input": "look around"})
 
@@ -539,9 +540,9 @@ def test_creating_second_session_deactivates_first(request_factory):
 def test_resume_reactivates_session_and_deactivates_the_other(request_factory):
     story = _story()
     service, cosmos, _llm, _safety = _service(story)
-    s1 = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    s1 = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     _clear_creation_rate_limit(cosmos)
-    s2 = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Ash", "characterType": "Curious Cousin"}).get_body())
+    s2 = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Ash", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
 
     resumed = _resume(request_factory, service, s1["sessionId"])
     assert resumed.status_code == 200
@@ -554,9 +555,9 @@ def test_resume_reactivates_session_and_deactivates_the_other(request_factory):
 def test_resume_non_owner_returns_403(request_factory):
     story = _story()
     service, cosmos, _llm, _safety = _service(story)
-    s1 = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    s1 = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     _clear_creation_rate_limit(cosmos)
-    service.create_session(story.id, "Ash", "Curious Cousin", USER_OID)  # deactivates s1
+    service.create_session(story.id, "Ash", "A sharp-eyed detective who notices every detail.", USER_OID)  # deactivates s1
 
     response = _resume(request_factory, service, s1["sessionId"], oid=OTHER_OID)
 
@@ -575,7 +576,7 @@ def test_resume_unknown_session_returns_404(request_factory):
 def test_resume_already_active_returns_409(request_factory):
     story = _story()
     service, _cosmos, _llm, _safety = _service(story)
-    s1 = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    s1 = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
 
     response = _resume(request_factory, service, s1["sessionId"])
 
@@ -586,7 +587,7 @@ def test_resume_already_active_returns_409(request_factory):
 def test_resume_concluded_session_returns_409(request_factory):
     story = _story(max_duration_minutes=1)
     service, cosmos, _llm, _safety = _service(story, llm_turn_data=_turn_data("Time's up."))
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     session_id = created["sessionId"]
     import datetime
 
@@ -595,7 +596,7 @@ def test_resume_concluded_session_returns_409(request_factory):
     cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items[session_id]["lastInteractionAt"] = past
     _interact(request_factory, service, session_id, {"input": "act"})
     # A second session becomes active so the first isn't already-active.
-    service.create_session(story.id, "Ash", "Curious Cousin", USER_OID)
+    service.create_session(story.id, "Ash", "A sharp-eyed detective who notices every detail.", USER_OID)
 
     response = _resume(request_factory, service, session_id)
 
@@ -609,7 +610,7 @@ def test_resume_concluded_session_returns_409(request_factory):
 def test_duration_completion_concludes_session_and_blocks_further_interaction(request_factory):
     story = _story(max_duration_minutes=1)
     service, cosmos, _llm, _safety = _service(story, llm_turn_data=_turn_data("Time's up."))
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     session_id = created["sessionId"]
     import datetime
 
@@ -632,7 +633,7 @@ def test_duration_completion_concludes_session_and_blocks_further_interaction(re
 def test_success_condition_completion_returns_matched_detail(request_factory):
     story = _story(success_conditions=["the player says the word lighthouse"])
     service, cosmos, _llm, _safety = _service(story, llm_turn_data=_turn_data("You shout lighthouse!", success=[0]))
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     _clear_rate_limit(cosmos, created["sessionId"])
 
     response = _interact(request_factory, service, created["sessionId"], {"input": "shout lighthouse"})
@@ -650,7 +651,7 @@ def test_success_condition_completion_returns_matched_detail(request_factory):
 def test_submit_interaction_against_deleted_story_returns_404_story_deleted(request_factory):
     story = _story()
     service, cosmos, _llm, _safety = _service(story, llm_turn_data=_turn_data())
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     _clear_rate_limit(cosmos, created["sessionId"])
     del cosmos.get_container(config.STORIES_CONTAINER).items[story.id]
 
@@ -665,7 +666,7 @@ def test_submit_interaction_against_deleted_story_returns_404_story_deleted(requ
 def test_submit_interaction_against_unpublished_story_returns_409_story_unpublished(request_factory):
     story = _story()
     service, cosmos, _llm, _safety = _service(story, llm_turn_data=_turn_data())
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     _clear_rate_limit(cosmos, created["sessionId"])
     cosmos.get_container(config.STORIES_CONTAINER).items[story.id]["published"] = False
 
@@ -680,7 +681,7 @@ def test_submit_interaction_against_unpublished_story_returns_409_story_unpublis
 def test_resume_against_deleted_story_returns_404_story_deleted(request_factory):
     story = _story()
     service, cosmos, _llm, _safety = _service(story)
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     session_id = created["sessionId"]
     cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items[session_id]["isActiveForPlayer"] = False
     del cosmos.get_container(config.STORIES_CONTAINER).items[story.id]
@@ -696,7 +697,7 @@ def test_resume_against_deleted_story_returns_404_story_deleted(request_factory)
 def test_resume_against_unpublished_story_returns_409_story_unpublished(request_factory):
     story = _story()
     service, cosmos, _llm, _safety = _service(story)
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     session_id = created["sessionId"]
     cosmos.get_container(config.PLAY_SESSIONS_CONTAINER).items[session_id]["isActiveForPlayer"] = False
     cosmos.get_container(config.STORIES_CONTAINER).items[story.id]["published"] = False
@@ -715,7 +716,7 @@ def test_resume_against_unpublished_story_returns_409_story_unpublished(request_
 def test_delete_session_returns_200_and_removes_it_from_the_list(request_factory):
     story = _story()
     service, cosmos, _llm, _safety = _service(story)
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     session_id = created["sessionId"]
 
     response = _delete(request_factory, service, session_id)
@@ -729,7 +730,7 @@ def test_delete_session_returns_200_and_removes_it_from_the_list(request_factory
 def test_delete_session_non_owner_returns_403_and_leaves_it_intact(request_factory):
     story = _story()
     service, cosmos, _llm, _safety = _service(story)
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     session_id = created["sessionId"]
 
     response = _delete(request_factory, service, session_id, oid=OTHER_OID)
@@ -750,7 +751,7 @@ def test_delete_session_unknown_returns_404(request_factory):
 def test_delete_session_twice_returns_404_the_second_time(request_factory):
     story = _story()
     service, cosmos, _llm, _safety = _service(story)
-    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"}).get_body())
+    created = json.loads(_create(request_factory, service, {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."}).get_body())
     session_id = created["sessionId"]
 
     first = _delete(request_factory, service, session_id)
@@ -802,7 +803,7 @@ def test_submit_interaction_against_a_session_deleted_under_a_live_story_says_se
         _create(
             request_factory,
             service,
-            {"adventureId": story.id, "characterName": "Wren", "characterType": "Curious Cousin"},
+            {"adventureId": story.id, "characterName": "Wren", "avatarDescription": "A curious cousin who loves solving puzzles."},
         ).get_body()
     )
     _clear_rate_limit(cosmos, created["sessionId"])

@@ -206,7 +206,8 @@ def test_start_test_play_returns_201_with_opening_narrative(request_factory):
     assert response.status_code == 201
     body = json.loads(response.get_body())
     assert body["narrative"]["turnNumber"] == 0
-    assert body["characterType"] == "Curious Cousin"
+    assert body["avatarDescription"]
+    assert "characterType" not in body
     assert "sessionId" in body
 
 
