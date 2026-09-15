@@ -471,6 +471,19 @@ class LLMService:
             lines.append(f"Total chapters: {story.chapters}")
         lines.append(f"Character: {session.characterName} ({session.characterType})")
 
+        cast_lines = []
+        for character_type in story.characterTypes:
+            if character_type.description:
+                cast_lines.append(f"- {character_type.name}: {character_type.description}")
+            else:
+                cast_lines.append(f"- {character_type.name}")
+        lines.append(
+            "Cast: the story world's cast of characters the player can meet, distinct from "
+            "the player's own character above. Prefer casting a named or story-significant "
+            "character from this list when one fits the moment; an incidental background "
+            "figure, or a moment no entry fits, may still be invented.\n" + "\n".join(cast_lines)
+        )
+
         lines.append("Prior narrative history:\n" + self._prior_context(session))
 
         criteria = story.completionCriteria
