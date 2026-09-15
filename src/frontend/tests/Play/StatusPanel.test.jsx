@@ -99,4 +99,37 @@ describe("StatusPanel (008-core-gameplay-done)", () => {
     expect(screen.getByRole("button", { name: /stuck\? get a hint/i })).toBeInTheDocument();
     expect(screen.getByText("Hints are coming soon.")).toBeInTheDocument();
   });
+
+  it("shows the player's avatar description read-only, alongside location, goal, and progress (034, FR-001)", () => {
+    render(
+      <StatusPanel
+        locationLabel="The keeper's stairs"
+        goalLabel="Find out who lit the lamp"
+        progress={{ current: 3, total: 5 }}
+        completionReason={null}
+        avatarDescription="A one-eyed lighthouse keeper's apprentice who fears the dark."
+      />,
+    );
+
+    expect(
+      screen.getByText("A one-eyed lighthouse keeper's apprentice who fears the dark."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("The keeper's stairs")).toBeInTheDocument();
+    expect(screen.getByText("Find out who lit the lamp")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+  });
+
+  it("renders no avatar section when the session carries no description (034, FR-003)", () => {
+    render(
+      <StatusPanel
+        locationLabel="The cove"
+        goalLabel={null}
+        progress={null}
+        completionReason={null}
+        avatarDescription={null}
+      />,
+    );
+
+    expect(screen.queryByText(/who you are/i)).not.toBeInTheDocument();
+  });
 });

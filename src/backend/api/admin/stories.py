@@ -22,6 +22,7 @@ from backend.services.story_draft_service import (
     WrongDraftModeError,
 )
 from backend.services.play_session_service import PlaySessionService
+from backend.services.stored_avatar_description_service import StoredAvatarDescriptionService
 from backend.services.story_service import (
     PUBLISH_GATE_NOT_SATISFIED,
     ConfirmationRequiredError,
@@ -250,10 +251,13 @@ def delete_story(
     req: func.HttpRequest,
     story_service: StoryService | None = None,
     play_session_service: PlaySessionService | None = None,
+    stored_avatar_description_service: StoredAvatarDescriptionService | None = None,
 ) -> func.HttpResponse:
     """Permanently delete a story (FR-003) and cascade-delete every in-progress
     `PlaySession` referencing it (FR-004), composed at this handler level rather than
-    inside `StoryService` to avoid a circular import (research.md Decision 6)."""
+    inside `StoryService` to avoid a circular import (research.md Decision 6). Also
+    cascade-deletes every stored avatar description for it
+    (034-avatar-memory-and-visibility FR-009), composed the same way."""
     is_authorized, _user_oid, error = authorize_admin(req)
     if not is_authorized:
         return error
@@ -265,6 +269,9 @@ def delete_story(
 
     sessions = play_session_service or PlaySessionService()
     sessions.delete_active_sessions_for_adventure(story_id)
+
+    avatars = stored_avatar_description_service or StoredAvatarDescriptionService()
+    avatars.delete_for_story(story_id)
 
     return json_response({"status": "deleted", "storyId": story_id}, status_code=200)
 

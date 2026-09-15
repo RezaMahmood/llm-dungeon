@@ -412,6 +412,36 @@ def test_create_session_clears_avatar_attempts_on_success():
     llm.check_avatar_description.assert_called_once()
 
 
+def test_create_session_stores_avatar_description_for_prefill_on_success():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+
+    service.create_session(story.id, "Wren", "A curious cousin who loves solving puzzles.", PLAYER_ID)
+
+    stored = cosmos.get_container("storedAvatarDescriptions").items[f"{PLAYER_ID}:{story.id}"]
+    assert stored["description"] == "A curious cousin who loves solving puzzles."
+
+
+def test_create_session_does_not_store_avatar_description_on_a_rejected_setup():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+
+    with pytest.raises(InvalidSetupError):
+        service.create_session(story.id, "Wren", "too short", PLAYER_ID)
+
+    assert cosmos.get_container("storedAvatarDescriptions").items == {}
+
+
+def test_create_session_does_not_store_avatar_description_when_adventure_not_found():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+
+    with pytest.raises(AdventureNotFoundError):
+        service.create_session("missing-id", "Wren", "A curious cousin who loves solving puzzles.", PLAYER_ID)
+
+    assert cosmos.get_container("storedAvatarDescriptions").items == {}
+
+
 def test_create_session_rejects_when_player_locked_out_without_calling_llm():
     story = _story()
     service, _cosmos, llm, safety = _make_service(story)
@@ -1165,6 +1195,26 @@ def test_get_session_detail_for_player_strips_tokens_from_every_turn():
     assert "totalTokens" not in detail
 
 
+def test_get_session_detail_for_player_includes_avatar_description():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story, avatarDescription="A one-eyed lighthouse keeper.")
+
+    detail = service.get_session_detail_for_player(session.id, PLAYER_ID)
+
+    assert detail["avatarDescription"] == "A one-eyed lighthouse keeper."
+
+
+def test_get_session_detail_for_player_avatar_description_none_for_pre_existing_session():
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = _existing_session(cosmos, story, avatarDescription=None)
+
+    detail = service.get_session_detail_for_player(session.id, PLAYER_ID)
+
+    assert detail["avatarDescription"] is None
+
+
 # --- list_player_sessions (009-save-and-continue, T003) ---
 
 
@@ -1705,6 +1755,19 @@ def test_admin_delete_removes_a_session_whatever_its_status(status):
 
     with pytest.raises(SessionNotFoundError):
         service.get_session_for_player(session.id, PLAYER_ID)
+
+
+def test_admin_delete_leaves_the_players_stored_avatar_description_untouched():
+    """034-avatar-memory-and-visibility FR-010: a session delete must not touch the
+    player's separately-stored avatar description for that adventure."""
+    story = _story()
+    service, cosmos, _llm, _safety = _make_service(story)
+    session = service.create_session(story.id, "Wren", "A curious cousin who loves solving puzzles.", PLAYER_ID)
+
+    service.delete_session_as_administrator(session.id)
+
+    stored = cosmos.get_container("storedAvatarDescriptions").items[f"{PLAYER_ID}:{story.id}"]
+    assert stored["description"] == "A curious cousin who loves solving puzzles."
 
 
 def test_admin_delete_raises_not_found_for_an_unknown_session():

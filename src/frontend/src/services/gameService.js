@@ -20,10 +20,10 @@ export async function getAdventure(token, adventureId) {
 
 /** Creates a play session and returns its opening narrative (008-core-gameplay-done,
  * contracts/api.md) — supersedes the retired `startGame`/`POST /game/start`. */
-export async function createSession(token, { adventureId, characterName, characterType }) {
+export async function createSession(token, { adventureId, characterName, avatarDescription }) {
   const response = await client.post(
     "/game/sessions",
-    { adventureId, characterName, characterType },
+    { adventureId, characterName, avatarDescription },
     { headers: { "X-Custom-Authorization": `Bearer ${token}` } },
   );
   return response.data;

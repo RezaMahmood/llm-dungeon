@@ -34,7 +34,7 @@ function isSessionRemoved(err) {
   return err.response?.status === 404 && err.response?.data?.error === "session_removed";
 }
 
-export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit, onSessionRemoved }) {
+export function PlayPage({ sessionId, storyName, initialTurns, avatarDescription, getToken, onExit, onSessionRemoved }) {
   const [turns, setTurns] = useState(() => initialTurns.map((turn) => ({ ...turn, playerInput: turn.playerInput ?? null })));
   const [status, setStatus] = useState("active");
   const [completionReason, setCompletionReason] = useState(null);
@@ -311,6 +311,7 @@ export function PlayPage({ sessionId, storyName, initialTurns, getToken, onExit,
             goalLabel={latest.goalLabel}
             progress={latest.progress}
             completionReason={completionReason}
+            avatarDescription={avatarDescription}
           />
         </div>
       </div>

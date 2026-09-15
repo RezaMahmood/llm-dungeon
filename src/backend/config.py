@@ -29,6 +29,7 @@ class Config:
     TEST_PLAY_SESSIONS_CONTAINER = "testPlaySessions"
     PLAYER_CONTENT_SAFETY_STANDINGS_CONTAINER = "playerContentSafetyStandings"
     AVATAR_SETUP_ATTEMPTS_CONTAINER = "avatarSetupAttempts"
+    STORED_AVATAR_DESCRIPTIONS_CONTAINER = "storedAvatarDescriptions"
     SEED_ADMIN_EMAIL = os.environ.get("SEED_ADMIN_EMAIL", "")
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
 

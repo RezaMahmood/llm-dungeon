@@ -10,6 +10,7 @@ import azure.functions as func
 from backend.api.game.middleware import authorize_player
 from backend.api.utils import error_response, json_response
 from backend.services.account_provisioning_service import AccountProvisioningService
+from backend.services.stored_avatar_description_service import StoredAvatarDescriptionService
 from backend.services.story_service import StoryService
 
 logger = logging.getLogger("game.adventures")
@@ -35,8 +36,9 @@ def get_adventure(
     req: func.HttpRequest,
     story_service: StoryService | None = None,
     account_provisioning_service: AccountProvisioningService | None = None,
+    stored_avatar_description_service: StoredAvatarDescriptionService | None = None,
 ) -> func.HttpResponse:
-    is_authorized, _user_oid, error = authorize_player(req, account_provisioning_service=account_provisioning_service)
+    is_authorized, user_oid, error = authorize_player(req, account_provisioning_service=account_provisioning_service)
     if not is_authorized:
         return error
 
@@ -47,6 +49,12 @@ def get_adventure(
     if story is None or not story["published"]:
         return error_response(404, "not_found", NOT_FOUND_MESSAGE)
 
+    # The caller's own stored avatar description for this adventure, if any
+    # (034-avatar-memory-and-visibility FR-006, FR-007, FR-011) — scoped to `user_oid`,
+    # never to a description supplied by the caller.
+    avatars = stored_avatar_description_service or StoredAvatarDescriptionService()
+    stored_description = avatars.get(user_oid, story["id"])
+
     return json_response(
         {
             "status": "success",
@@ -54,6 +62,7 @@ def get_adventure(
                 "id": story["id"],
                 "name": story["name"],
                 "characterTypes": story["characterTypes"],
+                "avatarDescription": stored_description,
             },
         },
         status_code=200,
