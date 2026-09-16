@@ -4,9 +4,12 @@ endpoints — never the public internet (FR-007, Principle VII).
 Runs from wherever pytest executes (GitHub-hosted runners included, which sit
 outside the VNet). What that vantage point CAN prove:
   - The private endpoint resources exist and their connections are Approved.
-  - The public data-plane path is rejected (public_network_access disabled
-    means requests to the public hostname fail, regardless of the caller's
-    network location).
+  - The public data-plane path is rejected — for Storage and AI Foundry because
+    public_network_access is disabled outright, and for Cosmos because an
+    unauthenticated caller is refused either by the IP firewall (403) or by the
+    absence of a credential (401). Note that Cosmos's public network access may
+    legitimately be Enabled when cosmos_allowed_ip_addresses is non-empty, so
+    "denied" here means denied to this caller, not disabled for everyone.
 What it CANNOT prove from outside the VNet: that DNS resolves the same
 hostnames to private IPs for an in-VNet caller — Azure Private DNS only
 overrides resolution for clients using Azure-provided DNS within the linked
@@ -54,6 +57,10 @@ def test_private_endpoint_connection_approved(network_client, terraform_outputs,
         # can't distinguish "blocked" from "reachable but rejected the shape".
         ("storage", "storage_blob_endpoint", "?comp=list"),
         # Cosmos DB's root path already performs a real account-level check.
+        # Still valid when cosmos_allowed_ip_addresses is non-empty: a caller
+        # outside the allow-list is refused by the IP firewall (403), and an
+        # allow-listed caller still has no credential to present (401). Both are
+        # in the accepted set below, so this stays a real assertion either way.
         ("cosmos", "cosmos_endpoint", ""),
         # A real Cognitive Services REST call — the bare root path is a
         # shared, unauthenticated "service operational" health page that

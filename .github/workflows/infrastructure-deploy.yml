@@ -139,6 +139,14 @@ jobs:
           # (#212) since no token's `aud` claim can ever equal "".
           TF_VAR_azure_client_id: ${{ vars.AZURE_CLIENT_ID }}
           TF_VAR_azure_app_id: ${{ vars.AZURE_APP_ID }}
+          # See terraform-validate.yml's copy of this line for why it is a secret
+          # rather than a repo variable or a terraform.tfvars entry. Threaded through
+          # here as well as there because the apply job applies THIS job's saved plan:
+          # a value missing here is a value missing from production, which is exactly
+          # the shape of the #212 bug described above. Unlike #212 the failure is
+          # fail-safe — an unset secret closes the Cosmos public data plane rather
+          # than opening it.
+          TF_VAR_cosmos_allowed_ip_addresses: ${{ secrets.COSMOS_ALLOWED_IP_ADDRESSES || '[]' }}
         run: terraform plan -input=false -out=tfplan -var-file=terraform.tfvars
 
       - name: Upload plan for the apply job

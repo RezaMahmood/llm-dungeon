@@ -118,8 +118,13 @@ output "azure_openai_endpoint" {
 }
 
 output "azure_openai_deployment_name" {
+  value       = azurerm_cognitive_deployment.model_router.name
+  description = "Deployment the application calls (model-router). test_resource_creation.py asserts this deployment exists, so it must track the app settings, not the standby."
+}
+
+output "azure_openai_standby_deployment_name" {
   value       = azurerm_cognitive_deployment.model.name
-  description = "Model deployment name (e.g., 'gpt-5-nano')"
+  description = "Fallback deployment kept alongside the router (gpt-5-nano), not referenced by any app setting"
 }
 
 output "application_insights_id" {
@@ -183,7 +188,7 @@ output "github_environment_variables" {
     STATIC_WEB_APP_NAME          = azurerm_static_web_app.web.name
     AZURE_OPENAI_ACCOUNT_NAME    = azurerm_cognitive_account.openai.name
     AZURE_OPENAI_ENDPOINT        = azurerm_cognitive_account.openai.endpoint
-    AZURE_OPENAI_DEPLOYMENT_NAME = azurerm_cognitive_deployment.model.name
+    AZURE_OPENAI_DEPLOYMENT_NAME = azurerm_cognitive_deployment.model_router.name
   }
   description = "Environment variables for GitHub Actions (public, not secrets)"
 }

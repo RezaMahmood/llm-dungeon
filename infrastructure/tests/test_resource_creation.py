@@ -109,10 +109,22 @@ def test_azure_openai_account_exists_and_public_access_disabled(cognitive_client
     assert account.properties.public_network_access == "Disabled"
 
 
-def test_azure_openai_model_deployment_exists(cognitive_client, terraform_outputs):
+@pytest.mark.parametrize(
+    "deployment_output",
+    [
+        # The deployment the app settings point at (model-router).
+        "azure_openai_deployment_name",
+        # The standby (gpt-5-nano). Asserted explicitly because nothing else reads
+        # it: it is the documented fallback if the router disappoints, and without
+        # this its accidental deletion would pass the suite whose job is to prove
+        # every resource exists.
+        "azure_openai_standby_deployment_name",
+    ],
+)
+def test_azure_openai_model_deployment_exists(cognitive_client, terraform_outputs, deployment_output):
     deployment = cognitive_client.deployments.get(
         terraform_outputs["resource_group_name"],
         terraform_outputs["azure_openai_account_name"],
-        terraform_outputs["azure_openai_deployment_name"],
+        terraform_outputs[deployment_output],
     )
     assert deployment is not None

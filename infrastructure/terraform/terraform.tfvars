@@ -42,8 +42,24 @@ cosmos_max_throughput            = 40000
 cosmos_backup_type               = "Periodic"
 storage_account_replication_type = "LRS"
 
+# cosmos_allowed_ip_addresses is deliberately NOT set here. This repository is
+# public and the value is a maintainer's residential IP; it is supplied at plan time
+# from the COSMOS_ALLOWED_IP_ADDRESSES GitHub secret instead (see the TF_VAR_ line in
+# terraform-validate.yml and infrastructure-deploy.yml). Unset, it defaults to [],
+# which closes the Cosmos public data plane rather than opening it.
+
+# Standby deployment — kept, no longer the one the app calls.
 ai_foundry_model_name = "gpt-5-nano"
 ai_foundry_capacity   = 1000 # 1M TPM (#33)
+
+# The deployment the Function App actually calls.
+ai_foundry_router_deployment_name = "model-router"
+ai_foundry_router_model_version   = "2025-11-18"
+ai_foundry_router_capacity        = 150 # 150K TPM, as created out-of-band
+
+# Omit reasoning_effort from every LLM call — model-router picks the model per
+# request and not every model it may pick accepts the parameter.
+llm_reasoning_effort = "off"
 
 log_analytics_retention_days = 30
 budget_amount_usd            = 50

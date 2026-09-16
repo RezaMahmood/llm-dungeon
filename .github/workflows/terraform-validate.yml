@@ -44,6 +44,16 @@ jobs:
         env:
           TF_VAR_azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_azure_tenant_id: ${{ vars.AZURE_TENANT_ID }}
+          # A secret, not a repo variable, and deliberately not in terraform.tfvars:
+          # this repository is public, and the value is a maintainer's residential IP.
+          # A secret is masked in workflow logs; a variable is not.
+          #
+          # Falling back to '[]' when unset is fail-SAFE, not a repeat of #212 below:
+          # an empty list closes the Cosmos public data plane entirely rather than
+          # leaving it open, so a missing secret costs the maintainer Data Explorer
+          # access and nothing else. Without the fallback an unset secret would be
+          # invalid HCL for a list and break every infrastructure PR.
+          TF_VAR_cosmos_allowed_ip_addresses: ${{ secrets.COSMOS_ALLOWED_IP_ADDRESSES || '[]' }}
         run: terraform plan -input=false -out=tfplan -var-file=terraform.tfvars
 
       - name: Upload plan artifact

@@ -174,6 +174,54 @@ variable "cosmos_backup_type" {
   default     = "Periodic"
 }
 
+variable "cosmos_allowed_ip_addresses" {
+  description = <<-EOT
+    Developer IPv4 addresses allowed to reach the Cosmos DB public data plane
+    (Data Explorer, a local script). Empty — the default — keeps public network
+    access disabled entirely, leaving Private Link as the only path; any entry
+    enables the public data plane restricted to exactly these addresses.
+
+    This is a convenience hole in the Principle VII posture, not part of how the
+    application reaches Cosmos: the Function App always goes over the private
+    endpoint, and nothing here widens that. Keep the list to specific /32
+    addresses and remove entries once they are no longer needed. A residential IP
+    is typically dynamic, so an entry will silently stop matching when the ISP
+    reassigns it — that reads as a 403 from Cosmos, not as a broken deployment.
+
+    Do NOT set this in terraform.tfvars: this repository is public and these are
+    personal addresses. It is supplied at plan time from the
+    COSMOS_ALLOWED_IP_ADDRESSES GitHub secret, as HCL list syntax, e.g. ["1.2.3.4"].
+
+    infrastructure/tests/test_resource_creation.py asserts at most a single IP rule
+    when public access is on, so adding a second address needs that test updated
+    alongside it — deliberately, so widening this is never incidental.
+  EOT
+  type        = list(string)
+  default     = []
+
+  validation {
+    # Each octet must be 0-255, so a typo like 999.1.1.1 fails here rather than at
+    # apply time, and a CIDR suffix or range is rejected outright: "allow my /24" is
+    # exactly the accident this should not make easy.
+    condition = alltrue([
+      for ip in var.cosmos_allowed_ip_addresses :
+      can(regex("^((25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.){3}(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)$", ip))
+    ])
+    error_message = "cosmos_allowed_ip_addresses must contain bare IPv4 addresses only, each octet 0-255 (no CIDR suffix, no ranges)."
+  }
+
+  validation {
+    # 0.0.0.0 is not "no address" to Cosmos: it is a documented special case meaning
+    # "accept connections from anywhere inside public Azure datacenters" — any VM or
+    # Function in any subscription, not just this one. It is a single, well-formed
+    # entry, so it would otherwise satisfy both the regex above and the
+    # exactly-one-rule assertion in test_resource_creation.py, and slip through as
+    # the widest possible opening while looking like the narrowest.
+    condition     = !contains(var.cosmos_allowed_ip_addresses, "0.0.0.0")
+    error_message = "0.0.0.0 in a Cosmos ip_range_filter means 'allow all Azure datacenter traffic', not a single host. Name real addresses."
+  }
+}
+
 variable "storage_account_replication_type" {
   description = "Storage account replication type"
   type        = string
@@ -183,7 +231,7 @@ variable "storage_account_replication_type" {
 # --- AI Foundry / Azure OpenAI ---
 
 variable "ai_foundry_model_name" {
-  description = "Model to deploy to Azure AI Foundry / Azure OpenAI"
+  description = "Model deployed as the standby/fallback deployment. No longer the deployment the application calls — see ai_foundry_router_deployment_name."
   type        = string
   default     = "gpt-5-nano"
 }
@@ -191,19 +239,67 @@ variable "ai_foundry_model_name" {
 variable "ai_foundry_capacity" {
   # 1,000 TPM was too tight even for a single story-creation exchange under
   # light concurrent use, tripping openai.RateLimitError (429) — see #33.
-  description = "Deployment capacity in Terraform capacity units (1 unit = 1,000 TPM). 1000 = 1M TPM."
+  description = "Capacity for ai_foundry_model_name's deployment, in Terraform capacity units (1 unit = 1,000 TPM). 1000 = 1M TPM."
   type        = number
   default     = 1000
 }
 
+variable "ai_foundry_router_deployment_name" {
+  description = <<-EOT
+    Name of the model-router deployment the Function App calls, via both
+    AZURE_OPENAI_DEPLOYMENT_NAME and AZURE_AI_FOUNDRY_DEPLOYMENT_NAME.
+
+    Azure offers model-router on the GlobalStandard SKU only, so inference may be
+    served outside the EU data zone. That is a knowing departure from the
+    EU-residency posture deployment-questionnaire.md §2 records and from the reason
+    gpt-5-nano was pinned to DataZoneStandard — it applies to prompt content in
+    flight, not to anything Cosmos stores, which stays in UK South either way.
+  EOT
+  type        = string
+  default     = "model-router"
+}
+
+variable "ai_foundry_router_model_version" {
+  description = "Pinned model version for the model-router deployment, so Azure's auto-resolved default cannot move it underneath a deploy."
+  type        = string
+  default     = "2025-11-18"
+}
+
+variable "llm_reasoning_effort" {
+  description = <<-EOT
+    Blanket reasoning-effort override for every LLM call (config.py's
+    LLM_REASONING_EFFORT). "off" omits the reasoning_effort parameter entirely;
+    minimal|low|medium|high force that level everywhere; "" leaves each call site at
+    its own REASONING_EFFORT_* default in llm_service.py.
+
+    Defaults to "off" because model-router selects a model per request and
+    llm_service.py sends reasoning_effort on every call — see the app-setting comment
+    in main.tf. The per-call LLM_REASONING_EFFORT_* settings are ignored while this is
+    anything other than "".
+  EOT
+  type        = string
+  default     = "off"
+
+  validation {
+    condition     = contains(["", "off", "minimal", "low", "medium", "high"], var.llm_reasoning_effort)
+    error_message = "llm_reasoning_effort must be one of: \"\" (per-call defaults), off, minimal, low, medium, high."
+  }
+}
+
+variable "ai_foundry_router_capacity" {
+  description = "Capacity for the model-router deployment, in Terraform capacity units (1 unit = 1,000 TPM). 150 = 150K TPM, matching the deployment created out-of-band; raise it if narration starts tripping 429s the way #33 did."
+  type        = number
+  default     = 150
+}
+
 variable "llm_input_token_price_usd" {
-  description = "USD price per input token for ai_foundry_model_name's deployed SKU, used to compute gen_ai.cost_usd on every LLM call span (004-story-creation-done, Constitution Principle VI). Default matches gpt-5-nano's published per-token rate as of this writing ($0.05 / 1M input tokens) — reverify against the Azure OpenAI pricing page for the deployed region/SKU (DataZoneStandard) before relying on cost telemetry."
+  description = "USD price per input token, used to compute gen_ai.cost_usd on every LLM call span (004-story-creation-done, Constitution Principle VI). Default matches gpt-5-nano's published per-token rate as of this writing ($0.05 / 1M input tokens). NOTE: calls now go to model-router, which bills at whichever model it routed to, so a single rate cannot be exact for every call — gen_ai.cost_usd is a floor, not a bill, until this is reworked (see the follow-up on the PR that introduced the router)."
   type        = number
   default     = 0.00000005
 }
 
 variable "llm_output_token_price_usd" {
-  description = "USD price per output token for ai_foundry_model_name's deployed SKU (004-story-creation-done, Constitution Principle VI). Default matches gpt-5-nano's published per-token rate as of this writing ($0.40 / 1M output tokens) — reverify against the Azure OpenAI pricing page for the deployed region/SKU (DataZoneStandard) before relying on cost telemetry."
+  description = "USD price per output token (004-story-creation-done, Constitution Principle VI). Default matches gpt-5-nano's published per-token rate as of this writing ($0.40 / 1M output tokens). Carries the same model-router caveat as llm_input_token_price_usd above."
   type        = number
   default     = 0.0000004
 }

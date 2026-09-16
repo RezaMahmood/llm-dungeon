@@ -57,7 +57,19 @@ resource "azurerm_cosmosdb_account" "cosmos" {
   offer_type          = "Standard"
   kind                = "GlobalDocumentDB"
 
-  public_network_access_enabled = false
+  # Private Link remains the only path the application ever uses (Principle VII):
+  # the Function App reaches Cosmos over azurerm_private_endpoint.cosmos, and that
+  # path is unaffected by either setting below. The public data plane exists only
+  # so a named developer IP can reach Data Explorer / a local script directly.
+  #
+  # Cosmos ignores ip_range_filter entirely while public_network_access_enabled is
+  # false, so the allow-list can only take effect by enabling public access — the
+  # two are one decision, not two, and are driven from the single variable so
+  # emptying it closes the data plane again rather than leaving it open with no
+  # rules. An empty ip_range_filter alongside enabled public access would mean
+  # "allow everything", which is exactly the state this must never reach.
+  public_network_access_enabled = length(var.cosmos_allowed_ip_addresses) > 0
+  ip_range_filter               = var.cosmos_allowed_ip_addresses
   minimal_tls_version           = "Tls12"
 
   # Single region, single write region, no automatic failover: this project's
@@ -245,6 +257,60 @@ resource "azurerm_cognitive_deployment" "model" {
   }
 }
 
+# The deployment the application actually calls. model-router picks a model per
+# request rather than pinning one, which measured better than gpt-5-nano on this
+# workload — it is what AZURE_OPENAI_DEPLOYMENT_NAME / AZURE_AI_FOUNDRY_DEPLOYMENT_NAME
+# below now point at.
+#
+# The gpt-5-nano deployment above is deliberately kept rather than replaced: it is
+# the fallback if router latency, cost or routing behaviour disappoints, and
+# deleting it would mean re-creating capacity to get back. Both are serverless
+# per-token SKUs, so an idle second deployment costs nothing.
+resource "azurerm_cognitive_deployment" "model_router" {
+  name                 = var.ai_foundry_router_deployment_name
+  cognitive_account_id = azurerm_cognitive_account.openai.id
+
+  model {
+    format = "OpenAI"
+    name   = "model-router"
+    # Pinned, like gpt-5-nano above, so Azure's auto-resolved default can't move
+    # the deployment under us. version_upgrade_option stays at the provider default
+    # (OnceNewDefaultVersionAvailable), matching the live deployment.
+    version = var.ai_foundry_router_model_version
+  }
+
+  sku {
+    # GlobalStandard, not the DataZoneStandard used above: Azure offers model-router
+    # on GlobalStandard only. See the EU-residency note in variables.tf's
+    # ai_foundry_router_deployment_name — this is a deliberate departure from the
+    # deployment-questionnaire.md §2 posture gpt-5-nano was chosen to preserve.
+    name     = "GlobalStandard"
+    capacity = var.ai_foundry_router_capacity
+  }
+}
+
+# model-router was created out-of-band (Azure portal) before it was expressed here,
+# so a plain apply would fail with "deployment already exists". This adopts the
+# existing deployment into state instead of creating a second one, and is a no-op on
+# every run after the first.
+#
+# DELETE THIS BLOCK once the adopting apply has landed (tracked as a follow-up on the
+# PR that added it). It is not merely redundant afterwards: an import block whose
+# target does not exist is a hard plan error, so leaving it in permanently means a
+# rebuilt state file or a second environment stood up from this config fails at plan
+# rather than creating the deployment — and terraform-validate.yml runs `terraform
+# plan` on every infrastructure PR, so that failure would block the repo, not just a
+# deploy. Terraform has no conditional import (for_each here requires an indexed
+# target), so deleting it is the only way to close that window.
+import {
+  to = azurerm_cognitive_deployment.model_router
+  # Built from the resource group data source and locals rather than from
+  # azurerm_cognitive_account.openai.id: an import block's id must be known at plan
+  # time, and the account's own id would be unknown on a plan that has yet to create
+  # it — which would break a from-scratch apply rather than just this one.
+  id = "${data.azurerm_resource_group.rg.id}/providers/Microsoft.CognitiveServices/accounts/${local.openai_account_name}/deployments/${var.ai_foundry_router_deployment_name}"
+}
+
 # --- Azure Functions (Flex Consumption) ---
 resource "azurerm_service_plan" "functions" {
   name                = "${local.name_prefix}plan${local.name_suffix}"
@@ -311,20 +377,32 @@ resource "azurerm_function_app_flex_consumption" "functions" {
     STORAGE_ACCOUNT_URL                       = azurerm_storage_account.app_storage.primary_blob_endpoint
     STORAGE_CONTAINER                         = azurerm_storage_container.assets.name
     AZURE_OPENAI_ENDPOINT                     = azurerm_cognitive_account.openai.endpoint
-    AZURE_OPENAI_DEPLOYMENT_NAME              = azurerm_cognitive_deployment.model.name
+    AZURE_OPENAI_DEPLOYMENT_NAME              = azurerm_cognitive_deployment.model_router.name
     # 004-story-creation-done's llm_service.py reads AZURE_AI_FOUNDRY_ENDPOINT
     # + AZURE_AI_FOUNDRY_DEPLOYMENT_NAME to configure its OpenAIChatCompletionClient.
     # These intentionally mirror the AZURE_OPENAI_* values above (same cognitive account),
-    # but the backend code looks up the AZURE_AI_FOUNDRY_* names.
+    # but the backend code looks up the AZURE_AI_FOUNDRY_* names — so both must move to
+    # model-router together. Changing only AZURE_OPENAI_DEPLOYMENT_NAME would leave every
+    # actual LLM call still going to gpt-5-nano, since nothing in the backend reads it.
     AZURE_AI_FOUNDRY_ENDPOINT        = azurerm_cognitive_account.openai.endpoint
-    AZURE_AI_FOUNDRY_DEPLOYMENT_NAME = azurerm_cognitive_deployment.model.name
+    AZURE_AI_FOUNDRY_DEPLOYMENT_NAME = azurerm_cognitive_deployment.model_router.name
     LLM_INPUT_TOKEN_PRICE_USD        = var.llm_input_token_price_usd
     LLM_OUTPUT_TOKEN_PRICE_USD       = var.llm_output_token_price_usd
-    AZURE_TENANT_ID                  = var.azure_tenant_id
-    AZURE_APP_ID                     = var.azure_app_id != "" ? var.azure_app_id : var.azure_client_id
-    SEED_ADMIN_EMAIL                 = var.seed_admin_email
-    FRONTEND_URL                     = "https://${azurerm_static_web_app.web.default_host_name}/"
-    PYTHON_ENABLE_WORKER_EXTENSIONS  = "true"
+    # "off" omits reasoning_effort from every LLM call (llm_service.py's
+    # _resolve_reasoning_effort returns None, and this blanket setting wins over
+    # each call site's own REASONING_EFFORT_* default). Set because model-router
+    # chooses a model per request: llm_service sends reasoning_effort
+    # unconditionally, "minimal" is a gpt-5-family-only value, and _execute
+    # re-raises anything that is not a 429 or a content filter — so a request
+    # routed to a model that rejects the parameter would surface to the player as
+    # a 500. Omitting it is the safe default until a live call against this
+    # deployment proves otherwise; unset it (or set a level) to re-enable.
+    LLM_REASONING_EFFORT            = var.llm_reasoning_effort
+    AZURE_TENANT_ID                 = var.azure_tenant_id
+    AZURE_APP_ID                    = var.azure_app_id != "" ? var.azure_app_id : var.azure_client_id
+    SEED_ADMIN_EMAIL                = var.seed_admin_email
+    FRONTEND_URL                    = "https://${azurerm_static_web_app.web.default_host_name}/"
+    PYTHON_ENABLE_WORKER_EXTENSIONS = "true"
     # configure_azure_monitor() (013-opentelemetry-observability) doesn't set
     # service.name in code — without OTEL_SERVICE_NAME, OTel resource
     # detection falls back to "unknown_service", and every span/exception/log
