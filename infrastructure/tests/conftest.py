@@ -7,6 +7,7 @@ locally against an already-provisioned environment.
 """
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -55,3 +56,18 @@ def terraform_outputs() -> dict:
 
     raw = json.loads(result.stdout)
     return {name: entry["value"] for name, entry in raw.items()}
+
+
+@pytest.fixture(scope="session")
+def declared_terraform_outputs() -> set:
+    """Output names declared in outputs.tf — the configuration, not the applied state.
+
+    Lets a test tell "this output is newer than the last apply" (declared here, absent
+    from `terraform output`) apart from "this output is gone" (absent from both). Only
+    the former is tolerable: the deploy workflow runs its test job before its apply job,
+    so an output and its assertion added in one change are unsatisfiable on that first
+    run, while an output that has been renamed or deleted out from under an assertion is
+    a real failure that must not be waved through.
+    """
+    source = (TERRAFORM_DIR / "outputs.tf").read_text()
+    return set(re.findall(r'^output\s+"([^"]+)"', source, re.MULTILINE))

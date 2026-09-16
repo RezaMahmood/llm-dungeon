@@ -3,6 +3,8 @@ configuration (contracts/github-actions-contract.md's Infrastructure Testing
 workflow). Run post-apply, either by infrastructure-tests.yml or locally.
 """
 
+import warnings
+
 import pytest
 from azure.mgmt.cognitiveservices import CognitiveServicesManagementClient
 from azure.mgmt.cosmosdb import CosmosDBManagementClient
@@ -121,14 +123,32 @@ def test_azure_openai_account_exists_and_public_access_disabled(cognitive_client
         "azure_openai_standby_deployment_name",
     ],
 )
-def test_azure_openai_model_deployment_exists(cognitive_client, terraform_outputs, deployment_output):
+def test_azure_openai_model_deployment_exists(
+    cognitive_client, terraform_outputs, declared_terraform_outputs, deployment_output
+):
     if deployment_output not in terraform_outputs:
         # terraform_outputs reads the APPLIED state, and infrastructure-deploy.yml runs
         # this job before its plan/apply jobs (apply `needs:` it). So an output added by
         # the same change that adds its assertion cannot exist on the run that
         # introduces it — asserting it there would make every such change unmergeable.
-        # It resolves itself: once that apply lands, the output is in state and this
-        # runs normally on every subsequent run.
+        #
+        # Tolerated ONLY while outputs.tf still declares it, i.e. it is genuinely newer
+        # than the last apply. An output missing from both config and state has been
+        # renamed or deleted out from under this assertion, which is precisely the
+        # accidental-deletion hole this test exists to close, so that fails loudly.
+        assert deployment_output in declared_terraform_outputs, (
+            f"{deployment_output} is in neither the applied state nor outputs.tf — it was renamed or "
+            f"deleted without updating this test, so nothing is checking that deployment exists any more"
+        )
+        # A skip is quiet, and the apply that clears it is a manually dispatched,
+        # human-approved workflow rather than anything a merge triggers — so this can
+        # sit pending for as long as nobody deploys. Warn as well as skip, so the
+        # pending state shows up in the run summary instead of only in -v output.
+        warnings.warn(
+            f"{deployment_output} is declared in outputs.tf but not in the applied state; "
+            f"its assertion stays inert until the next Infrastructure Deploy",
+            stacklevel=2,
+        )
         pytest.skip(f"{deployment_output} is not in the applied state yet; it appears after the next apply")
 
     deployment = cognitive_client.deployments.get(
