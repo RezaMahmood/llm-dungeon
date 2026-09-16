@@ -4,8 +4,9 @@ import "./Play.css";
  * Status panel: location, goal, and chapter progress from the latest turn
  * (specs/designs/03-play.html). When the session has concluded, also shows the
  * ending reason (FR-009's duration/success/failure outcome). When the session carries
- * an avatar description, also shows it read-only (034-avatar-memory-and-visibility
- * FR-001) — absent entirely for a session with none (FR-003).
+ * an avatar description, also shows it read-only below the turn's own values
+ * (034-avatar-memory-and-visibility FR-001/FR-002) — absent entirely for a session with
+ * none (FR-003).
  */
 const REASON_LABELS = {
   duration: "Time ran out",
@@ -18,14 +19,6 @@ export function StatusPanel({ locationLabel, goalLabel, progress, completionReas
     <div className="play-panel">
       <div className="play-label">Where you are</div>
       <div className="play-location">{locationLabel}</div>
-
-      {avatarDescription && (
-        <>
-          <hr className="hr" style={{ margin: "20px 0", height: "1px" }} />
-          <div className="play-label">Who you are</div>
-          <p className="play-goal">{avatarDescription}</p>
-        </>
-      )}
 
       {goalLabel && (
         <>
@@ -66,6 +59,23 @@ export function StatusPanel({ locationLabel, goalLabel, progress, completionReas
             {REASON_LABELS[completionReason.type] || "The story ended"}
             {completionReason.detail ? ` — ${completionReason.detail}` : ""}
           </p>
+        </>
+      )}
+
+      {/*
+       * Last of the panel's content, not first: the description is fixed for the life of
+       * the session while location, goal and progress change every turn, and at the 320 px
+       * floor a 500-character description placed above them pushes all three down the
+       * scroll. spec.md's Assumption settles the order — "where space is tight, location,
+       * goal, and progress win; the description yields" (FR-002, SC-001). It is shown in
+       * full rather than clamped: a player checking who they said they were needs the
+       * whole of it, and an expand control is out of scope for this slice.
+       */}
+      {avatarDescription && (
+        <>
+          <hr className="hr" style={{ margin: "20px 0", height: "1px" }} />
+          <div className="play-label">Who you are</div>
+          <p className="play-goal">{avatarDescription}</p>
         </>
       )}
 
