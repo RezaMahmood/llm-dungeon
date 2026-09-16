@@ -121,7 +121,7 @@ A player starting a new game of an adventure they have played before finds the d
 
 ## Assumptions
 
-- **Removing a player's account removes their stored avatar descriptions**, by the same reasoning that deletes them with a deleted adventure (FR-009). Stated as an assumption rather than a requirement because account removal is `003-account-provisioning-done`'s territory; confirm it at planning.
+- **Removing a player's account does not remove their stored avatar descriptions.** The assumption that it would — by the same reasoning that deletes them with a deleted adventure (FR-009) — was not confirmed at planning and is not built: `remove_account` deletes the provisioned account entry and the Entra guest, leaving any stored descriptions keyed to that player's object id behind. Deliberately deferred rather than built here, because account removal is `003-account-provisioning-done`'s territory and this slice states no requirement over it. The entry's bound `objectId` is what a cascade would key on.
 - **A stored description is not re-validated at storage time**, only at submission (FR-008). It was validated when the session that stored it began.
 - **The status panel's existing contents keep precedence.** Where space is tight, location, goal, and progress win; the description yields.
 

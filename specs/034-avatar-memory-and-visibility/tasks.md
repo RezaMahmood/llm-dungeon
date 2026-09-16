@@ -161,3 +161,29 @@ verify the previous description is prefilled and fully editable (per quickstart.
 increment — players can see their avatar description mid-session — without touching storage at
 all. User Story 2 (Phase 3) adds the remember-and-prefill behavior on top, in either order
 relative to US1 per spec.md.
+
+## Phase 5: Convergence
+
+- [X] T026 CRITICAL: Add the automated test FR-013 names — the status panel at the 320 px
+      viewport floor carrying the longest permitted (500-character) description, asserting
+      location, goal, and progress all remain present and reachable alongside it — in
+      `src/frontend/tests/Play/StatusPanel.test.jsx`. No test in `src/frontend/tests/`
+      currently references a 320 px viewport or a 500-character description, though T007
+      called for one and is marked `[x]`, per Constitution I, FR-002, FR-013, US1/AC2 and
+      SC-001 (missing)
+- [X] T027 In `src/frontend/src/components/Play/StatusPanel.jsx`, stop the avatar
+      description displacing the panel's authored values: it currently renders directly
+      after location and before `goalLabel` and `progress`, and `.play-goal` carries no
+      height limit while `.play-panel` is `overflow: auto`, so a 500-character description
+      pushes goal and progress down the scroll. Either move the "Who you are" section below
+      progress or bound its height, so spec.md's Assumption holds — "where space is tight,
+      location, goal, and progress win; the description yields" — per FR-002 and US1/AC2
+      (contradicts)
+- [X] T028 Resolve the spec Assumption that "removing a player's account removes their
+      stored avatar descriptions", which plan.md never confirmed: `remove_account`
+      (`src/backend/services/account_provisioning_service.py`) deletes the provisioned
+      account entry and the Entra guest but nothing in `storedAvatarDescriptions`, so a
+      removed player's descriptions outlive their account. Either cascade the delete as
+      FR-009 does for a deleted adventure, with a test, or record the decision not to
+      (missing) — resolved by recording the deferral in spec.md's Assumptions; the
+      cascade belongs to `003-account-provisioning-done`, which owns account removal.

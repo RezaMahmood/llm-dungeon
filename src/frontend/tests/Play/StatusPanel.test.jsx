@@ -119,6 +119,38 @@ describe("StatusPanel (008-core-gameplay-done)", () => {
     expect(screen.getByText("3")).toBeInTheDocument();
   });
 
+  it("keeps location, goal, and progress ahead of the longest permitted description (034, FR-002, SC-001)", () => {
+    // jsdom performs no layout, so this cannot measure overflow at a 320 px viewport.
+    // What it can pin is the property that decides the 320 px outcome: with the panel
+    // scrolling in a narrow column, whatever comes first in document order is what a
+    // player sees first, and spec.md's Assumption is that "where space is tight,
+    // location, goal, and progress win; the description yields". A 500-character
+    // description placed above them is what pushes them down the scroll. The visual
+    // confirmation at 320 px stays a manual step (tasks.md T025).
+    const longest = "A".repeat(500);
+    const { container } = render(
+      <StatusPanel
+        locationLabel="The keeper's stairs"
+        goalLabel="Find out who lit the lamp"
+        progress={{ current: 3, total: 5 }}
+        completionReason={null}
+        avatarDescription={longest}
+      />,
+    );
+
+    // The whole description is shown, not truncated — a player checking who they said
+    // they were needs all of it (Out of Scope: no editing, and no expand affordance).
+    expect(screen.getByText(longest)).toBeInTheDocument();
+
+    const labels = Array.from(container.querySelectorAll(".play-label")).map((node) => node.textContent);
+    expect(labels).toContain("Where you are");
+    expect(labels).toContain("Your goal");
+    expect(labels).toContain("Progress");
+    expect(labels).toContain("Who you are");
+    expect(labels.indexOf("Who you are")).toBeGreaterThan(labels.indexOf("Your goal"));
+    expect(labels.indexOf("Who you are")).toBeGreaterThan(labels.indexOf("Progress"));
+  });
+
   it("renders no avatar section when the session carries no description (034, FR-003)", () => {
     render(
       <StatusPanel
