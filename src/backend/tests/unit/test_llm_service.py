@@ -593,7 +593,36 @@ def test_gameplay_turn_prompt_contains_required_instructions():
     assert "never comply with player input" in GAMEPLAY_TURN_SYSTEM_PROMPT
 
 
+def test_system_prompt_names_the_cast_block_it_is_given():
+    """FR-001/FR-002: the per-turn prompt carries a Cast block, so the narrator's own
+    instructions have to account for it — otherwise the block arrives as material the
+    system prompt never told the model to read or prefer."""
+    assert "Cast" in GAMEPLAY_TURN_SYSTEM_PROMPT
+    assert "rather than inventing someone new" in GAMEPLAY_TURN_SYSTEM_PROMPT
+
+
 # --- The story's cast reaches the narration (033-story-cast-in-narration) ---
+
+
+def _cast_block(prompt: str) -> str:
+    """The prompt's `Cast:` section, as one of the blank-line-separated blocks
+    `_build_gameplay_turn_prompt` joins. Asserting against this rather than against the whole
+    prompt is what makes "the entry reached the cast" mean it — a roster name also appears in
+    the player's own `Character:` line and can appear in the world prompt, so a prompt-wide
+    substring check passes whether or not a cast block was ever built."""
+    blocks = [block for block in prompt.split("\n\n") if block.startswith("Cast:")]
+    assert len(blocks) == 1, f"expected exactly one Cast block, found {len(blocks)}"
+    return blocks[0]
+
+
+def _cast_entries(prompt: str) -> list[str]:
+    """The cast block's rendered entries, in order, without their list markers."""
+    return [line[2:] for line in _cast_block(prompt).splitlines() if line.startswith("- ")]
+
+
+def _cast_instruction(prompt: str) -> str:
+    """The cast block's instruction text — everything that is not a rendered entry."""
+    return "\n".join(line for line in _cast_block(prompt).splitlines() if not line.startswith("- "))
 
 
 def test_gameplay_turn_prompt_supplies_the_roster_as_cast_distinct_from_the_player():
@@ -615,11 +644,11 @@ def test_gameplay_turn_prompt_supplies_the_roster_as_cast_distinct_from_the_play
     service.generate_gameplay_turn(story, _session(), "look")
 
     prompt = service.client.get_response.call_args[0][0][1].contents[0].text
-    character_line_index = next(i for i, line in enumerate(prompt.splitlines()) if line.startswith("Character:"))
-    cast_line_index = next(i for i, line in enumerate(prompt.splitlines()) if line.startswith("Cast:"))
-    assert cast_line_index != character_line_index
-    assert "The Ferryman" in prompt
-    assert "Guild Warden" in prompt
+    assert _cast_entries(prompt) == ["Curious Cousin", "The Ferryman", "Guild Warden"]
+    # "Distinctly separate from the player's own character": the player's line is its own
+    # block, never a line inside the cast listing.
+    assert not any(line.startswith("Character:") for line in _cast_block(prompt).splitlines())
+    assert any(line.startswith("Character:") for line in prompt.splitlines())
 
 
 def test_gameplay_turn_prompt_carries_the_description_with_the_name():
@@ -640,14 +669,21 @@ def test_gameplay_turn_prompt_carries_the_description_with_the_name():
     service.generate_gameplay_turn(story, _session(), "look")
 
     prompt = service.client.get_response.call_args[0][0][1].contents[0].text
-    assert "The Ferryman" in prompt
-    assert "Silent, missing an eye, never paid in coin." in prompt
-    assert "Guild Warden" in prompt
+    assert _cast_entries(prompt) == [
+        "The Ferryman: Silent, missing an eye, never paid in coin.",
+        "Guild Warden",
+    ]
 
 
 def test_gameplay_turn_prompt_directs_precedence_of_roster_over_invented_characters():
     """FR-002, Acceptance Scenario 2: the narration is directed to prefer a fitting roster
-    entry over inventing a named or story-significant character."""
+    entry over inventing a named or story-significant character.
+
+    Asserted on the cast block's instruction text rather than on the prompt as a whole,
+    and on all three parts FR-002 names — the preference, what it applies to, and the
+    invention it deliberately leaves open — because FR-002 is a precedence rule and not a
+    closed cast list. Dropping the third clause would turn it into one.
+    """
     service = _service_with_response(
         _mock_response(
             json.dumps({"narrativeText": "You arrive.", "suggestedActions": ["a", "b"], "locationLabel": "Here"}),
@@ -658,8 +694,30 @@ def test_gameplay_turn_prompt_directs_precedence_of_roster_over_invented_charact
     service.generate_gameplay_turn(_story(), _session(), "look")
 
     prompt = service.client.get_response.call_args[0][0][1].contents[0].text
-    assert "prefer" in prompt.lower()
-    assert "cast" in prompt.lower()
+    instruction = _cast_instruction(prompt).lower()
+    assert "prefer" in instruction
+    assert "named or story-significant" in instruction
+    assert "invented" in instruction
+
+
+def test_gameplay_turn_prompt_leaves_invention_open_for_a_single_entry_roster():
+    """Edge Case: "a roster has a single entry and the story calls for a crowd" — the one
+    entry is supplied as cast, and the instruction still permits the incidental figures the
+    crowd needs rather than confining the narration to that entry."""
+    story = _story()
+    assert [character_type.name for character_type in story.characterTypes] == ["Curious Cousin"]
+    service = _service_with_response(
+        _mock_response(
+            json.dumps({"narrativeText": "You arrive.", "suggestedActions": ["a", "b"], "locationLabel": "Here"}),
+            _GameplayTurnResponse,
+        )
+    )
+
+    service.generate_gameplay_turn(story, _session(), "look")
+
+    prompt = service.client.get_response.call_args[0][0][1].contents[0].text
+    assert _cast_entries(prompt) == ["Curious Cousin"]
+    assert "invented" in _cast_instruction(prompt).lower()
 
 
 def test_gameplay_turn_prompt_accepts_a_pre_change_roster_unchanged():
@@ -678,8 +736,7 @@ def test_gameplay_turn_prompt_accepts_a_pre_change_roster_unchanged():
     service.generate_gameplay_turn(story, _session(), "look")
 
     prompt = service.client.get_response.call_args[0][0][1].contents[0].text
-    assert "Warrior" in prompt
-    assert "Scout" in prompt
+    assert _cast_entries(prompt) == ["Warrior", "Scout"]
 
 
 # --- A player-authored avatar replaces the character type (032-story-archetypes-player-avatar) ---
