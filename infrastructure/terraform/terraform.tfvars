@@ -57,6 +57,10 @@ ai_foundry_router_deployment_name = "model-router"
 ai_foundry_router_model_version   = "2025-11-18"
 ai_foundry_router_capacity        = 150 # 150K TPM, as created out-of-band
 
+# Omit reasoning_effort from every LLM call — model-router picks the model per
+# request and not every model it may pick accepts the parameter.
+llm_reasoning_effort = "off"
+
 log_analytics_retention_days = 30
 budget_amount_usd            = 50
 budget_alert_email           = "reza.mahmood@gmail.com"

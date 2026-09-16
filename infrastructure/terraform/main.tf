@@ -388,11 +388,21 @@ resource "azurerm_function_app_flex_consumption" "functions" {
     AZURE_AI_FOUNDRY_DEPLOYMENT_NAME = azurerm_cognitive_deployment.model_router.name
     LLM_INPUT_TOKEN_PRICE_USD        = var.llm_input_token_price_usd
     LLM_OUTPUT_TOKEN_PRICE_USD       = var.llm_output_token_price_usd
-    AZURE_TENANT_ID                  = var.azure_tenant_id
-    AZURE_APP_ID                     = var.azure_app_id != "" ? var.azure_app_id : var.azure_client_id
-    SEED_ADMIN_EMAIL                 = var.seed_admin_email
-    FRONTEND_URL                     = "https://${azurerm_static_web_app.web.default_host_name}/"
-    PYTHON_ENABLE_WORKER_EXTENSIONS  = "true"
+    # "off" omits reasoning_effort from every LLM call (llm_service.py's
+    # _resolve_reasoning_effort returns None, and this blanket setting wins over
+    # each call site's own REASONING_EFFORT_* default). Set because model-router
+    # chooses a model per request: llm_service sends reasoning_effort
+    # unconditionally, "minimal" is a gpt-5-family-only value, and _execute
+    # re-raises anything that is not a 429 or a content filter — so a request
+    # routed to a model that rejects the parameter would surface to the player as
+    # a 500. Omitting it is the safe default until a live call against this
+    # deployment proves otherwise; unset it (or set a level) to re-enable.
+    LLM_REASONING_EFFORT            = var.llm_reasoning_effort
+    AZURE_TENANT_ID                 = var.azure_tenant_id
+    AZURE_APP_ID                    = var.azure_app_id != "" ? var.azure_app_id : var.azure_client_id
+    SEED_ADMIN_EMAIL                = var.seed_admin_email
+    FRONTEND_URL                    = "https://${azurerm_static_web_app.web.default_host_name}/"
+    PYTHON_ENABLE_WORKER_EXTENSIONS = "true"
     # configure_azure_monitor() (013-opentelemetry-observability) doesn't set
     # service.name in code — without OTEL_SERVICE_NAME, OTel resource
     # detection falls back to "unknown_service", and every span/exception/log

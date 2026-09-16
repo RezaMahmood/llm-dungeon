@@ -265,6 +265,27 @@ variable "ai_foundry_router_model_version" {
   default     = "2025-11-18"
 }
 
+variable "llm_reasoning_effort" {
+  description = <<-EOT
+    Blanket reasoning-effort override for every LLM call (config.py's
+    LLM_REASONING_EFFORT). "off" omits the reasoning_effort parameter entirely;
+    minimal|low|medium|high force that level everywhere; "" leaves each call site at
+    its own REASONING_EFFORT_* default in llm_service.py.
+
+    Defaults to "off" because model-router selects a model per request and
+    llm_service.py sends reasoning_effort on every call — see the app-setting comment
+    in main.tf. The per-call LLM_REASONING_EFFORT_* settings are ignored while this is
+    anything other than "".
+  EOT
+  type        = string
+  default     = "off"
+
+  validation {
+    condition     = contains(["", "off", "minimal", "low", "medium", "high"], var.llm_reasoning_effort)
+    error_message = "llm_reasoning_effort must be one of: \"\" (per-call defaults), off, minimal, low, medium, high."
+  }
+}
+
 variable "ai_foundry_router_capacity" {
   description = "Capacity for the model-router deployment, in Terraform capacity units (1 unit = 1,000 TPM). 150 = 150K TPM, matching the deployment created out-of-band; raise it if narration starts tripping 429s the way #33 did."
   type        = number
