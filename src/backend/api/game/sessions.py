@@ -11,6 +11,7 @@ import azure.functions as func
 from backend.api.game.middleware import authorize_player
 from backend.api.utils import error_response, forbidden_access_not_granted, json_response
 from backend.services.account_provisioning_service import AccountProvisioningService
+from backend.services.avatar_setup_attempts_service import ATTEMPT_WINDOW
 from backend.services.avatar_validation_service import (
     AvatarDescriptionCheckUnavailableError,
     AvatarValidationAttemptsExceededError,
@@ -144,10 +145,14 @@ def create_session(
             "We couldn't finish checking your character description. Please try again shortly.",
         )
     except AvatarValidationAttemptsExceededError:
+        # States the wait concretely: the cap clears on its own after ATTEMPT_WINDOW, and
+        # "a short break" gave the player no way to tell a too-early retry from a cap that
+        # was never going to lift (issue #361 review).
         return error_response(
             429,
             "avatar_validation_attempts_exceeded",
-            "That's a lot of attempts for one setup. Take a short break and try again.",
+            f"That's a lot of attempts for one setup. Try again in about "
+            f"{int(ATTEMPT_WINDOW.total_seconds() // 60)} minutes.",
         )
 
     return json_response(

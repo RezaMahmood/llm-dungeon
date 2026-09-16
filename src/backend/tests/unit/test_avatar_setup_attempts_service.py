@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import datetime
 
+import pytest
 from azure.core import MatchConditions
 from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosResourceNotFoundError
 
@@ -182,12 +183,15 @@ def test_a_document_written_before_windows_existed_reads_as_expired():
     assert service.get_attempts(PLAYER_ID, STORY_ID) == 0
 
 
-def test_an_unparseable_window_reads_as_expired():
-    """A malformed timestamp must never be the thing that keeps a player locked out."""
+@pytest.mark.parametrize("bad_value", ["not-a-timestamp", 1789500000, {"seconds": 12}, []])
+def test_an_unreadable_window_reads_as_expired(bad_value):
+    """A malformed timestamp must never be the thing that keeps a player locked out — and
+    a non-string value raises TypeError rather than ValueError, which would otherwise
+    escape and 500 every start request for this pair."""
     service, cosmos = _service_with_cosmos()
     service.record_attempt(PLAYER_ID, STORY_ID)
     cosmos.get_container(config.AVATAR_SETUP_ATTEMPTS_CONTAINER).items[f"{PLAYER_ID}:{STORY_ID}"][
         "windowStartedAt"
-    ] = "not-a-timestamp"
+    ] = bad_value
 
     assert service.get_attempts(PLAYER_ID, STORY_ID) == 0

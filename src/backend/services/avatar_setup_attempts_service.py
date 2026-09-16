@@ -60,9 +60,12 @@ def _window_expired(record: AvatarSetupAttempts) -> bool:
         return True
     try:
         return _now() - _parse(record.windowStartedAt) >= ATTEMPT_WINDOW
-    except ValueError:
-        # An unparseable timestamp is treated the same as a missing one: expired, so a
-        # malformed document can never be what keeps a player locked out.
+    except (ValueError, TypeError):
+        # An unreadable timestamp is treated the same as a missing one: expired, so a
+        # malformed document can never be what keeps a player locked out. TypeError as
+        # well as ValueError — a non-string value (an epoch number, say) raises the
+        # former, and letting it escape would 500 every start request for this pair,
+        # which is a worse lockout than the one this window exists to prevent.
         logger.warning("Unparseable windowStartedAt on %s; treating the window as expired", record.id)
         return True
 
