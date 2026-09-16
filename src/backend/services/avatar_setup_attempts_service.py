@@ -4,6 +4,7 @@ validation attempts within a single setup, per (player, story) pair
 
 from __future__ import annotations
 
+import datetime
 import logging
 from typing import Optional
 
@@ -25,9 +26,45 @@ logger = logging.getLogger("avatar_setup_attempts_service")
 # `_etag` race must fail predictably rather than recursing until the stack gives out.
 MAX_WRITE_ATTEMPTS = 3
 
+# The cap counts attempts within a rolling window rather than for all time. The counter
+# is otherwise only cleared by a successful session creation — which a capped player can
+# never reach, since the cap is checked before the validation that would let them through
+# — so a permanent counter turned the guard rail into a permanent ban on that adventure,
+# while the player was told a short break would help (issue #361 convergence, FR-014 and
+# its Edge Case "not left without a next action"). Long enough that sustained probing
+# stays capped; short enough that the break the message promises actually works.
+ATTEMPT_WINDOW = datetime.timedelta(minutes=30)
+
 
 def _doc_id(player_id: str, story_id: str) -> str:
     return f"{player_id}:{story_id}"
+
+
+def _now() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def _format(dt: datetime.datetime) -> str:
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _parse(value: str) -> datetime.datetime:
+    return datetime.datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
+
+
+def _window_expired(record: AvatarSetupAttempts) -> bool:
+    """True when `record`'s counting window has closed, so its count no longer applies.
+    A document written before `windowStartedAt` existed has no window and is treated as
+    expired — which releases anyone the permanent counter had already stranded."""
+    if record.windowStartedAt is None:
+        return True
+    try:
+        return _now() - _parse(record.windowStartedAt) >= ATTEMPT_WINDOW
+    except ValueError:
+        # An unparseable timestamp is treated the same as a missing one: expired, so a
+        # malformed document can never be what keeps a player locked out.
+        logger.warning("Unparseable windowStartedAt on %s; treating the window as expired", record.id)
+        return True
 
 
 class AvatarSetupAttemptsService:
@@ -38,12 +75,18 @@ class AvatarSetupAttemptsService:
         return self._cosmos.get_container(config.AVATAR_SETUP_ATTEMPTS_CONTAINER)
 
     def get_attempts(self, player_id: str, story_id: str) -> int:
+        """Attempts counted inside the current window. A closed window reads as zero, so
+        the cap releases on its own rather than waiting for a session that a capped player
+        cannot create."""
         doc_id = _doc_id(player_id, story_id)
         try:
             item = self._container().read_item(item=doc_id, partition_key=doc_id)
         except CosmosResourceNotFoundError:
             return 0
-        return AvatarSetupAttempts.from_dict(item).modelBackedAttempts
+        record = AvatarSetupAttempts.from_dict(item)
+        if _window_expired(record):
+            return 0
+        return record.modelBackedAttempts
 
     def record_attempt(self, player_id: str, story_id: str) -> int:
         """Increments and returns the model-backed attempt count for `(player_id,
@@ -56,7 +99,11 @@ class AvatarSetupAttemptsService:
                 item = container.read_item(item=doc_id, partition_key=doc_id)
             except CosmosResourceNotFoundError:
                 record = AvatarSetupAttempts(
-                    id=doc_id, playerId=player_id, storyId=story_id, modelBackedAttempts=1
+                    id=doc_id,
+                    playerId=player_id,
+                    storyId=story_id,
+                    modelBackedAttempts=1,
+                    windowStartedAt=_format(_now()),
                 )
                 try:
                     container.create_item(record.to_dict())
@@ -67,7 +114,13 @@ class AvatarSetupAttemptsService:
 
             etag = item["_etag"]
             record = AvatarSetupAttempts.from_dict(item)
-            record.modelBackedAttempts += 1
+            if _window_expired(record):
+                # First attempt of a new window: restart the count rather than adding to
+                # one that has already lapsed.
+                record.modelBackedAttempts = 1
+                record.windowStartedAt = _format(_now())
+            else:
+                record.modelBackedAttempts += 1
             try:
                 container.replace_item(
                     item=doc_id,

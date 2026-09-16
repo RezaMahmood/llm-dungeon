@@ -300,7 +300,7 @@ named for.
 Appended by `/speckit-converge` after assessing the merged implementation against this
 feature's spec, plan, and tasks. Ordered CRITICAL first.
 
-- [ ] T046 Make the model-backed attempt cap recoverable: `AvatarSetupAttempts` is cleared only
+- [X] T046 Make the model-backed attempt cap recoverable: `AvatarSetupAttempts` is cleared only
       on successful session creation (`play_session_service.py:279`), but `validate_relevance`
       raises `AvatarValidationAttemptsExceededError` before any check once
       `modelBackedAttempts >= MAX_MODEL_BACKED_ATTEMPTS`, and the container carries no TTL — so a
@@ -309,37 +309,37 @@ feature's spec, plan, and tasks. Ordered CRITICAL first.
       counter a time window (or an equivalent reset) so a break genuinely clears it, and cover it
       with a test, per FR-014, SC-011 and the Edge Case "they are ... not left without a next
       action" (contradicts) — CRITICAL
-- [ ] T047 Add the second, independent line of defence against injection in the avatar
+- [X] T047 Add the second, independent line of defence against injection in the avatar
       description: `_build_gameplay_turn_prompt` (`llm_service.py:540`) interpolates it into the
       trusted configuration block beside `World:`/`Rules:`/`Narrative guidance:`, and
       `gameplay_turn_system_prompt.txt` hardens only "Player's latest input" — leaving the FR-007
       model-backed check as the sole defence. Label the avatar as player-supplied in the prompt
       and instruct the narrator never to treat it as an instruction, mirroring the existing
       player-input clause, per FR-008 and SC-007 (missing)
-- [ ] T048 Stop recording avatar description text in telemetry:
+- [X] T048 Stop recording avatar description text in telemetry:
       `llm_service.py:315` sets `span.set_attribute("gen_ai.prompt", description)` before the
       verdict is known, so every description — rejected ones and judged injection attempts
       included — is durably captured in traces, per FR-015 and SC-012 (contradicts)
-- [ ] T049 Amend `specs/006-adventure-and-character-setup/data-model.md` (lines 21, 33, 61, 72,
+- [X] T049 Amend `specs/006-adventure-and-character-setup/data-model.md` (lines 21, 33, 61, 72,
       92-93) and `specs/006-adventure-and-character-setup/contracts/api.md` (lines 93, 103, 115,
       125, 147), which still declare `characterType` **Required**, validated against the
       adventure's roster, with the error `"Select a character type for this adventure."` — T036
       amended only that feature's `spec.md`, though FR-029 names "its data model and contracts"
       (missing)
-- [ ] T050 Add the avatar test coverage FR-030 requires but that does not exist: a suite of known
+- [X] T050 Add the avatar test coverage FR-030 requires but that does not exist: a suite of known
       context/prompt-injection patterns; a test that an accepted-but-hostile description cannot
       override the narration (T047's defence); and a test that no rejected description text
       reaches the exported spans (T048's fix, using the existing `otel_exporters` fixture in
       `tests/conftest.py`). The current
       `test_instruction_shaped_description_is_rejected` mocks the verdict and so exercises
       plumbing only, per FR-030, SC-007 and SC-012 (missing)
-- [ ] T051 Reword the remaining roster surfaces to the cast framing — the import validator
+- [X] T051 Reword the remaining roster surfaces to the cast framing — the import validator
       (`src/backend/services/story_config_file.py:139,197,202,209` and
       `src/frontend/src/components/Admin/StoryConfigUpload.jsx:30`) and the wizard's
       completeness message (`src/frontend/src/pages/AdminStoryWizardPage.jsx:121`), all of which
       still read "at least one character type" — per FR-023, which names import explicitly, and
       SC-016 (partial)
-- [ ] T052 Review and justify or remove `characterTypes` from the player-facing
+- [X] T052 Review and justify or remove `characterTypes` from the player-facing
       `GET /game/adventures/{adventureId}` response (`src/backend/api/game/adventures.py`): it is
       a leftover of the deleted picker, is consumed nowhere in the frontend, and ships the
       story's cast to the player client, while

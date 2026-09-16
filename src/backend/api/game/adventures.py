@@ -61,7 +61,9 @@ def get_adventure(
             "adventure": {
                 "id": story["id"],
                 "name": story["name"],
-                "characterTypes": story["characterTypes"],
+                # No `characterTypes`: the story's cast is narration material the player
+                # never chooses from, and no player-facing client reads it (issue #361
+                # convergence, FR-002/FR-022).
                 "avatarDescription": stored_description,
             },
         },

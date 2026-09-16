@@ -227,7 +227,7 @@ under that id:
 **Response (422 Unprocessable Entity)** — nothing is persisted and any existing story is left
 untouched (`011` FR-003). `message` always names the offending field or element:
 ```json
-{ "error": "invalid_configuration", "message": "characterTypes: at least one character type is required" }
+{ "error": "invalid_configuration", "message": "characterTypes: at least one cast character is required" }
 ```
 Other `422` cases, same shape:
 - `{ "error": "confirmation_required", "message": "Confirm the story this file will overwrite before uploading." }` — missing or mismatched `confirmOverwriteStoryId`.

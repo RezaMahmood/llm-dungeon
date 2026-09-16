@@ -60,8 +60,9 @@ Run the frontend dev server against the backend from the steps above, signed in 
    (and only that adventure's) appear.
 5. Enter a name over 50 characters, or leave it blank, and attempt to proceed → confirm a
    rejection message asking for a valid/shorter name (edge cases).
-6. Select a character type, then go back and change the selected adventure → confirm the
-   character type selection is cleared while the character name is retained (FR-004a).
+6. Type an avatar description, then go back and change the selected adventure → confirm the
+   character name and the typed avatar text are both retained (FR-004a, as amended by
+   `032-story-archetypes-player-avatar` FR-005).
 7. Attempt to start play with any one of the three fields still missing → confirm play is
    blocked and the missing item(s) are identified to the player (FR-004, FR-005).
 8. Supply all three (adventure, valid name, character type) and confirm → confirm setup

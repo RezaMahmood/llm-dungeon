@@ -118,7 +118,7 @@ function missingRequirements(draft) {
   const missing = [];
   if (!draft.name) missing.push("a story name (Name & cover)");
   if (!draft.worldPrompt) missing.push("a world prompt");
-  if (!(draft.characterTypes?.length > 0)) missing.push("at least one character type");
+  if (!(draft.characterTypes?.length > 0)) missing.push("at least one cast character");
   if (!(draft.completionCriteria?.successConditions?.length > 0)) missing.push("at least one success condition");
   return missing;
 }
