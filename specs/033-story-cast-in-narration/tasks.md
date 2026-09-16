@@ -142,3 +142,30 @@ Task: "Add pre-existing-roster test in src/backend/tests/unit/test_llm_service.p
 There is one user story, so the MVP is Phase 3 in full: write T001-T004, confirm they fail, then
 implement T005-T006 and confirm T001-T004 pass via T007. Phase 4 is a regression check before
 opening the pull request.
+
+---
+
+## Phase 5: Convergence
+
+- [ ] T010 CRITICAL: Add a test asserting a story whose roster has a single `CharacterType`
+      still builds a prompt whose cast block carries that entry and whose precedence
+      instruction leaves incidental background figures open to invention, in
+      `src/backend/tests/unit/test_llm_service.py` per Constitution I and the spec Edge Case
+      "a roster has a single entry and the story calls for a crowd" (missing)
+- [ ] T011 CRITICAL: Strengthen the two weak assertions in
+      `src/backend/tests/unit/test_llm_service.py` so they exercise real behaviour per
+      Constitution I: in `test_gameplay_turn_prompt_supplies_the_roster_as_cast_distinct_from_the_player`
+      replace `cast_line_index != character_line_index` (which no line can violate, since a
+      line cannot start with both `Character:` and `Cast:`) and the prompt-wide `in` checks
+      with assertions that each roster entry is rendered inside the `Cast:` block itself; in
+      `test_gameplay_turn_prompt_directs_precedence_of_roster_over_invented_characters` replace
+      `"prefer" in prompt.lower()` / `"cast" in prompt.lower()` with an assertion on the
+      precedence instruction's substance (partial)
+- [ ] T012 In `src/backend/services/prompts/gameplay_turn_system_prompt.txt`, name the cast
+      block among the supplied story configuration the narrator is told to read (currently
+      "worldPrompt, rules, narrativeGuidance, tone, readingLevel" only) so the narrator's own
+      instructions acknowledge the cast and its precedence rule, per FR-001 and FR-002
+      (partial)
+- [ ] T013 Run `pytest tests/unit/test_llm_service.py -k gameplay_turn_prompt` and then the full
+      `pytest` suite from `src/backend`, confirming T010-T011 pass and nothing else regressed
+      (depends on T010-T012)
