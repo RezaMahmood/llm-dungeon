@@ -123,6 +123,56 @@ describe("Game setup flow (032-story-archetypes-player-avatar, narrowed by 028-h
     expect(screen.getByLabelText(/^describe your character$/i)).toHaveValue(VALID_AVATAR_DESCRIPTION);
   });
 
+  it("prefills the avatar field from the player's stored description for this adventure (034 FR-006)", async () => {
+    getAdventure.mockResolvedValue({
+      adventure: { id: "a1", name: ADVENTURE_NAME, avatarDescription: "A returning lighthouse keeper." },
+    });
+    renderForAdventure();
+
+    expect(await screen.findByLabelText(/^describe your character$/i)).toHaveValue("A returning lighthouse keeper.");
+  });
+
+  it("leaves the avatar field empty when the player has no stored description for this adventure (034 FR-007)", async () => {
+    getAdventure.mockResolvedValue({ adventure: { id: "a1", name: ADVENTURE_NAME, avatarDescription: null } });
+    renderForAdventure();
+
+    await screen.findByText(ADVENTURE_NAME);
+    expect(screen.getByLabelText(/^describe your character$/i)).toHaveValue("");
+  });
+
+  it("lets the player edit a prefilled description before starting (034 FR-006)", async () => {
+    getAdventure.mockResolvedValue({
+      adventure: { id: "a1", name: ADVENTURE_NAME, avatarDescription: "A returning lighthouse keeper." },
+    });
+    createSession.mockResolvedValue({
+      status: "success",
+      sessionId: "session-1",
+      narrative: {
+        turnNumber: 0,
+        narrativeText: "The door creaks open.",
+        suggestedActions: ["look"],
+        locationLabel: "Entrance",
+        goalLabel: null,
+        progress: null,
+      },
+    });
+    const user = userEvent.setup();
+    renderForAdventure();
+
+    const field = await screen.findByLabelText(/^describe your character$/i);
+    expect(field).toHaveValue("A returning lighthouse keeper.");
+    await user.type(field, " Now with a limp.");
+    await user.type(await screen.findByLabelText(/character name/i), "Wren");
+    await user.click(screen.getByRole("button", { name: /start playing/i }));
+
+    expect(await screen.findByText(/the door creaks open/i)).toBeInTheDocument();
+    expect(createSession).toHaveBeenCalledWith("tok", {
+      adventureId: "a1",
+      characterName: "Wren",
+      avatarDescription: "A returning lighthouse keeper. Now with a limp.",
+    });
+  });
+
   it("redirects to Home when reached with no route state (research.md Decision 10)", async () => {
     render(
       <MemoryRouter initialEntries={["/game"]}>

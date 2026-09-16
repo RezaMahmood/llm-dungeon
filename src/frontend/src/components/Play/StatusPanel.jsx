@@ -3,7 +3,9 @@ import "./Play.css";
 /**
  * Status panel: location, goal, and chapter progress from the latest turn
  * (specs/designs/03-play.html). When the session has concluded, also shows the
- * ending reason (FR-009's duration/success/failure outcome).
+ * ending reason (FR-009's duration/success/failure outcome). When the session carries
+ * an avatar description, also shows it read-only (034-avatar-memory-and-visibility
+ * FR-001) — absent entirely for a session with none (FR-003).
  */
 const REASON_LABELS = {
   duration: "Time ran out",
@@ -11,11 +13,19 @@ const REASON_LABELS = {
   failure: "You did not succeed",
 };
 
-export function StatusPanel({ locationLabel, goalLabel, progress, completionReason }) {
+export function StatusPanel({ locationLabel, goalLabel, progress, completionReason, avatarDescription }) {
   return (
     <div className="play-panel">
       <div className="play-label">Where you are</div>
       <div className="play-location">{locationLabel}</div>
+
+      {avatarDescription && (
+        <>
+          <hr className="hr" style={{ margin: "20px 0", height: "1px" }} />
+          <div className="play-label">Who you are</div>
+          <p className="play-goal">{avatarDescription}</p>
+        </>
+      )}
 
       {goalLabel && (
         <>

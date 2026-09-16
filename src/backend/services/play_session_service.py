@@ -31,6 +31,7 @@ from backend.services.player_content_safety_standing_service import (
     PlayerContentSafetyStandingService,
     describe_lockout,
 )
+from backend.services.stored_avatar_description_service import StoredAvatarDescriptionService
 from backend.services.story_service import (
     ContentGenerationFailedError,
     ContentGenerationRateLimitedError,
@@ -163,6 +164,7 @@ class PlaySessionService:
         llm_service: Optional[LLMService] = None,
         player_content_safety_standing_service: Optional[PlayerContentSafetyStandingService] = None,
         avatar_validation_service: Optional[AvatarValidationService] = None,
+        stored_avatar_description_service: Optional[StoredAvatarDescriptionService] = None,
     ) -> None:
         self._cosmos = cosmos_service or shared_cosmos_service()
         self._stories = story_service or StoryService(cosmos_service=self._cosmos)
@@ -174,6 +176,9 @@ class PlaySessionService:
             llm_service=self._llm,
             story_service=self._stories,
             attempts_service=AvatarSetupAttemptsService(cosmos_service=self._cosmos),
+        )
+        self._stored_avatar_descriptions = stored_avatar_description_service or StoredAvatarDescriptionService(
+            cosmos_service=self._cosmos
         )
 
     def _container(self):
@@ -272,6 +277,10 @@ class PlaySessionService:
         # A later, separate setup against this adventure starts its attempt cap fresh
         # (research.md Decision 3).
         self._avatar_validation.clear_attempts(player_id, story.id)
+        # Remembered for next time this player sets up this adventure
+        # (034-avatar-memory-and-visibility FR-005, FR-012) — only reached once the
+        # session itself has been created, never on a failed setup.
+        self._stored_avatar_descriptions.store(player_id, story.id, validated_avatar)
         logger.info("Play session created", extra={"session_id": session.id, "adventure_id": adventure_id})
         return session
 
@@ -571,6 +580,7 @@ class PlaySessionService:
         self._check_story_available(session)
         summary = self._session_summary(session, self._resolve_adventure_name(session.adventureId))
         summary["characterType"] = session.characterType
+        summary["avatarDescription"] = session.avatarDescription
         summary["status"] = session.status
         summary["completionReason"] = session.completionReason
         # tokens is admin-only internal cost data — stripped before it ever reaches a
