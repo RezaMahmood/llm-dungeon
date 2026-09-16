@@ -108,8 +108,8 @@ class FakeCosmosService:
             rows = [_project_saved_game_summary_row(r) for r in rows]
         if "SELECT c.name FROM c WHERE c.id = @id" in sql:
             rows = [{"name": r["name"]} for r in rows]
-        if "SELECT c.id, c.name, c.published, c.characterTypes FROM c WHERE c.id = @id" in sql:
-            rows = [{"id": r["id"], "name": r["name"], "published": r["published"], "characterTypes": r["characterTypes"]} for r in rows]
+        if "SELECT c.id, c.name, c.published FROM c WHERE c.id = @id" in sql:
+            rows = [{"id": r["id"], "name": r["name"], "published": r["published"]} for r in rows]
         return rows
 
 

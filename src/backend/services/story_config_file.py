@@ -136,7 +136,7 @@ def parse(payload: Any) -> StoryConfiguration:
 
     raw_character_types = payload.get("characterTypes")
     if not raw_character_types:
-        raise InvalidStoryConfigurationError("characterTypes: at least one character type is required")
+        raise InvalidStoryConfigurationError("characterTypes: at least one cast character is required")
     character_types = _parse_character_types(raw_character_types)
 
     raw_completion_criteria = payload.get("completionCriteria")
@@ -194,19 +194,19 @@ def _parse_starting_point(raw: Any) -> Optional[StartingPoint]:
 
 def _parse_character_types(raw: Any) -> list[CharacterType]:
     if not isinstance(raw, list):
-        raise InvalidStoryConfigurationError("characterTypes: at least one character type is required")
+        raise InvalidStoryConfigurationError("characterTypes: at least one cast character is required")
     character_types: list[CharacterType] = []
     seen_names: set[str] = set()
     for entry in raw:
         if not isinstance(entry, dict):
-            raise InvalidStoryConfigurationError("characterTypes: each character type must be an object with a name")
+            raise InvalidStoryConfigurationError("characterTypes: each cast character must be an object with a name")
         try:
             ct = CharacterType.from_dict(entry)
         except (ValueError, KeyError) as exc:
             raise InvalidStoryConfigurationError(f"characterTypes: {exc}") from exc
         key = ct.name.strip().lower()
         if key in seen_names:
-            raise InvalidStoryConfigurationError(f"characterTypes: duplicate character type name {ct.name!r}")
+            raise InvalidStoryConfigurationError(f"characterTypes: duplicate cast character name {ct.name!r}")
         seen_names.add(key)
         character_types.append(ct)
     return character_types

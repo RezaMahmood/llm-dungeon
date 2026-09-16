@@ -302,14 +302,17 @@ class StoryService:
         return rows[0].get("name") if rows else None
 
     def get_adventure_summary(self, story_id: str) -> Optional[dict[str, Any]]:
-        """`id`, `name`, `published`, `characterTypes` only, for the player-facing
-        adventure-detail endpoint — which never needs `worldPrompt`/`narrativeGuidance`/
-        `rules`/`completionCriteria` — rather than `get_story`'s full point read.
-        `published` defaults to `False` for a legacy row missing the field, matching
-        `Story.from_dict`'s own default."""
+        """`id`, `name`, `published` only, for the player-facing adventure-detail endpoint
+        — which never needs `worldPrompt`/`narrativeGuidance`/`rules`/`completionCriteria`
+        — rather than `get_story`'s full point read. `published` defaults to `False` for a
+        legacy row missing the field, matching `Story.from_dict`'s own default.
+
+        `characterTypes` is deliberately not projected: it is the story's cast, which the
+        player never selects from and no player-facing client reads, so shipping it to the
+        browser only exposed authored content (issue #361 convergence, FR-002/FR-022)."""
         rows = self._cosmos.query(
             config.STORIES_CONTAINER,
-            "SELECT c.id, c.name, c.published, c.characterTypes FROM c WHERE c.id = @id",
+            "SELECT c.id, c.name, c.published FROM c WHERE c.id = @id",
             params=[{"name": "@id", "value": story_id}],
             partition_key=story_id,
         )
@@ -320,7 +323,6 @@ class StoryService:
             "id": row.get("id"),
             "name": row.get("name"),
             "published": row.get("published", False),
-            "characterTypes": row.get("characterTypes", []),
         }
 
     def list_summaries(self) -> list[dict[str, Any]]:

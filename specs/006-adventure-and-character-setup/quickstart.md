@@ -3,7 +3,7 @@
 **Feature**: 006-adventure-and-character-setup | **Date**: 2026-08-31
 
 Validates the setup flow end-to-end: listing published adventures, entering a character name,
-choosing a character type, and being blocked from starting play until all three are valid.
+writing an avatar description, and being blocked from starting play until all three are valid.
 See [contracts/api.md](./contracts/api.md) for exact request/response shapes and
 [data-model.md](./data-model.md) for field definitions.
 
@@ -24,24 +24,27 @@ See [contracts/api.md](./contracts/api.md) for exact request/response shapes and
    the seeded published adventure present; its `characterTypes` must NOT appear in this
    response (list is intentionally light — see contracts/api.md).
 2. **Adventure detail** — `GET /api/game/adventures/{adventureId}` for the seeded adventure.
-   Expect 200 with its `characterTypes` array populated.
+   Expect 200 with `id` and `name`, and no `characterTypes`: the roster is the story's cast,
+   never shipped to a player-facing client (`032-story-archetypes-player-avatar` FR-002,
+   FR-022).
 3. **Unpublished/nonexistent adventure** — `GET /api/game/adventures/{someOtherId}` for an id
    that is either nonexistent or belongs to an unpublished story. Expect 404
    `{"error": "not_found", ...}` in both cases (indistinguishable, by design).
 4. **Non-Player caller** — repeat step 1 with a token for an account that has no `Player` role.
    Expect 403 `forbidden_insufficient_permission()`.
 5. **Complete, valid setup** — `POST /api/game/start` with the seeded adventure's id, a
-   non-blank name ≤50 chars, and one of its character type names. Expect 200 with the echoed
-   fields.
-6. **Incomplete setup** — `POST /api/game/start` omitting `characterType`. Expect 400 with
-   `fields.characterType` present.
+   non-blank name ≤50 chars, and a valid avatar description (20–500 characters describing a
+   character). Expect 200 with the echoed fields.
+6. **Incomplete setup** — `POST /api/game/start` omitting `avatarDescription`. Expect 400 with
+   `fields.avatarDescription` present.
 7. **Name too long** — `POST /api/game/start` with a 51-character `characterName`. Expect 400
    with `fields.characterName` naming the length problem.
 8. **Blank name** — `POST /api/game/start` with `characterName: "   "`. Expect 400 with
    `fields.characterName` naming the blank problem.
-9. **Character type from a different adventure** — seed a second published adventure with a
-   disjoint set of character type names; `POST /api/game/start` for adventure A using a type
-   name that only exists on adventure B. Expect 400 with `fields.characterType`.
+9. **Avatar description outside the bounds** — `POST /api/game/start` with an
+   `avatarDescription` of fewer than 20 or more than 500 characters after trimming. Expect 400
+   with `fields.avatarDescription` stating the applicable limit, and no model call made
+   (`032-story-archetypes-player-avatar` FR-006, FR-010).
 10. **Zero published adventures** — with a Cosmos state where no story has `published: true`,
     repeat step 1. Expect 200 with `adventures: []` (frontend renders the empty-state message;
     this call itself still succeeds).
@@ -54,17 +57,19 @@ Run the frontend dev server against the backend from the steps above, signed in 
 2. Confirm only published adventures are listed, each distinguishable by name (FR-001); if none
    are published, confirm the clear "nothing available yet" message appears instead of an empty
    or broken list (FR-006).
-3. Confirm character name entry and character type selection are not reachable before an
+3. Confirm character name entry and the avatar-description step are not reachable before an
    adventure is selected (FR-003a).
-4. Select an adventure → confirm the character-name field and that adventure's character types
-   (and only that adventure's) appear.
+4. Select an adventure → confirm the character-name field and the avatar-description field
+   appear, and that no list of character types is offered anywhere in the flow
+   (`032-story-archetypes-player-avatar` FR-002).
 5. Enter a name over 50 characters, or leave it blank, and attempt to proceed → confirm a
    rejection message asking for a valid/shorter name (edge cases).
-6. Select a character type, then go back and change the selected adventure → confirm the
-   character type selection is cleared while the character name is retained (FR-004a).
+6. Type an avatar description, then go back and change the selected adventure → confirm the
+   character name and the typed avatar text are both retained (FR-004a, as amended by
+   `032-story-archetypes-player-avatar` FR-005).
 7. Attempt to start play with any one of the three fields still missing → confirm play is
    blocked and the missing item(s) are identified to the player (FR-004, FR-005).
-8. Supply all three (adventure, valid name, character type) and confirm → confirm setup
+8. Supply all three (adventure, valid name, valid avatar description) and confirm → confirm setup
    succeeds (per contracts/api.md's 200 response); full play-session behavior beyond this point
    is `008-core-gameplay-done`'s scope, not verified here.
 

@@ -95,18 +95,15 @@ def test_list_adventures_requires_authentication(request_factory):
     assert response.status_code == 401
 
 
-def test_get_adventure_returns_character_types_for_published_story(request_factory):
+def test_get_adventure_never_exposes_the_storys_cast_to_the_player(request_factory):
+    """032-story-archetypes-player-avatar FR-002/FR-022: the roster is narration material
+    the player never selects from, and no player-facing client reads it — so it is not
+    shipped to the browser at all (issue #361 convergence). It was a leftover of the
+    deleted character-type picker."""
     cosmos = MagicMock()
     story_service = StoryService(cosmos_service=cosmos)
     story = _published_story()
-    cosmos.query.return_value = [
-        {
-            "id": story.id,
-            "name": story.name,
-            "published": story.published,
-            "characterTypes": [ct.to_dict() for ct in story.characterTypes],
-        }
-    ]
+    cosmos.query.return_value = [{"id": story.id, "name": story.name, "published": story.published}]
     avatars = MagicMock()
     avatars.get.return_value = None
     req = request_factory(method="GET", url="/api/game/adventures/story-1", route_params={"adventureId": "story-1"}, token="valid-token")
@@ -121,10 +118,9 @@ def test_get_adventure_returns_character_types_for_published_story(request_facto
 
     assert response.status_code == 200
     body = json.loads(response.get_body())
-    assert body["adventure"]["characterTypes"] == [
-        {"name": "Detective", "description": "Sharp-eyed."},
-        {"name": "Ghost", "description": None},
-    ]
+    assert body["adventure"] == {"id": story.id, "name": story.name, "avatarDescription": None}
+    assert "characterTypes" not in body["adventure"]
+    assert "Detective" not in response.get_body().decode()
 
 
 def test_get_adventure_includes_the_callers_own_stored_avatar_description(request_factory):

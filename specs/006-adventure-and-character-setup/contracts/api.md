@@ -61,13 +61,15 @@ Character types are intentionally omitted from this list response (kept light); 
   "adventure": {
     "id": "9f2a...",
     "name": "Nine Doors of Mudlark Hall",
-    "characterTypes": [
-      { "name": "Detective", "description": "Sharp-eyed and methodical." },
-      { "name": "Ghost", "description": "Already knows every room — but not why." }
-    ]
+    "avatarDescription": "A one-eyed lighthouse keeper's apprentice who fears the dark."
   }
 }
 ```
+
+`avatarDescription` is the caller's own stored description for this adventure, prefilled at
+setup, or `null` if they have none (`034-avatar-memory-and-visibility` FR-006, FR-007). The
+story's `characterTypes` are deliberately absent: the cast is narration material the player
+never selects from (`032-story-archetypes-player-avatar` FR-002, FR-022).
 
 **Response (404 Not Found)** — id does not exist, or exists but is not published (a player
 must never learn an unpublished adventure exists, so both cases return the identical response):
@@ -90,7 +92,7 @@ response here means "this setup is valid," not "a session now exists."
 {
   "adventureId": "9f2a...",
   "characterName": "Wren",
-  "characterType": "Detective"
+  "avatarDescription": "A one-eyed lighthouse keeper's apprentice who fears the dark."
 }
 ```
 
@@ -100,7 +102,7 @@ response here means "this setup is valid," not "a session now exists."
   "status": "success",
   "adventureId": "9f2a...",
   "characterName": "Wren",
-  "characterType": "Detective"
+  "avatarDescription": "A one-eyed lighthouse keeper's apprentice who fears the dark."
 }
 ```
 
@@ -112,7 +114,7 @@ named (FR-005), so the frontend can point the player back at exactly what's miss
   "message": "Setup is incomplete or invalid.",
   "fields": {
     "characterName": "Character name is required.",
-    "characterType": "Select a character type for this adventure."
+    "avatarDescription": "Describe your character before you begin."
   }
 }
 ```
@@ -122,9 +124,15 @@ Possible per-field messages:
   returns the 404 below, since that's a different failure than "field omitted."
 - `characterName`: `"Character name is required."` (blank/whitespace-only) or
   `"Character name must be 50 characters or fewer."` (too long).
-- `characterType`: `"Select a character type for this adventure."` (missing) or
-  `"Choose one of this adventure's character types."` (not a member of the selected adventure's
-  `characterTypes`).
+- `avatarDescription`: `"Describe your character before you begin."` (blank/whitespace-only),
+  `"Say a bit more about your character (at least 20 characters)."` (too short),
+  `"That description is too long (500 characters or fewer)."` (too long), or
+  `"That doesn't read as a description of your character. Try describing who they are, what
+  they're like, or what they can do."` (judged not to be a character description).
+
+A description on which the story-relevance check reaches no verdict, and one that exceeds the
+per-setup attempt cap, are not field errors — each has its own status code
+(`032-story-archetypes-player-avatar` FR-012, FR-014).
 
 **Response (404 Not Found)** — `adventureId` does not reference an existing, published story:
 ```json
@@ -144,6 +152,7 @@ Possible per-field messages:
   first one found.
 - `characterName` validation: trim leading/trailing whitespace before checking blank and length;
   reject if the trimmed value is empty or exceeds 50 characters (FR-002, edge cases).
-- `characterType` validation MUST be checked against the *selected* adventure's character types
-  specifically — the same type name valid for one adventure is not implicitly valid for another
-  (FR-003a, FR-004a).
+- `avatarDescription` validation MUST run the cost-free checks (blank, then 20–500 characters
+  after trimming) before any model-backed check, and MUST NOT validate the value against the
+  adventure's `characterTypes` — the player never selects from that roster
+  (`032-story-archetypes-player-avatar` FR-006, FR-010, FR-022).

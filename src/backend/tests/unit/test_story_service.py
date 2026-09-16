@@ -166,15 +166,18 @@ def test_get_adventure_summary_returns_projected_fields_only():
 
     summary = service.get_adventure_summary("story-1")
 
+    # `characterTypes` is deliberately absent: it is the story's cast, which the player
+    # never selects from and no player-facing client reads, so it is neither projected nor
+    # returned (issue #361 convergence, 032 FR-002/FR-022).
     assert summary == {
         "id": "story-1",
         "name": "The Lighthouse at Gullwing Cove",
         "published": True,
-        "characterTypes": [{"name": "Curious Cousin", "description": None}],
     }
     call_args, call_kwargs = cosmos.query.call_args
     assert "c.worldPrompt" not in call_args[1]
     assert "c.narrativeGuidance" not in call_args[1]
+    assert "c.characterTypes" not in call_args[1]
     assert call_kwargs["partition_key"] == "story-1"
 
 

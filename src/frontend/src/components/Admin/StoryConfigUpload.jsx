@@ -27,7 +27,7 @@ function preflightValidate(parsed) {
     return "worldPrompt: a world prompt is required";
   }
   if (!Array.isArray(parsed.characterTypes) || parsed.characterTypes.length === 0) {
-    return "characterTypes: at least one character type is required";
+    return "characterTypes: at least one cast character is required";
   }
   if (!parsed.completionCriteria?.successConditions?.length) {
     return "completionCriteria.successConditions: at least one success condition is required";
